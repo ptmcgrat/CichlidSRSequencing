@@ -1,8 +1,10 @@
-import os, subprocess, pdb, random
+import os, subprocess, pdb, random, pysam, datetime
 import pandas as pd
+import numpy as np
 from xml.etree import ElementTree as ET
 from multiprocessing import cpu_count
-
+from pysam import VariantFile
+from collections import defaultdict
 
 class FileManager():
 	def __init__(self, rcloneRemote = 'cichlidVideo:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
@@ -26,13 +28,18 @@ class FileManager():
 		"""
 		self._createMasterDirs()
 
-	def _createMasterDirs(self):
+	def _createMasterDirs(self,version = 'Mzebra_UMD2a'):
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'		
 		self.localReadsDir = self.localMasterDir + 'Reads/'		
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
 		self.localTempDir = self.localMasterDir + 'Temp/'
+		self.localBamRefDir = self.localBamfilesDir + version + '/'
+		self.localGenomeDir = self.localGenomesDir + version + '/'
+		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz'
+		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+
 
 	def _createSeqCoreFiles(self, coreID):
 		self.coreID = coreID
@@ -54,115 +61,38 @@ class FileManager():
 		self.downloadData(self.localSampleInfoFile)
 		self.downloadData(self.localParametersInfo)
 
-	def _runRILData(self):
-		subprocess.run(['mkdir',self.localTempDir])
-
-		version = 'Mzebra_UMD2a'
-		self.localBamRefDir = self.localBamfilesDir + version + '/'
-		self.localGenomeDir = self.localGenomesDir + version + '/'
-		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz'
-		#self.localPolymorphismFile = self.localPolymorphismsDir + 'UMD2a_all_annotated.vcf'
-		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
-		print('Downloading genome file')
-		self.downloadData(self.localGenomeFile)
-		#self.downloadData(self.localPolymorphismFile)
-		self.downloadData(self.localSampleFile)
-		print('Indexing genome')
-		subprocess.run(['bwa', 'index', self.localGenomeFile], capture_output = True)
-		subprocess.run(['mkdir',self.localBamfilesDir])
-		subprocess.run(['mkdir',self.localBamRefDir])
-
-		dt = pd.read_csv(self.localSampleFile)
-		processed_samples = set()
-		for sample in dt.SampleID:
-			if sample in processed_samples:
-				continue
-			else:
-				processed_samples.add(sample)
-			print('Processing sample: ' + sample)
-			outbam = self.localBamRefDir + sample + '.bam'
-
-			sample_dt = dt[dt.SampleID == sample]
-			tfiles = []
-			for index,row in sample_dt.iterrows():
-				tfile1 = self.localTempDir + str(random.randint(10000000,99999999)) + '.sam'
-				tfile2 = self.localTempDir + str(random.randint(10000000,99999999)) + '.bam'
-
-				fq1 = self.localReadsDir + row.Files.split(',,')[0]
-				fq2 = self.localReadsDir + row.Files.split(',,')[1]
-				self.downloadData(fq1)
-				self.downloadData(fq2)
-				subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.RG.replace('\t','\\t'), '-M', self.localGenomeFile, fq1, fq2], stdout = open(tfile1, 'w'),stderr = open('TempErrors.txt', 'a'))
-				subprocess.run(['rm','-f', fq1, fq2])
-
-				subprocess.run(['picard', 'SortSam', 'I='+tfile1, 'O='+tfile2, 'SORT_ORDER=coordinate', 'TMP_DIR=~/Temp/'])
-
-				#p1 = subprocess.Popen(['samtools', 'fixmate', '-m', '-O', 'BAM',tfile1, '-'], stdout=subprocess.PIPE)
-				#p2 = subprocess.Popen(['samtools', 'sort','-o', tfile2, '-@', str(cpu_count()), '-'], stdin = p1.stdout)
-				#p2.communicate()
-				subprocess.run(['rm','-f', tfile1])
-				tfiles.append(tfile2)
-			tfile3 = self.localTempDir + str(random.randint(10000000,99999999)) + '.bam'
-
-			if len(tfiles) > 1:
-				subprocess.call(['samtools', 'merge', '-f', tfile3] + tfiles)
-			else:
-				subprocess.call(['mv', tfiles[0], tfile3])
-
-			subprocess.run(['rm','-f'] + tfiles)
-			subprocess.run(['picard', 'MarkDuplicates', 'I='+tfile3, 'O=' + outbam, 'METRICS_FILE=' + outbam + '.metrics', 'TMP_DIR=~/Temp/'])
-
-			#subprocess.call(['samtools', 'markdup', '-s', tfile3, outbam])
-			subprocess.call(['samtools', 'index', outbam])
-			subprocess.run(['rm','-f', tfile3])
-			self.uploadData(outbam)
-			self.uploadData(outbam + '.bai')
-			subprocess.run(['rm','-f', outbam, outbam + '.bai'])
-
-
-
-	def _genotypeRILs(self):
-		version = 'Mzebra_UMD2a'
-		self.localBamRefDir = self.localBamfilesDir + version + '/'
-		self.localGenomeDir = self.localGenomesDir + version + '/'
-		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
-		self.localPolymorphismFile = self.localPolymorphismsDir + 'UMD2a_filtered_CV_MC_TI.vcf'
-
-		self.downloadData(self.localPolymorphismFile)
-		self.downloadData(self.localGenomeFile)
-		self.downloadData(self.localBamRefDir)
-
-		bamfiles = [self.localBamRefDir + x for x in os.listdir(self.localBamRefDir) if x.endswith('.bam')]
-
-		subprocess.run(['freebayes'] + [val for pair in zip(['--bam']*len(bamfiles),bamfiles) for val in pair] + ['--variant-input', self.localPolymorphismFile, '--fasta-reference', self.localGenomeFile, '--vcf', self.localPolymorphismsDir + 'UMD2a_genotypedRILsAll.vcf'])
-		#subprocess.run(['gatk','HaplotypeCaller'] + [val for pair in zip(['--input']*len(bamfiles),bamfiles) for val in pair] +  ['--output', self.localPolymorphismsDir + 'UMD2a_genotypedRILsAll.vcf', '--reference', self.localGenomeFile, '--genotyping-mode', 'GENOTYPE_GIVEN_ALLELES', '--alleles', self.localPolymorphismFile])
-		self.uploadData(self.localPolymorphismsDir + 'UMD2a_genotypedRILsAll.vcf')
-
-	def _analyzeVCF(self):
-		from pysam import VariantFile
-		from collections import defaultdict
-		vcf_in = VariantFile(self.localPolymorphismsDir + 'UMD2a_genotypedRILsAll.vcf')  # auto-detect input format
-		coverage = defaultdict(int)
-		for i,rec in enumerate(vcf_in.fetch()):
-			genos = [x.allele_indices for x in rec.samples.values()]
-			no_data = sum([1 if x == (None,) else 0 for x in genos])
-			ref = sum([1 if x == (0,0) else 0 for x in genos])
-			het = sum([1 if x == (0,1) else 0 for x in genos])
-			mut = sum([1 if x == (1,1) else 0 for x in genos])
-
-			coverage[no_data] += 1
-
+	def _addMCData(self):
+		data = subprocess.run(['rclone', 'lsf', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'fastq'], capture_output = True, encoding = 'utf-8').stdout
+		fastqs = [x for x in data.split('\n') if x.startswith('JTS09')]
+		newMCs = sorted(list(set(['MC_' + x.split('_')[1] for x in fastqs])))
 		pdb.set_trace()
 
-	def _filterVCF(self):
+		out_dt = pd.DataFrame(columns = ['SampleID','Datatype','Date','Paired','RG','Files'])
+		for fastq in fastqs:
+			if '_R1_' in fastq or '_R2_' in fastq:
+				continue
+			fq1 = fastq
+			fq2 = fastq.replace('_I1_', '_R1_').replace('_I2_', '_R2_')
+			sample = 'MC_' + fastq.split('_')[1]
+			date = str(datetime.datetime.now().date())
+			paired = 'TRUE'
+			read_group = '@RG\\tID:' + fastq.split('_')[2] + '.' + fastq.split('_')[3] + '.' + sample + '\\tLB:' + sample + '\\tSM:' + sample + '\\tPL:ILLUMINA'
+			out_dt = out_dt.append({'SampleID':sample,'Datatype': 'GenomicDNA', 'Date':date,'Paired':'True','RG':read_group, 'Files': 'MC/' + fq1 + ',,' + 'MC/' + fq2}, ignore_index=True)
+
+			command = ['rclone', 'copy', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'fastq/' + fq1, self.localReadsDir.replace(self.localMasterDir, self.cloudMasterDir) + 'MC/']
+			subprocess.run(command)
+			command = ['rclone', 'copy', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'fastq/' + fq2, self.localReadsDir.replace(self.localMasterDir, self.cloudMasterDir) + 'MC/']
+			subprocess.run(command)
+
+			print(command)
+			pdb.set_trace()
+
+	def _filterMainVCF(self):
 		self.localPolymorphismFile = self.localPolymorphismsDir + 'UMD2a_all_annotated.vcf'
 		self.downloadData(self.localPolymorphismFile)
-		from pysam import VariantFile
 
 		vcf_in = VariantFile(self.localPolymorphismFile)  # auto-detect input format
 		vcf_out = VariantFile(self.localPolymorphismsDir + 'UMD2a_all_annotated__CV_MC_TI_unique.vcf', 'w', header=vcf_in.header)
-		from collections import defaultdict
-		counts = defaultdict(int)
 		for i,rec in enumerate(vcf_in.fetch()):
 			if i % 10000 == 0: 
 				print('Processing record ' + str(i))
@@ -181,12 +111,261 @@ class FileManager():
 				continue
 			if CV == MC and TI == MC:
 				continue
-			counts[rec.chrom]+=1
 			vcf_out.write(rec)
 
+		vcf_out.close()
 		#vcftools --min-meanDP 20 --max-meanDP 60 --indv CV_all --indv MC_all --indv TI_all --remove-indels --minQ 300 --vcf UMD2a_all_annotated__CV_MC_TI_unique.vcf --out RILSNVs --recode
 
 		self.uploadData(self.localPolymorphismsDir + 'UMD2a_all_annotated__CV_MC_TI_unique.vcf')
+
+	def _alignQTLData(self):
+		# Make directories necessary for analysis
+		subprocess.run(['mkdir',self.localTempDir])
+		subprocess.run(['mkdir',self.localBamfilesDir])
+		subprocess.run(['mkdir',self.localBamRefDir])
+
+		# Download data necessary for analysis		
+
+		print('Downloading genome and sample file')
+		self.downloadData(self.localGenomeDir)
+		self.downloadData(self.localSampleFile)
+		
+		dt = pd.read_csv(self.localSampleFile)
+		for sample in dt.SampleID:
+			existing_bams = subprocess.run(['rclone', 'lsf', self.localBamRefDir.replace(self.localMasterDir, self.localCloudDir)], capture_output = True)
+			pdb.set_trace()
+			if sample + '.bam' in existing_bams:
+				print(sample + ' already analyzed.')
+				continue
+
+			print('Processing sample: ' + sample)
+			outbam = self.localBamRefDir + sample + '.bam'
+
+			sample_dt = dt[dt.SampleID == sample]
+			tfiles = []
+
+			# Loop through all of the fastq files
+			for index,row in sample_dt.iterrows():
+				tfile1 = self.localTempDir + str(random.randint(10000000,99999999)) + '.sam'
+				tfile2 = self.localTempDir + str(random.randint(10000000,99999999)) + '.bam'
+
+				# Download fastq files
+				fq1 = self.localReadsDir + row.Files.split(',,')[0]
+				fq2 = self.localReadsDir + row.Files.split(',,')[1]
+				self.downloadData(fq1)
+				self.downloadData(fq2)
+
+				# Align fastq files and sort them
+				subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.RG.replace('\t','\\t'), '-M', self.localGenomeFile, fq1, fq2], stdout = open(tfile1, 'w'),stderr = open('TempErrors.txt', 'a'))
+				subprocess.run(['picard', 'SortSam', 'I='+tfile1, 'O='+tfile2, 'SORT_ORDER=coordinate', 'TMP_DIR=~/Temp/'], stderr = open('TempErrors.txt', 'a'))
+				
+				# Remove files and append output
+				subprocess.run(['rm','-f', tfile1, fq1, fq2])
+				tfiles.append(tfile2)
+			
+			# Merge bam files if necessary
+			tfile3 = self.localTempDir + str(random.randint(10000000,99999999)) + '.bam'
+			if len(tfiles) > 1:
+				subprocess.call(['samtools', 'merge', '-f', tfile3] + tfiles)
+			else:
+				subprocess.call(['mv', tfiles[0], tfile3])
+
+			# Remove reads that aren't perfectly aligned			
+			merged_bam = pysam.AlignmentFile(tfile3)
+			good_bam = pysam.AlignmentFile(outbam, mode = 'wb', template = merged_bam)
+
+			for read in merged_bam.fetch(until_eof=True):
+				if not read.is_paired: 
+					continue
+				elif read.is_unmapped or read.mate_is_unmapped:
+					continue
+				elif not read.is_proper_pair:
+					continue
+				elif abs(read.isize) > 3000:
+					continue
+				elif read.mapq < 40:
+					continue
+				elif len(read.cigartuples) != 1:
+					continue
+				elif read.cigartuples[0][0] != 0:
+					continue
+				good_bam.write(read)
+			
+			good_bam.close()
+	
+			subprocess.call(['samtools', 'index', outbam])
+
+			# Remove remailing files
+			subprocess.run(['rm','-f'] + tfiles)
+			subprocess.run(['rm','-f', tfile3])
+
+			# Upload data and delete
+			self.uploadData(outbam)
+			self.uploadData(outbam + '.bai')
+			subprocess.run(['rm','-f', outbam, outbam + '.bai'])
+
+	def _identifyFixedDifferences(self):
+
+		self.localPolymorphismFile = self.localPolymorphismsDir + 'UMD2a_filtered_CV_MC_TI.vcf'
+
+		self.downloadData(self.localPolymorphismFile)
+		self.downloadData(self.localGenomeFile)
+		self.downloadData(self.localBamRefDir)
+
+		sample_dict = {}
+		sample_dict['CV'] = ['CV','PM17_CV1','PM17_CV2','CVfem1', 'CVfem2','CVmale1']
+		sample_dict['MC'] = ['MC','PM17_MC1', 'PM17_MC2', 'MC_1B11', 'MC_1B18', 'MC_1B4', 'MC_1B5', 'MC_1C11', 'MC_1C17', 'MC_1C4', 'MC_1C5', 'MC_2B13', 'MC_2B17', 'MC_2B19', 'MC_2C10', 'MC_2C19', 'MC_3B2', 'MC_3B6', 'MC_3B7', 'MC_3B9', 'MC_3C2', 'MC_3C6', 'MC_3C7', 'MC_3C9', 'MC_4B12', 'MC_4B14', 'MC_4B25', 'MC_4C12', 'MC_4C13', 'MC_4C25', 'MC_5B22', 'MC_5B23', 'MC_5B24', 'MC_5B26', 'MC_5C22', 'MC_5C23', 'MC_5C24', 'MC_5C26']
+		sample_dict['TI'] = ['TI','PM17_TI1', 'PM17_TI2']
+
+		bamfiles = [self.localBamRefDir + x + '.bam' for x in sample_dict['CV'] + sample_dict['MC'] + sample_dict['TI']]
+		pdb.set_trace()
+
+		subprocess.run(['freebayes'] + [val for pair in zip(['--bam']*len(bamfiles),bamfiles) for val in pair] + ['--variant-input', self.localPolymorphismFile, '--fasta-reference', self.localGenomeFile, '--vcf', self.localPolymorphismsDir + 'UMD2a_genotypedReferenceStrains.vcf', '--only-use-input-alleles'])
+
+
+	def _alleleFrequencies(self, rec, sample_dict):
+		out_af = {}
+		geno_converter = {(0,0):np.array([0,2]), (0,1):np.array([1,2]), (1,1):np.array([2,2]), (None,):np.array([0,0])}
+
+		for population,samples in sample_dict.values(): 
+			out_af[population] = sum([geno_converter[rec.samples[x]['GT']] for x in samples])
+		
+		return out_af
+
+	def _genotypeRILs(self):
+		version = 'Mzebra_UMD2a'
+		self.localBamRefDir = self.localBamfilesDir + version + '/'
+		self.localGenomeDir = self.localGenomesDir + version + '/'
+		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+		self.localPolymorphismFile = self.localPolymorphismsDir + 'UMD2a_filtered_CV_MC_TI.vcf'
+
+		self.downloadData(self.localPolymorphismFile)
+		self.downloadData(self.localGenomeFile)
+		self.downloadData(self.localBamRefDir)
+
+		bamfiles = [self.localBamRefDir + x for x in os.listdir(self.localBamRefDir) if x.endswith('.bam')]
+
+		subprocess.run(['freebayes'] + [val for pair in zip(['--bam']*len(bamfiles),bamfiles) for val in pair] + ['--variant-input', self.localPolymorphismFile, '--fasta-reference', self.localGenomeFile, '--vcf', self.localPolymorphismsDir + 'UMD2a_genotypedRILsAll.vcf', '--only-use-input-alleles'])
+		#subprocess.run(['gatk','HaplotypeCaller'] + [val for pair in zip(['--input']*len(bamfiles),bamfiles) for val in pair] +  ['--output', self.localPolymorphismsDir + 'UMD2a_genotypedRILsAll.vcf', '--reference', self.localGenomeFile, '--genotyping-mode', 'GENOTYPE_GIVEN_ALLELES', '--alleles', self.localPolymorphismFile])
+		self.uploadData(self.localPolymorphismsDir + 'UMD2a_genotypedRILsAll.vcf')
+
+	def _play(self):
+		from pysam import VariantFile
+		vcf_in = VariantFile(self.localPolymorphismsDir + 'UMD2a_genotypedRILsAllFixedHeaders.vcf')
+		vcf_MC_in = VariantFile(self.localPolymorphismsDir + 'all_no_cr.vcf.gz')
+
+		ref_strains = ['PM17_CV1', 'PM17_CV2', 'PM17_MC1', 'PM17_MC2', 'PM17_TI1', 'PM17_TI2']
+		translate = {(0,0):-1, (0,1):0, (1,1):1, (None,):0}
+		for i,rec in enumerate(vcf_in.fetch()):
+			pdb.set_trace()
+			print([rec.samples[x]['GT'] for x in ref_strains])
+
+		
+	def _analyzeVCF(self):
+		from pysam import VariantFile
+		from collections import defaultdict
+		
+		reference_strains = ['PM17_CV1','PM17_CV2','CV', 'CVfem1', 'CVfem2','CVmale1','PM17_MC1','PM17_MC2','MC','PM17_TI1','PM17_TI2']
+
+		vcf_in = VariantFile(self.localPolymorphismsDir + 'UMD2a_genotypedRILsAllFixedHeaders.vcf')  # auto-detect input format
+		vcf_out_CV = VariantFile(self.localPolymorphismsDir + 'UMD2a_genotyped_firstfilterCV.vcf', 'w', header=vcf_in.header)
+		vcf_out_TI = VariantFile(self.localPolymorphismsDir + 'UMD2a_genotyped_firstfilterTI.vcf', 'w', header=vcf_in.header)
+
+
+		for i,rec in enumerate(vcf_in.fetch()):
+			genos = [rec.samples[x]['GT'] for x in reference_strains]
+			CV_genos = [x for x in genos[:6] if x in [(0,0),(1,1)]]
+			MC_genos = [x for x in genos[6:9] if x in [(0,0),(1,1)]]
+			TI_genos = [x for x in genos[9:] if x in [(0,0),(1,1)]]
+
+			if len(CV_genos) != 2 or len(MC_genos) != 2 or len(TI_genos) != 2:
+				#print('Bad: ' + str(genos))
+				continue
+
+			CV_set = set(CV_genos)
+			MC_set = set(MC_genos)
+			TI_set = set(TI_genos)
+
+			if len(CV_set) != 1 or len(MC_set) != 1 or len(TI_set) != 1:
+				#print('Bad: ' + str(genos))
+				continue
+
+			if CV_set == MC_set and TI_set == MC_set:
+				#print('Bad: ' + str(genos))
+				continue
+			if CV_set != MC_set:
+				vcf_out_CV.write(rec)
+			if TI_set != MC_set:
+				vcf_out_TI.write(rec)
+
+		CV_specific_strains = sorted([x for x in rec.samples.keys() if 'CV' in x])
+		TI_specific_strains = sorted([x for x in rec.samples.keys() if 'TI' in x])
+
+		command = ['vcftools', '--remove-indels', '--recode']
+		for x in TI_specific_strains:
+			command += ['--remove-indv', x]
+		command += ['--maf', '0.3333', '--max-maf', '0.66666']
+		command += ['--vcf', self.localPolymorphismsDir + 'UMD2a_genotyped_firstfilterCV.vcf']
+		command += ['--out', self.localPolymorphismsDir + 'UMD2a_genotyped_secondfilterCV']
+
+		subprocess.run(command)
+		command = ['vcftools', '--remove-indels', '--recode']
+		command += ['--maf', '0.3333', '--max-maf', '0.66666']
+
+		for x in CV_specific_strains:
+			command += ['--remove-indv', x]
+		command += ['--vcf', self.localPolymorphismsDir + 'UMD2a_genotyped_firstfilterTI.vcf']
+		command += ['--out', self.localPolymorphismsDir + 'UMD2a_genotyped_secondfilterTI']
+
+		subprocess.run(command)
+
+		allele_name1 = {(0,0):'CV', (0,1):'Het', (1,1):'MC', (None,):'NA'}
+		allele_name2 = {(0,0):'MC', (0,1):'Het', (1,1):'CV', (None,):'NA'}
+
+		replace_nones = {(None,None):(0,0)}
+		vcf_in = VariantFile(self.localPolymorphismsDir + 'UMD2a_genotyped_secondfilterCV.recode.vcf')  # auto-detect input format
+		with open(self.localPolymorphismsDir + 'UMD2a_genotyped_secondfilterCV.recode.txt', 'w') as f:
+			print('Contig\tLocation\tBinnedLocation\tQuality\tAlleleFrequency\t' + '\t'.join(CV_specific_strains), file = f)
+			for i,rec in enumerate(vcf_in.fetch()):
+				if rec.samples['PM17_CV1']['GT'] == (0,0):
+					genos = [(rec.samples[x]['RO'],rec.samples[x]['AO'][0]) for x in CV_specific_strains]
+					genos = [(0,0) if x == (None,None) else x for x in genos]
+				elif rec.samples['PM17_CV1']['GT'] == (1,1):
+					genos = [(rec.samples[x]['AO'][0],rec.samples[x]['RO']) for x in CV_specific_strains]
+					genos = [(0,0) if x == (None,None) else x for x in genos]
+				else:
+					print('Error!')
+				af = sum([x[0] for x in genos]) / (sum([x[0] for x in genos]) + sum([x[1] for x in genos]))
+				print(rec.chrom + '\t' + str(rec.start) + '\t' + str(500000*int(rec.start/500000)) + '\t' + str(rec.qual) + '\t' + str(af) + '\t' + '\t'.join([str(x) for x in genos]), file = f)
+
+		vcf_in = VariantFile(self.localPolymorphismsDir + 'UMD2a_genotyped_secondfilterTI.recode.vcf')  # auto-detect input format
+		with open(self.localPolymorphismsDir + 'UMD2a_genotyped_secondfilterTI.recode.csv', 'w') as f:
+
+			for i,rec in enumerate(vcf_in.fetch()):
+				genos = [allele_name1[rec.samples[x]['GT']] for x in TI_specific_strains]
+				print(rec.chrom + ',' + str(rec.start) + ',' + ','.join(genos), file = f)
+
+		dt = pd.read_csv(self.localPolymorphismsDir + 'UMD2a_genotyped_secondfilterCV.recode.txt', sep = '\t')
+
+		for cn in [x for x in dt.columns if 'PM17' in x]:
+			dt[cn] = dt[cn].apply(eval).apply(np.array)
+
+		grouped = dt.groupby(['Contig','BinnedLocation'])
+
+		agg_functions = {}
+
+		for head in [x for x in dt.columns if 'PM17' in x]:
+			agg_functions[head] = sum
+
+		final_data = grouped.agg(agg_functions)
+		
+		for head in [x for x in dt.columns if 'PM17' in x]:
+			final_data[head] = final_data[head].apply(lambda x: x/x.sum()).apply(lambda x: 'CV' if x[0] > 0.85 else ('Het' if x[0] > 0.15 else 'MC')) + final_data[head].astype(str)
+	
+		pdb.set_trace()
+
+
+
 
 	def _addSeqCoreData(self, coreID, datatype, run_info_file = 'RunInfo.xml', sample_info_file = 'SampleSheet.csv', run_parameters_info = 'RunParameters.xml'):
 		self.localCoreDir = self.localSeqCoreDataDir + coreID.rstrip('/') + '/'
@@ -314,8 +493,10 @@ class FileManager():
 
 
 fm_obj = FileManager()
+fm_obj._addMCData()
 #fm_obj._addSeqCoreData('PM17', 'GenomicDNA')
-fm_obj._runRILData()
+#fm_obj._play()
+#fm_obj._runRILData()
 #fm_obj._filterVCF()
 #fm_obj._genotypeRILs()
 #fm_obj._analyzeVCF()
