@@ -507,10 +507,10 @@ class FileManager():
 
 
 fm_obj = FileManager()
-fm_obj._addMCData()
+#fm_obj._addMCData()
 #fm_obj._addSeqCoreData('PM17', 'GenomicDNA')
 #fm_obj._play()
-#fm_obj._alignQTLData()
+fm_obj._alignQTLData()
 #fm_obj._runRILData()
 #fm_obj._filterVCF()
 #fm_obj._genotypeRILs()
