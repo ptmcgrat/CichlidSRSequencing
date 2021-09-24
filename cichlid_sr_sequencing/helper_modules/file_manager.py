@@ -38,7 +38,7 @@ class FileManager():
 		self.localBamRefDir = self.localBamfilesDir + version + '/'
 		self.localGenomeDir = self.localGenomesDir + version + '/'
 		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz'
-		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+		self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
 
 	def _createSeqCoreFiles(self, coreID):
@@ -62,30 +62,41 @@ class FileManager():
 		self.downloadData(self.localParametersInfo)
 
 	def _addMCData(self):
-		data = subprocess.run(['rclone', 'lsf', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'fastq'], capture_output = True, encoding = 'utf-8').stdout
-		fastqs = [x for x in data.split('\n') if x.startswith('JTS09')]
-		newMCs = sorted(list(set(['MC_' + x.split('_')[1] for x in fastqs])))
-		pdb.set_trace()
+		data = subprocess.run(['rclone', 'lsf', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'bs_fastq'], capture_output = True, encoding = 'utf-8').stdout
+		fastq_dirs = [x for x in data.split('\n') if '_ds' in x]
+		
+		samples = sorted(list(set([x.split('_')[1] for x in fastq_dirs])))
 
 		out_dt = pd.DataFrame(columns = ['SampleID','Datatype','Date','Paired','RG','Files'])
-		for fastq in fastqs:
-			if '_R1_' in fastq or '_R2_' in fastq:
-				continue
-			fq1 = fastq
-			fq2 = fastq.replace('_I1_', '_R1_').replace('_I2_', '_R2_')
-			sample = 'MC_' + fastq.split('_')[1]
-			date = str(datetime.datetime.now().date())
-			paired = 'TRUE'
-			read_group = '@RG\\tID:' + fastq.split('_')[2] + '.' + fastq.split('_')[3] + '.' + sample + '\\tLB:' + sample + '\\tSM:' + sample + '\\tPL:ILLUMINA'
-			out_dt = out_dt.append({'SampleID':sample,'Datatype': 'GenomicDNA', 'Date':date,'Paired':'True','RG':read_group, 'Files': 'MC/' + fq1 + ',,' + 'MC/' + fq2}, ignore_index=True)
+		for sample in samples:
+			print(sample)
+			for fastq_dir in [x for x in fastq_dirs if sample in x]:
+				data = subprocess.run(['rclone', 'size', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'bs_fastq/' + fastq_dir], capture_output = True, encoding = 'utf-8').stdout
+				try:
+					data_size = int(data.split(' Bytes')[0].split(' (')[-1])
+				except ValueError:
+					print(fastq_dir)
+					continue
+				if data_size > 10000000:
+					data = subprocess.run(['rclone', 'lsf', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'bs_fastq/' + fastq_dir], capture_output = True, encoding = 'utf-8').stdout
+					fq1, fq2 = [x for x in data.split('\n') if x.endswith('fastq.gz')]
 
-			command = ['rclone', 'copy', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'fastq/' + fq1, self.localReadsDir.replace(self.localMasterDir, self.cloudMasterDir) + 'MC/']
-			subprocess.run(command)
-			command = ['rclone', 'copy', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'fastq/' + fq2, self.localReadsDir.replace(self.localMasterDir, self.cloudMasterDir) + 'MC/']
-			subprocess.run(command)
+					sample = 'MC_' + sample
+					date = str(datetime.datetime.now().date())
 
-			print(command)
-			pdb.set_trace()
+					read_group = '@RG\\tID:' + fastq_dir.split('_')[1] + '.' + fastq_dir.split('_')[2] + '.' + sample + '\\tLB:' + sample + '\\tSM:' + sample + '\\tPL:ILLUMINA'
+					out_dt = out_dt.append({'SampleID':sample,'Datatype': 'GenomicDNA', 'Date':date,'Paired':'True','RG':read_group, 'Files': 'MC/' + fq1 + ',,' + 'MC/' + fq2}, ignore_index=True)
+					
+					command = ['rclone', 'copy', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'bs_fastq/' + fastq_dir + fq1, self.localReadsDir.replace(self.localMasterDir, self.cloudMasterDir) + 'MC/']
+					print(command)
+					subprocess.run(command)
+					command = ['rclone', 'copy', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'bs_fastq/' + fastq_dir + fq2, self.localReadsDir.replace(self.localMasterDir, self.cloudMasterDir) + 'MC/']
+					print(command)
+					subprocess.run(command)
+
+		out_dt.to_csv(self.localReadsDir + 'MCs_to_add.csv')
+		self.uploadData(self.localReadsDir + 'MCs_to_add.csv')
+		pdb.set_trace()
 
 	def _filterMainVCF(self):
 		self.localPolymorphismFile = self.localPolymorphismsDir + 'UMD2a_all_annotated.vcf'
@@ -128,12 +139,12 @@ class FileManager():
 
 		print('Downloading genome and sample file')
 		self.downloadData(self.localGenomeDir)
+		subprocess.run(['bwa', 'index', self.localGenomeFile])
 		self.downloadData(self.localSampleFile)
 		
 		dt = pd.read_csv(self.localSampleFile)
 		for sample in dt.SampleID:
-			existing_bams = subprocess.run(['rclone', 'lsf', self.localBamRefDir.replace(self.localMasterDir, self.localCloudDir)], capture_output = True)
-			pdb.set_trace()
+			existing_bams = subprocess.run(['rclone', 'lsf', self.localBamRefDir.replace(self.localMasterDir, self.cloudMasterDir)], capture_output = True, encoding = 'utf-8').stdout.split()
 			if sample + '.bam' in existing_bams:
 				print(sample + ' already analyzed.')
 				continue
@@ -493,9 +504,10 @@ class FileManager():
 
 
 fm_obj = FileManager()
-fm_obj._addMCData()
+#fm_obj._addMCData()
 #fm_obj._addSeqCoreData('PM17', 'GenomicDNA')
 #fm_obj._play()
+fm_obj._alignQTLData()
 #fm_obj._runRILData()
 #fm_obj._filterVCF()
 #fm_obj._genotypeRILs()
