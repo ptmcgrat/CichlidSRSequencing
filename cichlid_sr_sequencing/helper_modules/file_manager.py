@@ -68,9 +68,11 @@ class FileManager():
 		samples = sorted(list(set([x.split('_')[1] for x in fastq_dirs])))
 
 		out_dt = pd.DataFrame(columns = ['SampleID','Datatype','Date','Paired','RG','Files'])
-		for sample in samples:
+		for sample_small in samples:
+			sample = 'MC_' + sample_small
+
 			print(sample)
-			for fastq_dir in [x for x in fastq_dirs if sample in x]:
+			for fastq_dir in [x for x in fastq_dirs if sample_small in x]:
 				data = subprocess.run(['rclone', 'size', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'bs_fastq/' + fastq_dir], capture_output = True, encoding = 'utf-8').stdout
 				try:
 					data_size = int(data.split(' Bytes')[0].split(' (')[-1])
@@ -81,7 +83,6 @@ class FileManager():
 					data = subprocess.run(['rclone', 'lsf', self.localSeqCoreDataDir.replace(self.localMasterDir, self.cloudMasterDir) + 'bs_fastq/' + fastq_dir], capture_output = True, encoding = 'utf-8').stdout
 					fq1, fq2 = [x for x in data.split('\n') if x.endswith('fastq.gz')]
 
-					sample = 'MC_' + sample
 					date = str(datetime.datetime.now().date())
 
 					read_group = '@RG\\tID:' + fastq_dir.split('_')[1] + '.' + fastq_dir.split('_')[2] + '.' + sample + '\\tLB:' + sample + '\\tSM:' + sample + '\\tPL:ILLUMINA'
@@ -131,6 +132,8 @@ class FileManager():
 
 	def _alignQTLData(self):
 		# Make directories necessary for analysis
+		subprocess.run(['mkdir',self.localMasterDir])
+
 		subprocess.run(['mkdir',self.localTempDir])
 		subprocess.run(['mkdir',self.localBamfilesDir])
 		subprocess.run(['mkdir',self.localBamRefDir])
@@ -504,10 +507,10 @@ class FileManager():
 
 
 fm_obj = FileManager()
-#fm_obj._addMCData()
+fm_obj._addMCData()
 #fm_obj._addSeqCoreData('PM17', 'GenomicDNA')
 #fm_obj._play()
-fm_obj._alignQTLData()
+#fm_obj._alignQTLData()
 #fm_obj._runRILData()
 #fm_obj._filterVCF()
 #fm_obj._genotypeRILs()
