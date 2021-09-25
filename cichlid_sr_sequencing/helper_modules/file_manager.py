@@ -38,7 +38,8 @@ class FileManager():
 		self.localBamRefDir = self.localBamfilesDir + version + '/'
 		self.localGenomeDir = self.localGenomesDir + version + '/'
 		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz'
-		self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
+		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
 
 	def _createSeqCoreFiles(self, coreID):
@@ -171,7 +172,7 @@ class FileManager():
 
 				# Align fastq files and sort them
 				subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.RG.replace('\t','\\t'), '-M', self.localGenomeFile, fq1, fq2], stdout = open(tfile1, 'w'),stderr = open('TempErrors.txt', 'a'))
-				subprocess.run(['picard', 'SortSam', 'I='+tfile1, 'O='+tfile2, 'SORT_ORDER=coordinate', 'TMP_DIR=~/Temp/'], stderr = open('TempErrors.txt', 'a'))
+				subprocess.run(['picard', 'SortSam', 'I='+tfile1, 'O='+tfile2, 'SORT_ORDER=coordinate', 'TMP_DIR=~/Temp/', 'VALIDATION_STRINGENCY=LENIENT'], stderr = open('TempErrors.txt', 'a'))
 				
 				# Remove files and append output
 				subprocess.run(['rm','-f', tfile1, fq1, fq2])
