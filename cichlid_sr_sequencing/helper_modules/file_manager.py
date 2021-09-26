@@ -234,7 +234,9 @@ class FileManager():
 
 		bamfiles = [self.localBamRefDir + x + '.bam' for x in sample_dict['CV'] + sample_dict['MC'] + sample_dict['TI']]
 
-		subprocess.run(['freebayes'] + [val for pair in zip(['--bam']*len(bamfiles),bamfiles) for val in pair] + ['--variant-input', self.localPolymorphismFile, '--fasta-reference', self.localGenomeFile, '--vcf', self.localPolymorphismsDir + 'UMD2a_genotypedReferenceStrains.vcf', '--only-use-input-alleles'])
+		command = ['freebayes'] + [val for pair in zip(['--bam']*len(bamfiles),bamfiles) for val in pair] + ['--variant-input', self.localPolymorphismFile, '--fasta-reference', self.localGenomeFile, '--vcf', self.localPolymorphismsDir + 'UMD2a_genotypedReferenceStrains.vcf', '--only-use-input-alleles']
+		print(command)
+		subprocess.run(command)
 
 
 	def _alleleFrequencies(self, rec, sample_dict):
