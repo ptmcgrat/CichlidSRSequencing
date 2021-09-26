@@ -37,7 +37,7 @@ class FileManager():
 		self.localTempDir = self.localMasterDir + 'Temp/'
 		self.localBamRefDir = self.localBamfilesDir + version + '/'
 		self.localGenomeDir = self.localGenomesDir + version + '/'
-		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz'
+		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
