@@ -228,9 +228,9 @@ class FileManager():
 		self.downloadData(self.localBamRefDir)
 
 		sample_dict = {}
-		sample_dict['CV'] = ['CV','PM17_CV1','PM17_CV2','CVfem1', 'CVfem2','CVmale1']
-		sample_dict['MC'] = ['MC','PM17_MC1', 'PM17_MC2', 'MC_1B11', 'MC_1B18', 'MC_1B4', 'MC_1B5', 'MC_1C11', 'MC_1C17', 'MC_1C4', 'MC_1C5', 'MC_2B13', 'MC_2B17', 'MC_2B19', 'MC_2C10', 'MC_2C19', 'MC_3B2', 'MC_3B6', 'MC_3B7', 'MC_3B9', 'MC_3C2', 'MC_3C6', 'MC_3C7', 'MC_3C9', 'MC_4B12', 'MC_4B14', 'MC_4B25', 'MC_4C12', 'MC_4C13', 'MC_4C25', 'MC_5B22', 'MC_5B23', 'MC_5B24', 'MC_5B26', 'MC_5C22', 'MC_5C23', 'MC_5C24', 'MC_5C26']
-		sample_dict['TI'] = ['TI','PM17_TI1', 'PM17_TI2']
+		sample_dict['CV'] = ['PM17_CV1','PM17_CV2','CVfem1', 'CVfem2','CVmale1']
+		sample_dict['MC'] = ['PM17_MC1', 'PM17_MC2', 'MC_1B11', 'MC_1B18', 'MC_1B4', 'MC_1B5', 'MC_1C11', 'MC_1C17', 'MC_1C4', 'MC_1C5', 'MC_2B13', 'MC_2B17', 'MC_2B19', 'MC_2C10', 'MC_2C19', 'MC_3B2', 'MC_3B6', 'MC_3B7', 'MC_3B9', 'MC_3C2', 'MC_3C6', 'MC_3C7', 'MC_3C9', 'MC_4B12', 'MC_4B14', 'MC_4B25', 'MC_4C12', 'MC_4C13', 'MC_4C25', 'MC_5B22', 'MC_5B23', 'MC_5B24', 'MC_5B26', 'MC_5C22', 'MC_5C23', 'MC_5C24', 'MC_5C26']
+		sample_dict['TI'] = ['PM17_TI1', 'PM17_TI2']
 
 		bamfiles = [self.localBamRefDir + x + '.bam' for x in sample_dict['CV'] + sample_dict['MC'] + sample_dict['TI']]
 
