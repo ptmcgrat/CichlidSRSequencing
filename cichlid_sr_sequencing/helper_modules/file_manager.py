@@ -233,7 +233,6 @@ class FileManager():
 		sample_dict['TI'] = ['TI','PM17_TI1', 'PM17_TI2']
 
 		bamfiles = [self.localBamRefDir + x + '.bam' for x in sample_dict['CV'] + sample_dict['MC'] + sample_dict['TI']]
-		pdb.set_trace()
 
 		subprocess.run(['freebayes'] + [val for pair in zip(['--bam']*len(bamfiles),bamfiles) for val in pair] + ['--variant-input', self.localPolymorphismFile, '--fasta-reference', self.localGenomeFile, '--vcf', self.localPolymorphismsDir + 'UMD2a_genotypedReferenceStrains.vcf', '--only-use-input-alleles'])
 
@@ -511,7 +510,8 @@ fm_obj = FileManager()
 #fm_obj._addMCData()
 #fm_obj._addSeqCoreData('PM17', 'GenomicDNA')
 #fm_obj._play()
-fm_obj._alignQTLData()
+#fm_obj._alignQTLData()
+fm_obj._identifyFixedDifferences()
 #fm_obj._runRILData()
 #fm_obj._filterVCF()
 #fm_obj._genotypeRILs()
