@@ -1,4 +1,4 @@
-import argparse, subprocess, os
+import argparse, subprocess, os, urllib
 import pandas as pd
 from helper_modules.file_manager import FileManager as FM
 
@@ -32,7 +32,14 @@ for index, row in new_dt.iterrows():
 	subprocess.run(['prefetch', row['RunID']])
 	subprocess.run(['fastq-dump', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra', '--split-files', '--gzip'])
 	fqs = row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz,,' + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
-	subprocess.run(['mv', row['RunID'] + '_1.fastq.gz', row['RunID'] + '_2.fastq.gz', fm_obj.localReadsDir + row['ProjectID']])
+
+	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+	ftps = ena_dt.fastq_ftp[0].split(';')
+	urlib.urlretrieve(ftps[0], fm_obj.localReadsDir + row['ProjectID'])
+	urlib.urlretrieve(ftps[1], fm_obj.localReadsDir + row['ProjectID'])
+
+
+#	subprocess.run(['mv', row['RunID'] + '_1.fastq.gz', row['RunID'] + '_2.fastq.gz', fm_obj.localReadsDir + row['ProjectID']])
 	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz')
 	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz')
 
@@ -46,3 +53,5 @@ for index, row in new_dt.iterrows():
 	sample_dt.to_csv(master_sample_data)
 	fm_obj.uploadData(master_sample_data)
 	break
+
+	https://www.ebi.ac.uk/ena/portal/api/filereport?accession=ERR3634107&result=read_run&fields=fastq_ftp&format=tsv&limit=0
