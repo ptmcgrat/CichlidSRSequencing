@@ -54,4 +54,3 @@ for index, row in new_dt.iterrows():
 	fm_obj.uploadData(master_sample_data)
 	break
 
-	https://www.ebi.ac.uk/ena/portal/api/filereport?accession=ERR3634107&result=read_run&fields=fastq_ftp&format=tsv&limit=0
