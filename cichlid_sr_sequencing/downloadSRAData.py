@@ -30,15 +30,15 @@ for index, row in new_dt.iterrows():
 		os.makedirs(fm_obj.localReadsDir + row['ProjectID'])
 	rg = '@RG\tID:' + row['RunID'] + '\tLB:' + row['LibraryID'] + '\tSM:' + row['SampleID'] + '\tPL:' + row['Platform']
 	subprocess.run(['prefetch', row['RunID']])
-	subprocess.run(['fastq-dump', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra', '--split-files'])
-	fqs = row['ProjectID'] + '/' + row['RunID'] + '_1.fastq,,' + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq'
-	subprocess.run(['mv', row['RunID'] + '_1.fastq', row['RunID'] + '_2.fastq', fm_obj.localReadsDir + row['ProjectID']])
-	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq')
-	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq')
+	subprocess.run(['fastq-dump', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra', '--split-files', '--gzip'])
+	fqs = row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz,,' + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
+	subprocess.run(['mv', row['RunID'] + '_1.fastq.gz', row['RunID'] + '_2.fastq.gz', fm_obj.localReadsDir + row['ProjectID']])
+	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz')
+	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz')
 
 	subprocess.run(['rm', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra'])
-	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq'])
-	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq'])
+	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'])
+	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'])
 
 	row.ReadGroup = rg
 	row.Files = fqs
