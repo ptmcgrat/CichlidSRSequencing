@@ -1,4 +1,4 @@
-import argparse, subprocess, os, urllib, shutil, contextlib
+import argparse, subprocess, os, urllib, shutil, contextlib, datetime
 import pandas as pd
 from helper_modules.file_manager import FileManager as FM
 
@@ -26,6 +26,7 @@ new_dt['ReadGroup'] = ''
 new_dt['Files'] = ''
 
 for index, row in new_dt.iterrows():
+	print('Downloading: ' + row['RunID'] + ', Time:' + str(datetime.datetime.now()))
 	if not os.path.exists(fm_obj.localReadsDir + row['ProjectID']):
 		os.makedirs(fm_obj.localReadsDir + row['ProjectID'])
 	rg = '@RG\tID:' + row['RunID'] + '\tLB:' + row['LibraryID'] + '\tSM:' + row['SampleID'] + '\tPL:' + row['Platform']
@@ -47,14 +48,13 @@ for index, row in new_dt.iterrows():
 	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz')
 	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz')
 
-	subprocess.run(['rm', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra'])
+	#subprocess.run(['rm', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra'])
 	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'])
 	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'])
 
 	row.ReadGroup = rg
 	row.Files = fqs
 	sample_dt = sample_dt.append(row)
-	sample_dt.to_csv(master_sample_data)
+	sample_dt.to_csv(master_sample_data, index = False)
 	fm_obj.uploadData(master_sample_data)
-	break
 
