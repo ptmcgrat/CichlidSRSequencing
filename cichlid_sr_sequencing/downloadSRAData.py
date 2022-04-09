@@ -36,6 +36,8 @@ for index, row in new_dt.iterrows():
 
 	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 	ftps = ena_dt.fastq_ftp[0].split(';')
+
+	print('Fastq files ftping, Time:' + str(datetime.datetime.now()))
 	with contextlib.closing(urllib.request.urlopen('ftp://' + ftps[0])) as r:
 		with open(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz', 'wb') as f:
 			shutil.copyfileobj(r, f)
@@ -43,7 +45,7 @@ for index, row in new_dt.iterrows():
 		with open(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz', 'wb') as f:
 			shutil.copyfileobj(r, f)
      
-
+	print('Using rclone to upload, Time:' + str(datetime.datetime.now()))
 #	subprocess.run(['mv', row['RunID'] + '_1.fastq.gz', row['RunID'] + '_2.fastq.gz', fm_obj.localReadsDir + row['ProjectID']])
 	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz')
 	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz')
