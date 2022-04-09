@@ -25,38 +25,42 @@ new_dt = new_dt.rename(columns = remapper)[remapper.values()]
 new_dt['ReadGroup'] = ''
 new_dt['Files'] = ''
 
+processes = []
 for index, row in new_dt.iterrows():
-	print('Downloading: ' + row['RunID'] + ', Time:' + str(datetime.datetime.now()))
+	print('Grabbing file locations for: ' + row['RunID'] + ', Time:' + str(datetime.datetime.now()))
 	if not os.path.exists(fm_obj.localReadsDir + row['ProjectID']):
 		os.makedirs(fm_obj.localReadsDir + row['ProjectID'])
 	rg = '@RG\tID:' + row['RunID'] + '\tLB:' + row['LibraryID'] + '\tSM:' + row['SampleID'] + '\tPL:' + row['Platform']
-	#subprocess.run(['prefetch', row['RunID']])
-	#subprocess.run(['fastq-dump', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra', '--split-files', '--gzip'])
 	fqs = row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz,,' + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
 
 	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 	ftps = ena_dt.fastq_ftp[0].split(';')
 
-	print('Fastq files ftping, Time:' + str(datetime.datetime.now()))
-	with contextlib.closing(urllib.request.urlopen('ftp://' + ftps[0])) as r:
-		with open(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz', 'wb') as f:
-			shutil.copyfileobj(r, f)
-	with contextlib.closing(urllib.request.urlopen('ftp://' + ftps[1])) as r:
-		with open(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz', 'wb') as f:
-			shutil.copyfileobj(r, f)
-     
-	print('Using rclone to upload, Time:' + str(datetime.datetime.now()))
-#	subprocess.run(['mv', row['RunID'] + '_1.fastq.gz', row['RunID'] + '_2.fastq.gz', fm_obj.localReadsDir + row['ProjectID']])
-	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz')
-	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz')
+	ena_fq1 = 'ftp://' + ftps[0]
+	ena_fq2 = 'ftp://' + ftps[1]
+	local_fq1 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'
+	local_fq2 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
 
-	#subprocess.run(['rm', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra'])
-	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'])
-	subprocess.run(['rm', fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'])
+	processes.append(subprocess.Popen(['local_scripts/grabENA', row['RunID'], ena_fq1, ena_fq2, local_fq1, local_fq2]))
 
 	row.ReadGroup = rg
 	row.Files = fqs
 	sample_dt = sample_dt.append(row)
+
+	if len(processes) == 24:
+		for p in processes:
+			p.communicate()
+		print('Waiting for processes to complete')
+		sample_dt.to_csv(master_sample_data, index = False)
+		fm_obj.uploadData(master_sample_data)
+		print('Database uploaded')
+		processes = []
+
+if len(processes) != 0:
+	for p in processes:
+		p.communicate()
+	print('Waiting for processes to complete')
 	sample_dt.to_csv(master_sample_data, index = False)
 	fm_obj.uploadData(master_sample_data)
-
+	print('Database uploaded')
+	processes = []
