@@ -1,4 +1,4 @@
-import argparse, subprocess, os, urllib
+import argparse, subprocess, os, urllib, shutil, contextlib
 import pandas as pd
 from helper_modules.file_manager import FileManager as FM
 
@@ -35,9 +35,13 @@ for index, row in new_dt.iterrows():
 
 	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 	ftps = ena_dt.fastq_ftp[0].split(';')
-	urllib.urlretrieve(ftps[0], fm_obj.localReadsDir + row['ProjectID'])
-	urllib.urlretrieve(ftps[1], fm_obj.localReadsDir + row['ProjectID'])
-
+	with contexlib.closing(urllib.request.urlopen(ftps[0])) as r:
+		with open(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz') as f:
+			shutil.copyfileobj(r, f)
+	with contexlib.closing(urllib.request.urlopen(ftps[1])) as r:
+		with open(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz') as f:
+			shutil.copyfileobj(r, f)
+     
 
 #	subprocess.run(['mv', row['RunID'] + '_1.fastq.gz', row['RunID'] + '_2.fastq.gz', fm_obj.localReadsDir + row['ProjectID']])
 	fm_obj.uploadData(fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz')
