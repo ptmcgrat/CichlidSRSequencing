@@ -35,8 +35,8 @@ for index, row in new_dt.iterrows():
 
 	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 	ftps = ena_dt.fastq_ftp[0].split(';')
-	urlib.urlretrieve(ftps[0], fm_obj.localReadsDir + row['ProjectID'])
-	urlib.urlretrieve(ftps[1], fm_obj.localReadsDir + row['ProjectID'])
+	urllib.urlretrieve(ftps[0], fm_obj.localReadsDir + row['ProjectID'])
+	urllib.urlretrieve(ftps[1], fm_obj.localReadsDir + row['ProjectID'])
 
 
 #	subprocess.run(['mv', row['RunID'] + '_1.fastq.gz', row['RunID'] + '_2.fastq.gz', fm_obj.localReadsDir + row['ProjectID']])
