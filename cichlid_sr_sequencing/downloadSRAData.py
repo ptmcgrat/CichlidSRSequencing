@@ -29,8 +29,8 @@ for index, row in new_dt.iterrows():
 	if not os.path.exists(fm_obj.localReadsDir + row['ProjectID']):
 		os.makedirs(fm_obj.localReadsDir + row['ProjectID'])
 	rg = '@RG\tID:' + row['RunID'] + '\tLB:' + row['LibraryID'] + '\tSM:' + row['SampleID'] + '\tPL:' + row['Platform']
-	subprocess.run(['prefetch', row['RunID']])
-	subprocess.run(['fastq-dump', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra', '--split-files', '--gzip'])
+	#subprocess.run(['prefetch', row['RunID']])
+	#subprocess.run(['fastq-dump', os.getenv('HOME') + '/ncbi/public/sra/' + row['RunID'] + '.sra', '--split-files', '--gzip'])
 	fqs = row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz,,' + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
 
 	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
