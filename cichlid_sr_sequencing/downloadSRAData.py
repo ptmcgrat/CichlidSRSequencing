@@ -41,7 +41,7 @@ for index, row in new_dt.iterrows():
 	local_fq1 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'
 	local_fq2 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
 
-	processes.append(subprocess.Popen(['local_scripts/grabENA.py', row['RunID'], ena_fq1, ena_fq2, local_fq1, local_fq2]))
+	processes.append(subprocess.Popen(['unit_scripts/grabENA.py', row['RunID'], ena_fq1, ena_fq2, local_fq1, local_fq2]))
 
 	row.ReadGroup = rg
 	row.Files = fqs
