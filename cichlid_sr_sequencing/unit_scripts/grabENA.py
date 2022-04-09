@@ -1,4 +1,5 @@
-import subprocess, argparse, contextlib, urllib, shutil, datetime
+import subprocess, argparse, contextlib, shutil, datetime
+import urllib.request
 from helper_modules.file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage = 'This script grabs the ENA data for a run and uploads it to dropbox')
