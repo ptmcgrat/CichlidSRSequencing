@@ -36,8 +36,6 @@ for index, row in new_dt.iterrows():
 	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 	ftps = ena_dt.fastq_ftp[0].split(';')
 
-	print(ftps)
-	break
 
 	ena_fq1 = 'ftp://' + ftps[0]
 	ena_fq2 = 'ftp://' + ftps[1]
@@ -50,7 +48,7 @@ for index, row in new_dt.iterrows():
 	row.Files = fqs
 	sample_dt = sample_dt.append(row)
 
-	if len(processes) == 12:
+	if len(processes) == 1:
 		print('Waiting for processes to complete')
 		for p in processes:
 			p.communicate()

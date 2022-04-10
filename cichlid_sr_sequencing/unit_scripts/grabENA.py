@@ -1,5 +1,4 @@
-import subprocess, argparse, contextlib, shutil, datetime
-import urllib.request
+import subprocess, argparse, datetime, os
 from helper_modules.file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage = 'This script grabs the ENA data for a run and uploads it to dropbox')
@@ -13,14 +12,10 @@ args = parser.parse_args()
 
 fm_obj = FM()
 
-print('  Fastq files ftping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
-with contextlib.closing(urllib.request.urlopen(args.ENA_fq1)) as r:
-	with open(args.Local_fq1, 'wb') as f:
-		shutil.copyfileobj(r, f)
-
-with contextlib.closing(urllib.request.urlopen(args.ENA_fq2)) as r:
-	with open(args.Local_fq2, 'wb') as f:
-		shutil.copyfileobj(r, f)
+target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
+print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
+subprocess.call(['ascp', '-QT', '-l', '300m', '-P', '33001', '-i', os.getenvs('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.ENA_fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory])
+subprocess.call(['ascp', '-QT', '-l', '300m', '-P', '33001', '-i', os.getenvs('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.ENA_fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory])
 
 print('  Rcloning files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 fm_obj.uploadData(args.Local_fq1)
