@@ -36,6 +36,9 @@ for index, row in new_dt.iterrows():
 	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 	ftps = ena_dt.fastq_ftp[0].split(';')
 
+	print(ftps)
+	break
+
 	ena_fq1 = 'ftp://' + ftps[0]
 	ena_fq2 = 'ftp://' + ftps[1]
 	local_fq1 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'
