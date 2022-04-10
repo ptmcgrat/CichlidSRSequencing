@@ -48,7 +48,7 @@ for index, row in new_dt.iterrows():
 	row.Files = fqs
 	sample_dt = sample_dt.append(row)
 
-	if len(processes) == 24:
+	if len(processes) == 1:
 		print('Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
