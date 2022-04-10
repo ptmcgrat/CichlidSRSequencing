@@ -28,6 +28,7 @@ for i in range(3):
 		break
 	elif i == 2:
 		sys.exit()
+	print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 print('  Rcloning files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 fm_obj.uploadData(args.Local_fq1)
