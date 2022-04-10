@@ -37,8 +37,8 @@ for index, row in new_dt.iterrows():
 	ftps = ena_dt.fastq_ftp[0].split(';')
 
 
-	ena_fq1 = 'ftp://' + ftps[0]
-	ena_fq2 = 'ftp://' + ftps[1]
+	ena_fq1 = ftps[0]
+	ena_fq2 = ftps[1]
 	local_fq1 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'
 	local_fq2 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
 
