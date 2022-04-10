@@ -27,7 +27,7 @@ new_dt['Files'] = ''
 
 processes = []
 for index, row in new_dt.iterrows():
-	print('Grabbing file locations for: ' + row['RunID'] + ', Time:' + str(datetime.datetime.now()))
+	print(' Grabbing file locations for: ' + row['RunID'] + ', Time:' + str(datetime.datetime.now()))
 	if not os.path.exists(fm_obj.localReadsDir + row['ProjectID']):
 		os.makedirs(fm_obj.localReadsDir + row['ProjectID'])
 	rg = '@RG\tID:' + row['RunID'] + '\tLB:' + row['LibraryID'] + '\tSM:' + row['SampleID'] + '\tPL:' + row['Platform']
