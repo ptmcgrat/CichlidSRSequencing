@@ -48,9 +48,9 @@ for index, row in new_dt.iterrows():
 	sample_dt = sample_dt.append(row)
 
 	if len(processes) == 24:
+		print('Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
-		print('Waiting for processes to complete')
 		sample_dt.to_csv(master_sample_data, index = False)
 		fm_obj.uploadData(master_sample_data)
 		print('Database uploaded')

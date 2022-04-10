@@ -23,8 +23,8 @@ with contextlib.closing(urllib.request.urlopen(args.ENA_fq2)) as r:
 		shutil.copyfileobj(r, f)
 
 print('Rcloning files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
-fm_obj.uploadData(fargs.Local_fq1)
-fm_obj.uploadData(fargs.Local_fq2)
+fm_obj.uploadData(args.Local_fq1)
+fm_obj.uploadData(args.Local_fq2)
 print('Finished for' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 
 subprocess.run(['rm', args.Local_fq1])
