@@ -55,7 +55,6 @@ for index, row in new_dt.iterrows():
 		print('Already downloaded ' + row['RunID'])
 		continue
 
-	pdb.set_trace()
 	processes.append(subprocess.Popen(['python3', 'unit_scripts/grabENA.py', row['RunID'], ena_fq1, ena_fq2, local_fq1, local_fq2]))
 
 	row.ReadGroup = rg
