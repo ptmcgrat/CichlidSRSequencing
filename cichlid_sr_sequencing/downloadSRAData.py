@@ -33,7 +33,15 @@ for index, row in new_dt.iterrows():
 	rg = '@RG\tID:' + row['RunID'] + '\tLB:' + row['LibraryID'] + '\tSM:' + row['SampleID'] + '\tPL:' + row['Platform']
 	fqs = row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz,,' + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
 
-	ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+	try:
+		ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+	except:
+		try:
+			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+		except:
+			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+
+
 	ftps = ena_dt.fastq_ftp[0].split(';')
 
 
@@ -42,6 +50,12 @@ for index, row in new_dt.iterrows():
 	local_fq1 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_1.fastq.gz'
 	local_fq2 = fm_obj.localReadsDir + row['ProjectID'] + '/' + row['RunID'] + '_2.fastq.gz'
 
+	if fm_obj.checkCloudFile(local_fq1) and fm_obj.checkCloudFile(local_fq2):
+		# data already downloaded
+		print('Already downloaded ' + row['RunID'])
+		continue
+
+	pdb.set_trace()
 	processes.append(subprocess.Popen(['python3', 'unit_scripts/grabENA.py', row['RunID'], ena_fq1, ena_fq2, local_fq1, local_fq2]))
 
 	row.ReadGroup = rg

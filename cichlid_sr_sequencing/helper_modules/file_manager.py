@@ -109,3 +109,22 @@ class FileManager():
 		output = subprocess.run(['rclone', 'lsf', local_data.replace(self.localMasterDir, self.cloudMasterDir)], capture_output = True, encoding = 'utf-8')
 		return [x.rstrip('/') for x in output.stdout.split('\n') if not x.endswith('/') ]
 
+	def checkCloudFile(self, local_data):
+
+		relative_name = local_data.rstrip('/').split('/')[-1]
+		local_path = local_data.split(relative_name)[0]
+		cloud_path = local_path.replace(self.localMasterDir, self.cloudMasterDir)
+
+		uploadedFiles = self.returnCloudFile(local_path)
+
+		if realtive_name in uploadedFiles:
+			return True 
+		else:
+			return False
+
+
+
+
+
+
+
