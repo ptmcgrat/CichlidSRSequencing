@@ -115,7 +115,7 @@ class FileManager():
 		local_path = local_data.split(relative_name)[0]
 		cloud_path = local_path.replace(self.localMasterDir, self.cloudMasterDir)
 
-		uploadedFiles = self.returnCloudFile(local_path)
+		uploadedFiles = self.returnCloudFiles(local_path)
 
 		if realtive_name in uploadedFiles:
 			return True 
