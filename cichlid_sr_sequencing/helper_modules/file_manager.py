@@ -117,7 +117,7 @@ class FileManager():
 
 		uploadedFiles = self.returnCloudFiles(local_path)
 
-		if realtive_name in uploadedFiles:
+		if relative_name in uploadedFiles:
 			return True 
 		else:
 			return False
