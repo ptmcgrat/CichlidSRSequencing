@@ -5,7 +5,8 @@ import pandas as pd
 fm_obj = FM()
 fm_obj.downloadData(fm_obj.localSampleFile)
 s_dt = pd.read_csv(fm_obj.localSampleFile)
-os.makedirs(fm_obj.localReadsDir + 'Test') if not os.path.exists(fm_obj.localReadsDir + 'Test')
+if not os.path.exists(fm_obj.localReadsDir + 'Test'):
+	os.makedirs(fm_obj.localReadsDir + 'Test') 
 
 fq1 = fm_obj.localReadsDir + 'PRJEB15289/ERR3634107_1.fastq.gz'
 fq2 = fm_obj.localReadsDir + 'PRJEB15289/ERR3634107_2.fastq.gz'
