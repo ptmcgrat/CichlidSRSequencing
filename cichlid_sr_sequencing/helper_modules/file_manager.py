@@ -7,7 +7,9 @@ from multiprocessing import cpu_count
 from collections import defaultdict
 
 class FileManager():
-	def __init__(self, rcloneRemote = 'cichlidVideo:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = '', rcloneRemote = 'cichlidVideo:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
+
+		self.genome_version = genome_version
 
 		self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Temp/CichlidSequencingData/' #Master directory for local data
 
@@ -32,18 +34,41 @@ class FileManager():
 		"""
 		self._createMasterDirs()
 
-	def _createMasterDirs(self,version = 'Mzebra_UMD2a'):
+	def _createMasterDirs(self):
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'		
 		self.localReadsDir = self.localMasterDir + 'Reads/'		
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
 		self.localTempDir = self.localMasterDir + 'Temp/'
-		self.localBamRefDir = self.localBamfilesDir + version + '/'
-		self.localGenomeDir = self.localGenomesDir + version + '/'
+		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
+		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
 		self.localGenomeFile = self.localGenomeDir + 'UMD2a_LG_only.fna'
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
+
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
+
+	def createBamFiles(self, sampleID):
+		self.localSampleBamDir = self.localBamfilesDir = self.localMasterDir + 'Bamfiles/' + sampleID + '/'
+		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
+		self.localUnmappedBamFile = self.localSampleBamDir + sampleID + '.unmapped.bam'
+		self.localDiscordantBamFile = self.localSampleBamDir + sampleID + '.discordant.bam'
+		self.localInversionBamFile = self.localSampleBamDir + sampleID + '.inversion.bam'
+		self.localDuplicationBamFile = self.localSampleBamDir + sampleID + '.duplication.bam'
+		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
+		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
+
+	def returnGenomeVersions(self):
+		return self.returnCloudDirs(self.localGenomesDir)
+
+	def returnSamples(self):
+		self.downloadData(self.localSampleFile)
+		dt = pd.read_csv(self.localSampleFile)
+		return set(dt.SampleID)
+
+	def returnBamFiles(self):
+		return self.returnCloudDirs(self.localBamRefDir)
 
 	def downloadData(self, local_data, tarred = False, tarred_subdirs = False):
 

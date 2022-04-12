@@ -42,6 +42,7 @@ for index, row in new_dt.iterrows():
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 
 
+	print(ena_dt)
 	ftps = ena_dt.fastq_ftp[0].split(';')
 
 
