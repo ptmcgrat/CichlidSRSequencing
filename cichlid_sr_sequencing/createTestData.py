@@ -29,7 +29,7 @@ new_data['RunID'] = 'Test'
 new_data['ProjectID'] = 'Test'
 new_data['Files'] = fm_obj.localReadsDir + 'Test/Test_1.fastq,,' + fm_obj.localReadsDir + 'Test/Test_2.fastq'
 
-s_dt = s_dt.append(new_dat, ignore_index = True)
+s_dt = s_dt.append(new_data, ignore_index = True)
 s_dt.to_csv(fm_obj.localSampleFile, index = False)
 
 pdb.set_trace()
