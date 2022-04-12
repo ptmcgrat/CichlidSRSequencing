@@ -27,7 +27,7 @@ new_dt['Files'] = ''
 
 processes = []
 for index, row in new_dt.iterrows():
-	print(' Grabbing file locations for: ' + row['RunID'] + ', Time:' + str(datetime.datetime.now()))
+	#print(' Grabbing file locations for: ' + row['RunID'] + ', Time:' + str(datetime.datetime.now()))
 	if not os.path.exists(fm_obj.localReadsDir + row['ProjectID']):
 		os.makedirs(fm_obj.localReadsDir + row['ProjectID'])
 	rg = '@RG\tID:' + row['RunID'] + '\tLB:' + row['LibraryID'] + '\tSM:' + row['SampleID'] + '\tPL:' + row['Platform']
@@ -42,7 +42,9 @@ for index, row in new_dt.iterrows():
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 
 
-	print(ena_dt)
+	if ena_dt.fastq_ftp[0] is np.nan:
+		print('<<<<<<----------Cant find data for ' + row.RunID + ': ' + row.Organism)
+		continue 
 	ftps = ena_dt.fastq_ftp[0].split(';')
 
 
