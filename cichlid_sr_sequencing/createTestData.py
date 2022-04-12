@@ -20,16 +20,17 @@ fq2 = fm_obj.localReadsDir + 'PRJEB15289/ERR3634107_2.fastq.gz'
 subprocess.call(['head', '-1600', fq1.replace('.gz','')], stdout = open(fm_obj.localReadsDir + 'Test/Test_1.fastq', 'w'))
 subprocess.call(['head', '-1600', fq2.replace('.gz','')], stdout = open(fm_obj.localReadsDir + 'Test/Test_2.fastq', 'w'))
 
-subprocess.call(['gunzip', fm_obj.localReadsDir + 'Test/Test_1.fastq'])
-subprocess.call(['gunzip', fm_obj.localReadsDir + 'Test/Test_2.fastq'])
+subprocess.call(['gzip', fm_obj.localReadsDir + 'Test/Test_1.fastq'])
+subprocess.call(['gzip', fm_obj.localReadsDir + 'Test/Test_2.fastq'])
 
 new_data = dict(s_dt.iloc[0])
 
 new_data['RunID'] = 'Test'
 new_data['ProjectID'] = 'Test'
-new_data['Files'] = fm_obj.localReadsDir + 'Test/Test_1.fastq,,' + fm_obj.localReadsDir + 'Test/Test_2.fastq'
+new_data['Files'] = ='Test/Test_1.fastq,,Test/Test_2.fastq'
 
 s_dt = s_dt.append(new_data, ignore_index = True)
 s_dt.to_csv(fm_obj.localSampleFile, index = False)
-
-pdb.set_trace()
+fm_obj.uploadData(fm_obj.localSampleFile)
+fm_obj.uploadData(fm_obj.localReadsDir + 'Test/Test_1.fastq.gz')
+fm_obj.uploadData(fm_obj.localReadsDir + 'Test/Test_2.fastq.gz')
