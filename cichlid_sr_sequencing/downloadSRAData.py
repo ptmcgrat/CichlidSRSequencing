@@ -1,5 +1,6 @@
 import argparse, subprocess, os, urllib, shutil, contextlib, datetime
 import pandas as pd
+import numpy as np
 from helper_modules.file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data from the SRA database and place it into the McGrath Apps Sequencing folder\n \
