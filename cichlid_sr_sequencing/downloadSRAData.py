@@ -43,7 +43,7 @@ for index, row in new_dt.iterrows():
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
 
 
-	if ena_dt.fastq_ftp[0] is np.nan:
+	if ena_dt.fastq_ftp[0] != ena_dt.fastq_ftp[0]:
 		print('<<<<<<----------Cant find data for ' + row.RunID + ': ' + row.Organism)
 		continue 
 	ftps = ena_dt.fastq_ftp[0].split(';')
