@@ -1,4 +1,4 @@
-import argparse, os, pysam, pdb
+import argparse, os, pysam, pdb, subprocess
 from helper_modules.file_manager import FileManager as FM
 from collections import defaultdict
 import pandas as pd
