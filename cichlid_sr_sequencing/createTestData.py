@@ -27,6 +27,7 @@ new_data = dict(s_dt.iloc[0])
 
 new_data['RunID'] = 'Test'
 new_data['ProjectID'] = 'Test'
+new_data['SampleID'] = 'Test'
 new_data['Files'] ='Test/Test_1.fastq,,Test/Test_2.fastq'
 
 s_dt = s_dt.append(new_data, ignore_index = True)
