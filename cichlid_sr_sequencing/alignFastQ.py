@@ -20,6 +20,7 @@ s_dt = pd.read_csv(fm_obj.localSampleFile)
 fm_obj.downloadData(fm_obj.localAlignmentFile)
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 
+pdb.set_trace()
 if args.SampleIDs is not None:
 	bad_samples = []
 	for sample in args.SampleIDs:
