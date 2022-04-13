@@ -1,6 +1,7 @@
 import argparse, os, pysam
 from helper_modules.file_manager import FileManager as FM
 from collections import defaultdict
+import pandas as pd
 
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice')
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
