@@ -65,7 +65,7 @@ for sample in good_samples:
 	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID))}
 
 
-	for index,row in sample_dt.iterrows():
+	for i, (index,row) in enumerate(sample_dt.iterrows()):
 
 		print('Downloading fastq files for Run: ' + row['RunID'])
 		# Download fastq files
@@ -76,7 +76,8 @@ for sample in good_samples:
 
 		print('Aligning fastq files for Run: ' + row['RunID'])
 		# Align fastq files and sort them
-		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(unsorted_sam, 'a'), stderr = open('TempErrors.txt', 'a'))
+		pdb.set_trace()
+		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(unsorted_sam, 'w'), stderr = open('TempErrors.txt', 'a'))
 		print(unsorted_sam)
 
 	pdb.set_trace()
