@@ -35,9 +35,9 @@ else:
 	good_samples = set(s_dt.SampleIDs)
 
 # Make directories necessary for analysis
-os.makedirs(fm_obj.localMasterDir)
-os.makedirs(fm_obj.localTempDir)
-os.makedirs(fm_obj.localBamRefDir)
+os.makedirs(fm_obj.localMasterDir, exist_ok = True)
+os.makedirs(fm_obj.localTempDir, exist_ok = True)
+os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
 
 # Download genome data necessary for analysis		
 print('Downloading genome and sample file')
