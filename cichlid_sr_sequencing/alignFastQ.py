@@ -53,7 +53,7 @@ for sample in good_samples:
 
 	print('Processing sample: ' + sample)
 	fm_obj.createBamFiles(sample)
-	os.makedirs(fm_obj.localSampleBamDir)
+	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
 
 	unsorted_sam = fm_obj.localTempDir + sample + '.unsorted.sam'
 
