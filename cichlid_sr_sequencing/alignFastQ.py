@@ -41,7 +41,7 @@ os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
 
 # Download genome data necessary for analysis		
 print('Downloading genome and sample file')
-self.downloadData(self.localGenomeDir)
+fm_obj.downloadData(fm_obj.localGenomeDir)
 
 # Get list of bam files already run
 existing_bams = list(a_dt.SampleIDs)
