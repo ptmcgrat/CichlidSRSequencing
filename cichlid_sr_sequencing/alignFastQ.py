@@ -104,7 +104,7 @@ for sample in good_samples:
 
 	# Go through all reads and process them into appropriate categories
 	print('Splitting reads based upon their alignment...', file = sys.stderr)
-	read_data = default_dict(int)
+	read_data = defaultdict(int)
 	for read in align_file.fetch(until_eof=True):
 		read_data['TotalReads'] += 1
 		if read.is_paired:
