@@ -79,7 +79,7 @@ for sample in good_samples:
 		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(unsorted_sam, 'a'), stderr = open('TempErrors.txt', 'a'))
 
 	print('Marking duplicates and sorting... ' + row['RunID'])
-	subprocess.run(['picard', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
+	subprocess.run(['gatk4', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
 
 	# Remove remailing files
 	subprocess.run(['rm','-f',unsorted_sam])
