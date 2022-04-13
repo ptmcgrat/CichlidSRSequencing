@@ -89,7 +89,7 @@ for sample in good_samples:
 		subprocess.run(['gatk', 'MergeSamFiles'] + inputs + ['-O', unsorted_sam])
 
 	print('Marking duplicates and sorting... ' + row['RunID'])
-	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_bam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
+	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
 
 	# Remove remailing files
 	subprocess.run(['rm','-f',unsorted_sam])
