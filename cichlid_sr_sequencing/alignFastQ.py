@@ -60,7 +60,7 @@ for sample in good_samples:
 	sample_dt = s_dt[s_dt.SampleID == sample]
 
 	# Loop through all of the fastq files
-	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join([sample_dt.RunIDs])}
+	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join([sample_dt.RunID])}
 
 	pdb.set_trace()
 
