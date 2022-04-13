@@ -43,7 +43,7 @@ class FileManager():
 		self.localTempDir = self.localMasterDir + 'Temp/'
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
-		self.localGenomeFile = self.localGenomeDir + 'UMD2a_LG_only.fna'
+		self.localGenomeFile = self.localGenomeDir + 'UMD2a_LG_only.fna.gz'
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 

@@ -77,6 +77,7 @@ for sample in good_samples:
 		print('Aligning fastq files for Run: ' + row['RunID'])
 		# Align fastq files and sort them
 		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(unsorted_sam, 'a'), stderr = open('TempErrors.txt', 'a'))
+		print(unsorted_sam)
 
 	pdb.set_trace()
 	print('Marking duplicates and sorting... ' + row['RunID'])
