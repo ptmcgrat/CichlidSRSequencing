@@ -17,7 +17,7 @@ if args.Genome not in fm_obj.returnGenomeVersions():
 fm_obj.downloadData(fm_obj.localSampleFile)
 s_dt = pd.read_csv(fm_obj.localSampleFile)
 
-fm_obj.downloadData(m_obj.localAlignmentFile)
+fm_obj.downloadData(fm_obj.localAlignmentFile)
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 
 if args.sampleIDs is not None:
