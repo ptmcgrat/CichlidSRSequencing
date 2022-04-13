@@ -95,47 +95,47 @@ for sample in good_samples:
 	read_data = default_dict(int)
 	for read in align_file.fetch(until_eof=True):
 		read_data['TotalReads'] += 1
-	    if read.is_paired:
-	        # Both reads are unmapped
-	        if read.is_unmapped and read.mate_is_unmapped:
-	            unmapped.write(read)
-	            read_data['UnmappedReads'] += 1
-	        # One read is unmapped
-	        elif read.is_unmapped or read.mate_is_unmapped:
-	            discordant.write(read)
-	           	read_data['DiscordantReads'] += 1             
-	        # Chromosome fusion
-	        elif read.reference_id!=read.next_reference_id:
-	            discordant.write(read)
-               	read_data['DiscordantReads'] += 1
-	        # Inversion
-	        elif read.is_reverse == read.mate_is_reverse:
-	            inversion.write(read)
-	            read_data['InversionReads'] += 1
-	        # Duplication
-	        elif ((read.pos < read.mpos and read.is_reverse) or (read.pos > read.mpos and read.mate_is_reverse)) and abs(read.isize) > 102:
-	            duplication.write(read)
-	           	read_data['DuplicationReads'] += 1
-	    else:
-	        if read.is_unmapped:
-	            unmapped.write(read)
-	            read_data['UnmappedReads'] += 1
+		if read.is_paired:
+			# Both reads are unmapped
+			if read.is_unmapped and read.mate_is_unmapped:
+				unmapped.write(read)
+				read_data['UnmappedReads'] += 1
+			# One read is unmapped
+			elif read.is_unmapped or read.mate_is_unmapped:
+				discordant.write(read)
+				read_data['DiscordantReads'] += 1             
+			# Chromosome fusion
+			elif read.reference_id!=read.next_reference_id:
+				discordant.write(read)
+				read_data['DiscordantReads'] += 1
+			# Inversion
+			elif read.is_reverse == read.mate_is_reverse:
+				inversion.write(read)
+				read_data['InversionReads'] += 1
+			# Duplication
+			elif ((read.pos < read.mpos and read.is_reverse) or (read.pos > read.mpos and read.mate_is_reverse)) and abs(read.isize) > 102:
+				duplication.write(read)
+				read_data['DuplicationReads'] += 1
+		else:
+			if read.is_unmapped:
+				unmapped.write(read)
+				read_data['UnmappedReads'] += 1
 
-	    # Clipped
-	    if read.cigarstring is not None:
-	        for pair in read.cigartuples:
-	            if pair[0] == 4 and pair[1] > 4:
-	                clipped.write(read)
+		# Clipped
+		if read.cigarstring is not None:
+			for pair in read.cigartuples:
+				if pair[0] == 4 and pair[1] > 4:
+					clipped.write(read)
 					read_data['ClippedReads'] += 1
-	                break
-	            elif pair[0] == 5 and pair[1] > 4:
-	                clipped.write(read)
-	                read_data['ClippedReads'] += 1
-	                break
-	    # Chimeric
-	    if read.has_tag('SA'):
-	        chimeric.write(read)
-	        read_data['ChimericReads'] += 1
+					break
+				elif pair[0] == 5 and pair[1] > 4:
+					clipped.write(read)
+					read_data['ClippedReads'] += 1
+					break
+		# Chimeric
+		if read.has_tag('SA'):
+			chimeric.write(read)
+			read_data['ChimericReads'] += 1
 
 
 	align_file.close()
