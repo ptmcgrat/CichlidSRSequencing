@@ -20,7 +20,7 @@ s_dt = pd.read_csv(fm_obj.localSampleFile)
 fm_obj.downloadData(fm_obj.localAlignmentFile)
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 
-if args.sampleIDs is not None:
+if args.SampleIDs is not None:
 	bad_samples = []
 	for sample in args.SampleIDs:
 		if sample not in s_dt.SampleIDs:
