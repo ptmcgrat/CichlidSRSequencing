@@ -57,7 +57,7 @@ for sample in good_samples:
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
 
-	unsorted_sam = fm_obj.localTempDir + sample + '.unsorted.sam'
+	unsorted_bam = fm_obj.localTempDir + sample + '.unsorted.sam'
 
 	sample_dt = s_dt[s_dt.SampleID == sample]
 
@@ -76,13 +76,12 @@ for sample in good_samples:
 
 		print('Aligning fastq files for Run: ' + row['RunID'])
 		# Align fastq files and sort them
-		pdb.set_trace()
-		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(unsorted_sam, 'w'), stderr = open('TempErrors.txt', 'a'))
-		print(unsorted_sam)
+		t_sam = fm_obj.localTempDir + sample + '.' + str(i) + '.unsorted.sam'
+		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(t_sam, 'w'), stderr = open('TempErrors.txt', 'a'))
 
 	pdb.set_trace()
 	print('Marking duplicates and sorting... ' + row['RunID'])
-	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
+	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_bam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
 
 	# Remove remailing files
 	subprocess.run(['rm','-f',unsorted_sam])
