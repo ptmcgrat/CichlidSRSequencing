@@ -30,6 +30,7 @@ if args.SampleIDs is not None:
 		raise argparse.ArgumentTypeError('The following samples were not found: ' + ','.join(bad_samples))
 
 	good_samples = set(args.SampleIDs)
+	pdb.set_trace()
 
 else:
 	good_samples = set(s_dt.SampleIDs)
