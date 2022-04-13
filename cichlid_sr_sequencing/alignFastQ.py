@@ -57,7 +57,7 @@ for sample in good_samples:
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
 
-	unsorted_bam = fm_obj.localTempDir + sample + '.unsorted.sam'
+	unsorted_sam = fm_obj.localTempDir + sample + '.unsorted.sam'
 
 	sample_dt = s_dt[s_dt.SampleID == sample]
 
@@ -79,7 +79,15 @@ for sample in good_samples:
 		t_sam = fm_obj.localTempDir + sample + '.' + str(i) + '.unsorted.sam'
 		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(t_sam, 'w'), stderr = open('TempErrors.txt', 'a'))
 
-	pdb.set_trace()
+	if i == 0:
+		subprocess.run(['mv', t_sam, unsorted_sam])
+	else:
+		inputs = []
+		ind_files = [fm_obj.localTempDir + sample + '.' + str(x) + '.unsorted.sam' for x in range(i+1)]
+		for ind_file in ind_files:
+			inputs = inputs + ['-I', ind_file]
+		subprocess.run(['gatk', 'MergeSamFiles'] + inputs + ['-O', unsorted_sam])
+
 	print('Marking duplicates and sorting... ' + row['RunID'])
 	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_bam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
 
