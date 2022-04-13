@@ -67,9 +67,6 @@ class FileManager():
 		dt = pd.read_csv(self.localSampleFile)
 		return set(dt.SampleID)
 
-	def returnBamFiles(self):
-		return self.returnCloudDirs(self.localBamRefDir)
-
 	def downloadData(self, local_data, tarred = False, tarred_subdirs = False):
 
 		relative_name = local_data.rstrip('/').split('/')[-1] + '.tar' if tarred else local_data.rstrip('/').split('/')[-1]

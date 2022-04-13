@@ -16,9 +16,8 @@ if args.Genome not in fm_obj.returnGenomeVersions():
 fm_obj.downloadData(fm_obj.localSampleFile)
 s_dt = pd.read_csv(fm_obj.localSampleFile)
 
-master_alignment_data = fm_obj.localAlignmentFile
-fm_obj.downloadData(master_sample_data)
-
+fm_obj.downloadData(m_obj.localAlignmentFile)
+a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 
 if args.sampleIDs is not None:
 	bad_samples = []
@@ -44,7 +43,7 @@ print('Downloading genome and sample file')
 self.downloadData(self.localGenomeDir)
 
 # Get list of bam files already run
-existing_bams = fm_obj.returnBamFiles()
+existing_bams = list(a_dt.SampleIDs)
 
 for sample in good_samples:
 	if sample + '.bam' in existing_bams:
@@ -57,10 +56,12 @@ for sample in good_samples:
 
 	unsorted_sam = fm_obj.localTempDir + sample + '.unsorted.sam'
 
-	sample_dt = dt[dt.SampleID == sample]
+	sample_dt = s_dt[s_dt.SampleID == sample]
 
 	# Loop through all of the fastq files
 	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join([sample_dt.RunIDs])}
+
+	pdb.set_trace()
 
 	for index,row in sample_dt.iterrows():
 
