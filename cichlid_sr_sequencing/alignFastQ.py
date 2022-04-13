@@ -76,6 +76,7 @@ for sample in good_samples:
 
 		print('Aligning fastq files for Run: ' + row['RunID'])
 		# Align fastq files and sort them
+		pdb.set_trace()
 		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.RG.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(unsorted_sam, 'a'), stderr = open('TempErrors.txt', 'a'))
 
 	pdb.set_trace()
