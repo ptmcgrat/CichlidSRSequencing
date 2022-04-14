@@ -95,7 +95,7 @@ class FileManager():
 				output = subprocess.run(['tar', '-xvf', local_data + d, '-C', local_data, '--strip-components', '1'], capture_output = True, encoding = 'utf-8')
 				os.remove(local_data + d)
 
-	def uploadData(self, local_data, tarred = False, async = False):
+	def uploadData(self, local_data, tarred = False, upload_async = False):
 
 		relative_name = local_data.rstrip('/').split('/')[-1]
 		local_path = local_data.split(relative_name)[0]
@@ -109,7 +109,7 @@ class FileManager():
 			relative_name += '.tar'
 
 		if os.path.isdir(local_path + relative_name):
-			if async:
+			if upload_async:
 				output = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
 			else:
 				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
@@ -117,7 +117,7 @@ class FileManager():
 
 		elif os.path.isfile(local_path + relative_name):
 			#print(['rclone', 'copy', local_path + relative_name, cloud_path])
-			if async:
+			if upload_async:
 				output = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
 			else:
 				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
