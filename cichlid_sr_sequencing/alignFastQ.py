@@ -155,7 +155,9 @@ for sample in good_samples:
 			read_data['ChimericReads'] += 1
 
 
-	#align_file.close()
+	coverage = read_data['TotalReads'] / sum(align_file.lengths) * len(read.seq)
+
+	align_file.close()
 	unmapped.close()
 	discordant.close()
 	inversion.close()
@@ -171,12 +173,13 @@ for sample in good_samples:
 	pysam.index(fm_obj.localChimericBamFile)
 
 
-	pdb.set_trace()
 
-	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':'Test', 'TotalReads': read_data['TotalReads'], 
+	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage, 'TotalReads': read_data['TotalReads'], 
 				   'MappedReads': read_data['MappedReads'], 'UnmappedReads': read_data['UnmappedReads'], 'DiscordantReads': read_data['DiscordantReads'], 'InversionReads': read_data['InversionReads'], 
 				   'DuplicationReads': read_data['DuplicationReads'], 'ClippedReads': read_data['ClippedReads'], 'ChimericReads': read_data['ChimericReads'], 'DuplicatedReads': read_data['DuplicatedReads']}
-	
+	pdb.set_trace()
+
+
 	output = subprocess.run(['conda', 'list'], capture_output = True)
 	sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
 	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
