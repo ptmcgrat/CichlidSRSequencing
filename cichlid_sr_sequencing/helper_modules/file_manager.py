@@ -50,7 +50,7 @@ class FileManager():
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
 	def createBamFiles(self, sampleID):
-		self.localSampleBamDir = self.localBamfilesDir = self.localMasterDir + 'Bamfiles/' + sampleID + '/'
+		self.localSampleBamDir = self.localBamRefDir = self.localMasterDir + 'Bamfiles/' + sampleID + '/'
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
 		self.localUnmappedBamFile = self.localSampleBamDir + sampleID + '.unmapped.bam'
 		self.localDiscordantBamFile = self.localSampleBamDir + sampleID + '.discordant.bam'

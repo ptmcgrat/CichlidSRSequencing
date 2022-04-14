@@ -191,7 +191,7 @@ for sample in good_samples:
 	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 
 	a_dt = a_dt.append(sample_data, ignore_index = True)
-	a_dt.to_csv(fm_obj.localAlignmentFile)
+	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
 	fm_obj.uploadData(fm_obj.localAlignmentFile)
 
 	print('Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
