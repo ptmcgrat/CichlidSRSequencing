@@ -92,7 +92,7 @@ for sample in good_samples:
 		subprocess.run(['rm','-f'] + ind_files)
 
 	print('Marking duplicates and sorting... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'], stderr = open('TempErrors.txt', 'a'))
+	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
 
 	# Remove remaining files
 	subprocess.run(['rm','-f',unsorted_sam])
@@ -193,7 +193,7 @@ for sample in good_samples:
 
 	a_dt = a_dt.append(sample_data, ignore_index = True)
 	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
-	fm_obj.uploadData(fm_obj.localAlignmentFile)
+	fm_obj.uploadData(fm_obj.localAlignmentFile, upload_async = True)
 
 	print('Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 
