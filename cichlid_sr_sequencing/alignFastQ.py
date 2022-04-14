@@ -111,7 +111,7 @@ for sample in good_samples:
 	for read in align_file.fetch(until_eof=True):
 		read_data['TotalReads'] += 1
 		if read.is_paired:
-			if not read.is_unmapped:
+			if not read.is_unmapped and not read.is_duplicate:
 				read_data['MappedReads'] += 1
 			if read.is_duplicate:
 				read_data['DuplicatedReads'] += 1
@@ -157,7 +157,7 @@ for sample in good_samples:
 			read_data['ChimericReads'] += 1
 
 
-	coverage = read_data['TotalReads'] / sum(align_file.lengths) * len(read.seq)
+	coverage = read_data['MappedReads'] / sum(align_file.lengths) * len(read.seq)
 
 	align_file.close()
 	unmapped.close()
