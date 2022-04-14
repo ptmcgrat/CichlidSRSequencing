@@ -168,7 +168,15 @@ for sample in good_samples:
 	pysam.index(fm_obj.localClippedBamFile)
 	pysam.index(fm_obj.localChimericBamFile)
 
+	output = subprocess.run(['conda', 'list'], capture_output = True)
+
 	pdb.set_trace()
+
+	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':, 'TotalReads': read_data['TotalReads'], 
+				   'MappedReads': read_data['MappedReads'], 'UnmappedReads': read_data['UnmappedReads'], 'DiscordantReads': read_data['DiscordantReads'], 'InversionReads': read_data['InversionReads']
+				   'DuplicationReads': read_data['DuplicationReads'], 'ClippedReads': read_data['ClippedReads'], 'ChimericReads': read_data['ChimericReads']}
+
+	database_row = {'SampleID':sample, 'GenomeVersion':args.Genome, 'RunIDs': }
 
 	# Upload data and delete
 	print('Uploading data')
