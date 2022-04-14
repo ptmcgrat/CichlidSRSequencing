@@ -1,4 +1,4 @@
-import argparse, os, pysam, pdb, subprocess, sys
+import argparse, os, pysam, pdb, subprocess, sys, datetime
 from helper_modules.file_manager import FileManager as FM
 from collections import defaultdict
 from multiprocessing import cpu_count
@@ -42,7 +42,7 @@ os.makedirs(fm_obj.localTempDir, exist_ok = True)
 os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
 
 # Download genome data necessary for analysis		
-print('Downloading genome and sample file')
+print('Downloading genome and sample file: ' + str(datetime.datetime.now()))
 fm_obj.downloadData(fm_obj.localGenomeDir)
 
 # Get list of bam files already run
@@ -53,7 +53,7 @@ for sample in good_samples:
 		print(sample + ' already analyzed. Skipping...')
 		continue
 
-	print('Processing sample: ' + sample)
+	print('Processing sample: ' + sample + ': ' + str(datetime.datetime.now()))
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
 
@@ -67,14 +67,14 @@ for sample in good_samples:
 
 	for i, (index,row) in enumerate(sample_dt.iterrows()):
 
-		print('Downloading fastq files for Run: ' + row['RunID'])
+		print('Downloading fastq files for Run: ' + row['RunID'] + ' :' + str(datetime.datetime.now()))
 		# Download fastq files
 		fq1 = fm_obj.localReadsDir + row.Files.split(',,')[0]
 		fq2 = fm_obj.localReadsDir + row.Files.split(',,')[1]
 		fm_obj.downloadData(fq1)
 		fm_obj.downloadData(fq2)
 
-		print('Aligning fastq files for Run: ' + row['RunID'])
+		print('Aligning fastq files for Run: ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 		# Align fastq files and sort them
 		t_sam = fm_obj.localTempDir + sample + '.' + str(i) + '.unsorted.sam'
 		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(t_sam, 'w'), stderr = open('TempErrors.txt', 'a'))
@@ -90,7 +90,7 @@ for sample in good_samples:
 		subprocess.run(['gatk', 'MergeSamFiles'] + inputs + ['-O', unsorted_sam], stderr = open('TempErrors.txt', 'a'))
 		subprocess.run(['rm','-f'] + ind_files)
 
-	print('Marking duplicates and sorting... ' + row['RunID'])
+	print('Marking duplicates and sorting... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'], stderr = open('TempErrors.txt', 'a'))
 
 	# Remove remaining files
@@ -105,7 +105,7 @@ for sample in good_samples:
 	chimeric = pysam.AlignmentFile(fm_obj.localChimericBamFile, mode = 'wb', template = align_file)
 
 	# Go through all reads and process them into appropriate categories
-	print('Splitting reads based upon their alignment...', file = sys.stderr)
+	print('Splitting reads based upon their alignment: ' + str(datetime.datetime.now()))
 	read_data = defaultdict(int)
 	for read in align_file.fetch(until_eof=True):
 		read_data['TotalReads'] += 1
@@ -186,12 +186,13 @@ for sample in good_samples:
 
 
 	# Upload data and delete
-	print('Uploading data')
+	print('Uploading data: ' + str(datetime.datetime.now()))
 	fm_obj.uploadData(fm_obj.localSampleBamDir)
 	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-
 
 	a_dt = a_dt.append(sample_data, ignore_index = True)
 	a_dt.to_csv(fm_obj.localAlignmentFile)
 	fm_obj.uploadData(fm_obj.localAlignmentFile)
+
+	print('Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 
