@@ -78,6 +78,7 @@ for sample in good_samples:
 		# Align fastq files and sort them
 		t_sam = fm_obj.localTempDir + sample + '.' + str(i) + '.unsorted.sam'
 		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(t_sam, 'w'), stderr = open('TempErrors.txt', 'a'))
+		subprocess.run(['rm', '-f', fq1, fq2])
 
 	if i == 0:
 		subprocess.run(['mv', t_sam, unsorted_sam])
@@ -177,15 +178,20 @@ for sample in good_samples:
 	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage, 'TotalReads': read_data['TotalReads'], 
 				   'MappedReads': read_data['MappedReads'], 'UnmappedReads': read_data['UnmappedReads'], 'DiscordantReads': read_data['DiscordantReads'], 'InversionReads': read_data['InversionReads'], 
 				   'DuplicationReads': read_data['DuplicationReads'], 'ClippedReads': read_data['ClippedReads'], 'ChimericReads': read_data['ChimericReads'], 'DuplicatedReads': read_data['DuplicatedReads']}
-	pdb.set_trace()
-
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
 	sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
 	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
 
+
 	# Upload data and delete
 	print('Uploading data')
-	self.uploadData(fm_obj.localSampleBamDir)
+	fm_obj.uploadData(fm_obj.localSampleBamDir)
 	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+
+
+	a_dt = a_dt.append(sample_data, ignore_index = True)
+	a_dt.to_csv(fm_obj.localAlignmentFile)
+	fm_obj.uploadData(fm_obj.localAlignmentFile)
+

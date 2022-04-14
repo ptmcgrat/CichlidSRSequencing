@@ -95,7 +95,7 @@ class FileManager():
 				output = subprocess.run(['tar', '-xvf', local_data + d, '-C', local_data, '--strip-components', '1'], capture_output = True, encoding = 'utf-8')
 				os.remove(local_data + d)
 
-	def uploadData(self, local_data, tarred = False):
+	def uploadData(self, local_data, tarred = False, async = False):
 
 		relative_name = local_data.rstrip('/').split('/')[-1]
 		local_path = local_data.split(relative_name)[0]
@@ -109,19 +109,26 @@ class FileManager():
 			relative_name += '.tar'
 
 		if os.path.isdir(local_path + relative_name):
-			output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
+			if async:
+				output = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
+			else:
+				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
 			#subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path + relative_name], check = True)
 
 		elif os.path.isfile(local_path + relative_name):
 			#print(['rclone', 'copy', local_path + relative_name, cloud_path])
-			output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
-			output = subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path], check = True, capture_output = True, encoding = 'utf-8')
+			if async:
+				output = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
+			else:
+				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
+				output = subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path], check = True, capture_output = True, encoding = 'utf-8')
 		else:
 			raise Exception(local_data + ' does not exist for upload')
 
-		if output.returncode != 0:
-			pdb.set_trace()
-			raise Exception('Error in uploading file: ' + output.stderr)
+		if not async:
+			if output.returncode != 0:
+				pdb.set_trace()
+				raise Exception('Error in uploading file: ' + output.stderr)
 
 	def returnCloudDirs(self, local_data):
 		output = subprocess.run(['rclone', 'lsf', local_data.replace(self.localMasterDir, self.cloudMasterDir)], capture_output = True, encoding = 'utf-8')
