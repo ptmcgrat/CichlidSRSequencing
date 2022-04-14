@@ -87,6 +87,7 @@ for sample in good_samples:
 		for ind_file in ind_files:
 			inputs = inputs + ['-I', ind_file]
 		subprocess.run(['gatk', 'MergeSamFiles'] + inputs + ['-O', unsorted_sam])
+		subprocess.run(['rm','-f'] + ind_files)
 
 	print('Marking duplicates and sorting... ' + row['RunID'])
 	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI'])
@@ -108,8 +109,10 @@ for sample in good_samples:
 	for read in align_file.fetch(until_eof=True):
 		read_data['TotalReads'] += 1
 		if read.is_paired:
+			if read.is_duplicate:
+				read_data['DuplicatedReads'] += 1
 			# Both reads are unmapped
-			if read.is_unmapped and read.mate_is_unmapped:
+			elif read.is_unmapped and read.mate_is_unmapped:
 				unmapped.write(read)
 				read_data['UnmappedReads'] += 1
 			# One read is unmapped
