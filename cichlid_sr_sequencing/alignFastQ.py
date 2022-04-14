@@ -110,7 +110,7 @@ for sample in good_samples:
 		read_data['TotalReads'] += 1
 		if read.is_paired:
 			if not read.is_unmapped:
-				read['MappedReads'] += 1
+				read_data['MappedReads'] += 1
 			if read.is_duplicate:
 				read_data['DuplicatedReads'] += 1
 			# Both reads are unmapped
