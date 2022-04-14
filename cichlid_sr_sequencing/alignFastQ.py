@@ -48,8 +48,9 @@ fm_obj.downloadData(fm_obj.localGenomeDir)
 # Get list of bam files already run
 existing_bams = list(a_dt.SampleID)
 
+
 for sample in good_samples:
-	if sample + '.bam' in existing_bams:
+	if sample in existing_bams:
 		print(sample + ' already analyzed. Skipping...')
 		continue
 
