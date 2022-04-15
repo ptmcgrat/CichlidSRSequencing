@@ -34,7 +34,7 @@ if args.SampleIDs is not None:
 	good_samples = set(args.SampleIDs)
 
 else:
-	good_samples = set(s_dt.SampleIDs)
+	good_samples = set(s_dt.SampleID)
 
 # Make directories necessary for analysis
 os.makedirs(fm_obj.localMasterDir, exist_ok = True)
