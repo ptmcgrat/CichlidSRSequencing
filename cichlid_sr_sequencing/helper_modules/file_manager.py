@@ -110,7 +110,7 @@ class FileManager():
 
 		if os.path.isdir(local_path + relative_name):
 			if upload_async:
-				output = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
+				subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name])
 			else:
 				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
 			#subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path + relative_name], check = True)
@@ -118,7 +118,7 @@ class FileManager():
 		elif os.path.isfile(local_path + relative_name):
 			#print(['rclone', 'copy', local_path + relative_name, cloud_path])
 			if upload_async:
-				output = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
+				subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path])
 			else:
 				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
 				output = subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path], check = True, capture_output = True, encoding = 'utf-8')
