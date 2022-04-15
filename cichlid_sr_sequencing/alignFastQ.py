@@ -184,7 +184,7 @@ for sample in good_samples:
 	sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
 	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
-
+	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
 
 	# Upload data and delete
 	print('Uploading data: ' + str(datetime.datetime.now()))
