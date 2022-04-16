@@ -8,6 +8,7 @@ import pandas as pd
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice')
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
 parser.add_argument('-s', '--SampleIDs', nargs = '+', help = 'Restrict analysis to the following sampleIDs')
+parser.add_argument('-p', '--ProjectID', type = str, help = 'Restrict analysis to a specific ProjectID')
 args = parser.parse_args()
 
 fm_obj = FM(args.Genome)
@@ -18,6 +19,9 @@ if args.Genome not in fm_obj.returnGenomeVersions():
 
 fm_obj.downloadData(fm_obj.localSampleFile)
 s_dt = pd.read_csv(fm_obj.localSampleFile)
+
+if args.ProjectID is not None:
+	s_dt = s_dt[s_dt.ProjectID == args.ProjectID]
 
 fm_obj.downloadData(fm_obj.localAlignmentFile)
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
@@ -189,6 +193,9 @@ for sample in good_samples:
 	fm_obj.uploadData(fm_obj.localSampleBamDir)
 	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 
+	fm_obj.downloadData(fm_obj.localAlignmentFile)
+	a_dt = pd.read_csv(fm_obj.localAlignmentFile)
+	pd.set_trace()
 	a_dt = a_dt.append(sample_data, ignore_index = True)
 	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
 	fm_obj.uploadData(fm_obj.localAlignmentFile, upload_async = True)
