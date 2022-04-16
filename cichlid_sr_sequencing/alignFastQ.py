@@ -195,7 +195,7 @@ for sample in good_samples:
 
 	fm_obj.downloadData(fm_obj.localAlignmentFile)
 	a_dt = pd.read_csv(fm_obj.localAlignmentFile)
-	pd.set_trace()
+	pdb.set_trace()
 	a_dt = a_dt.append(sample_data, ignore_index = True)
 	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
 	fm_obj.uploadData(fm_obj.localAlignmentFile, upload_async = True)
