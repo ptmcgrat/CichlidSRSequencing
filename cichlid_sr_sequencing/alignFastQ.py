@@ -56,6 +56,7 @@ existing_bams = list(a_dt.SampleID)
 for sample in good_samples:
 	if sample in ['SAMEA1904331']:
 		print('Skipping ' + sample + '. Problematic.')
+		continue
 	if sample in existing_bams:
 		print(sample + ' already analyzed. Skipping...')
 		continue
