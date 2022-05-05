@@ -54,7 +54,7 @@ existing_bams = list(a_dt.SampleID)
 
 
 for sample in good_samples:
-	if sample in ['SAMEA1904331', 'SAMEA1904330', 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090']:
+	if sample in ['SAMEA1904331', 'SAMEA1904330', 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329']:
 		print('Skipping ' + sample + '. Problematic.')
 		continue
 	if sample in existing_bams:
