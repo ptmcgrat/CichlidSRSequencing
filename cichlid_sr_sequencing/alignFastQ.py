@@ -94,7 +94,7 @@ for sample in good_samples:
 		ind_files = [fm_obj.localTempDir + sample + '.' + str(x) + '.unsorted.sam' for x in range(i+1)]
 		for ind_file in ind_files:
 			inputs = inputs + ['-I', ind_file]
-		subprocess.run(['gatk', 'MergeSamFiles'] + inputs + ['-O', unsorted_sam], stderr = open('TempErrors.txt', 'a'))
+		subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', self.localTempDir] + inputs + ['-O', unsorted_sam], stderr = open('TempErrors.txt', 'a'))
 		subprocess.run(['rm','-f'] + ind_files)
 
 	print('Marking duplicates and sorting... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
