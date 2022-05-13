@@ -42,12 +42,12 @@ for i in range(3):
 print('  Converting fastq files to uBam file')
 command = ['gatk', 'FastqToSam', '--FASTQ', local_fq1, '--FASTQ2', local_fq2, '--READ_GROUP_NAME', args.RunID]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
-subprocess.run(commmand)
+subprocess.run(command)
 
 # Mark illumina adapters
 print('  Marking Illumina adapters')
 command = ['gatk', 'MarkIlluminaAdapters', '-I', temp_bam_file, '-O', args.OutputBam, '-M', args.OutputBam + '.metrics.txt', '--TMP_DIR', args.Temp_directory]
-subprocess.run(commmand)
+subprocess.run(command)
 
 # Upload data to dropbox
 print('  Uploading uBam files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
