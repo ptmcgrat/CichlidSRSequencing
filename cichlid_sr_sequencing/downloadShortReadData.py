@@ -85,6 +85,7 @@ for index, row in new_dt.iterrows():
 		print('  Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
+		pdb.set_trace()
 		sample_dt.to_csv(master_sample_data, index = False)
 		fm_obj.uploadData(master_sample_data)
 		print('Database uploaded')
