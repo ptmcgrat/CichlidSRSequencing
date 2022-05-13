@@ -37,6 +37,7 @@ new_dt['File'] = ''
 
 # Loop through runs and download data and convert to uBam
 processes = []
+rows = []
 for index, row in new_dt.iterrows():
 	run_id, library_id, sample_id, platform, layout = row['RunID'], row['LibraryID'], row['SampleID'], row['Platform'], row['LibraryLayout']
 	output_bamfile = fm_obj.localReadsDir + row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
@@ -47,6 +48,7 @@ for index, row in new_dt.iterrows():
 		continue
 
 	# Make sure we this run hasn't already been added to the sample database
+	pdb.set_trace()
 	if run_id in sample_dt['RunID']:
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
@@ -79,23 +81,31 @@ for index, row in new_dt.iterrows():
 	processes.append(subprocess.Popen(command))
 
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
-	sample_dt = sample_dt.append(row)
+	rows.append(row)
 
 	if len(processes) == 12:
 		print('  Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
-		pdb.set_trace()
+		# Check to see if process was successful
+		for i, p in enumerate(processes):
+			if p.returncode == 0:	
+				sample_dt = sample_dt.append(rows[i])
+
 		sample_dt.to_csv(master_sample_data, index = False)
 		fm_obj.uploadData(master_sample_data)
 		print('Database uploaded')
 		processes = []
 
 if len(processes) != 0:
+	print('  Waiting for processes to complete')
 	for p in processes:
 		p.communicate()
-	pdb.set_trace()
-	print('Waiting for processes to complete')
+		# Check to see if process was successful
+	for i, p in enumerate(processes):
+		if p.returncode == 0:	
+			sample_dt = sample_dt.append(rows[i])
+
 	sample_dt.to_csv(master_sample_data, index = False)
 	fm_obj.uploadData(master_sample_data)
 	print('Database uploaded')
