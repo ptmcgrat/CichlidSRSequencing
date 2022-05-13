@@ -5,27 +5,32 @@ from multiprocessing import cpu_count
 import pandas as pd
 
 
+# Need to make SampleIDs and ProjectIDs mutually exclusive
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice')
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
 parser.add_argument('-s', '--SampleIDs', nargs = '+', help = 'Restrict analysis to the following sampleIDs')
 parser.add_argument('-p', '--ProjectID', type = str, help = 'Restrict analysis to a specific ProjectID')
 args = parser.parse_args()
 
+# Create FileManager object to keep track of filenames
 fm_obj = FM(args.Genome)
 
+# Make sure genome version is a valid option
 if args.Genome not in fm_obj.returnGenomeVersions():
 	raise argparse.ArgumentTypeError('Genome version does not exist. Options are: ' + ','.join(fm_obj.returnGenomeVersions()))
 
-
+# Download master sample database and read it in (this contains info on valid sampleIDs, projectIDs, and file locations)
 fm_obj.downloadData(fm_obj.localSampleFile)
 s_dt = pd.read_csv(fm_obj.localSampleFile)
 
+# If running on projectID, make sure it is valid and subset sample database to those with the right projectID
 if args.ProjectID is not None:
+	if args.ProjectID not in s_dt.ProjectID:
+		raise argparse.ArgumentTypeError('ProjectID does not exist. Options are: ' + ','.join(set(args.ProjectID)))
 	s_dt = s_dt[s_dt.ProjectID == args.ProjectID]
+	good_samples = set(s_dt.SampleID)
 
-fm_obj.downloadData(fm_obj.localAlignmentFile)
-a_dt = pd.read_csv(fm_obj.localAlignmentFile)
-
+# If running on sampleIDs, make sure they are valid
 if args.SampleIDs is not None:
 	bad_samples = []
 	for sample in args.SampleIDs:
@@ -33,12 +38,12 @@ if args.SampleIDs is not None:
 			bad_samples.append(sample)
 
 	if len(bad_samples) > 0:
-		raise argparse.ArgumentTypeError('The following samples were not found: ' + ','.join(bad_samples))
-
+		raise argparse.ArgumentTypeError('The following samples were not found in sample database: ' + ','.join(bad_samples))
 	good_samples = set(args.SampleIDs)
 
-else:
-	good_samples = set(s_dt.SampleID)
+# Download master alignment database to keep track of samples that have been aligned
+fm_obj.downloadData(fm_obj.localAlignmentFile)
+a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 
 # Make directories necessary for analysis
 os.makedirs(fm_obj.localMasterDir, exist_ok = True)
@@ -46,62 +51,79 @@ os.makedirs(fm_obj.localTempDir, exist_ok = True)
 os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
 
 # Download genome data necessary for analysis		
-print('Downloading genome and sample file: ' + str(datetime.datetime.now()))
+print('Downloading genome: ' + str(datetime.datetime.now()))
 fm_obj.downloadData(fm_obj.localGenomeDir)
 
-# Get list of bam files already run
-existing_bams = list(a_dt.SampleID)
-
-
+# Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
+	# Manually exclude samples that are problematic until debugging can be completed
 	if sample in ['SAMEA1904330', 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329', 'SAMEA1904328', 'SAMEA4032091', 'SAMEA1920092']:
 		print('Skipping ' + sample + '. Problematic.')
 		continue
-	if sample in existing_bams:
-		print(sample + ' already analyzed. Skipping...')
+
+	# Determine if sample has already been aligned to genome version
+	sub_a_dt = a_dt[(a_dt.SampleID == sample) & (a_dt.Genome == args.Genome)]
+	if len(sub_a_dt) != 0:
+		print(sample + ' already aligned to ' + args.Genome + '. Skipping...')
 		continue
 
+	# Make directories and appropriate files
 	print('Processing sample: ' + sample + ': ' + str(datetime.datetime.now()))
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
+	sorted_bam = fm_obj.localTempDir + sample + '.sorted.bam'
+	sample_dt = s_dt[s_dt.SampleID == sample] # <- dataframe of all runs that match the same sample
 
-	unsorted_sam = fm_obj.localTempDir + sample + '.unsorted.sam'
-
-	sample_dt = s_dt[s_dt.SampleID == sample]
-
-	# Loop through all of the fastq files
-
-
+	# Loop through all of the runs for a sample
 	for i, (index,row) in enumerate(sample_dt.iterrows()):
+		print('Downloading uBam files for Run: ' + row['RunID'] + ' :' + str(datetime.datetime.now()))
 
-		print('Downloading fastq files for Run: ' + row['RunID'] + ' :' + str(datetime.datetime.now()))
-		# Download fastq files
-		fq1 = fm_obj.localReadsDir + row.Files.split(',,')[0]
-		fq2 = fm_obj.localReadsDir + row.Files.split(',,')[1]
-		fm_obj.downloadData(fq1)
-		fm_obj.downloadData(fq2)
+		# Download unmapped bam file
+		uBam_file = fm_obj.localReadsDir + row.File
+		fm_obj.downloadData(uBam_file)
 
+		# Create temporary outputfile
+		t_bam = fm_obj.localTempDir + sample + '.' + str(i) + '.sorted.bam'
+
+		# Align unmapped bam file following best practices
+		# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
 		print('Aligning fastq files for Run: ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 		# Align fastq files and sort them
-		t_sam = fm_obj.localTempDir + sample + '.' + str(i) + '.unsorted.sam'
-		subprocess.run(['bwa', 'mem', '-t', str(cpu_count()), '-R', row.ReadGroup.replace('\t','\\t'), '-M', fm_obj.localGenomeFile, fq1, fq2], stdout = open(t_sam, 'w'), stderr = open('TempErrors.txt', 'a'))
-		subprocess.run(['rm', '-f', fq1, fq2])
+		# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence
+		command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+		command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localTempDir]
 
+		# Second command aligns fastq data to reference
+		command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, '/dev/stdin']
+
+		# Final command reads read group information to aligned bam file and sorts it
+		# Figure out how to keep hard clipping
+		command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
+		command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+		command3 += ['--INCLUDE_SCEONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+		command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
+
+		# Figure out how to pipe 3 commands together
+
+		# Remove unmapped reads
+		subprocess.run(['rm', '-f', uBam_file])
+
+	print('Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
-		subprocess.run(['mv', t_sam, unsorted_sam])
+		subprocess.run(['mv', t_bam, sorted_bam])
 	else:
 		inputs = []
-		ind_files = [fm_obj.localTempDir + sample + '.' + str(x) + '.unsorted.sam' for x in range(i+1)]
+		ind_files = [fm_obj.localTempDir + sample + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
 		for ind_file in ind_files:
 			inputs = inputs + ['-I', ind_file]
-		subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', unsorted_sam], stderr = open('TempErrors.txt', 'a'))
+		subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'))
 		subprocess.run(['rm','-f'] + ind_files)
 
-	print('Marking duplicates and sorting... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	subprocess.run(['gatk', 'MarkDuplicatesSpark', '-I', unsorted_sam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
+	print('Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
+	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
 
 	# Remove remaining files
-	subprocess.run(['rm','-f',unsorted_sam])
+	subprocess.run(['rm','-f',sorted_bam])
 
 	align_file = pysam.AlignmentFile(fm_obj.localBamFile) 
 	unmapped = pysam.AlignmentFile(fm_obj.localUnmappedBamFile, mode = 'wb', template = align_file)

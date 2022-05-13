@@ -5,22 +5,30 @@ parser = argparse.ArgumentParser(usage = 'This script grabs the ENA data for a r
 parser.add_argument('RunID', type = str, help = 'File containing information on each run')
 parser.add_argument('ENA_fq1', type = str, help = 'File containing information on each run')
 parser.add_argument('ENA_fq2', type = str, help = 'File containing information on each run')
-parser.add_argument('Local_fq1', type = str, help = 'File containing information on each run')
-parser.add_argument('Local_fq2', type = str, help = 'File containing information on each run')
+parser.add_argument('OutputBam', type = str, help = 'Location of output bam files')
+parser.add_argument('Temp_directory', type = str, help = 'Directory to temporarily hold datafiles')
+parser.add_argument('SampleName', type = str, help = 'Info for creating read group tag for bam file')
+parser.add_argument('LibraryName', type = str, help = 'Info for creating read group tag for bam file')
+parser.add_argument('Platform', type = str, help = 'Info for creating read group tag for bam file')
 
 args = parser.parse_args()
 
 fm_obj = FM()
 
-target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
-print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
+target_directory = args.Temp_directory
+local_fq1 = args.Temp_directory + args.RunID + '_1.fastq.gz'
+local_fq2 = args.Temp_directory + args.RunID + '_2.fastq.gz'
+temp_bam_file = args.Temp_directory + args.RunID + '_temp.bam'
 
+#target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
+print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 for i in range(3):
 	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.ENA_fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 	if output.returncode == 0:
 		break
 	elif i == 2:
 		sys.exit()
+	print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 for i in range(3):
 	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.ENA_fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
@@ -30,10 +38,22 @@ for i in range(3):
 		sys.exit()
 	print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
-print('  Rcloning files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
-fm_obj.uploadData(args.Local_fq1)
-fm_obj.uploadData(args.Local_fq2)
+# Convert fastq files to unmapped bam
+print('  Converting fastq files to uBam file')
+command = ['gatk', 'FastqToSam', '--FASTQ', local_fq1, '--FASTQ2', local_fq2, '--READ_GROUP_NAME', args.RunID]
+command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
+subprocess.run(commmand)
+
+# Mark illumina adapters
+print('  Marking Illumina adapters')
+command = ['gatk', 'MarkIlluminaAdapters', '-I', temp_bam_file, '-O', args.OutputBam, '-M', args.OutputBam + '.metrics.txt', '--TMP_DIR', args.Temp_directory]
+subprocess.run(commmand)
+
+# Upload data to dropbox
+print('  Uploading uBam files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
+fm_obj.uploadData(args.OutputBam)
+fm_obj.uploadData(args.OutputBam + '.metrics.txt')
 print('  Finished for' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 
-subprocess.run(['rm', args.Local_fq1])
-subprocess.run(['rm', args.Local_fq2])
+# Remove files that were created
+subprocess.run(['rm', local_fq1, local_fq2, temp_bam_file, args.OutputBam, args.OutputBam + '.metrics.txt'])

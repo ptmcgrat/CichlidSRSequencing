@@ -15,4 +15,11 @@ fm_obj.downloadData(master_sample_data)
 new_dt = pd.read_csv(args.Run_Info_File)
 sample_dt = pd.read_csv(master_sample_data)
 
+sample_species_dt = new_dt.groupby(['BioSample','ArrayExpress-SPECIES']).count()['Organism'].reset_index()[['BioSample','ArrayExpress-SPECIES']]
+
+pd.merge(sample_dt, sample_species_dt)
+new_dt = pd.merge(sample_species_dt, sample_dt, left_on = 'BioSample', right_on = 'SampleID')
+new_dt.to_csv(fm_obj.localSampleFile, index = False)
+fm_obj.uploadData(fm_obj.localSampleFile)
+
 pdb.set_trace()

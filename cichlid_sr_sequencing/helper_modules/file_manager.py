@@ -49,6 +49,7 @@ class FileManager():
 		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
+		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 

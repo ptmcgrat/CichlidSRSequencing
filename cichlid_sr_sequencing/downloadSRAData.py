@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from helper_modules.file_manager import FileManager as FM
 
-parser = argparse.ArgumentParser(usage = 'This script will download fastq data from the SRA database and place it into the McGrath Apps Sequencing folder\n \
+parser = argparse.ArgumentParser(usage = 'This script will download fastq data from the ENA database and place it into the McGrath Apps Sequencing folder\n \
 										  Data in the Run Info File should be Run,AvgSpotLen,Bases,BioProject,BioSample,Experiment,Instrument,LibraryName,LibraryLayout,LibrarySelect,LibrarySource,Organism,Platform,SRA Study')
 parser.add_argument('Run_Info_File', type = str, help = 'File containing information on each run')
 
