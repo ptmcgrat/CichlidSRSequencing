@@ -21,8 +21,8 @@ fm_obj.downloadData(master_sample_data)
 sample_dt = pd.read_csv(master_sample_data)
 
 # Download and open run info file that contains new data to include
-fm_obj.downloadData(self.localReadDownloadDir + args.Run_Info_File)
-new_dt = pd.read_csv(self.localReadDownloadDir + args.Run_Info_File)
+fm_obj.downloadData(fm_obj.localReadDownloadDir + args.Run_Info_File)
+new_dt = pd.read_csv(fm_obj.localReadDownloadDir + args.Run_Info_File)
 
 # Basic Error checking
 if len(set(new_dt.Run)) != len(new_dt):
