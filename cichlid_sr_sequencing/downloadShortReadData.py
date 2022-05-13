@@ -75,7 +75,7 @@ for index, row in new_dt.iterrows():
 	ena_fq2 = ftps[1]
 
 	# Asynchronously download fastq files (up to 12 at a time)
-	command = ['python3', 'unit_scripts/grabENA.py', run_id, ena_fq1, enafq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform]
+	command = ['python3', 'unit_scripts/grabENA.py', run_id, ena_fq1, ena_fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform]
 	processes.append(subprocess.Popen(command))
 
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
