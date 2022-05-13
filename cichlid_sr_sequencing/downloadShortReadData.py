@@ -94,6 +94,7 @@ for index, row in new_dt.iterrows():
 if len(processes) != 0:
 	for p in processes:
 		p.communicate()
+	pdb.set_trace()
 	print('Waiting for processes to complete')
 	sample_dt.to_csv(master_sample_data, index = False)
 	fm_obj.uploadData(master_sample_data)
