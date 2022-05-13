@@ -38,8 +38,7 @@ new_dt['File'] = ''
 # Loop through runs and download data and convert to uBam
 processes = []
 for index, row in new_dt.iterrows():
-	pdb.set_trace()
-	run_id, library_id, sample_id, platform, layout = row['RowID'], row['LibraryID'], row['SampleID'], row['Platform'], row['LibraryLayout']
+	run_id, library_id, sample_id, platform, layout = row['RunID'], row['LibraryID'], row['SampleID'], row['Platform'], row['LibraryLayout']
 	output_bamfile = fm_obj.localReadsDir + row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 
 	# Make sure we are analyzing paired end reads
