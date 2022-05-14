@@ -102,10 +102,10 @@ for sample in good_samples:
 		# Second command aligns fastq data to reference
 		command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, '/dev/stdin']
 
-		# Debugging
-		command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
-		subprocess.run(command2)
-		pdb.set_trace()
+		# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+		#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
+		#subprocess.run(command2)
+		#pdb.set_trace()
 
 		# Final command reads read group information to aligned bam file and sorts it
 		# Figure out how to keep hard clipping
@@ -113,6 +113,14 @@ for sample in good_samples:
 		command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 		command3 += ['--INCLUDE_SCEONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
 		command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
+
+		# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+		command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', m_obj.localTempDir + 'testing.sam']
+		command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+		command3 += ['--INCLUDE_SCEONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+		command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
+		subprocess.run(command3)
+		pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
 
