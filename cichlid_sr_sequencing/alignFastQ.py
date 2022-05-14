@@ -62,7 +62,7 @@ for sample in good_samples:
 		continue
 
 	# Determine if sample has already been aligned to genome version
-	sub_a_dt = a_dt[(a_dt.SampleID == sample) & (a_dt.Genome == args.Genome)]
+	sub_a_dt = a_dt[(a_dt.SampleID == sample) & (a_dt.GenomeVersion == args.Genome)]
 	if len(sub_a_dt) != 0:
 		print(sample + ' already aligned to ' + args.Genome + '. Skipping...')
 		continue
