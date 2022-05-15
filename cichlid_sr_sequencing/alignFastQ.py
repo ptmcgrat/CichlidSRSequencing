@@ -123,16 +123,16 @@ for sample in good_samples:
 		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
-		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE)
-		p2 = subprocess.Popen(commadn2, stdin = p1.stdout, stdout = subprocesss.PIPE)
+		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocesss.PIPE, stderr = subprocess.DEVNULL)
 		p1.stdout.close()
-		p3 = subprocess.Popen(command3, stdin = p2.stdout)
+		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL)
 		p2.stdout.close()
 		output = p3.communicate()
 		pdb.set_trace()
 
 		# Remove unmapped reads
-		subprocess.run(['rm', '-f', uBam_file])
+		#subprocess.run(['rm', '-f', uBam_file])
 
 	print('Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
@@ -149,7 +149,7 @@ for sample in good_samples:
 	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
 
 	# Remove remaining files
-	subprocess.run(['rm','-f',sorted_bam])
+	#subprocess.run(['rm','-f',sorted_bam])
 
 	align_file = pysam.AlignmentFile(fm_obj.localBamFile) 
 	unmapped = pysam.AlignmentFile(fm_obj.localUnmappedBamFile, mode = 'wb', template = align_file)
@@ -196,8 +196,11 @@ for sample in good_samples:
 
 		# Clipped
 		if read.cigarstring is not None:
+			if read.has_tag('XM'): # Adapters present - clipped
+				continue
 			for pair in read.cigartuples:
 				if pair[0] == 4 and pair[1] > 4:
+					pdb.set_trace()
 					clipped.write(read)
 					read_data['ClippedReads'] += 1
 					break
