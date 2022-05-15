@@ -115,14 +115,21 @@ for sample in good_samples:
 		command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
 
 		# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-		command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
-		command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-		command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-		command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
-		subprocess.run(command3)
-		pdb.set_trace()
+		#command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
+		#command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+		#command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+		#command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
+		#subprocess.run(command3)
+		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
+		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE)
+		p2 = subprocess.Popen(commadn2, stdin = p1.stdout, stdout = subprocesss.PIPE)
+		p1.stdout.close()
+		p3 = subprocess.Popen(command3, stdin = p2.stdout)
+		p2.stdout.close()
+		output = p3.communicate()
+		pdb.set_trace()
 
 		# Remove unmapped reads
 		subprocess.run(['rm', '-f', uBam_file])
