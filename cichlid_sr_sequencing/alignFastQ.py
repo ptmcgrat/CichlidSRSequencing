@@ -68,7 +68,7 @@ for sample in good_samples:
 		continue
 
 	# Make directories and appropriate files
-	print('Processing sample: ' + sample + ': ' + str(datetime.datetime.now()))
+	print(' Processing sample: ' + sample + ': ' + str(datetime.datetime.now()))
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
 	sorted_bam = fm_obj.localTempDir + sample + '.sorted.bam'
@@ -76,7 +76,7 @@ for sample in good_samples:
 
 	# Loop through all of the runs for a sample
 	for i, (index,row) in enumerate(sample_dt.iterrows()):
-		print('Downloading uBam files for Run: ' + row['RunID'] + ' :' + str(datetime.datetime.now()))
+		print('  Downloading uBam files for Run: ' + row['RunID'] + ' :' + str(datetime.datetime.now()))
 
 		# Download unmapped bam file
 		uBam_file = fm_obj.localReadsDir + row.File
@@ -87,7 +87,7 @@ for sample in good_samples:
 
 		# Align unmapped bam file following best practices
 		# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
-		print('Aligning fastq files for Run: ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
+		print('  Aligning fastq files for Run: ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 		# Align fastq files and sort them
 		# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
 		command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
@@ -133,7 +133,7 @@ for sample in good_samples:
 		# Remove unmapped reads
 		#subprocess.run(['rm', '-f', uBam_file])
 
-	print('Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
+	print(' Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
 		pdb.set_trace
 		subprocess.run(['mv', t_bam, sorted_bam])
@@ -145,8 +145,8 @@ for sample in good_samples:
 		subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'))
 		subprocess.run(['rm','-f'] + ind_files)
 
-	print('Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--TMP_DIR', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
+	print(' Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
+	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--TMP_DIR', fm_obj.localTempDir], stderr = open('TempErrors.txt', 'a'))
 	pdb.set_trace()
 	# Remove remaining files
 	#subprocess.run(['rm','-f',sorted_bam])
@@ -160,7 +160,7 @@ for sample in good_samples:
 	chimeric = pysam.AlignmentFile(fm_obj.localChimericBamFile, mode = 'wb', template = align_file)
 
 	# Go through all reads and process them into appropriate categories
-	print('Splitting reads based upon their alignment: ' + str(datetime.datetime.now()))
+	print(' Splitting reads based upon their alignment: ' + str(datetime.datetime.now()))
 	read_data = defaultdict(int)
 	for read in align_file.fetch(until_eof=True):
 		read_data['TotalReads'] += 1
@@ -244,7 +244,7 @@ for sample in good_samples:
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
 
 	# Upload data and delete
-	print('Uploading data: ' + str(datetime.datetime.now()))
+	print(' Uploading data: ' + str(datetime.datetime.now()))
 	fm_obj.uploadData(fm_obj.localSampleBamDir)
 	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 
