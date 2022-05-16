@@ -136,7 +136,6 @@ for sample in good_samples:
 	print(' Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
 		pass
-		pdb.set_trace()
 		subprocess.run(['mv', t_bam, sorted_bam])
 	else:
 		inputs = []
@@ -148,7 +147,6 @@ for sample in good_samples:
 
 	print(' Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	#output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
-	pdb.set_trace()
 	# Remove remaining files
 	#subprocess.run(['rm','-f',sorted_bam])
 
@@ -222,6 +220,7 @@ for sample in good_samples:
 			read_data['ChimericReads'] += 1
 
 
+	pdb.set_trace()
 	coverage = read_data['MappedReads'] / sum(align_file.lengths) * len(read.seq)
 
 	align_file.close()
