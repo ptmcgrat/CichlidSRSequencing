@@ -175,12 +175,14 @@ for sample in good_samples:
 			# One read is unmapped
 			elif read.is_unmapped or read.mate_is_unmapped:
 				discordant.write(read)
-				read_data['DiscordantReadsB'] += 1             
+				read_data['DiscordantReadsOneUnmapped'] += 1             
 			# Chromosome fusion
 			elif read.reference_id!=read.next_reference_id:
 				discordant.write(read)
-				pdb.set_trace()
-				read_data['DiscordantReads'] += 1
+				if read.get_tag('MQ') == 0:
+					read_data['DiscordantReadsMatePoorMapping'] += 1
+				else:
+					read_data['DiscordantReadsMateGoodMapping'] += 1
 			# Inversion
 			elif read.is_reverse == read.mate_is_reverse:
 				inversion.write(read)
