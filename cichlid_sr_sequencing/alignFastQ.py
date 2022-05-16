@@ -71,7 +71,7 @@ for sample in good_samples:
 	print('Processing sample: ' + sample + ': ' + str(datetime.datetime.now()))
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
-	sorted_bam = fm_obj.localSampleBamDir + sample + '.sorted.bam'
+	sorted_bam = fm_obj.localTempDir + sample + '.sorted.bam'
 	sample_dt = s_dt[s_dt.SampleID == sample] # <- dataframe of all runs that match the same sample
 
 	# Loop through all of the runs for a sample
@@ -146,7 +146,7 @@ for sample in good_samples:
 		subprocess.run(['rm','-f'] + ind_files)
 
 	print('Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
+	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--TMP_DIR', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
 	pdb.set_trace()
 	# Remove remaining files
 	#subprocess.run(['rm','-f',sorted_bam])
@@ -205,6 +205,7 @@ for sample in good_samples:
 					read_data['ClippedReads'] += 1
 					break
 				elif pair[0] == 5 and pair[1] > 4:
+					pdb.set_trace()
 					clipped.write(read)
 					read_data['ClippedReads'] += 1
 					break
