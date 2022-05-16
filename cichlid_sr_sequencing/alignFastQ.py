@@ -214,16 +214,15 @@ for sample in good_samples:
 				if avg_quality < 58: # phred score < 25
 					continue
 				clipped.write(read)
-				read_data['ClippedReads'] += 1
+				read_data['ClippedReadsF'] += 1
 				continue
 			elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
 				qualities = [ord(x) for x in read.qual]
 				avg_quality = sum(qualities[-1*read.cigartuples[-1][1]:])/read.cigartuples[-1][1]
 				if avg_quality < 58: # phred score < 25
 					continue
-				pdb.set_trace()
 				clipped.write(read)
-				read_data['ClippedReads'] += 1
+				read_data['ClippedReadsR'] += 1
 				continue
 	
 
