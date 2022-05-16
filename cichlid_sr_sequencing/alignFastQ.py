@@ -193,7 +193,12 @@ for sample in good_samples:
 				unmapped.write(read)
 				read_data['UnmappedReads'] += 1
 
-		# Clipped
+		# Check if read is chimeric
+		if read.has_tag('SA'):
+			chimeric.write(read)
+			read_data['ChimericReads'] += 1
+
+		# Check if read is soft clipped
 		if read.cigarstring is not None and read.cigarstring.count('S') == 1:
 			if read.has_tag('XM'): # Adapters present - clipping likely due to that
 				break
@@ -214,10 +219,7 @@ for sample in good_samples:
 				clipped.write(read)
 				read_data['ClippedReads'] += 1
 				break
-	# Chimeric
-		if read.has_tag('SA'):
-			chimeric.write(read)
-			read_data['ChimericReads'] += 1
+	
 
 
 	pdb.set_trace()
