@@ -123,15 +123,15 @@ for sample in good_samples:
 		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
-		#p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p1.stdout.close()
-		#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
-		#p2.stdout.close()
-		#output = p3.communicate()
+		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p1.stdout.close()
+		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+		p2.stdout.close()
+		output = p3.communicate()
 
 		# Remove unmapped reads
-		#subprocess.run(['rm', '-f', uBam_file])
+		subprocess.run(['rm', '-f', uBam_file])
 
 	print(' Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
@@ -146,9 +146,9 @@ for sample in good_samples:
 		subprocess.run(['rm','-f'] + ind_files)
 
 	print(' Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	#output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
+	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
 	# Remove remaining files
-	#subprocess.run(['rm','-f',sorted_bam])
+	subprocess.run(['rm','-f',sorted_bam])
 
 	align_file = pysam.AlignmentFile(fm_obj.localBamFile) 
 	unmapped = pysam.AlignmentFile(fm_obj.localUnmappedBamFile, mode = 'wb', template = align_file)
@@ -175,6 +175,7 @@ for sample in good_samples:
 			# One read is unmapped
 			elif read.is_unmapped or read.mate_is_unmapped:
 				discordant.write(read)
+				pdb.set_trace()
 				read_data['DiscordantReadsOneUnmapped'] += 1             
 			# Chromosome fusion
 			elif read.reference_id!=read.next_reference_id:
@@ -250,7 +251,7 @@ for sample in good_samples:
 
 
 	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage, 'TotalReads': read_data['TotalReads'], 
-				   'MappedReads': read_data['MappedReads'], 'UnmappedReads': read_data['UnmappedReads'], 'DiscordantReads': read_data['DiscordantReads'], 'InversionReads': read_data['InversionReads'], 
+				   'MappedReads': read_data['MappedReads'], 'UnmappedReads': read_data['UnmappedReads'], 'DiscordantReads': read_data['DiscordantReads'], 'DiscordantReads': read_data['DiscordantReads'], 'DiscordantReads': read_data['DiscordantReads'], 'InversionReads': read_data['InversionReads'], 
 				   'DuplicationReads': read_data['DuplicationReads'], 'ClippedReads': read_data['ClippedReads'], 'ChimericReads': read_data['ChimericReads'], 'DuplicatedReads': read_data['DuplicatedReads']}
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
