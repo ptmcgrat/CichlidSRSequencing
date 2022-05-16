@@ -146,7 +146,7 @@ for sample in good_samples:
 		subprocess.run(['rm','-f'] + ind_files)
 
 	print(' Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--TMP_DIR', fm_obj.localTempDir], stderr = open('TempErrors.txt', 'a'))
+	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir], stderr = open('TempErrors.txt', 'a'))
 	pdb.set_trace()
 	# Remove remaining files
 	#subprocess.run(['rm','-f',sorted_bam])
