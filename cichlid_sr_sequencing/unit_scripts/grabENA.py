@@ -10,6 +10,7 @@ parser.add_argument('Temp_directory', type = str, help = 'Directory to temporari
 parser.add_argument('SampleName', type = str, help = 'Info for creating read group tag for bam file')
 parser.add_argument('LibraryName', type = str, help = 'Info for creating read group tag for bam file')
 parser.add_argument('Platform', type = str, help = 'Info for creating read group tag for bam file')
+parser.add_argument('-t', '--TestData', action = 'store_true', help = 'Use this flag if you want to create a small test file (1000 reads) instead of the entire read set')
 
 args = parser.parse_args()
 
