@@ -201,24 +201,24 @@ for sample in good_samples:
 		# Check if read is soft clipped
 		if read.cigarstring is not None and read.cigarstring.count('S') == 1:
 			if read.has_tag('XM'): # Adapters present - clipping likely due to that
-				break
+				continue
 			if read.is_secondary: # Not the primary alignment
-				break
+				continue
 			if read.mapq == 0: # Not uniquely mapped
-				break
+				continue
 			if read.cigartuples[0][0] != 4 and read.cigartuples[-1][0] != 4: # S must be first or last tuple
-				break
+				continue
 			if read.cigartuples[0][0] == 4 and read.cigartuples[0][1] > 5: #Soft clipping first and longer than 5 bp
 				qualities = [ord(x) for x in read.qual]
 				pdb.set_trace()
 				clipped.write(read)
 				read_data['ClippedReads'] += 1
-				break
+				continue
 			elif pair[0] == 5 and pair[1] > 4:
 				pdb.set_trace()
 				clipped.write(read)
 				read_data['ClippedReads'] += 1
-				break
+				continue
 	
 
 
