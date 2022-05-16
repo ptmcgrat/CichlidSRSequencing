@@ -175,10 +175,11 @@ for sample in good_samples:
 			# One read is unmapped
 			elif read.is_unmapped or read.mate_is_unmapped:
 				discordant.write(read)
-				read_data['DiscordantReads'] += 1             
+				read_data['DiscordantReadsB'] += 1             
 			# Chromosome fusion
 			elif read.reference_id!=read.next_reference_id:
 				discordant.write(read)
+				pdb.set_trace()
 				read_data['DiscordantReads'] += 1
 			# Inversion
 			elif read.is_reverse == read.mate_is_reverse:
@@ -214,7 +215,7 @@ for sample in good_samples:
 				if avg_quality < 58: # phred score < 25
 					continue
 				clipped.write(read)
-				read_data['ClippedReadsF'] += 1
+				read_data['ClippedReads'] += 1
 				continue
 			elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
 				qualities = [ord(x) for x in read.qual]
@@ -222,7 +223,7 @@ for sample in good_samples:
 				if avg_quality < 58: # phred score < 25
 					continue
 				clipped.write(read)
-				read_data['ClippedReadsR'] += 1
+				read_data['ClippedReads'] += 1
 				continue
 	
 
