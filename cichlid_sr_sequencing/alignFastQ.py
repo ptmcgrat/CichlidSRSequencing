@@ -218,7 +218,7 @@ for sample in good_samples:
 				continue
 			elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
 				qualities = [ord(x) for x in read.qual]
-				avg_quality = sum(qualities[-1*read.cigartuples[-1][1]:])/read.cigartuples[0][1]
+				avg_quality = sum(qualities[-1*read.cigartuples[-1][1]:])/read.cigartuples[-1][1]
 				if avg_quality < 58: # phred score < 25
 					continue
 				pdb.set_trace()
