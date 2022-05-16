@@ -210,6 +210,7 @@ for sample in good_samples:
 				continue
 			if read.cigartuples[0][0] == 4 and read.cigartuples[0][1] > 5: #Soft clipping first and longer than 5 bp
 				qualities = [ord(x) for x in read.qual]
+				avg_quality = sum(qualities[:read.cigartuples[0][0]])/read.cigartuples[0][0]
 				pdb.set_trace()
 				clipped.write(read)
 				read_data['ClippedReads'] += 1
