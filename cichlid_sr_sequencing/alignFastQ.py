@@ -123,19 +123,20 @@ for sample in good_samples:
 		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
-		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-		p1.stdout.close()
-		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL)
-		p2.stdout.close()
-		output = p3.communicate()
+		#p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+		#p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+		#p1.stdout.close()
+		#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+		#p2.stdout.close()
+		#output = p3.communicate()
 
 		# Remove unmapped reads
 		#subprocess.run(['rm', '-f', uBam_file])
 
 	print(' Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
-		pdb.set_trace
+		pass
+		pdb.set_trace()
 		subprocess.run(['mv', t_bam, sorted_bam])
 	else:
 		inputs = []
@@ -146,7 +147,7 @@ for sample in good_samples:
 		subprocess.run(['rm','-f'] + ind_files)
 
 	print(' Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir], stderr = open('TempErrors.txt', 'a'))
+	#output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
 	pdb.set_trace()
 	# Remove remaining files
 	#subprocess.run(['rm','-f',sorted_bam])
@@ -195,21 +196,27 @@ for sample in good_samples:
 				read_data['UnmappedReads'] += 1
 
 		# Clipped
-		if read.cigarstring is not None:
-			if read.has_tag('XM'): # Adapters present - clipped
-				continue
-			for pair in read.cigartuples:
-				if pair[0] == 4 and pair[1] > 4:
-					pdb.set_trace()
-					clipped.write(read)
-					read_data['ClippedReads'] += 1
-					break
-				elif pair[0] == 5 and pair[1] > 4:
-					pdb.set_trace()
-					clipped.write(read)
-					read_data['ClippedReads'] += 1
-					break
-		# Chimeric
+		if read.cigarstring is not None and read.cigarstring.count('S') == 1:
+			if read.has_tag('XM'): # Adapters present - clipping likely due to that
+				break
+			if read.is_secondary: # Not the primary alignment
+				break
+			if read.mapq == 0: # Not uniquely mapped
+				break
+			if read.cigartuples[0][0] != 4 and read.cigartuples[-1][0] != 4: # S must be first or last tuple
+				break
+			if read.cigartuples[0][0] == 4 and read.cigartuples[0][1] > 5: #Soft clipping first and longer than 5 bp
+				qualities = [ord(x) for x in read.qual]
+				pdb.set_trace()
+				clipped.write(read)
+				read_data['ClippedReads'] += 1
+				break
+			elif pair[0] == 5 and pair[1] > 4:
+				pdb.set_trace()
+				clipped.write(read)
+				read_data['ClippedReads'] += 1
+				break
+	# Chimeric
 		if read.has_tag('SA'):
 			chimeric.write(read)
 			read_data['ChimericReads'] += 1
