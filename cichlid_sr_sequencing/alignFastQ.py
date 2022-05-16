@@ -71,7 +71,7 @@ for sample in good_samples:
 	print('Processing sample: ' + sample + ': ' + str(datetime.datetime.now()))
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
-	sorted_bam = fm_obj.localTempDir + sample + '.sorted.bam'
+	sorted_bam = fm_obj.localSampleBamDir + sample + '.sorted.bam'
 	sample_dt = s_dt[s_dt.SampleID == sample] # <- dataframe of all runs that match the same sample
 
 	# Loop through all of the runs for a sample
@@ -123,13 +123,12 @@ for sample in good_samples:
 		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
-		#p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p1.stdout.close()
-		#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL)
-		#p2.stdout.close()
-		#output = p3.communicate()
-		#pdb.set_trace()
+		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p1.stdout.close()
+		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL)
+		p2.stdout.close()
+		output = p3.communicate()
 
 		# Remove unmapped reads
 		#subprocess.run(['rm', '-f', uBam_file])
