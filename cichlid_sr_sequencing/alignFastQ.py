@@ -135,6 +135,7 @@ for sample in good_samples:
 
 	print('Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
+		pdb.set_trace
 		subprocess.run(['mv', t_bam, sorted_bam])
 	else:
 		inputs = []
@@ -146,7 +147,7 @@ for sample in good_samples:
 
 	print('Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '--tmp-dir', fm_obj.localTempDir, '-OBI', '--spark-runner', 'LOCAL'], stderr = open('TempErrors.txt', 'a'))
-
+	pdb.set_trace()
 	# Remove remaining files
 	#subprocess.run(['rm','-f',sorted_bam])
 
