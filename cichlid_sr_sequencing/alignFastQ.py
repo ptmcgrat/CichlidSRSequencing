@@ -123,13 +123,13 @@ for sample in good_samples:
 		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
-		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-		p1.stdout.close()
-		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL)
-		p2.stdout.close()
-		output = p3.communicate()
-		pdb.set_trace()
+		#p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+		#p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+		#p1.stdout.close()
+		#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL)
+		#p2.stdout.close()
+		#output = p3.communicate()
+		#pdb.set_trace()
 
 		# Remove unmapped reads
 		#subprocess.run(['rm', '-f', uBam_file])

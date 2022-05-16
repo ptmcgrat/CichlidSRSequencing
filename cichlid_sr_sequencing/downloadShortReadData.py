@@ -11,7 +11,7 @@ https://gatk.broadinstitute.org/hc/en-us/articles/4403687183515--How-to-Generate
 https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently\n \
 Data in the Run Info File should be Run,AvgSpotLen,Bases,BioProject,BioSample,Experiment,Instrument,LibraryName,LibraryLayout,LibrarySelect,LibrarySource,Organism,Platform,SRA Study')
 parser.add_argument('Run_Info_File', type = str, help = 'File containing information on each run')
-
+parser.add_argument('-t', '--TestData', action = 'store_true', help = 'Use this flag if you want to create a small test file (1000 reads) instead of the entire read set')
 args = parser.parse_args()
 
 # Download and open master sample database file and read it in
