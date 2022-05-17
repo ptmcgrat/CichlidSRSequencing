@@ -129,19 +129,18 @@ for sample in good_samples:
 		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
-		#p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p1.stdout.close()
-		#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
-		#p2.stdout.close()
-		#output = p3.communicate()
-		#timer.stop()
+		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p1.stdout.close()
+		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+		p2.stdout.close()
+		output = p3.communicate()
+		timer.stop()
 		# Remove unmapped reads
-		#subprocess.run(['rm', '-f', uBam_file])
+		subprocess.run(['rm', '-f', uBam_file])
 
 	timer.start(' Merging bam files if necessary')
 	if i == 0:
-		pass
 		subprocess.run(['mv', t_bam, sorted_bam])
 	else:
 		inputs = []
@@ -153,9 +152,8 @@ for sample in good_samples:
 	timer.stop()
 
 	timer.start(' Marking duplicates')
-	output = subprocess.run(['gatk', 'MarkDuplicatesSpark', '--spark-master', 'local', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', fm_obj.localTempDir, '-OBI', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
+	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP-DIR', fm_obj.localTempDir, '--CREATE-INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
 	timer.stop()
-	pdb.set_trace()
 	# Remove remaining files
 	subprocess.run(['rm','-f',sorted_bam])
 
@@ -246,6 +244,8 @@ for sample in good_samples:
 
 
 	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage}
+	pdb.set_trace()
+	read_data = {k:v/read_data['AllReads'] for k,v in read_data.items() if k != 'AllReads'}
 	sample_data.update(read_data) # Add read info data
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
