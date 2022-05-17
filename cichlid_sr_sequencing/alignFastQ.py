@@ -162,23 +162,47 @@ for sample in good_samples:
 	print(' Splitting reads based upon their alignment: ' + str(datetime.datetime.now()))
 	read_data = defaultdict(int)
 	for read in align_file.fetch(until_eof=True):
+		total_read_quality = sum([ord(x) - 33 for x in read.qual])/len(read.qual)
 		read_data['TotalReads'] += 1
-		if read.is_paired:
-			if not read.is_unmapped and not read.is_duplicate:
-				read_data['MappedReads'] += 1
-			if read.is_duplicate:
-				read_data['DuplicatedReads'] += 1
-			# Both reads are unmapped
-			elif read.is_unmapped and read.mate_is_unmapped:
+		if read.is_duplicate:
+			read_data['DuplicatedReads'] += 1
+			continue
+		elif read.is_unmapped:
+			if total_read_quality > 25:
 				unmapped.write(read)
-				read_data['UnmappedReads'] += 1
-			# One read is unmapped
-			elif read.is_unmapped or read.mate_is_unmapped:
-				discordant.write(read)
-				pdb.set_trace()
-				read_data['DiscordantReadsOneUnmapped'] += 1             
-			# Chromosome fusion
-			elif read.reference_id!=read.next_reference_id:
+				read_data['UnmappedGQReads'] += 1
+			else:
+				read_data['BadQualityReads'] += 1
+			continue
+		else:
+			read_data['MappedReads'] += 1
+
+			# Check if read is chimeric
+			if read.has_tag('SA'):
+				chimeric.write(read)
+				read_data['ChimericReads'] += 1
+
+			# Check if read is soft clipped
+			elif read.cigarstring.count('S') == 1:
+				# Ensure read is not clipped due to adapter sequence, isn't secondary, and maps uniquely
+				if not read.has_tag('XM') and not read.is_secondary and read.mapq != 0: #
+					if read.cigartuples[0][0] == 4 and read.cigartuples[0][1] > 5: #Soft clipping first and longer than 5 bp
+						clipped_pos = read.cigartuples[0][1]
+						clipped_read_quality = [ord(x) - 33 for x in read.qual[0:clipped_pos]]/clipped_pos
+						if clipped_read_quality > 25: # phred score < 25
+							clipped.write(read)
+							read_data['ClippedReadsF'] += 1
+					elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
+						clipped_pos = read.cigartuples[-1][1]
+						clipped_read_quality = [ord(x) - 33 for x in read.qual[-1*clipped_pos:]]/clipped_pos
+						if clipped_read_quality > 25: # phred score < 25
+							clipped.write(read)
+							read_data['ClippedReadsR'] += 1
+		
+		if not read.mate_is_unmapped:
+
+         	# Chromosome fusion
+			if read.reference_id!=read.next_reference_id:
 				discordant.write(read)
 				if read.get_tag('MQ') == 0:
 					read_data['DiscordantReadsMatePoorMapping'] += 1
@@ -192,44 +216,6 @@ for sample in good_samples:
 			elif ((read.pos < read.mpos and read.is_reverse) or (read.pos > read.mpos and read.mate_is_reverse)) and abs(read.isize) > 102:
 				duplication.write(read)
 				read_data['DuplicationReads'] += 1
-		else:
-			if read.is_unmapped:
-				unmapped.write(read)
-				read_data['UnmappedReads'] += 1
-
-		# Check if read is chimeric
-		if read.has_tag('SA'):
-			chimeric.write(read)
-			read_data['ChimericReads'] += 1
-
-		# Check if read is soft clipped
-		if read.cigarstring is not None and read.cigarstring.count('S') == 1:
-			if read.has_tag('XM'): # Adapters present - clipping likely due to that
-				continue
-			if read.is_secondary: # Not the primary alignment
-				continue
-			if read.mapq == 0: # Not uniquely mapped
-				continue
-			if read.cigartuples[0][0] != 4 and read.cigartuples[-1][0] != 4: # S must be first or last tuple
-				continue
-			if read.cigartuples[0][0] == 4 and read.cigartuples[0][1] > 5: #Soft clipping first and longer than 5 bp
-				qualities = [ord(x) for x in read.qual]
-				avg_quality = sum(qualities[:read.cigartuples[0][1]])/read.cigartuples[0][1]
-				if avg_quality < 58: # phred score < 25
-					continue
-				clipped.write(read)
-				read_data['ClippedReads'] += 1
-				continue
-			elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
-				qualities = [ord(x) for x in read.qual]
-				avg_quality = sum(qualities[-1*read.cigartuples[-1][1]:])/read.cigartuples[-1][1]
-				if avg_quality < 58: # phred score < 25
-					continue
-				clipped.write(read)
-				read_data['ClippedReads'] += 1
-				continue
-	
-
 
 	pdb.set_trace()
 	coverage = read_data['MappedReads'] / sum(align_file.lengths) * len(read.seq)
