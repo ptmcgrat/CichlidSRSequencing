@@ -1,5 +1,6 @@
 import argparse, os, pysam, pdb, subprocess, sys, datetime
 from helper_modules.file_manager import FileManager as FM
+from helper_modules.Timer import Timer
 from collections import defaultdict
 from multiprocessing import cpu_count
 import pandas as pd
@@ -14,6 +15,9 @@ args = parser.parse_args()
 
 # Create FileManager object to keep track of filenames
 fm_obj = FM(args.Genome)
+
+# Create timer object
+timer = Timer()
 
 # Make sure genome version is a valid option
 if args.Genome not in fm_obj.returnGenomeVersions():
@@ -50,9 +54,10 @@ os.makedirs(fm_obj.localMasterDir, exist_ok = True)
 os.makedirs(fm_obj.localTempDir, exist_ok = True)
 os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
 
-# Download genome data necessary for analysis		
-print('Downloading genome: ' + str(datetime.datetime.now()))
+# Download genome data necessary for analysis
+timer.start('Downloading genome')		
 fm_obj.downloadData(fm_obj.localGenomeDir)
+timer.stop()
 
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
@@ -68,7 +73,7 @@ for sample in good_samples:
 		continue
 
 	# Make directories and appropriate files
-	print(' Processing sample: ' + sample + ': ' + str(datetime.datetime.now()))
+	print(' Processing sample ' + sample + ': ;Start time: ' + str(datetime.datetime.now()))
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
 	sorted_bam = fm_obj.localTempDir + sample + '.sorted.bam'
@@ -76,18 +81,19 @@ for sample in good_samples:
 
 	# Loop through all of the runs for a sample
 	for i, (index,row) in enumerate(sample_dt.iterrows()):
-		print('  Downloading uBam files for Run: ' + row['RunID'] + ' :' + str(datetime.datetime.now()))
+		timer.start('  Downloading uBam files for Run: ' + row['RunID'])
 
 		# Download unmapped bam file
 		uBam_file = fm_obj.localReadsDir + row.File
 		fm_obj.downloadData(uBam_file)
+		timer.stop()
 
 		# Create temporary outputfile
 		t_bam = fm_obj.localTempDir + sample + '.' + str(i) + '.sorted.bam'
 
 		# Align unmapped bam file following best practices
 		# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
-		print('  Aligning fastq files for Run: ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
+		timer.start('  Aligning fastq files for Run ' + row['RunID'])
 		# Align fastq files and sort them
 		# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
 		command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
@@ -129,11 +135,11 @@ for sample in good_samples:
 		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
 		p2.stdout.close()
 		output = p3.communicate()
-
+		timer.stop()
 		# Remove unmapped reads
 		subprocess.run(['rm', '-f', uBam_file])
 
-	print(' Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
+	timer.start(' Merging bam files if necessary')
 	if i == 0:
 		subprocess.run(['mv', t_bam, sorted_bam])
 	else:
@@ -141,11 +147,13 @@ for sample in good_samples:
 		ind_files = [fm_obj.localTempDir + sample + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
 		for ind_file in ind_files:
 			inputs = inputs + ['-I', ind_file]
-		subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'))
+		output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'), stdout = subprocess.DEVNULL)
 		subprocess.run(['rm','-f'] + ind_files)
+	timer.stop()
 
-	print(' Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
+	timer.start(' Marking duplicates')
 	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
+	timer.stop()
 	# Remove remaining files
 	subprocess.run(['rm','-f',sorted_bam])
 
@@ -158,7 +166,7 @@ for sample in good_samples:
 	chimeric = pysam.AlignmentFile(fm_obj.localChimericBamFile, mode = 'wb', template = align_file)
 
 	# Go through all reads and process them into appropriate categories
-	print(' Splitting reads based upon their alignment: ' + str(datetime.datetime.now()))
+	timer.start(' Splitting reads based upon their alignment')
 	read_data = defaultdict(int)
 	for read in align_file.fetch(until_eof=True):
 		total_read_quality = sum([ord(x) - 33 for x in read.qual])/len(read.qual)
@@ -216,6 +224,7 @@ for sample in good_samples:
 				duplication.write(read)
 				read_data['DuplicationReads'] += 1
 
+	timer.stop()
 	coverage = read_data['MappedReads'] / sum(align_file.lengths) * len(read.seq)
 
 	align_file.close()
@@ -244,7 +253,7 @@ for sample in good_samples:
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
 
 	# Upload data and delete
-	print(' Uploading data: ' + str(datetime.datetime.now()))
+	timer.start(' Uploading data')
 	fm_obj.uploadData(fm_obj.localSampleBamDir)
 	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 
@@ -253,7 +262,7 @@ for sample in good_samples:
 	a_dt = pd.concat([a_dt, pd.DataFrame.from_records([sample_data])])
 	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
 	fm_obj.uploadData(fm_obj.localAlignmentFile, upload_async = True)
-
+	timer.stop()
 	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	print()
 
