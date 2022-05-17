@@ -73,7 +73,7 @@ for sample in good_samples:
 		continue
 
 	# Make directories and appropriate files
-	print(' Processing sample ' + sample + ': ;Start time: ' + str(datetime.datetime.now()))
+	print(' Processing sample: ' + sample + '; Start time: ' + str(datetime.datetime.now()))
 	fm_obj.createBamFiles(sample)
 	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
 	sorted_bam = fm_obj.localTempDir + sample + '.sorted.bam'
@@ -81,7 +81,7 @@ for sample in good_samples:
 
 	# Loop through all of the runs for a sample
 	for i, (index,row) in enumerate(sample_dt.iterrows()):
-		timer.start('  Downloading uBam files for Run: ' + row['RunID'])
+		timer.start('  Downloading uBam files for Run ' + row['RunID'])
 
 		# Download unmapped bam file
 		uBam_file = fm_obj.localReadsDir + row.File

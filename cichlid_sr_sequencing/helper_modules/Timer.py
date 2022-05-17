@@ -8,9 +8,9 @@ class Timer:
 		time.sleep(10000)
 		self.stop()
 	def start(self, codeblock):
-		self.start = datetime.datetime.now()
+		self.start_t = datetime.datetime.now()
 		print(codeblock + ': Starting....', end = '', flush = True)
 	def stop(self):
-		self.stop = datetime.datetime.now()
-		delta_t = (self.stop - self.start).total_seconds()/60
+		self.stop_t = datetime.datetime.now()
+		delta_t = (self.stop_t - self.start_t).total_seconds()/60
 		print('Completed in ' + '{:.1f}'.format(delta_t) + ' minutes')
