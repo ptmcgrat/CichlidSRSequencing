@@ -123,19 +123,18 @@ for sample in good_samples:
 		#pdb.set_trace()
 
 		# Figure out how to pipe 3 commands together
-		#p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-		#p1.stdout.close()
-		#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
-		#p2.stdout.close()
-		#output = p3.communicate()
+		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+		p1.stdout.close()
+		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+		p2.stdout.close()
+		output = p3.communicate()
 
 		# Remove unmapped reads
-		#subprocess.run(['rm', '-f', uBam_file])
+		subprocess.run(['rm', '-f', uBam_file])
 
 	print(' Merging bam files if necessary... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
 	if i == 0:
-		pass
 		subprocess.run(['mv', t_bam, sorted_bam])
 	else:
 		inputs = []
@@ -146,9 +145,9 @@ for sample in good_samples:
 		subprocess.run(['rm','-f'] + ind_files)
 
 	print(' Marking duplicates... ' + row['RunID'] + ': ' + str(datetime.datetime.now()))
-	#output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
+	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
 	# Remove remaining files
-	#subprocess.run(['rm','-f',sorted_bam])
+	subprocess.run(['rm','-f',sorted_bam])
 
 	align_file = pysam.AlignmentFile(fm_obj.localBamFile) 
 	unmapped = pysam.AlignmentFile(fm_obj.localUnmappedBamFile, mode = 'wb', template = align_file)
@@ -191,13 +190,13 @@ for sample in good_samples:
 						clipped_read_quality = sum([ord(x) - 33 for x in read.qual[0:clipped_pos]])/clipped_pos
 						if clipped_read_quality > 25: # phred score < 25
 							clipped.write(read)
-							read_data['ClippedReadsF'] += 1
+							read_data['ClippedReads'] += 1
 					elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
 						clipped_pos = read.cigartuples[-1][1]
 						clipped_read_quality = sum([ord(x) - 33 for x in read.qual[-1*clipped_pos:]])/clipped_pos
 						if clipped_read_quality > 25: # phred score < 25
 							clipped.write(read)
-							read_data['ClippedReadsR'] += 1
+							read_data['ClippedReads'] += 1
 		
 		if not read.mate_is_unmapped:
 
@@ -217,7 +216,6 @@ for sample in good_samples:
 				duplication.write(read)
 				read_data['DuplicationReads'] += 1
 
-	pdb.set_trace()
 	coverage = read_data['MappedReads'] / sum(align_file.lengths) * len(read.seq)
 
 	align_file.close()
@@ -236,9 +234,8 @@ for sample in good_samples:
 	pysam.index(fm_obj.localChimericBamFile)
 
 
-	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage, 'TotalReads': read_data['TotalReads'], 
-				   'MappedReads': read_data['MappedReads'], 'UnmappedReads': read_data['UnmappedReads'], 'DiscordantReads': read_data['DiscordantReads'], 'DiscordantReads': read_data['DiscordantReads'], 'DiscordantReads': read_data['DiscordantReads'], 'InversionReads': read_data['InversionReads'], 
-				   'DuplicationReads': read_data['DuplicationReads'], 'ClippedReads': read_data['ClippedReads'], 'ChimericReads': read_data['ChimericReads'], 'DuplicatedReads': read_data['DuplicatedReads']}
+	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage}
+	sample_data.upate(read_data) # Add read info data
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
 	sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
@@ -257,5 +254,6 @@ for sample in good_samples:
 	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
 	fm_obj.uploadData(fm_obj.localAlignmentFile, upload_async = True)
 
-	print('Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
+	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
+	print()
 
