@@ -152,8 +152,9 @@ for sample in good_samples:
 	timer.stop()
 
 	timer.start(' Marking duplicates')
-	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
+	output = subprocess.run(['gatk', 'MarkDuplicatesSpark', '--spark-master', 'local', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
 	timer.stop()
+	pdb.set_trace()
 	# Remove remaining files
 	subprocess.run(['rm','-f',sorted_bam])
 
@@ -211,7 +212,7 @@ for sample in good_samples:
          	# Chromosome fusion
 			if read.reference_id!=read.next_reference_id:
 				discordant.write(read)
-				if read.get_tag('MQ') == 0:
+				if read.get_tag('MQ') == 0 or read.mapq == 0:
 					read_data['DiscordantReadsMatePoorMapping'] += 1
 				else:
 					read_data['DiscordantReadsMateGoodMapping'] += 1
