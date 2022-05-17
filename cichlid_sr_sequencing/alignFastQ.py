@@ -235,7 +235,7 @@ for sample in good_samples:
 
 
 	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage}
-	sample_data.upate(read_data) # Add read info data
+	sample_data.update(read_data) # Add read info data
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
 	sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
