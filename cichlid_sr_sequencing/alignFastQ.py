@@ -188,13 +188,13 @@ for sample in good_samples:
 				if not read.has_tag('XM') and not read.is_secondary and read.mapq != 0: #
 					if read.cigartuples[0][0] == 4 and read.cigartuples[0][1] > 5: #Soft clipping first and longer than 5 bp
 						clipped_pos = read.cigartuples[0][1]
-						clipped_read_quality = [ord(x) - 33 for x in read.qual[0:clipped_pos]]/clipped_pos
+						clipped_read_quality = sum([ord(x) - 33 for x in read.qual[0:clipped_pos]])/clipped_pos
 						if clipped_read_quality > 25: # phred score < 25
 							clipped.write(read)
 							read_data['ClippedReadsF'] += 1
 					elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
 						clipped_pos = read.cigartuples[-1][1]
-						clipped_read_quality = [ord(x) - 33 for x in read.qual[-1*clipped_pos:]]/clipped_pos
+						clipped_read_quality = sum([ord(x) - 33 for x in read.qual[-1*clipped_pos:]])/clipped_pos
 						if clipped_read_quality > 25: # phred score < 25
 							clipped.write(read)
 							read_data['ClippedReadsR'] += 1
