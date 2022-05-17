@@ -244,8 +244,7 @@ for sample in good_samples:
 
 
 	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage}
-	pdb.set_trace()
-	read_data = {k:v/read_data['AllReads'] for k,v in read_data.items() if k != 'AllReads'}
+	read_data = {k:v/read_data['TotalReads'] for k,v in read_data.items() if k != 'TotalReads'}
 	sample_data.update(read_data) # Add read info data
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
