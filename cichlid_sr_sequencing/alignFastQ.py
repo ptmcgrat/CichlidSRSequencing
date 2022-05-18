@@ -29,7 +29,7 @@ s_dt = pd.read_csv(fm_obj.localSampleFile)
 
 # If running on projectID, make sure it is valid and subset sample database to those with the right projectID
 if args.ProjectID is not None:
-	if args.ProjectID not in s_dt.ProjectID:
+	if args.ProjectID not in set(s_dt.ProjectID):
 		pdb.set_trace()
 		raise argparse.ArgumentTypeError('ProjectID ' + args.ProjectID + ' does not exist. Options are: ' + ','.join(set(s_dt.ProjectID)))
 	s_dt = s_dt[s_dt.ProjectID == args.ProjectID]
