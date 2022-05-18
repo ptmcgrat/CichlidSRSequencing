@@ -56,5 +56,6 @@ fm_obj.uploadData(args.OutputBam)
 fm_obj.uploadData(args.OutputBam + '.metrics.txt')
 print('  Finished for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 
+pdb.set_trace()
 # Remove files that were created
 #subprocess.run(['rm', local_fq1, local_fq2, temp_bam_file, args.OutputBam, args.OutputBam + '.metrics.txt'])
