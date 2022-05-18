@@ -39,6 +39,8 @@ new_dt['File'] = ''
 processes = []
 rows = []
 for index, row in new_dt.iterrows():
+	if run_id != 'ERR1743775':
+		continue
 	run_id, library_id, sample_id, platform, layout = row['RunID'], row['LibraryID'], row['SampleID'], row['Platform'], row['LibraryLayout']
 	output_bamfile = fm_obj.localReadsDir + row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 

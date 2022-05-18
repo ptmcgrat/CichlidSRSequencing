@@ -43,12 +43,12 @@ for i in range(3):
 print('  Converting fastq files to uBam file')
 command = ['gatk', 'FastqToSam', '--FASTQ', local_fq1, '--FASTQ2', local_fq2, '--READ_GROUP_NAME', args.RunID]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
-subprocess.run(command, capture_output = True)
+output1 = subprocess.run(command, capture_output = True)
 
 # Mark illumina adapters
 print('  Marking Illumina adapters')
 command = ['gatk', 'MarkIlluminaAdapters', '-I', temp_bam_file, '-O', args.OutputBam, '-M', args.OutputBam + '.metrics.txt', '--TMP_DIR', args.Temp_directory]
-subprocess.run(command, capture_output = True)
+output2 = subprocess.run(command, capture_output = True)
 
 # Upload data to dropbox
 print('  Uploading uBam files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
@@ -57,4 +57,4 @@ fm_obj.uploadData(args.OutputBam + '.metrics.txt')
 print('  Finished for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 
 # Remove files that were created
-subprocess.run(['rm', local_fq1, local_fq2, temp_bam_file, args.OutputBam, args.OutputBam + '.metrics.txt'])
+#subprocess.run(['rm', local_fq1, local_fq2, temp_bam_file, args.OutputBam, args.OutputBam + '.metrics.txt'])
