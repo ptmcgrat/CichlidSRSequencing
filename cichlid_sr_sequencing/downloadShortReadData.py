@@ -83,7 +83,7 @@ for index, row in new_dt.iterrows():
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 	rows.append(row)
 
-	if len(processes) == 1:
+	if len(processes) == 12:
 		print('  Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
