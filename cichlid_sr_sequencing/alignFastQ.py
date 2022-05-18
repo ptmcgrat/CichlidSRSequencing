@@ -31,7 +31,7 @@ s_dt = pd.read_csv(fm_obj.localSampleFile)
 if args.ProjectID is not None:
 	if args.ProjectID not in s_dt.ProjectID:
 		pdb.set_trace()
-		raise argparse.ArgumentTypeError('ProjectID does not exist. Options are: ' + ','.join(set(s_dt.ProjectID)))
+		raise argparse.ArgumentTypeError('ProjectID ' + args.ProjectID + ' does not exist. Options are: ' + ','.join(set(s_dt.ProjectID)))
 	s_dt = s_dt[s_dt.ProjectID == args.ProjectID]
 	good_samples = set(s_dt.SampleID)
 
