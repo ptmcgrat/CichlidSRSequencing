@@ -41,8 +41,6 @@ rows = []
 for index, row in new_dt.iterrows():
 
 	run_id, library_id, sample_id, platform, layout = row['RunID'], row['LibraryID'], row['SampleID'], row['Platform'], row['LibraryLayout']
-	if run_id != 'ERR1743775':
-		continue
 	output_bamfile = fm_obj.localReadsDir + row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 
 	# Make sure we are analyzing paired end reads
