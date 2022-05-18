@@ -24,10 +24,8 @@ temp_bam_file = args.Temp_directory + args.RunID + '_temp.bam'
 #target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
 print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 for i in range(3):
-	pdb.set_trace()
 	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.ENA_fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 	if output.returncode == 0:
-		print(output.stderr.decode('utf-8'))
 		break
 	elif i == 2:
 		sys.exit()
