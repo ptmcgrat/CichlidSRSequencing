@@ -41,7 +41,7 @@ for i in range(3):
 
 # Convert fastq files to unmapped bam
 print('  Converting fastq files to uBam file')
-command = ['gatk', 'FastqToSam', '--FASTQ', local_fq1, '--FASTQ2', local_fq2, '--READ_GROUP_NAME', args.RunID]
+command = ['gatk', 'FastqToSam', '--FASTQ', local_fq1, '--FASTQ2', local_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
 output1 = subprocess.run(command, capture_output = True)
 if output1.returncode != 0:
