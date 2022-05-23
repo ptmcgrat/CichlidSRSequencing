@@ -86,7 +86,6 @@ for sample in good_samples:
 
 		# Download unmapped bam file
 		uBam_file = fm_obj.localReadsDir + row.File
-		pdb.set_trace()
 		fm_obj.downloadData(uBam_file)
 		timer.stop()
 
