@@ -53,6 +53,9 @@ for index, row in new_dt.iterrows():
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
+	existing_bamfiles = fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')
+	pdb.set_trace()
+
 	# Create directories for temp and final data to be stored in
 	os.makedirs(fm_obj.localReadsDir + row['ProjectID'], exist_ok = True)
 	os.makedirs(fm_obj.localTempDir, exist_ok = True)
@@ -96,6 +99,7 @@ for index, row in new_dt.iterrows():
 		fm_obj.uploadData(master_sample_data)
 		print('Database uploaded')
 		processes = []
+		rows = []
 
 if len(processes) != 0:
 	print('  Waiting for processes to complete')
@@ -110,3 +114,4 @@ if len(processes) != 0:
 	fm_obj.uploadData(master_sample_data)
 	print('Database uploaded')
 	processes = []
+	rows = []
