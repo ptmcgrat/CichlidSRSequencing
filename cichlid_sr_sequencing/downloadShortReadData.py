@@ -54,7 +54,13 @@ for index, row in new_dt.iterrows():
 		continue
 
 	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
-	pdb.set_trace()
+	if run_id in existing_bamfiles:
+		print('Warning on ' + row.RunID + ': Run data on cloud but not in Sample Database. Adding...', file = sys.stderr)
+		row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
+		sample_dt = sample_dt.append(row)
+		sample_dt.to_csv(master_sample_data, index = False)
+		fm_obj.uploadData(master_sample_data)
+		continue
 
 	# Create directories for temp and final data to be stored in
 	os.makedirs(fm_obj.localReadsDir + row['ProjectID'], exist_ok = True)
