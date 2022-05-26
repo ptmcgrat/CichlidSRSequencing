@@ -53,7 +53,7 @@ for index, row in new_dt.iterrows():
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
-	existing_bamfiles = fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')
+	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
 	pdb.set_trace()
 
 	# Create directories for temp and final data to be stored in
