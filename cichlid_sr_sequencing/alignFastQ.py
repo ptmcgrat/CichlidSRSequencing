@@ -150,9 +150,9 @@ for sample in good_samples:
 		for ind_file in ind_files:
 			inputs = inputs + ['-I', ind_file]
 		output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'), stdout = subprocess.DEVNULL)
-		subprocess.run(['rm','-f'] + ind_files)
+		#subprocess.run(['rm','-f'] + ind_files)
 	timer.stop()
-
+	pdb.set_trace()
 	timer.start(' Marking duplicates')
 	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE-INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
 	timer.stop()
