@@ -150,7 +150,7 @@ for sample in good_samples:
 		for ind_file in ind_files:
 			inputs = inputs + ['-I', ind_file]
 		output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'), stdout = subprocess.DEVNULL)
-		#subprocess.run(['rm','-f'] + ind_files)
+		subprocess.run(['rm','-f'] + ind_files)
 	timer.stop()
 	timer.start(' Marking duplicates')
 	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
@@ -244,7 +244,7 @@ for sample in good_samples:
 	pysam.index(fm_obj.localChimericBamFile)
 
 
-	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'Coverage':coverage}
+	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'ProjectID':row.ProjectID, 'Coverage':coverage, 'TotalReads':read_data['TotalReads']}
 	read_data = {k:v/read_data['TotalReads'] for k,v in read_data.items() if k != 'TotalReads'}
 	sample_data.update(read_data) # Add read info data
 
