@@ -112,12 +112,14 @@ for index, row in new_dt.iterrows():
 
 	if args.Local:
 		command += ['--Local']
-	pdb.set_trace()
 
 	processes.append(subprocess.Popen(command))
 
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
-	rows.append(row)
+	if 'FileLocations' in row:
+		rows.append(row.drop(labels = ['FileLocations']))
+	else:
+		rows.append(row)
 
 	if len(processes) == 12:
 		print('  Waiting for processes to complete')
@@ -125,7 +127,7 @@ for index, row in new_dt.iterrows():
 			p.communicate()
 		# Check to see if process was successful
 		for i, p in enumerate(processes):
-			if p.returncode == 0:	
+			if p.returncode == 0:
 				sample_dt = sample_dt.append(rows[i])
 
 		sample_dt.to_csv(master_sample_data, index = False)
