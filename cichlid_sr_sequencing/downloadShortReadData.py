@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser(usage = 'This script will download fastq data f
 Data is stored as uBam format to follow best practices:\n \
 https://gatk.broadinstitute.org/hc/en-us/articles/4403687183515--How-to-Generate-an-unmapped-BAM-from-FASTQ-or-aligned-BAM\n \
 https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently\n \
-Data in the Run Info File should be Run,AvgSpotLen,Bases,BioProject,BioSample,Experiment,Instrument,LibraryName,LibraryLayout,LibrarySelect,LibrarySource,Organism,Platform,SRA Study')
+Data in the Run Info File should be Run,AvgSpotLen,Bases,BioProject,BioSample,Experiment,Instrument,Library Name,LibraryLayout,LibrarySelection,LibrarySource,Organism,Platform,SRA Study')
 parser.add_argument('Run_Info_File', type = str, help = 'File containing information on each run')
 parser.add_argument('-t', '--TestData', action = 'store_true', help = 'Use this flag if you want to create a small test file (1000 reads) instead of the entire read set')
 parser.add_argument('-l', '--Local', action = 'store_true', help = 'Use this flag if the data is local. The Run Info File should include a FileLocations column that lists the absolute or relative path to the Reads files (split by ,,)')
@@ -30,7 +30,7 @@ if len(set(new_dt.Run)) != len(new_dt):
 	raise Exception('Each line of Run_Info_File should have unique Run data')
 
 # Check all necessary data is included in the run info file
-columns = ['Run','AvgSpotLen','Bases','BioProject','BioSample','Experiment','Instrument','LibraryName','LibraryLayout','LibrarySelect','LibrarySource','Organism','Platform','SRA Study']
+columns = ['Run','AvgSpotLen','Bases','BioProject','BioSample','Experiment','Instrument','Library Name','LibraryLayout','LibrarySelection','LibrarySource','Organism','Platform','SRA Study']
 if args.Local:
 	columns += ['FileLocations']
 
