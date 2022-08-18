@@ -83,11 +83,10 @@ for index, row in new_dt.iterrows():
 
 	# Download ENA data to determine ftp site of fastq files
 	if args.Local:
-		pdb.set_trace()
 		fq1,fq2 = row['FileLocations'].split(',,')
 		if fq1[0] != '/':
 			fq1 = fm_obj.localReadsDir + fq1
-			fq2 = fm_obj.localReadsDir + fq1
+			fq2 = fm_obj.localReadsDir + fq2
 	else:
 		try:
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
@@ -107,10 +106,14 @@ for index, row in new_dt.iterrows():
 		fq1 = ftps[0]
 		fq2 = ftps[1]
 
+
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'unit_scripts/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform]]
+
 	if args.Local:
 		command += ['--Local']
+	pdb.set_trace()
+
 	processes.append(subprocess.Popen(command))
 
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
