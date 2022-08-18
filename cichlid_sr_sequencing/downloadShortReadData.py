@@ -81,6 +81,7 @@ for index, row in new_dt.iterrows():
 
 	# Download ENA data to determine ftp site of fastq files
 	if args.Local:
+		pdb.set_trace()
 		fq1,fq2 = row['FileLocations'].split(',,')
 		if fq1[0] != '/':
 			fq1 = fm_obj.localReadsDir + fq1
