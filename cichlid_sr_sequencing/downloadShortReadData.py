@@ -44,6 +44,8 @@ if bad_data_flag:
 
 # Rename columns to be consistent with master sample Database
 remapper = {'Run':'RunID', 'BioSample':'SampleID','AvgSpotLen':'ReadLength','Bases':'TotalBases','BioProject':'ProjectID','Instrument:':'Instrument','Library Name':'LibraryID','LibraryLayout':'LibraryLayout','LibrarySource':'LibrarySource','Organism':'Organism','Platform':'Platform'}
+if args.Local:
+	remapper['FileLocations'] = 'FileLocations'
 new_dt = new_dt.rename(columns = remapper)[remapper.values()]
 new_dt['File'] = ''
 
