@@ -1,4 +1,4 @@
-import subprocess, argparse, datetime, os, pdb,sys
+import subprocess, argparse, datetime, os, pdb,sys, pysam
 from helper_modules.file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage = 'This script grabs the ENA data for a run and uploads it to dropbox')
@@ -52,7 +52,25 @@ else:
 
 # Convert fastq files to unmapped bam
 print('  Converting fastq files to uBam file')
-command = ['gatk', 'FastqToSam', '--FASTQ', local_fq1, '--FASTQ2', local_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
+
+
+# Quality control fastq files
+f1 = pysam.FastqFile(local_fq1)
+f2 = pysam.FastqFile(local_fq2)
+
+fixed_fq1 = local_fq1.replace(local_fq1.split('/')[-1],'fixed_' + local_fq1.split('/')[-1]).replace('.gz','')
+fixed_fq2 = local_fq2.replace(local_fq2.split('/')[-1],'fixed_' + local_fq2.split('/')[-1]).replace('.gz','')
+
+pdb.set_trace()
+with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
+	for r1,r2 in zip(f1,f2):
+		if r1.sequence == '' or r2.sequence == '':
+			continue
+		else:
+			outfq1.write(r1.name + '_1\n' + r1.sequence + '\n+\n' + r1.qual + '\n')
+			outfq2.write(r2.name + '_2\n' + r2.sequence + '\n+\n' + r2.qual + '\n')
+
+command = ['gatk', 'FastqToSam', '--FASTQ', fixed_fq1, '--FASTQ2', fixed_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
 output1 = subprocess.run(command, capture_output = True)
 if output1.returncode != 0:
