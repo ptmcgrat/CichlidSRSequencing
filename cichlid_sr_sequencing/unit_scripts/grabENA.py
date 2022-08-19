@@ -61,7 +61,6 @@ f2 = pysam.FastqFile(local_fq2)
 fixed_fq1 = local_fq1.replace(local_fq1.split('/')[-1],'fixed_' + local_fq1.split('/')[-1]).replace('.gz','')
 fixed_fq2 = local_fq2.replace(local_fq2.split('/')[-1],'fixed_' + local_fq2.split('/')[-1]).replace('.gz','')
 
-pdb.set_trace()
 with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
 	for r1,r2 in zip(f1,f2):
 		if r1.sequence == '' or r2.sequence == '':
