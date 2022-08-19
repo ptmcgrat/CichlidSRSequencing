@@ -67,8 +67,8 @@ with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
 		if r1.sequence == '' or r2.sequence == '':
 			continue
 		else:
-			outfq1.write('@' + r1.name + '_1\n' + r1.sequence + '\n+\n' + r1.quality + '\n')
-			outfq2.write('@' + r2.name + '_2\n' + r2.sequence + '\n+\n' + r2.quality + '\n')
+			outfq1.write('@' + r1.name + ' 1:N:0:2\n' + r1.sequence + '\n+\n' + r1.quality + '\n')
+			outfq2.write('@' + r2.name + ' 2:N:0:2\n' + r2.sequence + '\n+\n' + r2.quality + '\n')
 
 command = ['gatk', 'FastqToSam', '--FASTQ', fixed_fq1, '--FASTQ2', fixed_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
