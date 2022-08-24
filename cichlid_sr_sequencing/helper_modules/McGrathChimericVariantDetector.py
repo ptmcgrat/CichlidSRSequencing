@@ -1,4 +1,4 @@
-import pysam, time, operator, sys, scipy, collections, shutil, os, pyfaidx, vcf, random
+import pysam, time, operator, sys, scipy, collections, shutil, os, random
 import numpy as np
 from functools import reduce
 from statistics import median
@@ -175,20 +175,16 @@ class ChimericRead():
         self.data = self.data + (self.d_type,)
         
 class ChimericCaller():
-    def __init__(self, genotypeBams, reffile, outVcffile):
-        
-        self.genotypeBamObjs = []
-        for bamfile in genotypeBams:
-            self.genotypeBamObjs.append(pysam.AlignmentFile(bamfile))
-            
+    def __init__(self, reffile):
+                    
         self.refObj = pysam.FastaFile(reffile)
         self.contigNames = self.refObj.references
         
-        self.outVcffile = outVcffile
+        self.outLocationsFile = outLocationsFile
 
         self.t_polys = {} #Stores all polys
 
-    def identifyPotentialVariants(self, discoveryBams, excludedBams, minChimericReads = 1, maxLength = 100000, minMapQ = 10):
+    def identifyChimericLocations(self, discoveryBams, excludedBams, outLocationsFile, minChimericReads = 1, maxLength = 100000, minMapQ = 10):
 
         discoveryBamObjs = []
         for bamfile in discoveryBams:
