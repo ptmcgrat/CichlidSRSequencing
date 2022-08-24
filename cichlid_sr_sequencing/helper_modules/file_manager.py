@@ -39,11 +39,15 @@ class FileManager():
 
 	def _createMasterDirs(self):
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
-		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'		
+		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
+		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version 	
+	
 		self.localReadsDir = self.localMasterDir + 'Reads/'		
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
 		self.localTempDir = self.localMasterDir + 'Temp/'
+		self.localAnalysisDir = self.localMasterDir + 'Analysis/'
+
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
 		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
@@ -62,6 +66,14 @@ class FileManager():
 		self.localDuplicationBamFile = self.localSampleBamDir + sampleID + '.duplication.bam'
 		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
+
+	def createPileupFiles(self, sampleID):
+		self.localSamplePileupDir = self.localPileupDir + sampleID + '/'
+		self.localSampleSAMPileupFile = self.localSamplePileupDir + sampleID + '.mpileup'
+		self.localSampleGVCFFile = self.localSamplePileupDir + sampleID + '.gvcf'
+
+	def createAnalysisIDFiles(self, analysisID):
+		self.localAnalysisFile = self.localAnalysisDir + analysisID + '.csv'
 
 	def returnGenomeVersions(self):
 		return self.returnCloudDirs(self.localGenomesDir)
