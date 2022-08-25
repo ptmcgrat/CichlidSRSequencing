@@ -180,7 +180,7 @@ class ChimericCaller():
         self.refObj = pysam.FastaFile(reffile)
         self.contigNames = self.refObj.references
         
-        self.outLocationsFile = outLocationsFile
+        #self.outLocationsFile = outLocationsFile
 
         self.t_polys = {} #Stores all polys
 
