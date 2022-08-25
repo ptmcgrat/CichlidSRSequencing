@@ -184,15 +184,11 @@ class ChimericCaller():
 
         self.t_polys = {} #Stores all polys
 
-    def identifyChimericLocations(self, discoveryBams, excludedBams, outLocationsFile, minChimericReads = 1, maxLength = 100000, minMapQ = 10):
+    def identifyChimericLocations(self, discoveryBams, minChimericReads = 1, maxLength = 100000, minMapQ = 10):
 
         discoveryBamObjs = []
         for bamfile in discoveryBams:
             discoveryBamObjs.append(pysam.AlignmentFile(bamfile))
-
-        excludedBamObjs = []
-        for bamfile in excludedBams:
-            excludedBamObjs.append(pysam.AlignmentFile(bamfile))
         
         for contig in self.contigNames:
             discoveryChimeras = defaultdict(int)
@@ -211,7 +207,7 @@ class ChimericCaller():
                         discoveryChimeras[newRead.data] += 1
 
             print(contig + ': ' + str(len(discoveryChimeras)) + ' potential chimeric sites', file = sys.stderr)
-            
+            pdb.set_trace()
             for loc, counts in discoveryChimeras.items():
                 if counts < minChimericReads:
                     continue
