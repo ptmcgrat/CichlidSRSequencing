@@ -34,7 +34,7 @@ for sampleID in sampleIDs:
 	count += 1
 
 
-p1 = subprocess.Popen(['bcftools', 'mpileup' '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
+p1 = subprocess.Popen(['bcftools', 'mpileup', '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
 p2 = subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', 'try.vcf'], stdin = p1.stdout)
 
 p2.communicate()
