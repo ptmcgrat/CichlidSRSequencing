@@ -236,6 +236,7 @@ for sample in good_samples:
 	clipped.close()
 	chimeric.close()
 
+	pysam.index(fm_obj.localBamFile)
 	pysam.index(fm_obj.localUnmappedBamFile)
 	pysam.index(fm_obj.localDiscordantBamFile)
 	pysam.index(fm_obj.localInversionBamFile)

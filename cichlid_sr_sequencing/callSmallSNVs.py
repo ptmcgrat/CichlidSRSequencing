@@ -1,4 +1,4 @@
-import argparse, pdb
+import argparse, pdb, subprocess
 from helper_modules.file_manager import FileManager as FM
 import pandas as pd
 
@@ -27,7 +27,7 @@ for sampleID in sampleIDs:
 	print(sampleID)
 	fm_obj.createBamFiles(sampleID)
 	fm_obj.downloadData(fm_obj.localBamFile)
-	fm_obj.downloadData(fm_obj.localBamFile + '.bai')
+	subprocess.call(['samtools', 'index', fm_obj.localBamFile])
 	bamfiles.append(fm_obj.localBamFile)
 	if count > 1:
 		break
