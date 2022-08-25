@@ -23,13 +23,17 @@ a_dt = pd.read_csv(fm_obj.localAnalysisFile)
 sampleIDs = set(a_dt[a_dt.Ecogroup != 'Riverine'].SampleID)
 
 bamfiles = []
+count = 0
 for sampleID in sampleIDs:
 	print(sampleID)
 	fm_obj.createBamFiles(sampleID)
 	fm_obj.downloadData(fm_obj.localChimericBamFile)
 	fm_obj.downloadData(fm_obj.localChimericBamFile + '.bai')
 	bamfiles.append(fm_obj.localChimericBamFile)
-	break
+	if count > 10:
+		break
+	count += 1
+
 
 cc_obj = ChimericCaller(fm_obj.localGenomeFile)
 cc_obj.identifyChimericLocations(bamfiles)
