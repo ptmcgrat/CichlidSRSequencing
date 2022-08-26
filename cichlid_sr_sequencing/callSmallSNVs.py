@@ -38,7 +38,7 @@ for sampleID in sampleIDs:
 	fm_obj.downloadData(fm_obj.localBamFile)
 	subprocess.call(['samtools', 'index', fm_obj.localBamFile])
 	bamfiles.append(fm_obj.localBamFile)
-	if count > 0:
+	if count > 2:
 		break
 	count += 1
 
