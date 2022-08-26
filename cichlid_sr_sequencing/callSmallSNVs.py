@@ -1,4 +1,4 @@
-import argparse, pdb, subprocess
+import argparse, pdb, subprocess, pysam
 from helper_modules.file_manager import FileManager as FM
 import pandas as pd
 
@@ -23,6 +23,10 @@ sampleIDs = set(a_dt[a_dt.Ecogroup != 'Riverine'].SampleID)
 
 bamfiles = []
 count = 0
+
+pdb.set_trace()
+
+
 for sampleID in sampleIDs:
 	print(sampleID)
 	fm_obj.createBamFiles(sampleID)
@@ -32,6 +36,7 @@ for sampleID in sampleIDs:
 	if count > 1:
 		break
 	count += 1
+
 
 
 p1 = subprocess.Popen(['bcftools', 'mpileup', '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
