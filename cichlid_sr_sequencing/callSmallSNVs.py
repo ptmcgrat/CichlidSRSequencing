@@ -1,5 +1,7 @@
 import argparse, pdb, subprocess, pysam
 from helper_modules.file_manager import FileManager as FM
+from helper_modules.Timer import Timer
+
 import pandas as pd
 
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice')
@@ -24,6 +26,9 @@ sampleIDs = set(a_dt[a_dt.Ecogroup != 'Riverine'].SampleID)
 bamfiles = []
 count = 0
 
+# Create timer object
+timer = Timer()
+
 
 fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 
@@ -38,9 +43,13 @@ for sampleID in sampleIDs:
 	count += 1
 
 for contig in fasta_obj.references:
+	timer.start('Calling SNVs for ' + str(len(bamfiles)) + ' bamfiles.')		
+
 	p1 = subprocess.Popen(['bcftools', 'mpileup', '-r', contig, '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
 	p2 = subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', contig + '.vcf'], stdin = p1.stdout)
 		
 	p2.communicate()
+	timer.stop()
+
 
 	break
