@@ -24,7 +24,6 @@ sampleIDs = set(a_dt[a_dt.Ecogroup != 'Riverine'].SampleID)
 bamfiles = []
 count = 0
 
-pdb.set_trace()
 
 fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 
@@ -34,7 +33,7 @@ for sampleID in sampleIDs:
 	fm_obj.downloadData(fm_obj.localBamFile)
 	subprocess.call(['samtools', 'index', fm_obj.localBamFile])
 	bamfiles.append(fm_obj.localBamFile)
-	if count > 1:
+	if count > 0:
 		break
 	count += 1
 
