@@ -26,6 +26,7 @@ count = 0
 
 pdb.set_trace()
 
+fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 
 for sampleID in sampleIDs:
 	print(sampleID)
@@ -37,9 +38,10 @@ for sampleID in sampleIDs:
 		break
 	count += 1
 
+for contig in fasta_obj.references:
+	p1 = subprocess.Popen(['bcftools', 'mpileup', '-r', contig, '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
+	p2 = subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', contig + '.vcf'], stdin = p1.stdout)
+		
+	p2.communicate()
 
-
-p1 = subprocess.Popen(['bcftools', 'mpileup', '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
-p2 = subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', 'try.vcf'], stdin = p1.stdout)
-
-p2.communicate()
+	break
