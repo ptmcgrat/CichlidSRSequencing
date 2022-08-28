@@ -24,7 +24,6 @@ a_dt = pd.read_csv(fm_obj.localAnalysisFile)
 sampleIDs = set(a_dt[a_dt.Ecogroup != 'Riverine'].SampleID)
 
 bamfiles = []
-count = 0
 
 # Create timer object
 timer = Timer()
@@ -38,18 +37,18 @@ for sampleID in sampleIDs:
 	fm_obj.downloadData(fm_obj.localBamFile)
 	subprocess.call(['samtools', 'index', fm_obj.localBamFile])
 	bamfiles.append(fm_obj.localBamFile)
-	if count > 6:
-		break
-	count += 1
 
+processes = []
 for contig in fasta_obj.references:
-	timer.start('Calling SNVs for ' + str(len(bamfiles)) + ' bamfiles.')		
+	#timer.start('Calling SNVs for ' + str(len(bamfiles)) + ' bamfiles.')		
 
 	p1 = subprocess.Popen(['bcftools', 'mpileup', '-r', contig, '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
-	p2 = subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', contig + '.vcf'], stdin = p1.stdout)
-		
-	p2.communicate()
-	timer.stop()
+	process.append(subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', contig + '.vcf'], stdin = p1.stdout))
+
+	if len(processes) > 23:
+		for p in processes:	
+			p.communicate()
+		processes = []
+	#timer.stop()
 
 
-	break
