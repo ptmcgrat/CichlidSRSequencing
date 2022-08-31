@@ -32,6 +32,8 @@ timer = Timer()
 fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 
 for sampleID in sampleIDs:
+	if sampleID in ['SAMEA4032064', 'SAMEA1920095', 'SAMEA2661382']:
+		continue
 	print(sampleID)
 	fm_obj.createBamFiles(sampleID)
 	fm_obj.downloadData(fm_obj.localBamFile)
