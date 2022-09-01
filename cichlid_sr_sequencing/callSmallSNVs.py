@@ -45,7 +45,7 @@ for contig in fasta_obj.references:
 	#timer.start('Calling SNVs for ' + str(len(bamfiles)) + ' bamfiles.')		
 
 	p1 = subprocess.Popen(['bcftools', 'mpileup', '-r', contig, '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
-	process.append(subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', contig + '.vcf'], stdin = p1.stdout))
+	processes.append(subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', contig + '.vcf'], stdin = p1.stdout))
 
 	if len(processes) > 23:
 		for p in processes:	
