@@ -227,7 +227,12 @@ class ChimericCaller():
                 stop = loc[4]
                 d_type = loc[7]
 
-                if stop - start > maxLength or start >= stop:
+                if stop - start > maxLength or start >= stop or dtype == 'cf':
+                    out_counts = []
+                    for i,bam_file in enumerate(discoveryBams):
+                        out_counts.append(discoveryChimerasL[loc].count(i))
+
+                    pdb.set_trace()
                     continue
                     
                 if d_type == 'del':
@@ -246,12 +251,6 @@ class ChimericCaller():
                     refbase = ''
                     altbase = ''
                     tpoly = poly(contig, start, stop, altbase, self.refObj, is_inv=True)
-
-                out_counts = []
-                for i,bam_file in enumerate(discoveryBams):
-                    out_counts.append(discoveryChimerasL[loc].count(i))
-
-                pdb.set_trace()
 
                 elif d_type == 'cf':
                     continue
