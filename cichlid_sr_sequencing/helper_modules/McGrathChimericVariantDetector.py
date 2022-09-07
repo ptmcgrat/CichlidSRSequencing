@@ -218,6 +218,7 @@ class ChimericCaller():
 
             print(contig + ': ' + str(len(discoveryChimeras)) + ' potential chimeric sites', file = sys.stderr)
             pdb.set_trace()
+            samples = [x.split('/')[-1].split('.')[0] for x in discoveryBams]
             for loc, counts in discoveryChimeras.items():
                 if counts < minChimericReads:
                     continue
@@ -245,6 +246,12 @@ class ChimericCaller():
                     refbase = ''
                     altbase = ''
                     tpoly = poly(contig, start, stop, altbase, self.refObj, is_inv=True)
+
+                out_counts = []
+                for i,bam_file in enumerate(discoveryBams):
+                    out_counts.append(discoveryChimerasL[loc].count(i))
+
+                pdb.set_trace()
 
                 elif d_type == 'cf':
                     continue
