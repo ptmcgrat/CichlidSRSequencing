@@ -29,8 +29,8 @@ count = 0
 for sampleID in sampleIDs:
 	print(sampleID)
 	fm_obj.createBamFiles(sampleID)
-	fm_obj.downloadData(fm_obj.localChimericBamFile)
-	fm_obj.downloadData(fm_obj.localChimericBamFile + '.bai')
+	#fm_obj.downloadData(fm_obj.localChimericBamFile)
+	#fm_obj.downloadData(fm_obj.localChimericBamFile + '.bai')
 	bamfiles.append(fm_obj.localChimericBamFile)
 
 

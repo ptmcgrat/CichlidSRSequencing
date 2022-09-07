@@ -93,7 +93,10 @@ class ChimericRead():
             secondary['Strand'] = SA_tag[2]
             if first['Strand'] == secondary['Strand']:
                 # Matched part of read second e.g. Secondary hit: 34S67M
-                secondary['MB'] = int(chi_cigarstring.split('S')[1].split('M')[0])
+                try:
+                    secondary['MB'] = int(chi_cigarstring.split('S')[1].split('M')[0])
+                except ValueError:
+                    pdb.set_trace()
                 secondary['Pos'] = int(SA_tag[1]) - 1 # Convert 1-coordinate to 0-coordinate
                 secondary['Dir'] = 'left'
             else:
