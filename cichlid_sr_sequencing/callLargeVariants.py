@@ -25,7 +25,6 @@ sampleIDs = set(a_dt[a_dt.Ecogroup != 'Riverine'].SampleID)
 bamfiles = []
 count = 0
 
-pdb.set_trace()
 
 for sampleID in sampleIDs:
 	print(sampleID)
