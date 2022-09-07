@@ -33,9 +33,6 @@ for sampleID in sampleIDs:
 	fm_obj.downloadData(fm_obj.localChimericBamFile)
 	fm_obj.downloadData(fm_obj.localChimericBamFile + '.bai')
 	bamfiles.append(fm_obj.localChimericBamFile)
-	if count > 10:
-		break
-	count += 1
 
 
 cc_obj = ChimericCaller(fm_obj.localGenomeFile)
