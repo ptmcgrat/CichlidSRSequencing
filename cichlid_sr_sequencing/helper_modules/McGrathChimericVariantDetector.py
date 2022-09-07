@@ -214,7 +214,7 @@ class ChimericCaller():
                         except TypeError:
                             continue
                         discoveryChimeras[newRead.data] += 1
-                        discoveryChimerasL.append(i)
+                        discoveryChimerasL[newRead.data].append(i)
 
             print(contig + ': ' + str(len(discoveryChimeras)) + ' potential chimeric sites', file = sys.stderr)
             pdb.set_trace()
