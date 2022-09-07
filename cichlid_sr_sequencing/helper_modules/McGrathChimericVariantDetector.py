@@ -178,11 +178,12 @@ class ChimericRead():
         self.data = self.data + (self.d_type,)
         
 class ChimericCaller():
-    def __init__(self, reffile):
+    def __init__(self, reffile, outvcffile):
                     
         self.refObj = pysam.FastaFile(reffile)
         self.contigNames = self.refObj.references
-        
+        self.outvcffile = outvcffile
+
         #self.outLocationsFile = outLocationsFile
 
         self.t_polys = {} #Stores all polys
@@ -218,7 +219,8 @@ class ChimericCaller():
 
             print(contig + ': ' + str(len(discoveryChimeras)) + ' potential chimeric sites', file = sys.stderr)
             samples = [x.split('/')[-1].split('.')[0] for x in discoveryBams]
-            print('\t'.join(['Location'] + samples))
+            f = open(self.outvcffile.replace('.vcf', '.tsv'), 'w')
+            print('\t'.join(['Location'] + samples), file = f)
             for loc, counts in discoveryChimeras.items():
                 if counts < minChimericReads:
                     continue
@@ -231,7 +233,7 @@ class ChimericCaller():
                     out_counts = []
                     for i,bam_file in enumerate(discoveryBams):
                         out_counts.append(discoveryChimerasL[loc].count(i))
-                    print('\t'.join(str(x) for x in [loc] + out_counts ))
+                    print('\t'.join(str(x) for x in [loc] + out_counts ), file = f)
                     continue
                     
                 if d_type == 'del':
@@ -274,7 +276,7 @@ class ChimericCaller():
         tPolys = Polys(self.t_polys, self.refObj)
         print('Genotyping Poly object')
         tPolys.genotypePolys(self.genotypeBamObjs)
-        tPolys.create_VCFfile(self.outVcffile)
+        tPolys.create_VCFfile(self.outvcffile)
 
     def identifyLargeInsertions(self):
         # Identify large insertions
