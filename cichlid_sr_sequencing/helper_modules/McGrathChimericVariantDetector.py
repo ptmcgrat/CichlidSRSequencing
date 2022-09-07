@@ -187,7 +187,7 @@ class ChimericCaller():
 
         self.t_polys = {} #Stores all polys
 
-    def identifyChimericLocations(self, discoveryBams, minChimericReads = 1, maxLength = 100000, minMapQ = 10):
+    def identifyChimericLocations(self, discoveryBams, minChimericReads = 5, maxLength = 100000, minMapQ = 10):
 
         discoveryBamObjs = []
         for bamfile in discoveryBams:
