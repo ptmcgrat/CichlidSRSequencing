@@ -76,7 +76,7 @@ class ChimericRead():
 
         # Make sure that the secondary alignment is simple
         chi_cigarstring = SA_tag[3]
-        if chi_cigarstring.count('S') != 1 or chi_cigarstring.count('M') != 1:
+        if chi_cigarstring.count('S') != 1 or chi_cigarstring.count('M') != 1 or chi_cigarstring.count('I') != 0:
             raise TypeError('ChimericRead Warning: read chimeric cigar too complicated ' + str(chi_cigarstring) + ' ' + read.qual)
 
         first = {} # Used to keep track of info for the left alignment
