@@ -217,8 +217,8 @@ class ChimericCaller():
                         discoveryChimerasL[newRead.data].append(i)
 
             print(contig + ': ' + str(len(discoveryChimeras)) + ' potential chimeric sites', file = sys.stderr)
-            pdb.set_trace()
             samples = [x.split('/')[-1].split('.')[0] for x in discoveryBams]
+            print('\t'.join(['Location'] + samples))
             for loc, counts in discoveryChimeras.items():
                 if counts < minChimericReads:
                     continue
@@ -231,8 +231,7 @@ class ChimericCaller():
                     out_counts = []
                     for i,bam_file in enumerate(discoveryBams):
                         out_counts.append(discoveryChimerasL[loc].count(i))
-
-                    pdb.set_trace()
+                    print('\t'.join(str(x) for x in [loc] + out_counts ))
                     continue
                     
                 if d_type == 'del':
