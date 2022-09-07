@@ -269,7 +269,6 @@ class ChimericCaller():
                 if not badFlag:
                     self.t_polys[(contig, start, refbase, altbase)] = tpoly
                 
-            pdb.set_trace()
             print('\t' + str(len(self.t_polys)) + ' total candidate chimeric events')
 
         print('Creating Poly object')
