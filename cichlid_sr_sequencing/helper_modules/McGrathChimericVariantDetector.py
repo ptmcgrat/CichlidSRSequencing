@@ -247,15 +247,15 @@ class ChimericCaller():
                     sys.exit()
 
                 badFlag = False
-                for excludedBamObj in excludedBamObjs:
+                """for excludedBamObj in excludedBamObjs:
                     a = tpoly.genotype_bam(excludedBamObj, 'Temp')
                     if a[0] != '0/0':
                         badFlag = True
-                        break
+                        break"""
                 if not badFlag:
                     self.t_polys[(contig, start, refbase, altbase)] = tpoly
                 
-
+            pdb.set_trace()
             print('\t' + str(len(self.t_polys)) + ' total candidate chimeric events')
 
         print('Creating Poly object')
