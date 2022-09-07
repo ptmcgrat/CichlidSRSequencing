@@ -197,6 +197,7 @@ class ChimericCaller():
             discoveryBamObjs.append(pysam.AlignmentFile(bamfile))
         for bamfile in genotypeBams:
             genotypeBamObjs.append(pysam.AlignmentFile(bamfile))
+        f = open(self.outvcffile.replace('.vcf', '.tsv'), 'w')
 
         for contig in self.contigNames:
             discoveryChimeras = defaultdict(int)
@@ -219,7 +220,6 @@ class ChimericCaller():
 
             print(contig + ': ' + str(len(discoveryChimeras)) + ' potential chimeric sites', file = sys.stderr)
             samples = [x.split('/')[-1].split('.')[0] for x in discoveryBams]
-            f = open(self.outvcffile.replace('.vcf', '.tsv'), 'w')
             print('\t'.join(['Location'] + samples), file = f)
             for loc, counts in discoveryChimeras.items():
                 if counts < minChimericReads:
@@ -274,6 +274,7 @@ class ChimericCaller():
         print('Creating Poly object')
         tPolys = Polys(self.t_polys, self.refObj)
         print('Genotyping Poly object')
+        f.close()
         tPolys.genotypePolys(self.genotypeBamObjs)
         tPolys.create_VCFfile(self.outvcffile)
 
