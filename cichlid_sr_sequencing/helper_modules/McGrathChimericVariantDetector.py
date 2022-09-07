@@ -229,7 +229,7 @@ class ChimericCaller():
                 stop = loc[4]
                 d_type = loc[7]
 
-                if stop - start > maxLength or start >= stop or dtype == 'cf':
+                if stop - start > maxLength or start >= stop or d_type == 'cf':
                     out_counts = []
                     for i,bam_file in enumerate(discoveryBams):
                         out_counts.append(discoveryChimerasL[loc].count(i))
