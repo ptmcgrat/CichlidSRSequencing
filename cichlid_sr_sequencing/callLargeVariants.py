@@ -38,4 +38,3 @@ for sampleID in sampleIDs:
 cc_obj = ChimericCaller(fm_obj.localGenomeFile, 'TestLargeVariantFile.vcf')
 cc_obj.identifyChimericLocations(bamfiles, geno_bamfiles)
 
-pdb.set_trace()
