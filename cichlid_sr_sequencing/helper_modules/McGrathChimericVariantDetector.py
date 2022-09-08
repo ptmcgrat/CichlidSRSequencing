@@ -275,7 +275,7 @@ class ChimericCaller():
         tPolys = Polys(self.t_polys, self.refObj)
         print('Genotyping Poly object')
         f.close()
-        tPolys.genotypePolys(genotypeBamObjs)
+        tPolys.genotypePolys(genotypeBamObjs[0:1])
         tPolys.create_VCFfile(self.outvcffile)
 
     def identifyLargeInsertions(self):
