@@ -121,7 +121,7 @@ for index, row in new_dt.iterrows():
 	else:
 		rows.append(row)
 
-	if len(processes) == 12:
+	if len(processes) == 4:
 		print('  Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
