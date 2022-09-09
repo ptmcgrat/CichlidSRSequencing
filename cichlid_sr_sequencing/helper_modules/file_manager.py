@@ -12,7 +12,7 @@ class FileManager():
 		self.genome_version = genome_version
 
 		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu':
-			self.localMasterDir = '/mnt/Storage/' + os.getenv('USER') + '/Temp/CichlidAnalyzer/'
+			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Temp/CichlidSequencingData/'
 		else:
 			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Temp/CichlidSequencingData/' #Master directory for local data
 
