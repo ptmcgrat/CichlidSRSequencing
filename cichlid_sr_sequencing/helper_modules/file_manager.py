@@ -70,7 +70,7 @@ class FileManager():
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 
 	def returnTempGVCFFile(self, contig):
-		return self.localTempDir = self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
+		return self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
 
 	def returnTempBamFiles(self, contig):
 		return [self.localTempDir + contig + '_' + sampleID + '.all.bam', self.localTempDir + contig + '_' + sampleID + '.unmapped.bam', self.localTempDir + contig + '_' + sampleID + '.discordant.bam', 
