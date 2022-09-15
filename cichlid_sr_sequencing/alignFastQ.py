@@ -1,6 +1,6 @@
 import argparse, os
 from helper_modules.file_manager import FileManager as FM
-from helper_modules.alignment_worker import AlignmentWorker as FM
+from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
 
 import pandas as pd
