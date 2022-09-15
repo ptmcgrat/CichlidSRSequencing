@@ -26,7 +26,7 @@ class AlignmentWorker():
 			self.fileManager.downloadData(uBam_file)
 
 			# Create temporary outputfile
-			t_bam = self.fileManager.localTempDir + sample + '.' + str(i) + '.sorted.bam'
+			t_bam = self.fileManager.localTempDir + self.sampleID + '.' + str(i) + '.sorted.bam'
 
 			# Align unmapped bam file following best practices
 			# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
@@ -78,7 +78,7 @@ class AlignmentWorker():
 			subprocess.run(['mv', t_bam, sorted_bam])
 		else:
 			inputs = []
-			ind_files = [self.fileManager.localTempDir + sample + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
+			ind_files = [self.fileManager.localTempDir + self.sampleID + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
 			for ind_file in ind_files:
 				inputs = inputs + ['-I', ind_file]
 			output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', self.fileManager.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'), stdout = subprocess.DEVNULL)
@@ -127,7 +127,7 @@ class AlignmentWorker():
 		processes = []
 		vcf_files = []
 		for contig in contigs:
-			vcf_files.append(self.fileManager.localTempDir + self.sample + '_' + contig + '.g.vcf')
+			vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '.g.vcf')
 			processes.append(subprocess.Popen(['gatk', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GCVF', '-L', contig, '-O', vcf_files[-1]]))
 
 			if len(processes) == cpu_count():
