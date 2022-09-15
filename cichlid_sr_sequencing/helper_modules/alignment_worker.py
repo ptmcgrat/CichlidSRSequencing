@@ -1,4 +1,5 @@
 import subprocess, pysam, os
+from multiprocessing import cpu_count
 
 class AlignmentWorker():
 	def __init__(self, fileManager, sample_dt, sampleID):
