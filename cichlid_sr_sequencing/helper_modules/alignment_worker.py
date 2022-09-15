@@ -43,7 +43,7 @@ class AlignmentWorker():
 			#pdb.set_trace()
 
 			# Second command aligns fastq data to reference
-			command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', self.FileManager.localGenomeFile, '/dev/stdin']
+			command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', self.fileManager.localGenomeFile, '/dev/stdin']
 
 			# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
 			#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
