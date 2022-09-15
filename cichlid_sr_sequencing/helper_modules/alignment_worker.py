@@ -1,4 +1,4 @@
-import subprocess, pysam
+import subprocess, pysam, os
 
 class AlignmentWorker():
 	def __init__(self, fileManager, sample_dt, sampleID):
@@ -6,7 +6,7 @@ class AlignmentWorker():
 		self.sample_dt = sample_dt[sample_dt.SampleID == sampleID]
 		self.sampleID = sampleID
 		self.fileManager.createSampleFiles(self.sampleID)
-		os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
+		os.makedirs(self.fileManager.localSampleBamDir, exist_ok = True)
 
 	def downloadReadData(self):
 		# Loop through all of the runs for a sample
@@ -17,6 +17,8 @@ class AlignmentWorker():
 
 	def alignData(self):
 		# Loop through all of the runs for a sample
+		sorted_bam = self.fileManager.localTempDir + self.sampleID + '.sorted.bam'
+
 		for i, (index,row) in enumerate(self.sample_dt.iterrows()):
 
 			# Download unmapped bam file
@@ -81,6 +83,10 @@ class AlignmentWorker():
 				inputs = inputs + ['-I', ind_file]
 			output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', self.fileManager.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'), stdout = subprocess.DEVNULL)
 			subprocess.run(['rm','-f'] + ind_files)
+		
+
+	def markDuplicates(self):
+		sorted_bam = self.fileManager.localTempDir + self.sampleID + '.sorted.bam'
 		output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', self.fileManager.localBamFile, '-M', self.fileManager.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fileManager.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
 		# Remove remaining files
 		subprocess.run(['rm','-f',sorted_bam])

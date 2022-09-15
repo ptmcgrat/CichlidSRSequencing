@@ -1,9 +1,14 @@
-import argparse, os, pysam, pdb, subprocess, sys, datetime
+import argparse, os
 from helper_modules.file_manager import FileManager as FM
+from helper_modules.alignment_worker import AlignmentWorker as FM
 from helper_modules.Timer import Timer
+
+import pandas as pd
+
+
+import argparse, os, pysam, pdb, subprocess, sys, datetime
 from collections import defaultdict
 from multiprocessing import cpu_count
-import pandas as pd
 
 
 # Need to make SampleIDs and ProjectIDs mutually exclusive
@@ -79,173 +84,27 @@ for sample in good_samples:
 
 	# Make directories and appropriate files
 	print(' Processing sample: ' + sample + '; Start time: ' + str(datetime.datetime.now()))
-	fm_obj.createBamFiles(sample)
-	os.makedirs(fm_obj.localSampleBamDir, exist_ok = True)
-	sorted_bam = fm_obj.localTempDir + sample + '.sorted.bam'
-	sample_dt = s_dt[s_dt.SampleID == sample] # <- dataframe of all runs that match the same sample
 
 	# Loop through all of the runs for a sample
-	for i, (index,row) in enumerate(sample_dt.iterrows()):
-		timer.start('  Downloading uBam files for Run ' + row['RunID'])
-
-		# Download unmapped bam file
-		uBam_file = fm_obj.localReadsDir + row.File
-		fm_obj.downloadData(uBam_file)
-		timer.stop()
-
-		# Create temporary outputfile
-		t_bam = fm_obj.localTempDir + sample + '.' + str(i) + '.sorted.bam'
-
-		# Align unmapped bam file following best practices
-		# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
-		timer.start('  Aligning fastq files for Run ' + row['RunID'])
-		# Align fastq files and sort them
-		# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
-		command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-		command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localTempDir]
-
-		# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-		#command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-		#command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localTempDir]
-		#subprocess.run(command1)
-		#pdb.set_trace()
-
-		# Second command aligns fastq data to reference
-		command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, '/dev/stdin']
-
-		# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-		#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
-		#subprocess.run(command2)
-		#pdb.set_trace()
-
-		# Final command reads read group information to aligned bam file and sorts it
-		# Figure out how to keep hard clipping
-		command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
-		command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-		command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-		command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
-
-		# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-		#command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
-		#command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-		#command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-		#command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
-		#subprocess.run(command3)
-		#pdb.set_trace()
-
-		# Figure out how to pipe 3 commands together
-		p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-		p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-		p1.stdout.close()
-		p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
-		p2.stdout.close()
-		output = p3.communicate()
-		timer.stop()
-		# Remove unmapped reads
-		subprocess.run(['rm', '-f', uBam_file])
-
-	timer.start(' Merging bam files if necessary')
-	if i == 0:
-		subprocess.run(['mv', t_bam, sorted_bam])
-	else:
-		inputs = []
-		ind_files = [fm_obj.localTempDir + sample + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
-		for ind_file in ind_files:
-			inputs = inputs + ['-I', ind_file]
-		output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localTempDir] + inputs + ['-O', sorted_bam], stderr = open('TempErrors.txt', 'a'), stdout = subprocess.DEVNULL)
-		subprocess.run(['rm','-f'] + ind_files)
+	aw_obj = AW(fm_obj, s_dt, sample)
+	pdb.set_trace()
+	timer.start('  Downloading uBam files for Sample: ' + sample)
+	aw_obj.downloadReadData()
 	timer.stop()
+	pdb.set_trace()
+	timer.start('  Aligning fastq files for Run ' + row['RunID'])
+	aw_obj.alignData()
+	timer.stop()
+	pdb.set_trace()
 	timer.start(' Marking duplicates')
-	output = subprocess.run(['gatk', 'MarkDuplicates', '-I', sorted_bam, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localTempDir, '--CREATE_INDEX', 'true'], stdout = subprocess.DEVNULL, stderr = open('TempErrors.txt', 'a'))
+	aw_obj.markDuplicates()
 	timer.stop()
-	# Remove remaining files
-	subprocess.run(['rm','-f',sorted_bam])
-
-	align_file = pysam.AlignmentFile(fm_obj.localBamFile) 
-	unmapped = pysam.AlignmentFile(fm_obj.localUnmappedBamFile, mode = 'wb', template = align_file)
-	discordant = pysam.AlignmentFile(fm_obj.localDiscordantBamFile, mode = 'wb', template = align_file)
-	inversion = pysam.AlignmentFile(fm_obj.localInversionBamFile, mode = 'wb', template = align_file)
-	duplication = pysam.AlignmentFile(fm_obj.localDuplicationBamFile, mode = 'wb', template = align_file)
-	clipped = pysam.AlignmentFile(fm_obj.localClippedBamFile, mode = 'wb', template = align_file)
-	chimeric = pysam.AlignmentFile(fm_obj.localChimericBamFile, mode = 'wb', template = align_file)
-
-	# Go through all reads and process them into appropriate categories
+	pdb.set_trace()
 	timer.start(' Splitting reads based upon their alignment')
-	read_data = defaultdict(int)
-	for read in align_file.fetch(until_eof=True):
-		total_read_quality = sum([ord(x) - 33 for x in read.qual])/len(read.qual)
-		read_data['TotalReads'] += 1
-		if read.is_duplicate:
-			read_data['DuplicatedReads'] += 1
-			continue
-		elif read.is_unmapped:
-			if total_read_quality > 25:
-				unmapped.write(read)
-				read_data['UnmappedGQReads'] += 1
-			else:
-				read_data['BadQualityReads'] += 1
-			continue
-		else:
-			read_data['MappedReads'] += 1
-
-			# Check if read is chimeric
-			if read.has_tag('SA'):
-				chimeric.write(read)
-				read_data['ChimericReads'] += 1
-
-			# Check if read is soft clipped
-			elif read.cigarstring.count('S') == 1:
-				# Ensure read is not clipped due to adapter sequence, isn't secondary, and maps uniquely
-				if not read.has_tag('XM') and not read.is_secondary and read.mapq != 0: #
-					if read.cigartuples[0][0] == 4 and read.cigartuples[0][1] > 5: #Soft clipping first and longer than 5 bp
-						clipped_pos = read.cigartuples[0][1]
-						clipped_read_quality = sum([ord(x) - 33 for x in read.qual[0:clipped_pos]])/clipped_pos
-						if clipped_read_quality > 25: # phred score < 25
-							clipped.write(read)
-							read_data['ClippedReads'] += 1
-					elif read.cigartuples[-1][0] == 4 and read.cigartuples[-1][1] > 5:
-						clipped_pos = read.cigartuples[-1][1]
-						clipped_read_quality = sum([ord(x) - 33 for x in read.qual[-1*clipped_pos:]])/clipped_pos
-						if clipped_read_quality > 25: # phred score < 25
-							clipped.write(read)
-							read_data['ClippedReads'] += 1
-		
-		if not read.mate_is_unmapped:
-
-         	# Chromosome fusion
-			if read.reference_id!=read.next_reference_id:
-				discordant.write(read)
-				if read.get_tag('MQ') == 0 or read.mapq == 0:
-					read_data['DiscordantReadsMatePoorMapping'] += 1
-				else:
-					read_data['DiscordantReadsMateGoodMapping'] += 1
-			# Inversion
-			elif read.is_reverse == read.mate_is_reverse:
-				inversion.write(read)
-				read_data['InversionReads'] += 1
-			# Duplication
-			elif ((read.pos < read.mpos and read.is_reverse) or (read.pos > read.mpos and read.mate_is_reverse)) and abs(read.isize) > 102:
-				duplication.write(read)
-				read_data['DuplicationReads'] += 1
-
+	aw_obj.splitBamfiles()
 	timer.stop()
-	coverage = read_data['MappedReads'] / sum(align_file.lengths) * len(read.seq)
 
-	align_file.close()
-	unmapped.close()
-	discordant.close()
-	inversion.close()
-	duplication.close()
-	clipped.close()
-	chimeric.close()
-
-	pysam.index(fm_obj.localBamFile)
-	pysam.index(fm_obj.localUnmappedBamFile)
-	pysam.index(fm_obj.localDiscordantBamFile)
-	pysam.index(fm_obj.localInversionBamFile)
-	pysam.index(fm_obj.localDuplicationBamFile)
-	pysam.index(fm_obj.localClippedBamFile)
-	pysam.index(fm_obj.localChimericBamFile)
+	pdb.set_trace()
 
 
 	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'ProjectID':row.ProjectID, 'Coverage':coverage, 'TotalReads':read_data['TotalReads']}
