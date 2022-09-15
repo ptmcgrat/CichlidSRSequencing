@@ -51,7 +51,7 @@ if args.SampleIDs is not None:
 	good_samples = set(args.SampleIDs)
 
 # If no filtering options are given, run on all samples
-if args.ProjectID is None and args.SampleID is None:
+if args.ProjectID is None and args.SampleIDs is None:
 	good_samples = set(s_dt.SampleID)
 
 # Download master alignment database to keep track of samples that have been aligned
