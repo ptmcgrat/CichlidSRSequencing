@@ -87,20 +87,18 @@ for sample in good_samples:
 
 	# Loop through all of the runs for a sample
 	aw_obj = AW(fm_obj, s_dt, sample)
-	pdb.set_trace()
 	timer.start('  Downloading uBam files for Sample: ' + sample)
 	aw_obj.downloadReadData()
 	timer.stop()
-	pdb.set_trace()
-	timer.start('  Aligning fastq files for Run ' + row['RunID'])
+	timer.start('  Aligning fastq files for Sample: ' + sample)
 	aw_obj.alignData()
 	timer.stop()
 	pdb.set_trace()
-	timer.start(' Marking duplicates')
+	timer.start(' Marking duplicates for Sample: ' + sample)
 	aw_obj.markDuplicates()
 	timer.stop()
 	pdb.set_trace()
-	timer.start(' Splitting reads based upon their alignment')
+	timer.start(' Splitting reads based upon their alignment for Sample: ' + sample)
 	aw_obj.splitBamfiles()
 	timer.stop()
 
