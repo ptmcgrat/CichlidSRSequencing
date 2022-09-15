@@ -7,7 +7,7 @@ import pandas as pd
 
 
 # Need to make SampleIDs and ProjectIDs mutually exclusive
-parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice')
+parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice. It will also create gvcf files')
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
 parser.add_argument('-s', '--SampleIDs', nargs = '+', help = 'Restrict analysis to the following sampleIDs')
 parser.add_argument('-p', '--ProjectID', type = str, help = 'Restrict analysis to a specific ProjectID')
@@ -16,7 +16,7 @@ args = parser.parse_args()
 # Create FileManager object to keep track of filenames
 fm_obj = FM(args.Genome)
 
-# Create timer object
+# Create timer object to keep track of time
 timer = Timer()
 
 # Make sure genome version is a valid option
@@ -30,7 +30,6 @@ s_dt = pd.read_csv(fm_obj.localSampleFile)
 # If running on projectID, make sure it is valid and subset sample database to those with the right projectID
 if args.ProjectID is not None:
 	if args.ProjectID not in set(s_dt.ProjectID):
-		pdb.set_trace()
 		raise argparse.ArgumentTypeError('ProjectID ' + args.ProjectID + ' does not exist. Options are: ' + ','.join(set(s_dt.ProjectID)))
 	s_dt = s_dt[s_dt.ProjectID == args.ProjectID]
 	good_samples = set(s_dt.SampleID)
@@ -45,6 +44,10 @@ if args.SampleIDs is not None:
 	if len(bad_samples) > 0:
 		raise argparse.ArgumentTypeError('The following samples were not found in sample database: ' + ','.join(bad_samples))
 	good_samples = set(args.SampleIDs)
+
+# If no filtering options are given, run on all samples
+if args.ProjectID is None and args.SampleID is None:
+	good_samples = set(s_dt.SampleID)
 
 # Download master alignment database to keep track of samples that have been aligned
 fm_obj.downloadData(fm_obj.localAlignmentFile)

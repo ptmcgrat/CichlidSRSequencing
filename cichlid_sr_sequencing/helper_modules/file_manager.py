@@ -58,6 +58,7 @@ class FileManager():
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
 	def createBamFiles(self, sampleID):
+		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
 		self.localUnmappedBamFile = self.localSampleBamDir + sampleID + '.unmapped.bam'
@@ -66,6 +67,15 @@ class FileManager():
 		self.localDuplicationBamFile = self.localSampleBamDir + sampleID + '.duplication.bam'
 		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
+		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
+
+	def returnTempGVCFFile(self, contig):
+		return self.localTempDir = self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
+
+	def returnTempBamFiles(self, contig):
+		return [self.localTempDir + contig + '_' + sampleID + '.all.bam', self.localTempDir + contig + '_' + sampleID + '.unmapped.bam', self.localTempDir + contig + '_' + sampleID + '.discordant.bam', 
+				self.localTempDir + contig + '_' + sampleID + '.inversion.bam', self.localTempDir + contig + '_' + sampleID + '.duplication.bam', self.localTempDir + contig + '_' + sampleID + '.clipped.bam'
+				self.localTempDir + contig + '_' + sampleID + '.chimeric.bam']
 
 	def createPileupFiles(self, sampleID):
 		self.localSamplePileupDir = self.localPileupDir + sampleID + '/'
