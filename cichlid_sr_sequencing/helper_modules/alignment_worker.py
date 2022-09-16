@@ -113,11 +113,10 @@ class AlignmentWorker():
 
 		for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
 			bam_files = [self.fileManager.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
-
 			command = ['gatk', 'MergeSamFiles']
 			for bam_file in bam_files:
 				command += ['-I', bam_file]
-			command += ['-O', self.fileManager.localBamFile.replace('bam', bam_type + '.bam'), '--CREATE_INDEX']
+			command += ['-O', self.fileManager.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
 			output = subprocess.run(command, capture_output = True)
 			if output.returncode != 0:
 				pdb.set_trace()
@@ -147,6 +146,15 @@ class AlignmentWorker():
 		for vcf_file in vcf_files:
 			command += ['-I', vcf_file]
 		command += ['-O', self.fileManager.localGVCFFile]
+		output = subprocess.run(command, capture_output = True)
+		if output.returncode != 0:
+			pdb.set_trace()
 
-		subprocess.run(command)
+
+	def calculateStats(self):
+		stats = {}
+		for filename in [self.localBamFile, self.localUnmappedBamFile, self.localDiscordantBamFile, self.localInversionBamFile, self.localDuplicationBamFile, self.localClippedBamFile, self.localChimericBamFile]:
+			output = subprocess.run(['gatk', 'CountReads', '-I', self.filename], capture_output = True, encoding = 'utf-8')
+			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
+		return stats
 

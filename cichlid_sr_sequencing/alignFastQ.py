@@ -1,4 +1,4 @@
-import argparse, os
+import argparse, os, pysam
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
@@ -102,12 +102,17 @@ for sample in good_samples:
 	timer.start(' Creating GVCF file for Sample: ' + sample)
 	aw_obj.createGVCF()
 	timer.stop()
+	timer.start(' Uploading data for Sample: ' + sample)
+	self.fm_obj.uploadData(self.fm_obj.localSampleBamDir)
+	stats = aw_obj.calculateStats()
 
-	pdb.set_trace()
+	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
+	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
+	coverage = stats['all'] * read_length / reference_size
 
-
-	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'ProjectID':row.ProjectID, 'Coverage':coverage, 'TotalReads':read_data['TotalReads']}
-	read_data = {k:v/read_data['TotalReads'] for k,v in read_data.items() if k != 'TotalReads'}
+	sample_data = {'SampleID':sample, 'Organism':sample_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'ProjectID':row.ProjectID, 
+				   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
+				   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric'],}
 	sample_data.update(read_data) # Add read info data
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
@@ -117,10 +122,8 @@ for sample in good_samples:
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
 
 	# Upload data and delete
-	timer.start(' Uploading data')
-	fm_obj.uploadData(fm_obj.localSampleBamDir)
-	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-
+	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+	pdb.set_trace()
 	fm_obj.downloadData(fm_obj.localAlignmentFile)
 	a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 	a_dt = pd.concat([a_dt, pd.DataFrame.from_records([sample_data])])
