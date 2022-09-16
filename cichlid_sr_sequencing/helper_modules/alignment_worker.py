@@ -112,13 +112,15 @@ class AlignmentWorker():
 
 
 		for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
-			bam_files = [self.fileManager.localBamFile.replace('bam', x + bam_type + '.bam') for x in contigs]
+			bam_files = [self.fileManager.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
 
 			command = ['gatk', 'MergeSamFiles']
 			for bam_file in bam_files:
 				command += ['-I', bam_file]
 			command += ['-O', self.fileManager.localBamFile.replace('bam', bam_type + '.bam'), '--CREATE_INDEX']
-			subprocess.run(command)
+			subprocess.run(command, capture_output = True)
+			if output.returncode != 0:
+				pdb.set_trace()
 
 
 	def createGVCF(self):
