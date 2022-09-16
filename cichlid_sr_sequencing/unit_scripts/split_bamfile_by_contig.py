@@ -8,12 +8,12 @@ args = parser.parse_args()
 
 align_file = pysam.AlignmentFile(args.Bamfile) 
 
-unmapped = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.unmapped.bam'), mode = 'wb', template = align_file)
-discordant = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.discordant.bam'), mode = 'wb', template = align_file)
-inversion = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.inversion.bam'), mode = 'wb', template = align_file)
-duplication = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.duplication.bam'), mode = 'wb', template = align_file)
-clipped = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.clipped.bam'), mode = 'wb', template = align_file)
-chimeric = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.chimeric.bam'), mode = 'wb', template = align_file)
+unmapped = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.unmapped.bam'), mode = 'wb', template = align_file)
+discordant = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.discordant.bam'), mode = 'wb', template = align_file)
+inversion = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.inversion.bam'), mode = 'wb', template = align_file)
+duplication = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.duplication.bam'), mode = 'wb', template = align_file)
+clipped = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.clipped.bam'), mode = 'wb', template = align_file)
+chimeric = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.chimeric.bam'), mode = 'wb', template = align_file)
 
 for read in align_file.fetch(contig = args.Contig):
 	total_read_quality = sum([ord(x) - 33 for x in read.qual])/len(read.qual)
