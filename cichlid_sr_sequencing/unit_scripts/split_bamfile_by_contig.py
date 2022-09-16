@@ -13,7 +13,7 @@ discordant = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.dis
 inversion = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.inversion.bam'), mode = 'wb', template = align_file)
 duplication = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.duplication.bam'), mode = 'wb', template = align_file)
 clipped = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.clipped.bam'), mode = 'wb', template = align_file)
-chimeric = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.chimeric.bam'rac), mode = 'wb', template = align_file)
+chimeric = pysam.AlignmentFile(args.Bamfile.replace('bam', args.contig + '.chimeric.bam'), mode = 'wb', template = align_file)
 
 for read in align_file.fetch(contig = args.Contig):
 	total_read_quality = sum([ord(x) - 33 for x in read.qual])/len(read.qual)
