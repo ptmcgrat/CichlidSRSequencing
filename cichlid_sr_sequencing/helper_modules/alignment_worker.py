@@ -106,7 +106,6 @@ class AlignmentWorker():
 				for p1 in processes:
 					p1.communicate()
 				processes = []
-				pdb.set_trace()
 		for p1 in processes:
 			p1.communicate()
 
