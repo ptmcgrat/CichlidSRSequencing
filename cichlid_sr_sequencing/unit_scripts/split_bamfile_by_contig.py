@@ -16,7 +16,6 @@ clipped = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.clippe
 chimeric = pysam.AlignmentFile(args.Bamfile.replace('bam', args.Contig + '.chimeric.bam'), mode = 'wb', template = align_file)
 
 for read in align_file.fetch(contig = args.Contig):
-	pdb.set_trace()
 	total_read_quality = sum([ord(x) - 33 for x in read.qual])/len(read.qual)
 	if read.is_duplicate:
 		continue
