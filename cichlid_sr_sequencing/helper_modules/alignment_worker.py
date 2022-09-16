@@ -100,7 +100,7 @@ class AlignmentWorker():
 		
 		processes = []
 		for contig in contigs:
-			processes.append(subprocess.Popen(['unit_scripts/split_bamfile_by_contig.py', self.fileManager.localBamFile, contig]))
+			processes.append(subprocess.Popen(['python3', 'unit_scripts/split_bamfile_by_contig.py', self.fileManager.localBamFile, contig]))
 
 			if len(processes) == cpu_count():
 				for p1 in processes:
