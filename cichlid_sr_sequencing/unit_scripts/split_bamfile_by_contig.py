@@ -56,11 +56,11 @@ for read in align_file.fetch(contig = args.Contig):
 		elif ((read.pos < read.mpos and read.is_reverse) or (read.pos > read.mpos and read.mate_is_reverse)) and abs(read.isize) > 102:
 			duplication.write(read)
 
-	align_file.close()
-	unmapped.close()
-	discordant.close()
-	inversion.close()
-	duplication.close()
-	clipped.close()
-	chimeric.close()
+align_file.close()
+unmapped.close()
+discordant.close()
+inversion.close()
+duplication.close()
+clipped.close()
+chimeric.close()
 
