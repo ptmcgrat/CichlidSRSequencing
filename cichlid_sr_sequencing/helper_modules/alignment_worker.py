@@ -118,9 +118,11 @@ class AlignmentWorker():
 			for bam_file in bam_files:
 				command += ['-I', bam_file]
 			command += ['-O', self.fileManager.localBamFile.replace('bam', bam_type + '.bam'), '--CREATE_INDEX']
-			subprocess.run(command, capture_output = True)
+			output = subprocess.run(command, capture_output = True)
 			if output.returncode != 0:
 				pdb.set_trace()
+			for bam_file in bam_files:
+				subprocess.run(['rm', bam_file])
 
 
 	def createGVCF(self):
