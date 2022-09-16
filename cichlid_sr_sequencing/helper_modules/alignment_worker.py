@@ -107,8 +107,10 @@ class AlignmentWorker():
 					p1.communicate()
 				processes = []
 
-		for p1 in processes:
-			p1.communicate()
+			for p1 in processes:
+				p1.communicate()
+
+
 
 		for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
 			bam_files = [self.fileManager.localBamFile.replace('bam', x + bam_type + '.bam') for x in contigs]
