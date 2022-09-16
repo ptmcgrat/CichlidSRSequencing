@@ -1,4 +1,4 @@
-import subprocess, pysam, os
+import subprocess, pysam, os, pdb
 from multiprocessing import cpu_count
 
 class AlignmentWorker():
