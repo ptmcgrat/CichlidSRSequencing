@@ -97,7 +97,7 @@ for sample in good_samples:
 #	aw_obj.markDuplicates()
 	timer.stop()
 	timer.start(' Splitting reads based upon their alignment for Sample: ' + sample)
-	#aw_obj.splitBamfiles()
+	aw_obj.splitBamfiles()
 	timer.stop()
 	timer.start(' Creating GVCF file for Sample: ' + sample)
 	aw_obj.createGVCF()
