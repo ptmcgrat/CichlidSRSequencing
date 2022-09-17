@@ -153,7 +153,7 @@ class AlignmentWorker():
 
 	def calculateStats(self):
 		stats = {}
-		for filename in [self.localBamFile, self.localUnmappedBamFile, self.localDiscordantBamFile, self.localInversionBamFile, self.localDuplicationBamFile, self.localClippedBamFile, self.localChimericBamFile]:
+		for filename in [self.fileManager.localBamFile, self.fileManager.localUnmappedBamFile, self.fileManager.localDiscordantBamFile, self.fileManager.localInversionBamFile, self.fileManager.localDuplicationBamFile, self.fileManager.localClippedBamFile, self.fileManager.localChimericBamFile]:
 			output = subprocess.run(['gatk', 'CountReads', '-I', self.filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		return stats
