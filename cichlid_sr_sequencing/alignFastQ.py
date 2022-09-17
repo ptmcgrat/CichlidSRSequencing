@@ -111,9 +111,9 @@ for sample in good_samples:
 	coverage = stats['all'] * read_length / reference_size
 
 	pdb.set_trace()
-	sample_data = {'SampleID':sample, 'Organism':s_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt.RunID)), 'ProjectID':row.ProjectID, 
+	sample_data = {'SampleID':sample, 'Organism':s_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
 				   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
-				   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric'],}
+				   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
 	sample_data.update(read_data) # Add read info data
 
 	output = subprocess.run(['conda', 'list'], capture_output = True)
