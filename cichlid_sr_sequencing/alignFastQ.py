@@ -97,13 +97,13 @@ for sample in good_samples:
 #	aw_obj.markDuplicates()
 	timer.stop()
 	timer.start(' Splitting reads based upon their alignment for Sample: ' + sample)
-	aw_obj.splitBamfiles()
+	#aw_obj.splitBamfiles()
 	timer.stop()
 	timer.start(' Creating GVCF file for Sample: ' + sample)
-	aw_obj.createGVCF()
+	#aw_obj.createGVCF()
 	timer.stop()
 	timer.start(' Uploading data for Sample: ' + sample)
-	self.fm_obj.uploadData(self.fm_obj.localSampleBamDir)
+	fm_obj.uploadData(fm_obj.localSampleBamDir)
 	stats = aw_obj.calculateStats()
 
 	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
