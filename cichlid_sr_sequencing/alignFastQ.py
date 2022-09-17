@@ -110,7 +110,7 @@ for sample in good_samples:
 	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 	coverage = stats['all'] * read_length / reference_size
 
-	sample_data = {'SampleID':sample, 'Organism':s_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(sample_dt.RunID)), 'ProjectID':row.ProjectID, 
+	sample_data = {'SampleID':sample, 'Organism':s_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt.RunID)), 'ProjectID':row.ProjectID, 
 				   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 				   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric'],}
 	sample_data.update(read_data) # Add read info data
