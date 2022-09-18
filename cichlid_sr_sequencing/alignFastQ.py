@@ -88,16 +88,19 @@ for sample in good_samples:
 	# Loop through all of the runs for a sample
 	aw_obj = AW(fm_obj, s_dt, sample)
 	timer.start('  Downloading uBam files for Sample: ' + sample)
-	aw_obj.downloadReadData()
+	fm_obj.downloadData(fm_obj.localSampleBamDir)
+	os.makedirs(fm_obj.localTempDir, exist_ok = True)
+
+	#aw_obj.downloadReadData()
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
-	aw_obj.alignData()
+	#aw_obj.alignData()
 	timer.stop()
 	timer.start('  Marking duplicates for Sample: ' + sample)
-	aw_obj.markDuplicates()
+	#aw_obj.markDuplicates()
 	timer.stop()
 	timer.start('  Splitting reads based upon their alignment for Sample: ' + sample)
-	aw_obj.splitBamfiles()
+	#aw_obj.splitBamfiles()
 	timer.stop()
 	timer.start('  Creating GVCF file for Sample: ' + sample)
 	aw_obj.createGVCF()
@@ -121,7 +124,8 @@ for sample in good_samples:
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
 
 	# Upload data and delete
-	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+	subprocess.run(['rm','-rf', fm_obj.localTempDir])
 	fm_obj.downloadData(fm_obj.localAlignmentFile)
 	a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 	a_dt = pd.concat([a_dt, pd.DataFrame.from_records([sample_data])])
