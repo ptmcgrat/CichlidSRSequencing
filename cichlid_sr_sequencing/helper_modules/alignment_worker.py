@@ -132,8 +132,18 @@ class AlignmentWorker():
 		processes = []
 		vcf_files = []
 		for contig in contigs:
-			vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '.g.vcf')
-			processes.append(subprocess.Popen(['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF', '-L', contig, '-O', vcf_files[-1]], stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
+
+			##contig=<ID=NC_036786.1,length=64916660>
+			if contig == 'NC_036786.1':
+				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '_1.g.vcf')
+				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '_2.g.vcf')
+
+				processes.append(subprocess.Popen(['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF', '-L', contig + ':1-32400000', '-O', vcf_files[-2]], stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
+				processes.append(subprocess.Popen(['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF', '-L', contig + ':32400000-64916660', '-O', vcf_files[-1]], stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
+			else:	
+				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '.g.vcf')
+				processes.append(subprocess.Popen(['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF', '-L', contig, '-O', vcf_files[-1]], stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
+
 			if len(processes) == int(cpu_count()/4):
 				for p1 in processes:
 					p1.communicate()
