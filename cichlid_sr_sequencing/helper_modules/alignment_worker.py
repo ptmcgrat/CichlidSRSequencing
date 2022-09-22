@@ -132,9 +132,9 @@ class AlignmentWorker():
 		for contig in contigs:
 
 			command = ['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF']
-            command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-            command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-            command += ['-A', 'DepthPerSampleHC', '-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+			command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+			command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+			command += ['-A', 'DepthPerSampleHC', '-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
 
 			##contig=<ID=NC_036786.1,length=64916660>
 			if contig == 'NC_036786.1':
@@ -142,7 +142,7 @@ class AlignmentWorker():
 				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '_2.g.vcf')
 
 				command1 = command + ['-L', contig + ':1-32400000', '-O', vcf_files[-2]]
-				command2 = command + ['-L', contig + ':32400000-64916660', '-O', vcf_files[-1]
+				command2 = command + ['-L', contig + ':32400000-64916660', '-O', vcf_files[-1]]
 
 				processes.append(subprocess.Popen(command1, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
 				processes.append(subprocess.Popen(command2, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
@@ -150,7 +150,7 @@ class AlignmentWorker():
 			else:	
 
 				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '.g.vcf')
-				command = command + ['-L', contig , '-O', vcf_files[-1]
+				command = command + ['-L', contig , '-O', vcf_files[-1]]
 				processes.append(subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
 
 			if len(processes) == int(cpu_count()/4):
