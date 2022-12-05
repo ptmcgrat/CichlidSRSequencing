@@ -44,13 +44,12 @@ contigs = fasta_obj.references[0:22]
 # 	fm_obj.downloadData(fm_obj.localGVCFFile + '.tbi')
 # 	gvcffiles.append(fm_obj.localGVCFFile)
 # 	# pdb.set_trace() # used for troubleshooting
-command1 = shlex.split('gatk GenomicsDBImport --genomicsdb-workspace-path my_database --intervals {contigs} --sample-name-map test_sample_map.txt --reader-threads 4')
+command1 = shlex.split('gatk GenomicsDBImport --genomicsdb-workspace-path my_database_{contigs} --intervals {contigs} --sample-name-map test_sample_map.txt --reader-threads 4')
 command2 = shlex.split('gatk GenotypeGVCFs -R /Users/kmnike/Data/CichlidSequencingData/Genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V gendb://my_database -O test_output.vcf')
 processes = []
 for contig in contigs:
 	p = sp.Popen([f('gatk', 'GenomicsDBImport', '--genomicsdb-workspace-path', 'my_database_{contigs}', '--intervals', {contigs}, '--sample-name-map', 'test_sample_map.txt', '--reader-threads', '4')])
 	processes.append(p)
-
 
 
 """
