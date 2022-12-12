@@ -7,15 +7,16 @@ from multiprocessing import cpu_count
 from collections import defaultdict
 
 class FileManager():
-	def __init__(self, genome_version = '', rcloneRemote = 'cichlidVideo:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
 
 		self.genome_version = genome_version
 
 		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu':
-			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Temp/CichlidSequencingData/'
+			# basically ignore the below line because we'll work on mzebra and not have to deal with the messy setup of utaka server
+			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Data/CichlidSequencingData/'
 		else:
-			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Temp/CichlidSequencingData/' #Master directory for local data
-
+			#Master directory for local data. This is where the data structure will be setup on the server. It will be '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/'
+			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Data/CichlidSequencingData/' 
 		# Identify cloud directory for rclone
 		self.rcloneRemote = rcloneRemote
 		# On some computers, the first directory is McGrath, on others it's BioSci-McGrath. Use rclone to figure out which
@@ -38,6 +39,8 @@ class FileManager():
 		self._createMasterDirs()
 
 	def _createMasterDirs(self):
+		# localGenomesDir = /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Genomes
+		# Same logic applies to all of the below in creating the local directory structure.
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
 		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version 	
@@ -54,6 +57,9 @@ class FileManager():
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
+
+		# added by Nikesh
+		self.localDatabases = self.localMasterDir + 'Databases/'
 
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
@@ -176,10 +182,3 @@ class FileManager():
 			return True 
 		else:
 			return False
-
-
-
-
-
-
-

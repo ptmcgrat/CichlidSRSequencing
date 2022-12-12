@@ -26,48 +26,50 @@ sampleIDs = set(a_dt.SampleID)
 gvcffiles = []
 
 # Create timer object
-timer = Timer()
+# timer = Timer()
 
-# # Download the reference genome files and build the proper directry structure for them locally.
-fm_obj.downloadData(fm_obj.localGenomeDir)
+# Download the reference genome files and build the proper directry structure for them locally.
+# fm_obj.downloadData(fm_obj.localGenomeDir)
 fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 # below line defines the LG names for the first 22 LGs in the genome.
 contigs = fasta_obj.references[0:22]
 
-# # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
-for sampleID in sampleIDs:
-	if sampleID in []:
-		continue
-	print(sampleID)
-	fm_obj.createSampleFiles(sampleID)
-	fm_obj.downloadData(fm_obj.localGVCFFile)
-	fm_obj.downloadData(fm_obj.localGVCFFile + '.tbi')
-	gvcffiles.append(fm_obj.localGVCFFile)
-# 	# pdb.set_trace() # used for troubleshooting
+# # # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
+# for sampleID in sampleIDs:
+# 	if sampleID in []:
+# 		continue
+# 	print(sampleID)
+# 	fm_obj.createSampleFiles(sampleID)
+# 	fm_obj.downloadData(fm_obj.localGVCFFile)
+# 	fm_obj.downloadData(fm_obj.localGVCFFile + '.tbi')
+# 	gvcffiles.append(fm_obj.localGVCFFile)
+# # 	# pdb.set_trace() # used for troubleshooting
 
-# processes = []
-# processes2 = []
-# # First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
-# # The loop is parallelized to run each chromosome in parallel on 4 cores.
-# for contig in contigs:
-#     p = sp.Popen(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk GenomicsDBImport --genomicsdb-workspace-path {'/Users/kmnike/Data/CichlidSequencingData/Databases/' + contig + '_database'} --intervals {contig} --sample-name-map test_sample_map.txt --reader-threads 4"))
-#     processes.append(p)
+processes = []
+processes2 = []
+# First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
+# The loop is parallelized to run each chromosome in parallel on 4 cores.
+for contig in contigs:
+    p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database'} --intervals {contig} --sample-name-map sample_map_utaka.txt --reader-threads 4"))
+    processes.append(p)
 
-#     if len(processes) == 2:
-#         for p in processes:
-#             p.communicate()
-#         processes = []
-# # This second gatk command takes in the reference genome and the path to the genomicsdb workspace and outputs all variants per chromosome per sample included in the cohort per chromosome. 
-# # The -V flag specifying the genomicsdb workspace location must start with 'gendb://' but it will look in the curret dir for the workspace, so a new relative path to the correct workspace must be appended to the 'gendb://'
-# # An output location and filename must also be provided, per chromosome. The loop is also parallelized to generate a VCF file for all samples in the cohort, per chromosome. 
-# for contig in contigs:
-# 	p2 = sp.Popen(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk GenotypeGVCFs -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/CichlidSequencingData/Databases/' + contig + '_database'}  -O {'/Users/kmnike/Data/CichlidSequencingData/Outputs/' + contig + '_output.vcf'}"))
-# 	processes2.append(p2)
+    if len(processes) == 2:
+        for p in processes:
+            p.communicate()
+        processes = []
+# This second gatk command takes in the reference genome and the path to the genomicsdb workspace and outputs all variants per chromosome per sample included in the cohort per chromosome. 
+# The -V flag specifying the genomicsdb workspace location must start with 'gendb://' but it will look in the curret dir for the workspace, so a new relative path to the correct workspace must be appended to the 'gendb://'
+# An output location and filename must also be provided, per chromosome. The loop is also parallelized to generate a VCF file for all samples in the cohort, per chromosome. 
+for contig in contigs:
+	p2 = sp.Popen(shlex.split(f"gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/' + contig + '_output.vcf'} --heterozygosity 0.0012"))
+	processes2.append(p2)
 
-# 	if len(processes2) == 2:
-# 		for p in processes2:
-# 			p.communicate()
-# 		processes2=[]
+	if len(processes2) == 2:
+		for p in processes2:
+			p.communicate()
+		processes2=[]
+
+print('Pipeline Completed')
 
 """
 processes = []
