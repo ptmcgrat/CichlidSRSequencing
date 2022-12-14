@@ -34,7 +34,8 @@ fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 # below line defines the LG names for the first 22 LGs in the genome.
 contigs = fasta_obj.references[0:22]
 
-# # # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
+
+# Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
 # for sampleID in sampleIDs:
 # 	if sampleID in []:
 # 		continue
@@ -43,7 +44,7 @@ contigs = fasta_obj.references[0:22]
 # 	fm_obj.downloadData(fm_obj.localGVCFFile)
 # 	fm_obj.downloadData(fm_obj.localGVCFFile + '.tbi')
 # 	gvcffiles.append(fm_obj.localGVCFFile)
-# # 	# pdb.set_trace() # used for troubleshooting
+	# pdb.set_trace() # used for troubleshooting
 
 processes = []
 processes2 = []
@@ -53,7 +54,7 @@ for contig in contigs:
     p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database'} --intervals {contig} --sample-name-map sample_map_utaka.txt --reader-threads 4"))
     processes.append(p)
 
-    if len(processes) == 2:
+    if len(processes) == 22:
         for p in processes:
             p.communicate()
         processes = []

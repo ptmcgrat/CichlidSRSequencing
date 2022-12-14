@@ -25,9 +25,9 @@ contigs = fasta_obj.references[0:2]
 
 processes = []
 processes2 = []
-# UNCOMMENT BELOW FOR LOOPS AND TIME THE RUN FOR 2 SAMPLES ON 2 LGS USING PARALLELIZATION AND WITHOUT PARALLELIZATION. CREATE THE DATABASES DIR AND DIRECT THE DATABASES THERE FOR NOW WHILE EDITING THE FILE MANAGER SCRIPT IS FIGURED OUT
+# First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath. 
+# The loop is parallelized to run each chromosome in parallel on 4 cores.
 for contig in contigs:
-    # Change the absolute path to gatk to simply 'gatk' on the server
     p = sp.Popen(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk GenomicsDBImport --genomicsdb-workspace-path {'/Users/kmnike/Data/CichlidSequencingData/Databases/' + contig + '_database'} --intervals {contig} --sample-name-map test_sample_map.txt --reader-threads 4"))
     processes.append(p)
 
@@ -35,9 +35,10 @@ for contig in contigs:
         for p in processes:
             p.communicate()
         processes = []
-
+# This second gatk command takes in the reference genome and the path to the genomicsdb workspace and outputs all variants per chromosome per sample included in the cohort per chromosome. 
+# The -V flag specifying the genomicsdb workspace location must start with 'gendb://' but it will look in the curret dir for the workspace, so a new relative path to the correct workspace must be appended to the 'gendb://'
+# An output location and filename must also be provided, per chromosome. The loop is also parallelized to generate a VCF file for all samples in the cohort, per chromosome. 
 for contig in contigs:
-	print(shlex.split(f"gatk GenotypeGVCFs -R /Users/kmnike/Data/CichlidSequencingData/Genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://Users/kmnike/Data/CichlidSequencingData/Databases' + contig + '_database'}  -O {contig + '_output.vcf'}"))
 	p2 = sp.Popen(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk GenotypeGVCFs -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/CichlidSequencingData/Databases/' + contig + '_database'}  -O {'/Users/kmnike/Data/CichlidSequencingData/Outputs/' + contig + '_output.vcf'}"))
 	processes2.append(p2)
 
@@ -45,6 +46,13 @@ for contig in contigs:
 		for p in processes2:
 			p.communicate()
 		processes2=[]
+
+
+
+
+
+
+
 """
 Possibly Useful Code:
 command1 = shlex.split('gatk GenomicsDBImport --genomicsdb-workspace-path my_database_{contigs} --intervals {contigs} --sample-name-map test_sample_map.txt --reader-threads 4')

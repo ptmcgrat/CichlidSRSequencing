@@ -1,0 +1,3 @@
+SAMEA4033311	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033311/SAMEA4033311.g.vcf.gz
+SAMEA1920097	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033311/SAMEA4033311.g.vcf.gz
+SAMEA4033337	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033311/SAMEA4033311.g.vcf.gz
