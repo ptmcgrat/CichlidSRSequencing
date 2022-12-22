@@ -23,7 +23,8 @@ test_contigs = ['NW_020192349.1', 'NW_020192340.1', 'NW_020192348.1']
 for contig in test_contigs:
     path = f"/home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/{contig + '_intervals'}/"
     # sp.run(shlex.split(f"gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/{contig + '_intervals'}/ --subdivision-mode INTERVAL_SUBDIVISION -L {contig}"))
-    with open(f"{path + 'master.intervals_list'}", 'w') as fh:
-        for dir in os.listdir():
-            for file in dir:
-                fh.write(sp.check_output(shlex.split(f"tail -n1 {file}"), encoding='utf-8'))
+    # with open(f"{path + 'master.intervals_list'}", 'w') as fh:
+    for dir in os.listdir():
+        for file in dir:
+            print(file)
+                # fh.write(sp.check_output(shlex.split(f"tail -n1 {file}"), encoding='utf-8'))
