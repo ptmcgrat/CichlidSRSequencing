@@ -26,4 +26,4 @@ for contig in test_contigs:
     with open(f"{path + 'master.intervals_list'}", 'w') as fh:
         for dir in os.listdir():
             for file in dir:
-                fh.write(sp.run(shlex.split(f"tail -n1 {file}")))
+                fh.write(sp.check_output(shlex.split(f"tail -n1 {file}"), encoding='utf-8'))
