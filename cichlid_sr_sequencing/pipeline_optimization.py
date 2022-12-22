@@ -26,7 +26,8 @@ for contig in test_contigs:
     # sp.run(shlex.split(f"gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O {path} --subdivision-mode INTERVAL_SUBDIVISION -L {contig}"))
     intervals = [[(filename, sp.check_output(['tail', '-1', path + filename]).decode('utf-8'))] for filename in [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.interval_list')]]
     with open(f"{path + 'test.intervals'}", 'w') as f:
-        f.write(intervals)
+        for line in intervals:
+            f.write(line)
 
 
 
