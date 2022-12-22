@@ -29,6 +29,14 @@ for contig in test_contigs:
 
 
 
+dir = path
+for filename in os.listdir(directory):
+    f = os.path.join(directory, filename)
+    # checking if it is a file
+    if os.path.isfile(f):
+        print(f)
+
+
 """
 path = "{your_path}"
 
