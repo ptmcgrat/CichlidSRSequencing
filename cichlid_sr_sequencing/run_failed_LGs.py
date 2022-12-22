@@ -74,7 +74,7 @@ for contig in contigs:
 # 		for p in processes2:
 # 			p.communicate()
 # 		processes2=[]
-# test
+
 print('Pipeline Completed')
 
 """
