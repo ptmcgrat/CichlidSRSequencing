@@ -1,7 +1,6 @@
-import subprocess as sp, argparse, pandas as pd, shlex, pysam
+import subprocess as sp, argparse, pandas as pd, shlex, pysam, os
 from helper_modules.file_manager import FileManager as FM
-from os import listdir
-from os.path import isfile, join
+
 
 parser = argparse.ArgumentParser(usage = 'Testing gatk GenomicsDBImport parallelization optimization')
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
@@ -23,21 +22,8 @@ fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 test_contigs = ['NW_020192349.1', 'NW_020192340.1', 'NW_020192348.1']
 for contig in test_contigs:
     path = f"/home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/{contig + '_intervals'}/"
-    # sp.run(shlex.split(f"gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O {path} --subdivision-mode INTERVAL_SUBDIVISION -L {contig}"))
-    intervals = [[(filename, sp.check_output(['tail', '-1', path + filename]).decode('utf-8'))] for filename in [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.interval_list')]]
-    with open(f"{path + 'test.intervals'}", 'w') as f:
-        for line in intervals:
-            f.write(line)
-
-
-
-"""
-path = "{your_path}"
-
-# last_lines = [subprocess.check_output(['tail', '-1', path + filename]) for filename in [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.txt')]]
-
-filename_last_lines = [[(filename, subprocess.check_output(['tail', '-1', path + filename]))] for filename in [f for f in listdir(path) if isfile(join(path, f)) and f.endswith('.txt')]]
-
-# print(last_lines)
-print(filename_last_lines)
-"""
+    # sp.run(shlex.split(f"gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/{contig + '_intervals'}/ --subdivision-mode INTERVAL_SUBDIVISION -L {contig}"))
+    with open(f"{path + 'master.intervals_list'}", 'w') as fh:
+        for dir in os.listdir():
+            for file in dir:
+                fh.write(sp.run(shlex.split(f"tail -n1 {file}")))
