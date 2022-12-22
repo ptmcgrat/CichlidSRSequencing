@@ -18,7 +18,8 @@ sampleIDs = set(a_dt.SampleID)
 
 fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 
-test_contigs = ['NW_020192349.1', 'NW_020192340.1', 'NW_020192348.1']
+test_contigs = ['NW_020192349.1']
+# , 'NW_020192340.1', 'NW_020192348.1']
 for contig in test_contigs:
-    sp.run(shlex.split(f'gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4  -O /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION'))
+    sp.run(shlex.split(f'gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing --subdivision-mode INTERVAL_SUBDIVISION'))
 # sp.run(shlex.split('/Users/kmnike/bin/gatk-4.2.6.1/gatk ScatterIntervalsByNs -O /Users/kmnike/McGrath/genomics/intervals_testing/intervals_no_Ns.interval_list -R /Users/kmnike/McGrath/genomics/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --OUTPUT_TYPE ACGT'))
