@@ -56,7 +56,7 @@ processes2 = []
 # First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
 # The loop is parallelized to run each chromosome in parallel on 4 cores.
 for contig in contigs:
-    p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database'} --intervals {contig} --sample-name-map sample_map_utaka.txt --reader-threads 4"))
+    p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database'} --intervals {contig} --sample-name-map sample_map_utaka.txt --reader-threads 4 --overwrite-existing-genomicsdb-workspace"))
     processes.append(p)
 
     if len(processes) == 4:
