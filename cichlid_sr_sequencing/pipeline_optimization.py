@@ -20,4 +20,4 @@ fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
 
 test_contigs = ['NW_020192349.1', 'NW_020192340.1', 'NW_020192348.1']
 for contig in test_contigs:
-    sp.run(shlex.split(f'gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW -L {contig}'))
+    sp.run(shlex.split(f"gatk SplitIntervals -R /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/genome/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O /home/ad.gatech.edu/bio-mcgrath-dropbox/interval_testing/{contig + '_intervals'} --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION_WITH_OVERFLOW -L {contig}"))
