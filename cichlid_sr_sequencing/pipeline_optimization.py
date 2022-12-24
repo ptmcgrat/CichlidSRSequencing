@@ -18,6 +18,8 @@ a_dt = a_dt[a_dt.GenomeVersion == args.Genome]
 sampleIDs = set(a_dt.SampleID)
 
 test_contigs = ['NW_020192838', 'NW_020192872', 'NW_020192873']
+lg7 = 'NC_036786.1'
+sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
 
 processes = []
 processes2 = []
@@ -35,14 +37,14 @@ processes2 = []
 
 
 #### here's the orignal code. 
-for contig in test_contigs:
-    p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database2'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --reader-threads 4"))
-    processes.append(p)
+# for contig in test_contigs:
+#     p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database2'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --reader-threads 4"))
+#     processes.append(p)
 
-    if len(processes) == 3:
-        for p in processes:
-            p.communicate()
-        processes = []
+#     if len(processes) == 3:
+#         for p in processes:
+#             p.communicate()
+#         processes = []
 
 #### This second gatk command takes in the reference genome and the path to the genomicsdb workspace and outputs all variants per chromosome per sample included in the cohort per chromosome. 
 #### The -V flag specifying the genomicsdb workspace location must start with 'gendb://' but it will look in the curret dir for the workspace, so a new relative path to the correct workspace must be appended to the 'gendb://'
