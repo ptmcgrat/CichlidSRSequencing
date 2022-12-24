@@ -17,25 +17,30 @@ a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 a_dt = a_dt[a_dt.GenomeVersion == args.Genome]
 sampleIDs = set(a_dt.SampleID)
 
-fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
+test_contigs = ['NW_020192838', 'NW_020192872', 'NW_020192873']
 
-test_contigs = ['NW_020192349.1', 'NW_020192340.1', 'NW_020192348.1']
-#### temp filepath to the location in which the intervals will be generated. 
-path = f"/Users/kmnike/McGrath/genomics/intervals_testing/"
+processes = []
+processes2 = []
+#### First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
+#### The loop is parallelized to run each chromosome in parallel on 4 cores.
+for contig in test_contigs:
+    p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomics-db-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database'} --intervals small_contig.intervals_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
+    processes.append(p)
 
-#### use SplitIntervals to generate 4 intervals per unmapped contig. the tool spits out 4 files with the same name by default, so the -O flag is used to pass each set of files into a new directory with the name of the contig used. the INTERNAL SUBDIVISION flag splits the intervals as evenly as possible per contig. 
-# for contig in test_contigs:
-#     sp.run(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk SplitIntervals -R /Users/kmnike/McGrath/genomics/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna --scatter-count 4 -O /Users/kmnike/McGrath/genomics/intervals_testing/{contig + '_intervals'}/ --subdivision-mode INTERVAL_SUBDIVISION -L {contig}"))
+    if len(processes) == 22:
+        for p in processes:
+            p.communicate()
+        processes = []
+#### This second gatk command takes in the reference genome and the path to the genomicsdb workspace and outputs all variants per chromosome per sample included in the cohort per chromosome. 
+#### The -V flag specifying the genomicsdb workspace location must start with 'gendb://' but it will look in the curret dir for the workspace, so a new relative path to the correct workspace must be appended to the 'gendb://'
+#### An output location and filename must also be provided, per chromosome. The loop is also parallelized to generate a VCF file for all samples in the cohort, per chromosome. 
+# for contig in contigs:
+# 	p2 = sp.Popen(shlex.split(f"gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/' + contig + '_output.vcf'} --heterozygosity 0.0012"))
+# 	processes2.append(p2)
 
-#### write intervals to a master interval list file. Navigate to the dir containing all the contigs' directories which have the intervals.
-#### check if the master.intervals_list file is empty. If so, write the whole first file (to get the header). Otherwise, use tail -n1 to get the last line which has the interval for that contig. The files are not read in the correct order, so we need to sort the intervals afterwards
-with open('master.intervals_list', 'w+') as fh:
-    for contig in os.listdir(path):
-            for interval in os.listdir(f"{path +'/' + contig}"):
-                if os.path.getsize('/Users/kmnike/master.intervals_list') == 0:
-                    fh.write(sp.check_output(shlex.split(f"cat {path + '/' + contig + '/' + interval}"), encoding = 'utf-8'))
-                else:
-                    fh.write(sp.check_output(shlex.split(f"tail -n1 {path + '/' + contig + '/' + interval}"), encoding='utf-8'))
+# 	if len(processes2) == 22:
+# 		for p in processes2:
+# 			p.communicate()
+# 		processes2=[]
 
-# sorting the interval file using GATK tools
-sp.run(shlex.split('/Users/kmnike/bin/gatk-4.2.6.1/gatk IntervalListTools -I master.intervals_list --SORT True -O master.intervals_list'))
+print('Pipeline Completed')
