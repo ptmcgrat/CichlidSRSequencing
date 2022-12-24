@@ -19,7 +19,7 @@ sampleIDs = set(a_dt.SampleID)
 
 test_contigs = ['NW_020192838', 'NW_020192872', 'NW_020192873']
 lg7 = 'NC_036786.1'
-sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
+sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
 
 processes = []
 processes2 = []
