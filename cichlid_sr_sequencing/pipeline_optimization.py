@@ -19,21 +19,21 @@ sampleIDs = set(a_dt.SampleID)
 
 test_contigs = ['NW_020192838', 'NW_020192872', 'NW_020192873']
 lg7 = 'NC_036786.1'
-sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
+# sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
 
 processes = []
 processes2 = []
 #### First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
 #### The loop is parallelized to run each chromosome in parallel on 4 cores.
-#### Below is the new code to use after splitting the contigs into intervals and running by importing 4 intervals at a time. 100kbp took about 2.41 mins 
-# for contig in test_contigs:
-#     p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
-#     processes.append(p)
+#### Below is the new code to use after splitting the contigs into intervals and running by importing 4 intervals at a time. 100kbp took about 2.41 mins
+for contig in test_contigs:
+    p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
+    processes.append(p)
 
-#     if len(processes) == 3:
-#         for p in processes:
-#             p.communicate()
-#         processes = []
+    if len(processes) == 3:
+        for p in processes:
+            p.communicate()
+        processes = []
 
 
 #### here's the orignal code. 
