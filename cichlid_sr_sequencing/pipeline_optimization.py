@@ -26,14 +26,14 @@ processes2 = []
 #### First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
 #### The loop is parallelized to run each chromosome in parallel on 4 cores.
 #### Below is the new code to use after splitting the contigs into intervals and running by importing 4 intervals at a time. 100kbp took about 2.41 mins
-for contig in test_contigs:
-    p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
-    processes.append(p)
+# for contig in test_contigs:
+#     p = sp.Popen(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
+#     processes.append(p)
 
-    if len(processes) == 3:
-        for p in processes:
-            p.communicate()
-        processes = []
+#     if len(processes) == 3:
+#         for p in processes:
+#             p.communicate()
+#         processes = []
 
 
 #### here's the orignal code. 
@@ -49,13 +49,13 @@ for contig in test_contigs:
 #### This second gatk command takes in the reference genome and the path to the genomicsdb workspace and outputs all variants per chromosome per sample included in the cohort per chromosome. 
 #### The -V flag specifying the genomicsdb workspace location must start with 'gendb://' but it will look in the curret dir for the workspace, so a new relative path to the correct workspace must be appended to the 'gendb://'
 #### An output location and filename must also be provided, per chromosome. The loop is also parallelized to generate a VCF file for all samples in the cohort, per chromosome. 
-# for contig in contigs:
-# 	p2 = sp.Popen(shlex.split(f"gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/' + contig + '_output.vcf'} --heterozygosity 0.0012"))
-# 	processes2.append(p2)
+for contig in test_contigs:
+	p2 = sp.Popen(shlex.split(f"gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingOutputs/' + contig + '_output.vcf'} --heterozygosity 0.0012"))
+	processes2.append(p2)
 
-# 	if len(processes2) == 22:
-# 		for p in processes2:
-# 			p.communicate()
-# 		processes2=[]
+	if len(processes2) == 22:
+		for p in processes2:
+			p.communicate()
+		processes2=[]
 
 print('Pipeline Completed')
