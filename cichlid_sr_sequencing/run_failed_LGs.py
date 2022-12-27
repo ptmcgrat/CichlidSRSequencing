@@ -56,7 +56,7 @@ processes2 = []
 
 #### Code to run LG7 only with its 4 intervals
 lg7 = 'NC_036786.1'
-sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --reader-threads 16 --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
+sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --interval-merging-rule OVERLAPPING_ONLY --reader-threads 16 --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
 
 # First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
 # The loop is parallelized to run each chromosome in parallel on 4 cores.
