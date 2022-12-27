@@ -44,7 +44,7 @@ processes = []
 processes2 = []
 
 #### Since the intervals list will generate one database for all of the unmapped contigs, I can run GenomcisDBImport and GenotypeGVCFs back to back without the need to parallelize further (since it's not possible to parallelize GenotypeGVCFs this way anyways)
-sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + 'all_unmapped_contigs_database'} --intervals unmapped_contigs.interval_list --sample-name-map sample_map_utaka.txt --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 88 --overwrite-existing-genomicsdb-workspace"))
+sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + 'all_unmapped_contigs_database'} --intervals unmapped_contigs.interval_list --sample-name-map sample_map_utaka.txt --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
 sp.run(shlex.split(f"gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/Databases/all_unmapped_contigs_database'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/' + 'all_unmapped_contigs_output.vcf'} --heterozygosity 0.0012"))
 
 print('Pipeline Completed')
