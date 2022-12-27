@@ -53,6 +53,11 @@ print(contigs)
 
 processes = []
 processes2 = []
+
+#### Code to run LG7 only with its 4 intervals
+lg7 = 'NC_036786.1'
+sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --reader-threads 16 --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
+
 # First gatk command takes in chromosome names and a tab delimited cohort of samples for which to generate a genomicsdb workspace. The location of the workspace, per chromosome, must be specified using an absolute filepath.
 # The loop is parallelized to run each chromosome in parallel on 4 cores.
 # for contig in contigs:
@@ -66,28 +71,13 @@ processes2 = []
 # This second gatk command takes in the reference genome and the path to the genomicsdb workspace and outputs all variants per chromosome per sample included in the cohort per chromosome. 
 # The -V flag specifying the genomicsdb workspace location must start with 'gendb://' but it will look in the curret dir for the workspace, so a new relative path to the correct workspace must be appended to the 'gendb://'
 # An output location and filename must also be provided, per chromosome. The loop is also parallelized to generate a VCF file for all samples in the cohort, per chromosome. 
-for contig in contigs:
-	p2 = sp.Popen(shlex.split(f"gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/' + contig + '_output.vcf'} --heterozygosity 0.0012"))
-	processes2.append(p2)
+# for contig in contigs:
+# 	p2 = sp.Popen(shlex.split(f"gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/' + contig + '_output.vcf'} --heterozygosity 0.0012"))
+# 	processes2.append(p2)
 
-	if len(processes2) == 4:
-		for p in processes2:
-			p.communicate()
-		processes2=[]
+# 	if len(processes2) == 4:
+# 		for p in processes2:
+# 			p.communicate()
+# 		processes2=[]
 
 print('Pipeline Completed')
-
-"""
-processes = []
-for contig in fasta_obj.references:
-	#timer.start('Calling SNVs for ' + str(len(bamfiles)) + ' bamfiles.')
-
-	p1 = subprocess.Popen(['bcftools', 'mpileup', '-r', contig, '-C', '50', '-pm2', '-F', '0.2', '-f', fm_obj.localGenomeFile] + bamfiles, stdout = subprocess.PIPE)
-	processes.append(subprocess.Popen(['bcftools', 'call', '-vmO', 'v', '-f', 'GQ', '-o', contig + '.vcf'], stdin = p1.stdout))
-
-	if len(processes) > 23:
-		for p in processes:	
-			p.communicate()
-		processes = []
-	#timer.stop()
-"""
