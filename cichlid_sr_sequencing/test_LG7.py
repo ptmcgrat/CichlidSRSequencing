@@ -18,7 +18,8 @@ fm_obj.downloadData(fm_obj.localAlignmentFile)
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 a_dt = a_dt[a_dt.GenomeVersion == args.Genome]
 sampleIDs = set(a_dt.SampleID)
-
+# Download the reference genome files and build the proper directry structure for them locally.
+fm_obj.downloadData(fm_obj.localGenomeDir)
 lg7 = 'NC_036786.1'
 # sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"))
 
