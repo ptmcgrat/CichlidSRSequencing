@@ -27,7 +27,7 @@ sampleIDs = set(a_dt.SampleID)
 processes = []
 for sample in sampleIDs:
 	try:
-		p = sp.run(shlex.split(f"gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/lg7_Databases/' + sample + '_database'} --intervals lg7.interval_list -V {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + sample + '/' + sample + '.g.vcf.gz'} --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
+		p = sp.run(shlex.split(f"gatk --java-options '-Xmx450G' GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/lg7_Databases/' + sample + '_database'} --intervals lg7.interval_list -V {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + sample + '/' + sample + '.g.vcf.gz'} --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
 		processes.append(p)
 		if len(processes) == 22:
 			for p in processes:
