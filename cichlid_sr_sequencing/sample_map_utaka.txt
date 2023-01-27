@@ -19,7 +19,7 @@ SAMN08051114	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/
 SAMEA4032109	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032109/SAMEA4032109.g.vcf.gz
 SAMN06685767	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN06685767/SAMN06685767.g.vcf.gz
 SAMN06685752	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN06685752/SAMN06685752.g.vcf.gz
-SAMEA4032052	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032052/SAMEA4032052.g.vcf.gz
+SAMEA4032052_redo_230126	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032052_redo_230126/SSAMEA4032052_redo_230126.g.vcf.gz
 SAMN06685761	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN06685761/SAMN06685761.g.vcf.gz
 SAMN08051121	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN08051121/SAMN08051121.g.vcf.gz
 SAMEA4033287	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033287/SAMEA4033287.g.vcf.gz
