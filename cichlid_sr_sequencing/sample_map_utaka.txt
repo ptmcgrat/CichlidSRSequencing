@@ -19,7 +19,7 @@ SAMN08051114	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/
 SAMEA4032109	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032109/SAMEA4032109.g.vcf.gz
 SAMN06685767	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN06685767/SAMN06685767.g.vcf.gz
 SAMN06685752	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN06685752/SAMN06685752.g.vcf.gz
-SAMEA4032052_redo_230126	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032052_redo_230126/SAMEA4032052_redo_230126.g.vcf.gz
+SAMEA4032052	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032052/SAMEA4032052.g.vcf.gz
 SAMN06685761	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN06685761/SAMN06685761.g.vcf.gz
 SAMN08051121	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMN08051121/SAMN08051121.g.vcf.gz
 SAMEA4033287	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033287/SAMEA4033287.g.vcf.gz
@@ -390,7 +390,7 @@ SAMEA2661347	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/
 SAMEA4033302	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033302/SAMEA4033302.g.vcf.gz
 SAMEA2661437	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661437/SAMEA2661437.g.vcf.gz
 SAMEA2661352	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661352/SAMEA2661352.g.vcf.gz
-SAMEA4033252_redo	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033252_redo/SAMEA4033252_redo.g.vcf.gz
+SAMEA4033252	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033252/SAMEA4033252.g.vcf.gz
 SAMEA2661383	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661383/SAMEA2661383.g.vcf.gz
 SAMEA2661252	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661252/SAMEA2661252.g.vcf.gz
 SAMEA6147770	/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA6147770/SAMEA6147770.g.vcf.gz
