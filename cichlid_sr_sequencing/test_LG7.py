@@ -31,6 +31,7 @@ sampleIDs = data['sample_IDs'].tolist()
 # 		print(i)
 	# if i == 'SAMEA4032052_redo_230126':
 	# 	print(i)
+
 """
 # dir = os.listdir('/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a')
 dir = ['MC_1_m', 'SAMEA2661294', 'DNE', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
@@ -39,19 +40,21 @@ dir = ['MC_1_m', 'SAMEA2661294', 'DNE', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA40
 processes = []
 rc = []
 for sample in dir:
-	p = sp.Popen(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk GenomicsDBImport --genomicsdb-workspace-path {'/Users/kmnike/Data/CichlidSequencingData/Databases/' + sample + '_database'} --intervals lg7.interval_list -V {'/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + sample + '/' + 'small_' + sample + '.g.vcf.gz'} --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
+	p = sp.Popen(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk GenomicsDBImport --genomicsdb-workspace-path {'/Users/kmnike/Data/CichlidSequencingData/Databases/' + sample + '_database'} --intervals lg7.interval_list -V {'/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + sample + '/' + 'small_' + sample + '.g.vcf.gz'} --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"), stderr=sp.PIPE)
 	processes.append(p)
-	if len(processes) == 1:
+	if len(processes) == 6:
 		for process in processes:
 			p.communicate()
 			print('THE CODE IS', p.returncode)
+			p.stderr.read().decode()
 			rc.append(p.returncode)
-		processes = []
+		# processes = []
 
-with open('returncodes.txt', 'a') as f:
-	for i in range(0, len(rc)):
-		f.write(f"returncode for {dir[i]} is {rc[i]}\n")
+# with open('returncodes.txt', 'a') as f:
+# 	for i in range(0, len(rc)):
+# 		f.write(f"returncode for {dir[i]} is {rc[i]}\n")
 """
+
 
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 a_dt = a_dt[a_dt.GenomeVersion == args.Genome]
@@ -70,10 +73,11 @@ for sample in sampleIDs:
 				p.communicate()
 				rc.append(p.returncode)
 			processes = []
-
+print(sampleIDs)
+print(rc)
 with open('returncodes.txt', 'a') as f:
 	for i in range(0, len(rc)):
-		f.write(f"returncode for {dir[i]} is {rc[i]}\n")
+		f.write(f"returncode for {sampleIDs[i]} is {rc[i]}\n")
 
 #### The above code was used to ID the failed sample (SAMEA4033252). The below code is to create an LG7 database for the samples including the SAMEA4033252 and create a VCF file once the GenomicsDBImport is complete
 # sp.run(shlex.split(f"gatk --java-options '-Xmx450G' GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
