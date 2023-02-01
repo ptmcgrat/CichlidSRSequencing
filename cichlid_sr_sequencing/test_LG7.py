@@ -79,9 +79,9 @@ with open('returncodes.txt', 'w') as f:
 			processes = []
 print(sampleIDs)
 print(rc)
-with open('returncodes.txt', 'a') as f:
-	for i in range(0, len(rc)):
-		f.write(f"returncode for {sampleIDs[i]} is {rc[i]}\n")
+# with open('returncodes.txt', 'a') as f:
+# 	for i in range(0, len(rc)):
+# 		f.write(f"returncode for {sampleIDs[i]} is {rc[i]}\n")
 
 #### To avoid an error like this happening again in the future, implement lines of code that test to see if the code is being run locally or on one o fthe 2 servers, then have variables rpedefine file locations based on where things are on those servers
 #### This will help avoid issues where locations and variables are different between locations, so taht we dont have to rename everything in the code 
