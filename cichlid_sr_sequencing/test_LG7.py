@@ -65,19 +65,26 @@ lg7 = 'NC_036786.1'
 # implement a returncode into the Popen constructor 
 processes = []
 rc = []
-for sample in sampleIDs:
-		p = sp.Popen(shlex.split(f"gatk --java-options '-Xmx450G' GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + sample + '_database'} --intervals lg7.interval_list -V {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + sample + '/' + sample + '.g.vcf.gz'} --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
-		processes.append(p)
-		if len(processes) == 1:
+with open('returncodes.txt', 'w') as f:
+	for sample in sampleIDs:
+		command = shlex.split(f"gatk --java-options '-Xmx450G' GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + sample + '_database'} --intervals lg7.interval_list -V {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + sample + '/' + sample + '.g.vcf.gz'} --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace")
+		processes.append(sp.Popen(command), stderr = sp.PIPE)
+		if len(processes) == 22:
 			for p in processes:
 				p.communicate()
-				rc.append(p.returncode)
+			for p in processes:
+				if p.returncode != 0:
+					print(str(p.returncode), file = f)
+					print(str(p.stderr.read()), file = f)
 			processes = []
 print(sampleIDs)
 print(rc)
 with open('returncodes.txt', 'a') as f:
 	for i in range(0, len(rc)):
 		f.write(f"returncode for {sampleIDs[i]} is {rc[i]}\n")
+
+#### To avoid an error like this happening again in the future, implement lines of code that test to see if the code is being run locally or on one o fthe 2 servers, then have variables rpedefine file locations based on where things are on those servers
+#### This will help avoid issues where locations and variables are different between locations, so taht we dont have to rename everything in the code 
 
 #### The above code was used to ID the failed sample (SAMEA4033252). The below code is to create an LG7 database for the samples including the SAMEA4033252 and create a VCF file once the GenomicsDBImport is complete
 # sp.run(shlex.split(f"gatk --java-options '-Xmx450G' GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + lg7 + '_database'} --intervals lg7.interval_list --sample-name-map sample_map_utaka.txt --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
