@@ -93,7 +93,7 @@ lg7 = 'NC_036786.1'
 
 df = pd.read_csv('returncodes.txt', sep='\t', header=None, names=['col1','col2'])
 error_samples=df['col1'].tolist()
-
+processes = []
 with open('returncodes.txt', 'w') as f:
 	for sample in error_samples:
 		command = shlex.split(f"gatk --java-options '-Xmx450G' GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + sample + '_database'} --intervals lg7.interval_list -V {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + sample + '/' + sample + '.g.vcf.gz'} --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace")
