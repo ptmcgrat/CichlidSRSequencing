@@ -18,22 +18,10 @@ error_files = ['SAMEA4033321', 'SAMEA2661241', 'SAMEA4032067', 'SAMEA4033318', '
 #### Just to get this running on the utaka server:
 # for file in error_files:
 	# sp.run(shlex.split(f"rclone copy ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/{file}.all.bam /Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/ -P"))
-	# sp.run(shlex.split(f"rclone copy ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/{file}.all.bai /Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/ -P"))
-
+	sp.run(shlex.split(f"rclone copy ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/{file}.all.bai /Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/ -P"))
 
 lg7 = 'NC_036786.1'
 processes = []
-
-
-#### parallel download test on mzebra
-for file in error_files:
-	p = sp.Popen(shlex.split(f"rclone copy ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/{file}.all.bam /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/ -P"))
-	processes.append(p)
-	if len(processes) == 5:
-		for proc in processes:
-			proc.communicate()
-		processes = []
-
 
 """
 for file in error_files:
@@ -50,15 +38,3 @@ for file in error_files:
 			proc.communicate()
 		proc = []
 """
-
-
-#### for local testing:
-
-
-# fm_obj.downloadData(fm_obj.localAlignmentFile)
-#### Download the reference genome files and build the proper directry structure for them locally.
-# fm_obj.downloadData(fm_obj.localGenomeDir)
-
-# a_dt = pd.read_csv(fm_obj.localAlignmentFile)
-# a_dt = a_dt[a_dt.GenomeVersion == args.Genome]
-# sampleIDs = set(a_dt.SampleID)
