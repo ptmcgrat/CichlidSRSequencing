@@ -15,7 +15,7 @@ vcf = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Output
 ref = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf.gz'
 
-sp.run(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk VariantFiltration \
+sp.run(shlex.split(f"gatk VariantFiltration \
    -R {ref} \
    -V {vcf} \
    -O {out} \
