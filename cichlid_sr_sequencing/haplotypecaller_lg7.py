@@ -25,10 +25,10 @@ lg7 = 'NC_036786.1'
 processes = []
 
 for file in error_files:
-	command = f"gatk --java-options '-Xmx90G' HaplotypeCaller --emit-ref-confidence GVCF -L {lg7} -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -I {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '.all.bam'} -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '_rerun_230203.g.vcf.gz'}"
+	command = f"gatk HaplotypeCaller --emit-ref-confidence GVCF -L {lg7} -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -I {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '.all.bam'} -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '_rerun_230203.g.vcf.gz'}"
 	p = sp.Popen(shlex.split(command))
 	processes.append(p)
-	if len(processes) == 4:
+	if len(processes) == 74:
 		for proc in processes:
 			proc.communicate()
 		proc = []
