@@ -1,4 +1,4 @@
-import subprocess as sp, argparse, shlex, pandas as pd, pysam, os
+import subprocess as sp, argparse, shlex
 from helper_modules.file_manager import FileManager as FM
 
 
@@ -29,7 +29,7 @@ processes = []
 for file in error_files:
 	p = sp.Popen(shlex.split(f"rclone copy ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/{file}.all.bam /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/ -P"))
 	processes.append(p)
-	if len(processes) == 74:
+	if len(processes) == 5:
 		for p in processes:
 			p.communicate()
 		processes = []
