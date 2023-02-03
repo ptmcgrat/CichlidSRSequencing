@@ -16,10 +16,10 @@ if args.Genome not in fm_obj.returnGenomeVersions():
 # Get the error files
 df = pd.read_csv('returncodes.txt', sep='\t', header=None, names=['col1','col2'])
 error_files=df['col1'].tolist()
-
+print(error_files)
 #### Just to get this running on the utaka server:
 for file in error_files:
-	sp.run(shlex.split(f"rclone copy ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/{file}.all.bam /Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/{file}/"))
+	sp.run(shlex.split(f"{'rclone copy ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + 'all.bam'} {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/'}"))
 
 
 
