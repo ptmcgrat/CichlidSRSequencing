@@ -57,7 +57,7 @@ sp.run(shlex.split(f"gatk VariantFiltration \
    --filter-expression 'MQ < 40.0' \
    --filter-name 'no_calls' \
    --filter-expression 'NCC > 125.0' \
-   --verbosity WARNING"))
+   --verbosity ERROR"))
 
 
 #### test local filter file for number of filters called in each variant
