@@ -81,13 +81,11 @@ args = parser.parse_args()
 filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0, 'PASS':0}
 with open('/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf.gz', 'rb') as fh:
    for line in fh:
-      if line.strip().split()[0].startswith(b'##') or line.strip().split()[0].startswith(b'#'):
+      if line.strip().split()[0].startswith('##') or line.strip().split()[0].startswith('#'):
          continue
-      filter = line.split(b'\t')
-      print(filter)
-      # filter = line.split(b'\t')[6]
-      # filter = filter.split(';')
-      # for criteria in filter:
-      #    filters[criteria] += 1
+      filter = line.split('\t')[6]
+      filter = filter.split(';')
+      for criteria in filter:
+         filters[criteria] += 1
    
-# print(filters)
+print(filters)
