@@ -83,7 +83,7 @@ with open('/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Ou
    for line in fh:
       if line.strip().split()[0].startswith(b'##') or line.strip().split()[0].startswith(b'#'):
          continue
-      filter = line.split('\t')[6]
+      filter = line.split(b'\t')[6]
       filter = filter.split(';')
       for criteria in filter:
          filters[criteria] += 1
