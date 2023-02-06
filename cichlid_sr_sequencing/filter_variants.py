@@ -36,7 +36,7 @@ args = parser.parse_args()
 ### Mzebra server File paths
 vcf = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/master_file.vcf.gz'
 ref = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
-out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_correctly_filtered.vcf.gz'
+out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_10kDP_filtered.vcf.gz'
 
 sp.run(shlex.split(f"gatk VariantFiltration \
    -R {ref} \
@@ -49,7 +49,7 @@ sp.run(shlex.split(f"gatk VariantFiltration \
    --filter-name 'depth_Qual' \
    --filter-expression 'QD < 2.0' \
    --filter-name 'max_DP' \
-   --filter-expression 'DP > 3000.0' \
+   --filter-expression 'DP > 100000.0' \
    --filter-name 'min_DP' \
    --filter-expression 'DP < 1000.0' \
    --filter-name 'strand_bias' \
@@ -79,7 +79,7 @@ sp.run(shlex.split(f'gunzip {out}'))
 #### see how many filters were triggered for variants in the whole file. filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0}
 
 filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0, 'PASS':0}
-with open('/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_correctly_filtered.vcf', 'r') as fh:
+with open('/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_10kDP_filtered.vcf', 'r') as fh:
    for line in fh:
       if line.strip().split()[0].startswith('##') or line.strip().split()[0].startswith('#'):
          continue
