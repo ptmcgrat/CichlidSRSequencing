@@ -79,7 +79,7 @@ args = parser.parse_args()
 #### see how many filters were triggered for variants in the whole file. filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0}
 
 filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0, 'PASS':0}
-with open('/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf.gz', 'rb') as fh:
+with open('/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf', 'rb') as fh:
    for line in fh:
       if line.strip().split()[0].startswith('##') or line.strip().split()[0].startswith('#'):
          continue
