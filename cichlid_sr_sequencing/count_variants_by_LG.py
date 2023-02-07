@@ -1,0 +1,20 @@
+import subprocess as sp, argparse, pysam
+from helper_modules.file_manager import FileManager as FM
+import shlex
+
+
+fm_obj = FM('Mzebra_UMD2a')
+
+fasta_obj = pysam.FastaFile(fm_obj.localGenomeFile)
+# below line defines the LG names for the first 22 LGs in the genome.
+contigs = fasta_obj.references[0:22]
+contigs.remove('NC_036786.1')
+
+variant_list = {}
+for i in contigs:
+    print(i)
+    cmd = f"grep {i} /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/master_file.vcf | wc -l"
+    ps = sp.Popen(cmd,shell=True,stdout=sp.PIPE,stderr=sp.STDOUT)
+    output = int(ps.communicate()[0].decode('utf-8').strip())
+    variant_list[i] = output
+print(variant_list)
