@@ -26,7 +26,7 @@ except FileExistsError:
     pass
 temp_dir = os.getcwd() + '/Temp/'
 
-#### Quick check to see if a aster vcf file has already been created. 
+#### Quick check to see if a master vcf file has already been created. 
 file_num = 0
 for file in os.listdir(output_dir):
     file_num += 1
