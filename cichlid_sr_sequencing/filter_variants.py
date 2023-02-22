@@ -1,16 +1,17 @@
 import subprocess as sp, argparse, shlex
-
+# /Users/kmnike/anaconda3/envs/mcgrath/bin/python /Users/kmnike/McGrath/genomics/CichlidSRSequencing/cichlid_sr_sequencing/filter_variants.py
 parser = argparse.ArgumentParser(usage = 'Pipeline for filtering an input VCF file by various INFO and FORMAT fields followed by sample filtering, and PCA plot generation.')
 # parser.add_argument('input', help = 'Input VCF file for Filtering')
 # parser.add_argument('filters', help = ' ')
 args = parser.parse_args()
 
-#### Local file paths
-# vcf = '/Users/kmnike/Data/CichlidSequencingData/Outputs/small_master_file.vcf.gz'
+### Local file paths
+# vcf = '/Users/kmnike/Data/CichlidSequencingData/Outputs/NaN_troubleshooting/small_lg1-22_master_file.vcf'
 # ref = '/Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
-# out = '/Users/kmnike/Data/CichlidSequencingData/Outputs/test_out.vcf.gz'
+# out = '/Users/kmnike/Data/CichlidSequencingData/Outputs/NaN_troubleshooting/test_out.vcf'
+# gunzip_out = '/Users/kmnike/Data/CichlidSequencingData/Outputs/NaN_troubleshooting/test_out.vcf'
 
-# sp.run(shlex.split(f"/Users/kmnike/bin/gatk-4.2.6.1/gatk VariantFiltration \
+# sp.run(shlex.split(f"gatk VariantFiltration \
 #    -R {ref} \
 #    -V {vcf} \
 #    -O {out} \
@@ -21,23 +22,23 @@ args = parser.parse_args()
 #    --filter-name 'depth_Qual' \
 #    --filter-expression 'QD < 2.0' \
 #    --filter-name 'max_DP' \
-#    --filter-expression 'DP > 3000' \
+#    --filter-expression 'DP > 12000' \
 #    --filter-name 'min_DP' \
-#    --filter-expression 'DP < 1000' \
+#    --filter-expression 'DP < 3000' \
 #    --filter-name 'strand_bias' \
 #    --filter-expression 'FS > 40.0' \
 #    --filter-name 'mapping_quality' \
 #    --filter-expression 'MQ < 40.0' \
 #    --filter-name 'no_calls' \
-#    --filter-expression 'NCC > 125.0' \
+#    --filter-expression 'NCC > 125' \
 #    --verbosity ERROR"))
 # sp.run(shlex.split(f'gunzip {out}'))
 
 ### Mzebra server File paths
-vcf = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/master_file.vcf.gz'
+vcf = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/lg1-22_master_file.vcf.gz'
 ref = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
-out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf.gz'
-gunzip_out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf'
+out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/filtered.vcf.gz'
+# gunzip_out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf'
 sp.run(shlex.split(f"gatk VariantFiltration \
    -R {ref} \
    -V {vcf} \
@@ -49,9 +50,9 @@ sp.run(shlex.split(f"gatk VariantFiltration \
    --filter-name 'depth_Qual' \
    --filter-expression 'QD < 2.0' \
    --filter-name 'max_DP' \
-   --filter-expression 'DP > 3000.0' \
+   --filter-expression 'DP > 11500' \
    --filter-name 'min_DP' \
-   --filter-expression 'DP < 1000.0' \
+   --filter-expression 'DP < 5220' \
    --filter-name 'strand_bias' \
    --filter-expression 'FS > 40.0' \
    --filter-name 'mapping_quality' \
@@ -59,12 +60,12 @@ sp.run(shlex.split(f"gatk VariantFiltration \
    --filter-name 'no_calls' \
    --filter-expression 'NCC > 125.0' \
    --verbosity ERROR"))
-sp.run(shlex.split(f'gunzip {out}'))
+# sp.run(shlex.split(f'gunzip {out}'))
 
 #### test local filter file for number of filters called in each variant
 # filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0, 'PASS':0}
 
-# with open('/Users/kmnike/Data/CichlidSequencingData/Outputs/test_out.vcf', 'r') as fh:
+# with open(gunzip_out, 'r') as fh:
 #    for line in fh:
 #       if line.strip().split()[0].startswith('##') or line.strip().split()[0].startswith('#'):
 #          continue
@@ -76,15 +77,15 @@ sp.run(shlex.split(f'gunzip {out}'))
 
 
 
-#### see how many filters were triggered for variants in the whole file.
+#### see how many filters were triggered for variants in the whole file on the server
 
-filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0, 'PASS':0}
-with open(gunzip_out, 'r') as fh:
-   for line in fh:
-      if line.strip().split()[0].startswith('##') or line.strip().split()[0].startswith('#'):
-         continue
-      filter = line.split('\t')[6]
-      filter = filter.split(';')
-      for criteria in filter:
-         filters[criteria] += 1
-print(filters)
+# filters = {'allele_freq':0, 'inbreeding_test':0, 'depth_Qual':0, 'max_DP':0, 'min_DP':0, 'strand_bias':0, 'mapping_quality':0, 'no_calls':0, 'PASS':0}
+# with open(gunzip_out, 'r') as fh:
+#    for line in fh:
+#       if line.strip().split()[0].startswith('##') or line.strip().split()[0].startswith('#'):
+#          continue
+#       filter = line.split('\t')[6]
+#       filter = filter.split(';')
+#       for criteria in filter:
+#          filters[criteria] += 1
+# print(filters)
