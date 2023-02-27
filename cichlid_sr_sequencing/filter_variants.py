@@ -56,7 +56,7 @@ sp.run(shlex.split(f"gatk VariantFiltration \
    --filter-name 'strand_bias' \
    --filter-expression 'FS > 40.0' \
    --filter-name 'mapping_quality' \
-   --filter-expression 'MQ < 40.0' \
+   --filter-expression 'MQ < 50.0' \
    --filter-name 'no_calls' \
    --filter-expression 'NCC > 125.0' \
    --verbosity ERROR"))
