@@ -44,15 +44,15 @@ sp.run(shlex.split(f"gatk VariantFiltration \
    -V {vcf} \
    -O {out} \
    --filter-name 'allele_freq' \
-   --filter-expression 'AF < 0.001916' \
+   --filter-expression 'AF < 0.000958' \
    --filter-name 'inbreeding_test' \
    --filter-expression 'InbreedingCoeff < -0.6' \
    --filter-name 'depth_Qual' \
    --filter-expression 'QD < 2.0' \
    --filter-name 'max_DP' \
-   --filter-expression 'DP > 11500' \
+   --filter-expression 'DP > 11000' \
    --filter-name 'min_DP' \
-   --filter-expression 'DP < 5220' \
+   --filter-expression 'DP < 8000' \
    --filter-name 'strand_bias' \
    --filter-expression 'FS > 40.0' \
    --filter-name 'mapping_quality' \
@@ -60,6 +60,7 @@ sp.run(shlex.split(f"gatk VariantFiltration \
    --filter-name 'no_calls' \
    --filter-expression 'NCC > 125.0' \
    --verbosity ERROR"))
+
 # sp.run(shlex.split(f'gunzip {out}'))
 
 #### test local filter file for number of filters called in each variant
