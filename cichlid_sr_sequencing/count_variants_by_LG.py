@@ -1,6 +1,5 @@
-import subprocess as sp, argparse, pysam
+import subprocess as sp, pysam
 from helper_modules.file_manager import FileManager as FM
-import shlex
 
 fm_obj = FM('Mzebra_UMD2a')
 
