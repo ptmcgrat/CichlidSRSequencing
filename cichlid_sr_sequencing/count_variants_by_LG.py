@@ -11,7 +11,7 @@ variant_list = {}
 for i in contigs:
     print(f"counting variants for {i}")
     # cmd = f"zgrep {i} /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz | wc -l"
-    cmd = f"zgrep {i} /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/master_file.vcf | wc -l"
+    cmd = f"zgrep {i} /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/lg1-22_master_file.vcf.gz | wc -l"
     ps = sp.Popen(cmd, shell=True,stdout=sp.PIPE,stderr=sp.STDOUT)
     output = int(ps.communicate()[0].decode('utf-8').strip())
     variant_list[i] = output
