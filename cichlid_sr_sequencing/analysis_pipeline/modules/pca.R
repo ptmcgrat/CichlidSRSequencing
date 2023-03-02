@@ -15,8 +15,8 @@ pca$sample=new_names$metadata_id
 eco_group <- rep(NA, length(pca$sample))
 eco_group[grep("Mbuna", pca$sample)] <- "Mbuna"
 eco_group[grep("Utaka", pca$sample)] <- "Utaka"
-eco_group[grep("Deep_Benthic", pca$sample)] <- "Deep Benthic"
-eco_group[grep("Shallow_Benthic", pca$sample)] <- "Shallow Benthic"
+eco_group[grep("Deep_Benthic", pca$sample)] <- "Deep_Benthic"
+eco_group[grep("Shallow_Benthic", pca$sample)] <- "Shallow_Benthic"
 eco_group[grep("Diplotaxodon", pca$sample)] <- "Diplotaxodon"
 eco_group[grep("Rhampochromis", pca$sample)] <- "Rhampochromis"
 pca <- as_tibble(data.frame(pca, eco_group))

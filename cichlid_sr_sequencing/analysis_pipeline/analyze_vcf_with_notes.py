@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analy
 parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
 parser.add_argument('output_dir', help = 'absolute filepath to an output directory')
 parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
-parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow Benthic', 'Deep Benthic','Rhampochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All'], nargs = '*', default = ['All'])
+parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhampochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('--PCA', help = 'generate a PCA analysis for the specified linkage groups', default = "All") # this shoudln't be needed since the script is designed to generate the PCA plot
 parser.add_argument('-f', '--filters', help = 'list of tunable parametrs for filtering the raw input vcf file.', default  = ['DP > 11000', 'DP < 8000', 'InbreedingCoeff < -0.6', 'FS > 40.0', 'QD < 2.0', 'NCC> 125', 'MQ < 50', 'AF < 0.000958']) #remove this an implement anotehr script that can be used to filter the raw input file at a later time
@@ -63,9 +63,9 @@ class PCA_Maker:
         self.metadata_csv = self.out_dir + '/filtered_samples.csv'
         # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be. 
         if self.ecogroups == ['All']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow Benthic', 'Deep Benthic','Rhampochromis', 'Diplotaxodon', 'Riverine', 'AC']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhampochromis', 'Diplotaxodon', 'Riverine', 'AC']
         elif self.ecogroups == ['Non_Riverine']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow Benthic', 'Deep Benthic','Rhampochromis', 'Diplotaxodon']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhampochromis', 'Diplotaxodon']
 
         self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
         # lot going on with the below lines.
@@ -134,7 +134,6 @@ Save the output:
 ggsave('filename', plot=b, device='png')
 python3 analyze_vcf_with_notes.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3 -e Non_Riverine
 
-~/anaconda3/envs/mcgrath/bin/python3 analyze_vcf_with_notes.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/Sa
-mpleDatabase.xlsx -e Non_Riverine -r LG1 LG3
+~/anaconda3/envs/mcgrath/bin/python3 analyze_vcf_with_notes.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 """
