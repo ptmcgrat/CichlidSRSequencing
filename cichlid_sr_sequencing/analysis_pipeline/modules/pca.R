@@ -26,6 +26,4 @@ b <- b + scale_colour_manual(values = c("red", "blue", "green", "brown", "purple
 b <- b + coord_equal() + theme_light()
 b + xlab(paste0("PC1 (", signif(pve$pve[1], 3), "%)")) + ylab(paste0("PC2 (", signif(pve$pve[2], 3), "%)"))
 # Save the output:
-ggsave('output.png', plot=b, device='png')
-
-
+ggsave(sprintf("%s%s_pca.png", args[2], args[3]), plot=b, device='png')
