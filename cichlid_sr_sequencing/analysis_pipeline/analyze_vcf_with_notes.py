@@ -1,6 +1,3 @@
-#!/Users/kmnike/anaconda3/envs/mcgrath/bin/python3
-#import argparse, pysam, shlex, subprocess as sp
-
 import argparse, pdb, os, subprocess, pathlib
 import pandas as pd
 from cyvcf2 import VCF
