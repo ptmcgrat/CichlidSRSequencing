@@ -25,7 +25,7 @@ b <- ggplot(pca, aes(PC1, PC2, col = eco_group)) + geom_point(size = 3)
 b <- b + scale_colour_manual(values = c("red", "blue", "green", "brown", "purple", "pink"))
 b <- b + coord_equal() + theme_light()
 b + xlab(paste0("PC1 (", signif(pve$pve[1], 3), "%)")) + ylab(paste0("PC2 (", signif(pve$pve[2], 3), "%)"))
-Save the output:
+# Save the output:
 ggsave('output.png', plot=b, device='png')
 
 
