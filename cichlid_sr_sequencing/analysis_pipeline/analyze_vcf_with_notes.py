@@ -34,6 +34,7 @@ class PCA_Maker:
         self.out_dir = output_directory# The out_dir attribute equals the output_directory name for the object
         self.sample_database = sample_database # The sample_database attribute equals the sample_database name for the object
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
+        self.r_script = os.getcwd() + '/modules/pca.R'
         
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf 
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
@@ -95,13 +96,8 @@ class PCA_Maker:
         for lg in linkage_group_list:
             wd = self.out_dir + '/PCA/' + lg + '/'
             os.chdir(wd)
-            subprocess.run("conda run -n R Rscript /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R", shell=True)
+            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv}", shell=True)
             # subprocess.run(["Rscript", "/home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R", self.metadata_csv])
-        
-
-            # self.eigenval = self.out_dir + '/PCA/' + lg + '/' + 'test.eigenval' # defining the input files into the R code
-            # self.eigenvec = self.out_dir + '/PCA/' + lg + '/' + 'test.eigenvec'
-        
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
 
