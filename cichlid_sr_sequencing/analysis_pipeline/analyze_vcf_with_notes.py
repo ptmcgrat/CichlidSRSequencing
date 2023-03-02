@@ -68,18 +68,11 @@ class PCA_Maker:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow Benthic', 'Deep Benthic','Rhampochromis', 'Diplotaxodon']
 
         self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
-        # lot going on with the below line.
+        # lot going on with the below lines.
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
         # The to_csv(self.good_samples_txt, header = False, index = False) converts into a csv file that bcftools will be able to take as input. The index/header = False eliminate any index/header information, leaving only filtered samples. 
         # Note that the name of the output file is self.good_samples.txt which is where the file pathing for the output file is taken care of
-        """
-        eg = ['Mbuna', 'Utaka', 'Shallow Benthic', 'Deep Benthic','Rhampochromis', 'Diplotaxodon']
-        df_filtered = df[df.Ecogroup.isin(eg)]
-        pd.DataFrame(df_filtered.SampleID.unique()).to_csv('good_samples.cvs', header = False, index = False)
-        df_filtered['metadata_id'] = df_filtered['SampleID'] + "_" + df_filtered['Ecogroup']
-        df_filtered[['SampleID', 'metadata_id']].to_csv('filtered_samples.csv')
-        """
         self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
         pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
         self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
@@ -98,7 +91,7 @@ class PCA_Maker:
             subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_plots(self, linkage_group_list):
-        subprocess.run(['conda', 'activate', 'R'], check=True)
+        subprocess.run(['conda', 'activate', 'R'], check=True, shell=True)
         for lg in linkage_group_list:
             wd = self.out_dir + '/PCA/' + lg + '/'
             os.chdir(wd)
