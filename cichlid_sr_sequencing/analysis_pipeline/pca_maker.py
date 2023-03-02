@@ -12,12 +12,6 @@ parser.add_argument('--PCA', help = 'generate a PCA analysis for the specified l
 parser.add_argument('-f', '--filters', help = 'list of tunable parametrs for filtering the raw input vcf file.', default  = ['DP > 11000', 'DP < 8000', 'InbreedingCoeff < -0.6', 'FS > 40.0', 'QD < 2.0', 'NCC> 125', 'MQ < 50', 'AF < 0.000958']) #remove this an implement anotehr script that can be used to filter the raw input file at a later time
 args = parser.parse_args()
 
-"""Code to change and implement:
-The lgs will need to be passed in using teh -r flag or defult to "All"
-A Script will need to be created to apply filteirng to a raw file.
-A for loop needs to be used for the _create_PCA_linkage magic method to allow it to run on all specified linkage groups. 
-"""
-
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script). 
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
 # There will be many fucntions defined within the class besides the __init__ function whichgive objects of the class their attributes. Additional hidden functions will serve to 
@@ -102,7 +96,7 @@ pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, a
 
 """
 TEST THE CODE ON SERVER:
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3 -e Non_Riverine
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 RUN CODE FOR FILTERED VCF FILE:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outpus /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
