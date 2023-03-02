@@ -77,9 +77,6 @@ class PCA_Maker:
         pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
         self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
         self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
-        # pd.DataFrame(self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
-        # self.s_dt['metadata_id'] = self.s_dt['SampleID'] + "_" + self.s_dt['Ecogroup']
-        # self.s_dt[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
         subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
         subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
 
@@ -91,49 +88,25 @@ class PCA_Maker:
             subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_plots(self, linkage_group_list):
-        self.pca_out = self.out_dir + '/PCA_outputs/'
-        pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True)
-        for lg in linkage_group_list:
-            wd = self.out_dir + '/PCA/' + lg + '/'
+        self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
+        pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True) # generate the filepath to said PCA_output directory
+        for lg in linkage_group_list: # for each lg in the list, generate a PCA plot
+            wd = self.out_dir + '/PCA/' + lg + '/' # for each iteration, this changes the working directory to the LG's eigenvalue/vector files so i dont have to name them uniquely when generating them. I can use the same prefix and just change the dir I'm working in.
             os.chdir(wd)
-            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
+            # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
+            # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
+            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True) 
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
 
 
 """
-Load up R packages and R environment
-Import in the filtered sample file with the needed metadata_id column
-conda activate R
-library(gdsfmt)
-library(tidyverse)
-setwd(</path/to/above/files/>)
-Run all the R Commands:
-pca <- read_table("./cichlids.eigenvec", col_names = FALSE)
-eigenval <- scan("./cichlids.eigenval")
-pca <- pca[,-1]
-# set names
-names(pca)[1] <- "sample"
-names(pca)[2:ncol(pca)] <- paste0("PC", 1:(ncol(pca)-1))
-new_names <- read.csv('filtered_samples.csv')
-pca$sample=new_names$metadata_id
-eco_group <- rep(NA, length(pca$sample))
-eco_group[grep("Mbuna", pca$sample)] <- "Mbuna"
-eco_group[grep("Utaka", pca$sample)] <- "Utaka"
-eco_group[grep("Deep_Benthic", pca$sample)] <- "Deep_Benthic"
-eco_group[grep("Shallow_Benthic", pca$sample)] <- "Shallow_Benthic"
-eco_group[grep("Diplotaxodon", pca$sample)] <- "Diplotaxodon"
-eco_group[grep("Rhampochromis", pca$sample)] <- "Rhampochromis"
-pca <- as_tibble(data.frame(pca, eco_group))
-pve <- data.frame(PC = 1:20, pve = eigenval/sum(eigenval)*100)
-b <- ggplot(pca, aes(PC1, PC2, col = eco_group)) + geom_point(size = 3)
-b <- b + scale_colour_manual(values = c("red", "blue", "green", "brown", "purple", "pink"))
-b <- b + coord_equal() + theme_light()
-b + xlab(paste0("PC1 (", signif(pve$pve[1], 3), "%)")) + ylab(paste0("PC2 (", signif(pve$pve[2], 3), "%)"))
-Save the output:
-ggsave('filename', plot=b, device='png')
-python3 analyze_vcf_with_notes.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3 -e Non_Riverine
+TEST THE CODE ON SERVER:
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3 -e Non_Riverine
 
-~/anaconda3/envs/mcgrath/bin/python3 analyze_vcf_with_notes.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+RUN CODE FOR FILTERED VCF FILE:
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outpus /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
+TEST THE CODE LOCALLY
+~/anaconda3/envs/mcgrath/bin/python3 pca_maker.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 """
