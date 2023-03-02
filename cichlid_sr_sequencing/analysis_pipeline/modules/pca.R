@@ -1,6 +1,6 @@
 print('hi from R')
 # args <- commandArgs(trailingOnly = TRUE)
-metadata_file <- readLines(args[1])
+# metadata_file <- readLines(args[1])
 # print(metadata_file)
 library(gdsfmt)
 library(tidyverse)
