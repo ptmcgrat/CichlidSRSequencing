@@ -67,15 +67,26 @@ class PCA_Maker:
         elif self.ecogroups == ['Non_Riverine']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow Benthic', 'Deep Benthic','Rhampochromis', 'Diplotaxodon']
 
-        self.s_dt = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
+        self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
         # lot going on with the below line.
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
         # The to_csv(self.good_samples_txt, header = False, index = False) converts into a csv file that bcftools will be able to take as input. The index/header = False eliminate any index/header information, leaving only filtered samples. 
         # Note that the name of the output file is self.good_samples.txt which is where the file pathing for the output file is taken care of
-        pd.DataFrame(self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
-        self.s_dt['metadata_id'] = self.s_dt['SampleID'] + "_" + self.s_dt['Ecogroup']
-        self.s_dt[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
+        """
+        eg = ['Mbuna', 'Utaka', 'Shallow Benthic', 'Deep Benthic','Rhampochromis', 'Diplotaxodon']
+        df_filtered = df[df.Ecogroup.isin(eg)]
+        pd.DataFrame(df_filtered.SampleID.unique()).to_csv('good_samples.cvs', header = False, index = False)
+        df_filtered['metadata_id'] = df_filtered['SampleID'] + "_" + df_filtered['Ecogroup']
+        df_filtered[['SampleID', 'metadata_id']].to_csv('filtered_samples.csv')
+        """
+        self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+        pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
+        self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
+        self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
+        # pd.DataFrame(self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
+        # self.s_dt['metadata_id'] = self.s_dt['SampleID'] + "_" + self.s_dt['Ecogroup']
+        # self.s_dt[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
         subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
         subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
 
@@ -133,4 +144,8 @@ b + xlab(paste0("PC1 (", signif(pve$pve[1], 3), "%)")) + ylab(paste0("PC2 (", si
 Save the output:
 ggsave('filename', plot=b, device='png')
 python3 analyze_vcf_with_notes.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3 -e Non_Riverine
+
+~/anaconda3/envs/mcgrath/bin/python3 analyze_vcf_with_notes.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/Sa
+mpleDatabase.xlsx -e Non_Riverine -r LG1 LG3
+
 """
