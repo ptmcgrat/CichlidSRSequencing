@@ -90,7 +90,7 @@ class PCA_Maker:
         for lg in linkage_group_list:
             wd = self.out_dir + '/PCA/' + lg + '/'
             os.chdir(wd)
-            subprocess.run(["Rscript", "/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R", self.metadata_csv])
+            subprocess.run(["Rscript", "$PWD/modules/pca.r", self.metadata_csv])
             
 
             # self.eigenval = self.out_dir + '/PCA/' + lg + '/' + 'test.eigenval' # defining the input files into the R code
@@ -101,17 +101,6 @@ pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, a
 
 
 """
-PCA Steps:
-1. ensure raw file is indexed and gzipped DONE
-2. filter variants by lg (bcftools filter -r <region> <args.file> > <args.output_dir/lg>) DONE 
-3. Implement filtering to get rid of unwanted samples (vcftools view <prev_output> --samples_file <file> > <filtered_output; similar pathing as above>) DONE
-4. define filepath to file for input to plink... can probably define this earlier?  DONE
-5. run plink code and output to a plink dir within each LG DONE
-6. implement R code
-    a. import libraries
-    b. set path to files in the LG you'e analyzing
-    c. run through each line of code and output to out_dir
-
 
 Load up R packages and R environment
 Import in the filtered sample file with the needed metadata_id column
@@ -143,4 +132,5 @@ b <- b + coord_equal() + theme_light()
 b + xlab(paste0("PC1 (", signif(pve$pve[1], 3), "%)")) + ylab(paste0("PC2 (", signif(pve$pve[2], 3), "%)"))
 Save the output:
 ggsave('filename', plot=b, device='png')
+python3 analyze_vcf_with_notes.py ~/Data/CichlidSequencingData/Outputs/vcf_concat_output/filtered_file_copy/filtered_variants_v1.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3
 """
