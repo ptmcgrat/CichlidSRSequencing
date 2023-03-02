@@ -3,7 +3,7 @@ args <- commandArgs(trailingOnly = TRUE)
 library(gdsfmt)
 library(tidyverse)
 # setwd(</path/to/above/files/>)
-Run all the R Commands:
+# Run all the R Commands:
 pca <- read_table("./cichlids.eigenvec", col_names = FALSE)
 eigenval <- scan("./cichlids.eigenval")
 pca <- pca[,-1]
