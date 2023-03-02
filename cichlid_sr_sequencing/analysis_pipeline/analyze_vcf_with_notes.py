@@ -22,7 +22,6 @@ A for loop needs to be used for the _create_PCA_linkage magic method to allow it
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
 # There will be many fucntions defined within the class besides the __init__ function whichgive objects of the class their attributes. Additional hidden functions will serve to 
 class PCA_Maker:
-    
     def __init__(self, input_vcffile, output_directory, sample_database, ecogroups, linkage_groups): # The PCA_Maker class will create an object (self) which will then take in (currently) 4 pieces of information (input file out dir, sample_database excel sheet, ecogroup names)
         # self.attr indicates that the object made with PCA_Maker will have the attribute named "attr"
         # The linkage_group_map attribute is a hard coded list of LG names
@@ -34,7 +33,7 @@ class PCA_Maker:
         self.out_dir = output_directory# The out_dir attribute equals the output_directory name for the object
         self.sample_database = sample_database # The sample_database attribute equals the sample_database name for the object
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
-        self.r_script = os.getcwd() + '/modules/pca.R'
+        self.r_script = os.getcwd() + '/modules/pca.R' # use the dir from which the pipeline is called to get the file path to the R script. 
         
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf 
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
