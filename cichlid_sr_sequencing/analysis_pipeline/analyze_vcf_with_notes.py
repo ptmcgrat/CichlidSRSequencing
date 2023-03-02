@@ -91,7 +91,7 @@ class PCA_Maker:
             subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_plots(self, linkage_group_list):
-        self.pca_out = self.out_dir + '/PCA_outputs'
+        self.pca_out = self.out_dir + '/PCA_outputs/'
         pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True)
         for lg in linkage_group_list:
             wd = self.out_dir + '/PCA/' + lg + '/'
