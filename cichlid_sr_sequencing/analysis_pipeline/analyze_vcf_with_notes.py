@@ -87,11 +87,12 @@ class PCA_Maker:
             subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_plots(self, linkage_group_list):
+        subprocess.run(['conda', 'activate', 'R'], check=True)
         for lg in linkage_group_list:
             wd = self.out_dir + '/PCA/' + lg + '/'
             os.chdir(wd)
             subprocess.run(["Rscript", "/home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R", self.metadata_csv])
-            
+        subprocess.run(['conda', 'deactivate'])
 
             # self.eigenval = self.out_dir + '/PCA/' + lg + '/' + 'test.eigenval' # defining the input files into the R code
             # self.eigenvec = self.out_dir + '/PCA/' + lg + '/' + 'test.eigenvec'
@@ -131,5 +132,5 @@ b <- b + coord_equal() + theme_light()
 b + xlab(paste0("PC1 (", signif(pve$pve[1], 3), "%)")) + ylab(paste0("PC2 (", signif(pve$pve[2], 3), "%)"))
 Save the output:
 ggsave('filename', plot=b, device='png')
-python3 analyze_vcf_with_notes.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3
+python3 analyze_vcf_with_notes.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -r LG1 LG3 -e Non_Riverine
 """
