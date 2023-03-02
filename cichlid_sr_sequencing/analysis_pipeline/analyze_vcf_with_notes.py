@@ -90,7 +90,7 @@ class PCA_Maker:
         for lg in linkage_group_list:
             wd = self.out_dir + '/PCA/' + lg + '/'
             os.chdir(wd)
-            subprocess.run(["Rscript", "/home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.r", self.metadata_csv])
+            subprocess.run(["Rscript", "/home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R", self.metadata_csv])
             
 
             # self.eigenval = self.out_dir + '/PCA/' + lg + '/' + 'test.eigenval' # defining the input files into the R code
