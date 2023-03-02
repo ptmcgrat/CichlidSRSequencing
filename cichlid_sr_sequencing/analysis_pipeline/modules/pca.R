@@ -1,3 +1,4 @@
+print('hi from R')
 args <- commandArgs(trailingOnly = TRUE)
 metadata_file <- readLines(args[1])
 # print(metadata_file)
