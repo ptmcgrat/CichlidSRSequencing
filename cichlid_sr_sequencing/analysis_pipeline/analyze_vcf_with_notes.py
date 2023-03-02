@@ -95,7 +95,7 @@ class PCA_Maker:
         for lg in linkage_group_list:
             wd = self.out_dir + '/PCA/' + lg + '/'
             os.chdir(wd)
-            subprocess.run("conda run -n R Rscript /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R /home/ad.gatech.edu/bio-mcgrath-dropbox/Test/filtered_samples.csv")
+            subprocess.run("conda run -n R Rscript /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R /home/ad.gatech.edu/bio-mcgrath-dropbox/Test/filtered_samples.csv", shell=True)
             # subprocess.run(["Rscript", "/home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/modules/pca.R", self.metadata_csv])
         
 
