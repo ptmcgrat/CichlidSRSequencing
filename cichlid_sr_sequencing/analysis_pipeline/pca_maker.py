@@ -116,10 +116,10 @@ pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, a
 
 
 """
-TEST THE CODE ON SERVER:
+TEST THE CODE USING SMALL TEST FILES ON SERVER:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r LG11 LG15
 
-RUN CODE FOR FILTERED VCF FILE:
+RUN CODE FOR WHOLE FILTERED VCF FILE:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 TEST THE CODE LOCALLY
