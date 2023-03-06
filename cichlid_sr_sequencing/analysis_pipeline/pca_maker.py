@@ -47,7 +47,10 @@ class PCA_Maker:
         # Makes sure LGs are in vcf file provided
         for lg in self.linkage_groups: # Code to ensure each translated lg value is in the hard coded dictionary
             assert lg in self.linkage_group_map.values() # assert checks if the lg names in self.linkage_groups are in the dictionary.If anything doesn't match, this assertion fails and an error is thrown
-
+        
+        # temporarily make the LG names reflect the names of the LG11 inversion breaks: Remove or comment out when the analysis is done
+        self.linkage_groups = ['pre_inversion', 'inversion1', 'inter_inversion', 'inversion2', 'post_inversion']
+        
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of 
 
@@ -88,15 +91,16 @@ class PCA_Maker:
     def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on htis method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
             pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
-            if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
-                print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
-            else:
-                print('Generating a subset VCF file for' + lg + '...')
-                subprocess.run(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z'])
-                print('Running plink to transform the VCF data to a plink object...')
-                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ])
-                print('Generating eigenvalue and eigenvector files...')
-                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
+            # if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
+            #     print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
+            # else:
+                # print('Generating a subset VCF file for' + lg + '...')  # re-indent below code after uncommenting 
+            print('skipping file generation for LG11')
+            # subprocess.run(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z'])
+            print('Running plink to transform the VCF data to a plink object...')
+            subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ])
+            print('Generating eigenvalue and eigenvector files...')
+            subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_plots(self, linkage_group_list):
         self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
