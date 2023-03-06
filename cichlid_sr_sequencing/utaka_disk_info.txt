@@ -1,0 +1,44 @@
+(base) [mcgrath-lab@utaka etc]$ df -h
+Filesystem             Size  Used Avail Use% Mounted on
+devtmpfs               252G     0  252G   0% /dev
+tmpfs                  252G   16K  252G   1% /dev/shm
+tmpfs                  252G  4.1G  248G   2% /run
+tmpfs                  252G     0  252G   0% /sys/fs/cgroup
+/dev/mapper/rhel-root   50G   39G   12G  78% /
+/dev/sda2             1014M  305M  710M  30% /boot
+/dev/mapper/rhel-home  391G   73G  319G  19% /home
+/dev/sda1              599M  5.8M  594M   1% /boot/efi
+tmpfs                   51G   16K   51G   1% /run/user/42
+tmpfs                   51G  4.0K   51G   1% /run/user/1001
+
+(base) [mcgrath-lab@utaka etc]$ lsblk
+NAME          MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+sda             8:0    0 446.6G  0 disk 
+├─sda1          8:1    0   600M  0 part /boot/efi
+├─sda2          8:2    0     1G  0 part /boot
+└─sda3          8:3    0   445G  0 part 
+  ├─rhel-root 253:0    0    50G  0 lvm  /
+  ├─rhel-swap 253:1    0     4G  0 lvm  [SWAP]
+  └─rhel-home 253:2    0   391G  0 lvm  /home
+sdb             8:16   0     7T  0 disk 
+└─sdb1          8:17   0     7T  0 part 
+
+
+
+(base) [mcgrath-lab@utaka etc]$ cat fstab
+#
+# /etc/fstab
+# Created by anaconda on Tue Jun 28 10:22:04 2022
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk/'.
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info.
+#
+# After editing this file, run 'systemctl daemon-reload' to update systemd
+# units generated from this file.
+#
+/dev/mapper/rhel-root   /                       xfs     defaults        0 0
+UUID=85932be2-9f37-41be-9927-b333551b78e9 /boot                   xfs     defaults        0 0
+UUID=E89A-0EF6          /boot/efi               vfat    umask=0077,shortname=winnt 0 2
+/dev/mapper/rhel-home   /home                   xfs     defaults        0 0
+/dev/mapper/rhel-swap   swap                    swap    defaults        0 0
+

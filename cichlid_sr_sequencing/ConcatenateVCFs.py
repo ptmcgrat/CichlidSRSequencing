@@ -59,6 +59,6 @@ else: # if the master file exists, create a new file so that the data in previou
                         for line in f2:
                             if not line.startswith('#'):
                                 f1.write(line)
-                        f1.write('\n') # last newline needed to not merge lines between files together. 
+                        f1.write('\n') # last newline needed to not merge lines between files together.
                 sp.run(shlex.split(f"rm {file_to_write}"))
                 sp.run(shlex.split(f"rm  -r {temp_dir}"))

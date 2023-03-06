@@ -49,7 +49,7 @@ class PCA_Maker:
             assert lg in self.linkage_group_map.values() # assert checks if the lg names in self.linkage_groups are in the dictionary.If anything doesn't match, this assertion fails and an error is thrown
         
         # temporarily make the LG names reflect the names of the LG11 inversion breaks: Remove or comment out when the analysis is done
-        self.linkage_groups = ['pre_inversion', 'inversion1', 'inter_inversion', 'inversion2', 'post_inversion']
+        self.linkage_groups = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
         
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of 
@@ -88,7 +88,7 @@ class PCA_Maker:
             print('Filtered samples file generated. Indexing file...')
             subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
 
-    def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on htis method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
+    def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
             pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
             # if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():

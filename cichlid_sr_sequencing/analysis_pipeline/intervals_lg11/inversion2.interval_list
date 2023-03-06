@@ -1689,4 +1689,4 @@
 @SQ	SN:NW_020193982.1	LN:19993	M5:c89eab86ee56aa0f1d0a448d590a7dac	UR:file:/home/ad.gatech.edu/pmcgrath7/Temp/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna
 @SQ	SN:NW_020193983.1	LN:20127	M5:1e83f30c5d89939d1663fc5d92f39b42	UR:file:/home/ad.gatech.edu/pmcgrath7/Temp/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna
 @SQ	SN:NC_027944.1	LN:16582	M5:d04371305ac5c3f5b93a83a6b8df4953	UR:file:/home/ad.gatech.edu/pmcgrath7/Temp/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna
-NC_036790.1	15000001	25200000	+	.
+NC_036790.1	14600001	25200000	+	.

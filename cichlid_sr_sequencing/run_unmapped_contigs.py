@@ -29,6 +29,7 @@ processes1 = []
 processes2 = []
 
 #### Process unmapped contigs 22 at a time through GenomicsDBImport. I'm giving each process 20Gb --> 440Gb memory being used per 22 processes
+# Code processes all 1680 processes at once... it crashed utaka once already... Need to do local testign and make sure this doesn't happen again.
 for contig in contigs:
 	p1 = sp.Popen(shlex.split(f"gatk --java-options '-Xmx20G' GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/Databases/' + contig + '_database'} --intervals {'/home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/intervals_unmapped_contigs/' + contig + '.interval_list'} --sample-name-map sample_map_utaka.txt --interval-merging-rule OVERLAPPING_ONLY --max-num-intervals-to-import-in-parallel 4 --overwrite-existing-genomicsdb-workspace"))
 	processes1.append(p1)
@@ -45,5 +46,5 @@ for contig in contigs:
 		if len(processes2) == 22:
 			proc.communicate()
 	processes2 = []
-	
+
 print('Pipeline Completed')
