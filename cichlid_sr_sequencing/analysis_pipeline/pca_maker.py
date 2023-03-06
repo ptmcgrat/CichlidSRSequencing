@@ -11,7 +11,12 @@ parser.add_argument('-r', '--regions', help = 'list of linkage groups for which 
 parser.add_argument('--PCA', help = 'generate a PCA analysis for the specified linkage groups', default = "All") # this shoudln't be needed since the script is designed to generate the PCA plot
 parser.add_argument('-f', '--filters', help = 'list of tunable parametrs for filtering the raw input vcf file.', default  = ['DP > 11000', 'DP < 8000', 'InbreedingCoeff < -0.6', 'FS > 40.0', 'QD < 2.0', 'NCC> 125', 'MQ < 50', 'AF < 0.000958']) #remove this an implement anotehr script that can be used to filter the raw input file at a later time
 args = parser.parse_args()
-
+"""
+To Do:
+- Add print statements to see what parts of teh script are running
+- Change back the LG names to something more readable using the linkage_group_map
+- The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
+"""
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script). 
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
 # There will be many fucntions defined within the class besides the __init__ function whichgive objects of the class their attributes. Additional hidden functions will serve to 
@@ -71,15 +76,27 @@ class PCA_Maker:
         pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
         self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
         self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
-        subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
-        subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
+        if pathlib.Path(self.samples_filtered_master_vcf).exists():
+            print(f'\nThe file {self.samples_filtered_master_vcf} exists. New file will not be built.')
+            pass
+        else:
+            print('\nGenerating a vcf file containing only samples of the EcoGroups Specified.')
+            subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
+            print('Filtered samples file generated. Indexing file...')
+            subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
 
     def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on htis method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
             pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
-            subprocess.run(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z'])
-            subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ])
-            subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
+            if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
+                print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
+            else:
+                print('Generating a subset VCF file for' + lg + '...')
+                subprocess.run(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z'])
+                print('Running plink to transform the VCF data to a plink object...')
+                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ])
+                print('Generating eigenvalue and eigenvector files...')
+                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_plots(self, linkage_group_list):
         self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
@@ -89,18 +106,18 @@ class PCA_Maker:
             os.chdir(wd)
             # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
             # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
-            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True) 
+            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
 
 
 """
 TEST THE CODE ON SERVER:
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r LG11 LG15
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r LG11 LG15
 
 RUN CODE FOR FILTERED VCF FILE:
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outpus /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 TEST THE CODE LOCALLY
-~/anaconda3/envs/mcgrath/bin/python3 pca_maker.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+~/anaconda3/envs/mcgrath/bin/python3 pca_maker.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 """
