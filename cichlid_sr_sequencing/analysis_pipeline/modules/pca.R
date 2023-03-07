@@ -17,7 +17,6 @@ names(pca)[2:ncol(pca)] <- paste0("PC", 1:(ncol(pca)-1))
 
 # Generate new names from metadata file
 new_names <- read.csv(args[1])
-pca$sample=new_names$metadata_id
 
 # Reorder the structure to match the order of samples in pca eignevector file
 sample_ids <- pca[,1] # get the sample_ids from pca (i.e. the vcf file)
