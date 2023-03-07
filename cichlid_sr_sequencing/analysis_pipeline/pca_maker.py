@@ -49,7 +49,7 @@ class PCA_Maker:
             assert lg in self.linkage_group_map.values() # assert checks if the lg names in self.linkage_groups are in the dictionary.If anything doesn't match, this assertion fails and an error is thrown
         
         # temporarily make the LG names reflect the names of the LG11 inversion breaks: Remove or comment out when the analysis is done
-        self.linkage_groups = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
+        # self.linkage_groups = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
         
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of 
@@ -92,15 +92,15 @@ class PCA_Maker:
         for lg in linkage_group_list:
             pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
             # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
-            # if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
-            #     print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
-            # else: # re-indent below 6 lines of code after uncommenting else statement
-            # print('Generating a subset VCF file for' + lg + '...')
-            # subprocess.run(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir. This takes a long time to run and would benefit from parallelization
-            print('Running plink to transform the VCF data to a plink object...')
-            subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ]) 
-            print('Generating eigenvalue and eigenvector files...')
-            subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
+            if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
+                print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
+            else: # re-indent below 6 lines of code after uncommenting else statement
+                print('Generating a subset VCF file for' + lg + '...')
+                subprocess.run(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir. This takes a long time to run and would benefit from parallelization
+                print('Running plink to transform the VCF data to a plink object...')
+                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ]) 
+                print('Generating eigenvalue and eigenvector files...')
+                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_plots(self, linkage_group_list):
         self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
