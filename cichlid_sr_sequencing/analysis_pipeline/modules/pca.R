@@ -20,7 +20,7 @@ eco_group[grep("Utaka", pca$sample)] <- "Utaka"
 eco_group[grep("Deep_Benthic", pca$sample)] <- "Deep_Benthic"
 eco_group[grep("Shallow_Benthic", pca$sample)] <- "Shallow_Benthic"
 eco_group[grep("Diplotaxodon", pca$sample)] <- "Diplotaxodon"
-eco_group[grep("Rhampochromis", pca$sample)] <- "Rhampochromis"
+eco_group[grep("Rhamphochromis", pca$sample)] <- "Rhamphochromis"
 
 # define a pca tibble
 pca <- as_tibble(data.frame(pca, eco_group))
