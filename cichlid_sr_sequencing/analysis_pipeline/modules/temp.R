@@ -5,8 +5,8 @@ args <- commandArgs(trailingOnly = TRUE)
 library(tidyverse)
 
 # load in eigenvector and eigenvalue files
-pca <- read_table("test.eigenvec", col_names = FALSE)
-eigenval <- scan("test.eigenval")
+pca <- read_table("/Users/kmnike/Desktop/EigenFiles/LG1.eigenvec", col_names = FALSE)
+eigenval <- scan("/Users/kmnike/Desktop/EigenFiles/LG1.eigenval")
 # pca table has extra column of sample names. Remove this column:
 pca <- pca[,-1]
 
@@ -16,8 +16,7 @@ names(pca)[1] <- "sample"
 names(pca)[2:ncol(pca)] <- paste0("PC", 1:(ncol(pca)-1))
 
 # Generate new names from metadata file
-new_names <- read.csv(args[1])
-pca$sample=new_names$metadata_id
+new_names <- read.csv('/Users/kmnike/Desktop/EigenFiles/csv_files/metadata_for_R.csv')
 
 # Reorder the structure to match the order of samples in pca eignevector file
 sample_ids <- pca[,1] # get the sample_ids from pca (i.e. the vcf file)
@@ -47,5 +46,5 @@ b <- b + coord_equal() + theme_light()
 b + xlab(paste0("PC1 (", signif(pve$pve[1], 3), "%)")) + ylab(paste0("PC2 (", signif(pve$pve[2], 3), "%)"))
 b <- b + labs(title = args[3])
 # Save the output as png to the PCA_output directory
-ggsave(sprintf("%s%s_pca.png", args[2], args[3]), plot=b, device='png')
+ggsave('test.png', device='png')
 
