@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analy
 parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
 parser.add_argument('output_dir', help = 'absolute filepath to an output directory')
 parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
-parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhampochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All'], nargs = '*', default = ['All'])
+parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('--PCA', help = 'generate a PCA analysis for the specified linkage groups', default = "All") # this shoudln't be needed since the script is designed to generate the PCA plot
 parser.add_argument('-f', '--filters', help = 'list of tunable parametrs for filtering the raw input vcf file.', default  = ['DP > 11000', 'DP < 8000', 'InbreedingCoeff < -0.6', 'FS > 40.0', 'QD < 2.0', 'NCC> 125', 'MQ < 50', 'AF < 0.000958']) #remove this an implement anotehr script that can be used to filter the raw input file at a later time
@@ -65,9 +65,9 @@ class PCA_Maker:
         self.metadata_csv = self.out_dir + '/metadata_for_R.csv'
         # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be. 
         if self.ecogroups == ['All']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhampochromis', 'Diplotaxodon', 'Riverine', 'AC']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
         elif self.ecogroups == ['Non_Riverine']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhampochromis', 'Diplotaxodon']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
 
         self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
         # lot going on with the below lines.
@@ -91,7 +91,7 @@ class PCA_Maker:
     def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
             pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
-            # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file. 
+            # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
             # if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
             #     print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
             # else: # re-indent below 6 lines of code after uncommenting else statement
