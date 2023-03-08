@@ -58,7 +58,7 @@ class PCA_Maker:
 
         pathlib.Path(output_directory).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
-        self._create_PCA_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge magic method using only LG1. 
+        # self._create_PCA_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge magic method using only LG1. Commented out since new eigenvector and eigenvalue files do not need to be created. 
         self._create_plots(self.linkage_groups)
         self._create_interactive_pca(self.linkage_groups)
 
