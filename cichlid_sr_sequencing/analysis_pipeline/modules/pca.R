@@ -1,7 +1,6 @@
 # commandArgs will take in values like sys.argv in python and I can work with these values in the code below:
 args <- commandArgs(trailingOnly = TRUE)
 # load libraries
-# library(gdsfmt)
 library(tidyverse)
 
 # load in eigenvector and eigenvalue files

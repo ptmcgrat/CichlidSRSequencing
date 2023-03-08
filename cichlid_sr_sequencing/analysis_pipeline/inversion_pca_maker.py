@@ -48,18 +48,18 @@ class PCA_Maker:
         for lg in self.linkage_groups: # Code to ensure each translated lg value is in the hard coded dictionary
             assert lg in self.linkage_group_map.values() # assert checks if the lg names in self.linkage_groups are in the dictionary.If anything doesn't match, this assertion fails and an error is thrown
         
-        # temporarily make the LG names reflect the names of the LG11 inversion breaks: Remove or comment out when the analysis is done
+        # temporarily make the LG names reflect the names of the LG11 inversion breaks: 
         self.linkage_groups = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
         
-        # Ensure index file exists
-        assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of 
+        # Ensure index file exists. Temporarily commenting out since index doesn't currently exist
+        # assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of 
 
         pathlib.Path(output_directory).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
         self._create_PCA_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge magic method using only LG1. 
         self._create_plots(self.linkage_groups)
 
-    def _create_sample_filter_file(self): # Here's a hidden function which will carry out a bunch of code in the background using the attributes defined in the __init__ block. 
+    def _create_sample_filter_file(self): # Here's a hidden function which will carry out a bunch of code in the background using the attributes defined in the __init__ block.
         self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz'  # plink_master_vcf is an attribute that gives a filepath to an output file in the out dir. Edit to make the filepath more of what you want it to be & use pathlib to generate parent structure if it doesn't exist
         self.good_samples_csv = self.out_dir + '/samples_to_keep.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified. 
         self.metadata_csv = self.out_dir + '/metadata_for_R.csv'
@@ -79,14 +79,14 @@ class PCA_Maker:
         pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
         self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
         self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
-        if pathlib.Path(self.samples_filtered_master_vcf).exists():
-            print(f'\nThe file {self.samples_filtered_master_vcf} exists. New file will not be built.')
-            pass
-        else:
-            print('\nGenerating a vcf file containing only samples of the EcoGroups Specified.')
-            subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
-            print('Filtered samples file generated. Indexing file...')
-            subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
+        # if pathlib.Path(self.samples_filtered_master_vcf).exists(): we dont have, so it will try to recreate it. I'm commenting it out to ensure nothing goes wrong here
+        #     print(f'\nThe file {self.samples_filtered_master_vcf} exists. New file will not be built.')
+        #     pass
+        # else:
+        #     print('\nGenerating a vcf file containing only samples of the EcoGroups Specified.')
+        #     subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
+        #     print('Filtered samples file generated. Indexing file...')
+        #     subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
 
     def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
