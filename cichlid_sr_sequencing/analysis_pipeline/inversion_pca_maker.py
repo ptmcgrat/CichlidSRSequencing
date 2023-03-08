@@ -1,6 +1,8 @@
 import argparse, pdb, os, subprocess, pathlib
 import pandas as pd
 from cyvcf2 import VCF
+import plotly.express as px
+import plotly.graph_objs as go
 
 parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file")
 parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
@@ -139,9 +141,9 @@ python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequenc
 RUN CODE FOR WHOLE FILTERED VCF FILE:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
-RUN CODE FOR LG11 INVERSION: 
+RUN CODE FOR LG11 INVERSION:
 python3 inversion_pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
-TEST THE CODE LOCALLY
+TEST THE CODE LOCALLY:
 ~/anaconda3/envs/mcgrath/bin/python3 pca_maker.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 """
