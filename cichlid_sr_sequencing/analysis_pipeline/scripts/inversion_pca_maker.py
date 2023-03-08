@@ -82,11 +82,11 @@ class PCA_Maker:
         if pathlib.Path(self.samples_filtered_master_vcf).exists():
             print(f'\nThe file {self.samples_filtered_master_vcf} exists. New file will not be built.')
             pass
-        # else:
-        print('\nGenerating a vcf file containing only samples of the EcoGroups Specified.')
-        subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
-        print('Filtered samples file generated. Indexing file...')
-        subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
+        else:
+            print('\nGenerating a vcf file containing only samples of the EcoGroups Specified.')
+            subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
+            print('Filtered samples file generated. Indexing file...')
+            subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
 
     def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
