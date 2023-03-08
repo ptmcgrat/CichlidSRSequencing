@@ -57,6 +57,7 @@ class PCA_Maker:
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
         self._create_PCA_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge magic method using only LG1. 
         self._create_plots(self.linkage_groups)
+        self._create_interactive_pca(self.linkage_groups)
 
     def _create_sample_filter_file(self): # Here's a hidden function which will carry out a bunch of code in the background using the attributes defined in the __init__ block. 
         self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz'  # plink_master_vcf is an attribute that gives a filepath to an output file in the out dir. Edit to make the filepath more of what you want it to be & use pathlib to generate parent structure if it doesn't exist
@@ -111,12 +112,12 @@ class PCA_Maker:
             # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
             subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
     
-    def _create_interactive_pca(self, linkage_group_list):
+    def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
         # This section will ke in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
         # inputs: test.eigenvec per LG, SampleDatabase.xlsx file
         # Outputs: HTML file labeled per LG in in a new interactive_PCA directory
         self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir 
-        pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
+        pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
         header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
         for lg in linkage_group_list:
             self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
@@ -127,28 +128,6 @@ class PCA_Maker:
             fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism'])
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
-
-# # Load the eigenvec file into a pandas dataframe
-# df_eigenvec = pd.read_csv('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/plotly/test.eigenvec', sep=' ', header=None, index_col=0)
-# header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
-# df_eigenvec.columns = header
-# # Load the metadata file into a pandas dataframe
-# df_metadata = pd.read_excel('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx', sheet_name='vcf_samples')
-# # Remove duplicate rows from the metadata dataframe
-# df_metadata = df_metadata.drop_duplicates(subset='SampleID', keep='first')
-# # Merge the eigenvec and metadata dataframes on their index (SampleID)
-# df_merged = pd.merge(df_eigenvec, df_metadata, on=['SampleID'])
-# # Create a dictionary mapping ecogroups to colors.  Uncommented since default colorition is good too 
-# # ecogroup_color_dict = {'AC': 'red', 'Riverine': 'blue', 'Deep_Benthic': 'green', 'Mbuna': 'orange', 'Shallow_Benthic': 'purple', 'Unknown': 'gray'}
-
-# # Use plotly express to generate the scatter plot
-# fig = px.scatter(df_merged, x='PC1', y='PC2', color='Ecogroup', title='PCA', hover_data=['SampleID', 'Ecogroup', 'Organism'])
-
-# # Show the plot
-# fig.show()
-# fig.write_html('/Users/kmnike/Desktop/LG11_pca.html')
-
-
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
 
 """
@@ -158,9 +137,9 @@ python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequenc
 RUN CODE FOR WHOLE FILTERED VCF FILE:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
-RUN CODE FOR LG11 INVERSION: 
+RUN CODE FOR LG11 INVERSION:
 python3 inversion_pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 TEST THE CODE LOCALLY
-~/anaconda3/envs/mcgrath/bin/python3 pca_maker.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+~/anaconda3/envs/pipeline/bin/python3 pca_maker.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 """
