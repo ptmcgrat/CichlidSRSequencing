@@ -1,6 +1,8 @@
 import argparse, pdb, os, subprocess, pathlib
 import pandas as pd
 from cyvcf2 import VCF
+import plotly.express as px
+import plotly.graph_objs as go
 
 parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file")
 parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
@@ -108,9 +110,46 @@ class PCA_Maker:
             # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
             # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
             subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
+    
+    def _create_interactive_pca(self, linkage_group_list):
+        # This section will ke in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
+        # inputs: test.eigenvec per LG, SampleDatabase.xlsx file
+        # Outputs: HTML file labeled per LG in in a new interactive_PCA directory
+        self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir 
+        pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
+        header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
+        for lg in linkage_group_list:
+            self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
+            self.eigen_df.columns = header # set the header for the eigen_df as SampleID followed by PC1-20
+            self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
+            self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
+            self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contaisn a filtered subset of samples based on eco groups provided to the script)
+            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism'])
+            fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
+
+
+# # Load the eigenvec file into a pandas dataframe
+# df_eigenvec = pd.read_csv('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/plotly/test.eigenvec', sep=' ', header=None, index_col=0)
+# header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
+# df_eigenvec.columns = header
+# # Load the metadata file into a pandas dataframe
+# df_metadata = pd.read_excel('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx', sheet_name='vcf_samples')
+# # Remove duplicate rows from the metadata dataframe
+# df_metadata = df_metadata.drop_duplicates(subset='SampleID', keep='first')
+# # Merge the eigenvec and metadata dataframes on their index (SampleID)
+# df_merged = pd.merge(df_eigenvec, df_metadata, on=['SampleID'])
+# # Create a dictionary mapping ecogroups to colors.  Uncommented since default colorition is good too 
+# # ecogroup_color_dict = {'AC': 'red', 'Riverine': 'blue', 'Deep_Benthic': 'green', 'Mbuna': 'orange', 'Shallow_Benthic': 'purple', 'Unknown': 'gray'}
+
+# # Use plotly express to generate the scatter plot
+# fig = px.scatter(df_merged, x='PC1', y='PC2', color='Ecogroup', title='PCA', hover_data=['SampleID', 'Ecogroup', 'Organism'])
+
+# # Show the plot
+# fig.show()
+# fig.write_html('/Users/kmnike/Desktop/LG11_pca.html')
+
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
-
 
 """
 TEST THE CODE USING SMALL TEST FILES ON SERVER:
