@@ -128,7 +128,7 @@ class PCA_Maker:
             self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
             self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contaisn a filtered subset of samples based on eco groups provided to the script)
-            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism'])
+            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
