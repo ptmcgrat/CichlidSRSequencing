@@ -1,4 +1,4 @@
-import argparse, pdb, os, subprocess, pathlib
+import argparse, pdb, os, subprocess, pathlib, multiprocessing as mp
 import pandas as pd
 from cyvcf2 import VCF
 import plotly.express as px
@@ -10,14 +10,15 @@ parser.add_argument('output_dir', help = 'absolute filepath to an output directo
 parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
-parser.add_argument('--PCA', help = 'generate a PCA analysis for the specified linkage groups', default = "All") # this shoudln't be needed since the script is designed to generate the PCA plot
-parser.add_argument('-f', '--filters', help = 'list of tunable parametrs for filtering the raw input vcf file.', default  = ['DP > 11000', 'DP < 8000', 'InbreedingCoeff < -0.6', 'FS > 40.0', 'QD < 2.0', 'NCC> 125', 'MQ < 50', 'AF < 0.000958']) #remove this an implement anotehr script that can be used to filter the raw input file at a later time
 args = parser.parse_args()
 """
 To Do:
-- Add print statements to see what parts of teh script are running
-- Change back the LG names to something more readable using the linkage_group_map
+- Change back the LG names to something more readable using the linkage_group_map DONE.
+    - need to implement the title names into the PCA outputs though
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
+- figure out how to change the "samples_to_keep" file to exclude the outlier samples since these rae not present in the Malinscccky PCA...
+- add code to generate the lg11 inversion region files in their own directories, and to carry out PCA for these files. I think it would be easiest to pass in the location of pre-made inversion region files for gatk to take in and process instead of writing these every time. 
+- code in color and shape names for the Ecogroups and ProjectIDs so they are consistent.
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script). 
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -31,32 +32,57 @@ class PCA_Maker:
                              'LG13':'NC_036792.1', 'LG14':'NC_036793.1', 'LG15':'NC_036794.1', 'LG16':'NC_036795.1', 'LG17':'NC_036796.1', 'LG18':'NC_036797.1', 
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1'}
         self.in_vcf = input_vcffile # The in_vcf attriubute is sequal to the input file name for the Object. 
-        self.out_dir = output_directory# The out_dir attribute equals the output_directory name for the object
         self.sample_database = sample_database # The sample_database attribute equals the sample_database name for the object
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
         self.r_script = os.getcwd() + '/modules/pca.R' # use the dir from which the pipeline is called to get the file path to the R script. 
-        
+
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf 
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
-        if self.linkage_groups == ['All']:
+        self.LG_titles = linkage_groups  # list that will retain the names of the simple linkage group names like LG1, LG2, etc... This will be useful when making figures
+        # Create a filepath that includes name of input file and ecogroups on whcih the analysis is performed
+        file_version = self.in_vcf.split('/')[-1].split('.')[0]
+        analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
+        pathlib.Path(output_directory + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
+        self.out_dir = output_directory + '/' + file_version + '/' + analysis_ecogroups
+
+        # code block to set the linakge_group and ensure they are valid before proceeding
+        if self.linkage_groups == ['All']: # if we want to run all LGs
             self.linkage_groups = self.vcf_obj.seqnames[0:22]
-        else: # else statement takes in LG names as just "LG1, LG2, etc. then converts them to the actual contig names and assigns these to self.linkage_groups"
-            remapped_linkage_groups = []
+            self.LG_titles = [] # empty out the "All" value in self.LG_titles
+            for lg,contig_name in self.linkage_group_map.items(): # assign the names of the simple LGs using the linkage_group_map
+                if contig_name in self.linkage_groups:
+                    self.LG_titles.append(lg)
+        elif self.linkage_groups == ['inversion']: # if we want to run just the inverted region of lg11
+            self.linkage_groups = self.linkage_groups = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
+            self.LG_titles = self.linkage_groups
+        else: # else statement takes in LG names as just "LG7", "LG11", etc. then converts them to the actual contig names and assigns these to self.linkage_groups
+            for lg in self.linkage_groups: # first ensure the passed contigs are valid options using the kets from the dictionary
+                assert lg in self.linkage_group_map.keys()
+            remapped_linkage_groups = [] # empty list that will be used to store the real contig name from UMD2a
             for lg,contig_name in self.linkage_group_map.items():
                 if lg in self.linkage_groups:
-                    remapped_linkage_groups.append(contig_name)
+                    remapped_linkage_groups.append(contig_name) # append the real  contig name to the remapped_linkage_groups list
             self.linkage_groups = remapped_linkage_groups
-        # Makes sure LGs are in vcf file provided
-        for lg in self.linkage_groups: # Code to ensure each translated lg value is in the hard coded dictionary
-            assert lg in self.linkage_group_map.values() # assert checks if the lg names in self.linkage_groups are in the dictionary.If anything doesn't match, this assertion fails and an error is thrown
 
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of 
 
-        pathlib.Path(output_directory).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
+        # code block that will generate the output dir structure to take into account the input file version used, and what ecogroups are included in these analyses.
+        """
+        Items needed:
+        - version of the input file 
+            - need code to test for the input file version, or I can simply name the dir as the same name that the infile has, minus the suffixes...
+        - eco group names
+            - need code to convert the eco groups (if ! 'All') to underscore connected lists, but without the benthics having those underscores... 
+            - if ecogroups is "all" or "nonriverine" then just leave the names as that... but once these change, then name by ecogroups included, separated by underscores.
+        """
+
+
+        # code block of hidden methods to generate the PCA analysis for the PCA_Maker object
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
-        self._create_PCA_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge magic method using only LG1. 
-        self._create_plots(self.linkage_groups)
+        self._split_VCF_to_LG(self.linkage_groups)
+        self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
+        # self._create_plots(self.linkage_groups) #commented out for now since interactvie PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
 
     def _create_sample_filter_file(self): # Here's a hidden function which will carry out a bunch of code in the background using the attributes defined in the __init__ block. 
@@ -69,12 +95,11 @@ class PCA_Maker:
         elif self.ecogroups == ['Non_Riverine']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
 
-        self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
-        # lot going on with the below lines.
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
         # The to_csv(self.good_samples_txt, header = False, index = False) converts into a csv file that bcftools will be able to take as input. The index/header = False eliminate any index/header information, leaving only filtered samples. 
         # Note that the name of the output file is self.good_samples.txt which is where the file pathing for the output file is taken care of
+        self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
         self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
         pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
         self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
@@ -87,22 +112,36 @@ class PCA_Maker:
             subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
             print('Filtered samples file generated. Indexing file...')
             subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
+            print('Index created...')
 
-    def _create_PCA_per_LG(self, linkage_group_list): # new magic method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
+    def _split_VCF_to_LG(self, linkage_group_list):
+        processes = []
         for lg in linkage_group_list:
-            pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
-            # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
-            if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
+            pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
+            if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
                 print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
+            else:
+                print('Generating a subset VCF file for ' + lg + '...')
+                p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir.
+                processes.append(p1)
+                if len(processes) == len(linkage_group_list):
+                    for proc in processes:
+                        proc.communicate()
+                    processes = []
+
+    def _create_eigenfiles_per_LG(self, linkage_group_list): # new hidden method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
+        for lg in linkage_group_list:
+            pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # ensure that the 
+            if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
+                print('The file ' + lg + '.vcf.gz does not exist. Must run _split_VCF_to_LG to create it.')
+                raise Exception
             else: # re-indent below 6 lines of code after uncommenting else statement
-                print('Generating a subset VCF file for' + lg + '...')
-                subprocess.run(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir. This takes a long time to run and would benefit from parallelization
                 print('Running plink to transform the VCF data to a plink object...')
                 subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ]) 
                 print('Generating eigenvalue and eigenvector files...')
                 subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
-    def _create_plots(self, linkage_group_list):
+    def _create_plots(self, linkage_group_list): # the method  has been commented out since interative PCAs are preferred. If they are ever needed, we can uncomment. I can also include a flag to determine if an interactive, static, or both plots are desired and then run the correspoding hidden methods. 
         self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
         pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True) # generate the filepath to said PCA_output directory
         for lg in linkage_group_list: # for each lg in the list, generate a PCA plot
@@ -124,7 +163,7 @@ class PCA_Maker:
             self.eigen_df.columns = header # set the header for the eigen_df as SampleID followed by PC1-20
             self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
-            self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contaisn a filtered subset of samples based on eco groups provided to the script)
+            self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
             fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
@@ -135,11 +174,11 @@ TEST THE CODE USING SMALL TEST FILES ON SERVER:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r LG11 LG15
 
 RUN CODE FOR WHOLE FILTERED VCF FILE:
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/pipeline /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 RUN CODE FOR LG11 INVERSION:
-python3 inversion_pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/filtered_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+python3 inversion_pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/pipeline /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 TEST THE CODE LOCALLY
-~/anaconda3/envs/pipeline/bin/python3 pca_maker.py ~/Data/CichlidSequencingData/Pipeline/raw_data/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 """

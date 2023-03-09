@@ -38,7 +38,7 @@ eco_group[grep("Rhamphochromis", pca$sample)] <- "Rhamphochromis"
 pca <- as_tibble(data.frame(pca, eco_group))
 pve <- data.frame(PC = 1:20, pve = eigenval/sum(eigenval)*100)
 
-# Plot the PCA with ggplot
+# Plot the PCA with ggplot. 
 b <- ggplot(pca, aes(PC1, PC2, col = eco_group), ) + geom_point(size = 3)
 b <- b + scale_colour_manual(values = c("red", "blue", "green", "brown", "purple", "pink"))
 b <- b + coord_equal() + theme_light()
