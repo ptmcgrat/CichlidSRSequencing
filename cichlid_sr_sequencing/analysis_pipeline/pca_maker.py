@@ -1,4 +1,4 @@
-import argparse, pdb, os, subprocess, pathlib, multiprocessing as mp
+import argparse, pdb, os, subprocess, pathlib
 import pandas as pd
 from cyvcf2 import VCF
 import plotly.express as px
