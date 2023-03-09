@@ -38,7 +38,6 @@ class PCA_Maker:
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf 
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
-        self.LG_titles = linkage_groups  # list that will retain the names of the simple linkage group names like LG1, LG2, etc... This will be useful when making figures
         # Create a filepath that includes name of input file and ecogroups on whcih the analysis is performed
         file_version = self.in_vcf.split('/')[-1].split('.')[0]
         analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
@@ -48,13 +47,8 @@ class PCA_Maker:
         # code block to set the linakge_group and ensure they are valid before proceeding
         if self.linkage_groups == ['All']: # if we want to run all LGs
             self.linkage_groups = self.vcf_obj.seqnames[0:22]
-            self.LG_titles = [] # empty out the "All" value in self.LG_titles
-            for lg,contig_name in self.linkage_group_map.items(): # assign the names of the simple LGs using the linkage_group_map
-                if contig_name in self.linkage_groups:
-                    self.LG_titles.append(lg)
         elif self.linkage_groups == ['inversion']: # if we want to run just the inverted region of lg11
             self.linkage_groups = self.linkage_groups = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
-            self.LG_titles = self.linkage_groups
         else: # else statement takes in LG names as just "LG7", "LG11", etc. then converts them to the actual contig names and assigns these to self.linkage_groups
             for lg in self.linkage_groups: # first ensure the passed contigs are valid options using the kets from the dictionary
                 assert lg in self.linkage_group_map.keys()
@@ -65,18 +59,7 @@ class PCA_Maker:
             self.linkage_groups = remapped_linkage_groups
 
         # Ensure index file exists
-        assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of 
-
-        # code block that will generate the output dir structure to take into account the input file version used, and what ecogroups are included in these analyses.
-        """
-        Items needed:
-        - version of the input file 
-            - need code to test for the input file version, or I can simply name the dir as the same name that the infile has, minus the suffixes...
-        - eco group names
-            - need code to convert the eco groups (if ! 'All') to underscore connected lists, but without the benthics having those underscores... 
-            - if ecogroups is "all" or "nonriverine" then just leave the names as that... but once these change, then name by ecogroups included, separated by underscores.
-        """
-
+        assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
         # code block of hidden methods to generate the PCA analysis for the PCA_Maker object
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
@@ -164,7 +147,7 @@ class PCA_Maker:
             self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
             self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
-            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
+            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', title=list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)], hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
@@ -174,10 +157,10 @@ TEST THE CODE USING SMALL TEST FILES ON SERVER:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r LG11 LG15
 
 RUN CODE FOR WHOLE FILTERED VCF FILE:
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/pipeline /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
 RUN CODE FOR LG11 INVERSION:
-python3 inversion_pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/pipeline /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+python3 inversion_pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 TEST THE CODE LOCALLY
 /Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
