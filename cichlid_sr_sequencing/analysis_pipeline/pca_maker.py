@@ -15,7 +15,6 @@ args = parser.parse_args()
 To Do:
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
 - figure out how to change the "samples_to_keep" file to exclude the outlier samples since these rae not present in the Malinsky PCA...
-- code in color and shape names for the Ecogroups and ProjectIDs so they are consistent.
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script). 
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -58,15 +57,7 @@ class PCA_Maker:
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
-        # code block of hidden methods to generate the PCA analysis for the PCA_Maker object
-        self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
-        if self.linkage_groups == ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']:
-            self._create_inversion_PCA(self.linkage_groups)
-        else:
-            self._split_VCF_to_LG(self.linkage_groups)
-        self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
-        # self._create_plots(self.linkage_groups) #commented out for now since interactvie PCA plots are preferred
-        self._create_interactive_pca(self.linkage_groups)
+
 
     def _create_sample_filter_file(self): # Here's a hidden function which will carry out a bunch of code in the background using the attributes defined in the __init__ block. 
         self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz'  # plink_master_vcf is an attribute that gives a filepath to an output file in the out dir. Edit to make the filepath more of what you want it to be & use pathlib to generate parent structure if it doesn't exist
@@ -161,6 +152,8 @@ class PCA_Maker:
         # Outputs: HTML file labeled per LG in in a new interactive_PCA directory
         self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir 
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
+        color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
+        shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x'}
         header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
         for lg in linkage_group_list:
             self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
@@ -168,15 +161,26 @@ class PCA_Maker:
             self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
             self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
-            if 'NC' in lg:
+            if lg.startswith('NC'):
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
                 plot_title = lg
-            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', title=plot_title, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
+            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', color_discrete_map=color_map, symbol_map=shape_map, title=plot_title, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
+    def create_PCA(self):
+        # code block of the hidden methods used to generate the PCA analysis for the PCA_Maker object
+        self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
+        if self.linkage_groups == ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']:
+            self._create_inversion_PCA(self.linkage_groups)
+        else:
+            self._split_VCF_to_LG(self.linkage_groups)
+        self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
+        # self._create_plots(self.linkage_groups) #commented out for now since interactvie PCA plots are preferred
+        self._create_interactive_pca(self.linkage_groups)
+
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
-pca_obj.
+pca_obj.create_PCA()
 
 """
 TEST THE CODE USING SMALL TEST FILES ON SERVER:
@@ -190,4 +194,6 @@ python3 inversion_pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/Cich
 
 TEST THE CODE LOCALLY
 /Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+
+Plotly color scheme link: https://stackoverflow.com/questions/72496150/user-friendly-names-for-plotly-css-colors
 """
