@@ -15,7 +15,6 @@ args = parser.parse_args()
 To Do:
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
 - figure out how to change the "samples_to_keep" file to exclude the outlier samples since these rae not present in the Malinsky PCA...
-- add code to generate the lg11 inversion region files in their own directories, and to carry out PCA for these files. I think it would be easiest to pass in the location of pre-made inversion region files for gatk to take in and process instead of writing these every time. 
 - code in color and shape names for the Ecogroups and ProjectIDs so they are consistent.
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script). 
@@ -114,16 +113,6 @@ class PCA_Maker:
                     processes = []
 
     def _create_inversion_PCA(self, inversion_regions_list):
-        """
-        This method will need to be optionally called only if args.regions is ["inversion"]. 
-        Since the analysis will be performed for many combinations of ecogroups, and since each time, the variants will be pulled from the samples_filtered_master_file.vcf.gz, it's useful to code in the directory path making and all that.
-        I can make sure that the regions lists are hard coded in for ease. 
-        Steps:
-        gatk SelectVariants will be used to generate the VCF files that will be fed into plink:
-        for region in inversion_regions_list:
-            sp.run(gatk SelectVariants -V 'path/to/samples_filtered_master.vcf.gz' -L 'path/to/{region}.interval_list' -O 'out_dir + PCA + {region} + {region}.vcf'
-            sp.run(bgzip 'out_dir + PCA + {region} + {region}.vcf')
-        """
         processes1 = []
         processes2 = []
         for region in inversion_regions_list:
@@ -137,7 +126,6 @@ class PCA_Maker:
                 processes1 = []
 
         for region in inversion_regions_list:
-            self.inversion_interval_file = os.getcwd() + '/intervals_lg11/' + region + '.interval_list'
             p2 = subprocess.Popen(['bgzip', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
             processes2.append(p2)
             if len(processes2) == 4:
@@ -166,7 +154,7 @@ class PCA_Maker:
             # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
             # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
             subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
-    
+
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
         # This section will ke in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
         # inputs: test.eigenvec per LG, SampleDatabase.xlsx file
@@ -188,6 +176,7 @@ class PCA_Maker:
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
+pca_obj.
 
 """
 TEST THE CODE USING SMALL TEST FILES ON SERVER:
