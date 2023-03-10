@@ -13,16 +13,14 @@ parser.add_argument('-r', '--regions', help = 'list of linkage groups for which 
 args = parser.parse_args()
 """
 To Do:
-- Change back the LG names to something more readable using the linkage_group_map DONE.
-    - need to implement the title names into the PCA outputs though
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
-- figure out how to change the "samples_to_keep" file to exclude the outlier samples since these rae not present in the Malinscccky PCA...
+- figure out how to change the "samples_to_keep" file to exclude the outlier samples since these rae not present in the Malinsky PCA...
 - add code to generate the lg11 inversion region files in their own directories, and to carry out PCA for these files. I think it would be easiest to pass in the location of pre-made inversion region files for gatk to take in and process instead of writing these every time. 
 - code in color and shape names for the Ecogroups and ProjectIDs so they are consistent.
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script). 
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
-# There will be many fucntions defined within the class besides the __init__ function whichgive objects of the class their attributes. Additional hidden functions will serve to 
+# There will be many fucntions defined within the class besides the __init__ function whichgive objects of the class their attributes.
 class PCA_Maker:
     def __init__(self, input_vcffile, output_directory, sample_database, ecogroups, linkage_groups): # The PCA_Maker class will create an object (self) which will then take in (currently) 4 pieces of information (input file out dir, sample_database excel sheet, ecogroup names)
         # self.attr indicates that the object made with PCA_Maker will have the attribute named "attr"
@@ -63,7 +61,10 @@ class PCA_Maker:
 
         # code block of hidden methods to generate the PCA analysis for the PCA_Maker object
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
-        self._split_VCF_to_LG(self.linkage_groups)
+        if self.linkage_groups == ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']:
+            self._create_inversion_PCA(self.linkage_groups)
+        else:
+            self._split_VCF_to_LG(self.linkage_groups)
         self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
         # self._create_plots(self.linkage_groups) #commented out for now since interactvie PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
@@ -112,9 +113,41 @@ class PCA_Maker:
                         proc.communicate()
                     processes = []
 
+    def _create_inversion_PCA(self, inversion_regions_list):
+        """
+        This method will need to be optionally called only if args.regions is ["inversion"]. 
+        Since the analysis will be performed for many combinations of ecogroups, and since each time, the variants will be pulled from the samples_filtered_master_file.vcf.gz, it's useful to code in the directory path making and all that.
+        I can make sure that the regions lists are hard coded in for ease. 
+        Steps:
+        gatk SelectVariants will be used to generate the VCF files that will be fed into plink:
+        for region in inversion_regions_list:
+            sp.run(gatk SelectVariants -V 'path/to/samples_filtered_master.vcf.gz' -L 'path/to/{region}.interval_list' -O 'out_dir + PCA + {region} + {region}.vcf'
+            sp.run(bgzip 'out_dir + PCA + {region} + {region}.vcf')
+        """
+        processes1 = []
+        processes2 = []
+        for region in inversion_regions_list:
+            self.inversion_interval_file = os.getcwd() + '/intervals_lg11/' + region + '.interval_list'
+            pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True)
+            p1 = subprocess.Popen(['gatk', 'SelectVariants', '-V', self.samples_filtered_master_vcf, '-L', self.inversion_interval_file, '-O', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
+            processes1.append(p1)
+            if len(processes1) == 4:
+                for proc in processes1:
+                    proc.communicate()
+                processes1 = []
+
+        for region in inversion_regions_list:
+            self.inversion_interval_file = os.getcwd() + '/intervals_lg11/' + region + '.interval_list'
+            p2 = subprocess.Popen(['bgzip', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
+            processes2.append(p2)
+            if len(processes2) == 4:
+                for proc in processes2:
+                    proc.communicate()
+                processes2 = []
+
     def _create_eigenfiles_per_LG(self, linkage_group_list): # new hidden method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
-            pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # ensure that the 
+            pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
             if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
                 print('The file ' + lg + '.vcf.gz does not exist. Must run _split_VCF_to_LG to create it.')
                 raise Exception
@@ -147,7 +180,11 @@ class PCA_Maker:
             self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
             self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
-            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', title=list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)], hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
+            if 'NC' in lg:
+                plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
+            else:
+                plot_title = lg
+            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', title=plot_title, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
 pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
