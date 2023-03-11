@@ -19,6 +19,7 @@ class Counter:
     def _unzip_input_vcf(self):
         with open(self.out, 'w') as f:
             for lg in self.linkage_groups:
+                print(f'bcftools is reading in and counting variants for {lg}')
                 self.input_file = self.in_dir + '/' + lg + '/' + lg + '.vcf.gz'
                 count = sp.run(f"bcftools view {self.input_file} | wc -l", shell=True, capture_output=True, text=True)
                 f.write(f"{lg}\t{count.stdout.strip()}\n")
