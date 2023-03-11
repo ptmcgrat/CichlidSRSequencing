@@ -14,11 +14,12 @@ args = parser.parse_args()
 """
 To Do:
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
+- The lcoattion of the intervals for LG 11 are also stored in the 'lg11_intervals' directory which the script will assume is stored in the dir from which pca_maker.py is called. If this is untrue there will be issues... 
 - figure out how to change the "samples_to_keep" file to exclude the outlier samples since these rae not present in the Malinsky PCA...
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script). 
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
-# There will be many fucntions defined within the class besides the __init__ function whichgive objects of the class their attributes.
+# There will be many fucntions defined within the class besides the __init__ function which give objects of the class their attributes.
 class PCA_Maker:
     def __init__(self, input_vcffile, output_directory, sample_database, ecogroups, linkage_groups): # The PCA_Maker class will create an object (self) which will then take in (currently) 4 pieces of information (input file out dir, sample_database excel sheet, ecogroup names)
         # self.attr indicates that the object made with PCA_Maker will have the attribute named "attr"
@@ -56,8 +57,6 @@ class PCA_Maker:
 
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
-
-
 
     def _create_sample_filter_file(self): # Here's a hidden function which will carry out a bunch of code in the background using the attributes defined in the __init__ block. 
         self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz'  # plink_master_vcf is an attribute that gives a filepath to an output file in the out dir. Edit to make the filepath more of what you want it to be & use pathlib to generate parent structure if it doesn't exist
