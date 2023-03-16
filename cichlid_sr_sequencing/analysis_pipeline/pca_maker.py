@@ -33,7 +33,7 @@ class PCA_Maker:
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
         self.r_script = os.getcwd() + '/modules/pca.R' # use the dir from which the pipeline is called to get the file path to the R script. 
 
-        self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf 
+        self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
         # Create a filepath that includes name of input file and ecogroups on whcih the analysis is performed
         file_version = self.in_vcf.split('/')[-1].split('.')[0]
@@ -191,11 +191,11 @@ python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequenc
 DO NOT USE THIS FOR NOW: RUN CODE FOR WHOLE FILTERED VCF FILE:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
-CODE FOR HWOLE RFILTERED FILE BUT TO A NEW OUT DIR
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/no_outliers_pipeline_outputs/ /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx 
+CODE FOR WHOLE RFILTERED FILE BUT TO A NEW OUT_DIR
+python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/no_outliers_pipeline_outputs/ /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
-TEST THE CODE LOCALLY
-/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+TEST THE CODE LOCALLY ON NON-OUTLIER SAMPLES
+/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/no_outliers_pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
 
 Plotly color scheme link: https://stackoverflow.com/questions/72496150/user-friendly-names-for-plotly-css-colors
 """
