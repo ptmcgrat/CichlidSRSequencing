@@ -88,7 +88,7 @@ for sample in good_samples:
 	# Loop through all of the runs for a sample
 	aw_obj = AW(fm_obj, s_dt, sample)
 	timer.start('  Downloading uBam files for Sample: ' + sample)
-	fm_obj.downloadData(fm_obj.localSampleBamDir)
+	#fm_obj.downloadData(fm_obj.localSampleBamDir)
 	os.makedirs(fm_obj.localTempDir, exist_ok = True)
 
 	aw_obj.downloadReadData()
