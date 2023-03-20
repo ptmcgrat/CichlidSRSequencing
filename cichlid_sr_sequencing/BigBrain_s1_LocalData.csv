@@ -1,4 +1,4 @@
-﻿Run,AvgSpotLen,Bases,BigBrain,BioSample,Experiment,Instrument,Library Name,LibraryLayout,LibrarySelect,LibrarySource,Organism,Platform,SRA Study,FileLocations
+﻿Run,AvgSpotLen,Bases,BioProject,BioSample,Experiment,Instrument,Library Name,LibraryLayout,LibrarySelection,LibrarySource,Organism,Platform,SRA Study,FileLocations
 JTS09-1B11_S11_L001,302,0,BigBrain,1B11,BrainDiversity_s1,Illumina NovaSeq,JTS09-1B11_S11,PAIRED,NEBNext Ultra II FS,GENOMIC,Mchenga conophorus,ILLUMINA,BigBrain,"MaleFemale/MC/JTS09-1B11_S11_L001_R1_001.fastq.gz,,MaleFemale/MC/JTS09-1B11_S11_L001_R2_001.fastq.gz"
 JTS09-1B11_S11_L002,302,0,BigBrain,1B11,BrainDiversity_s1,Illumina NovaSeq,JTS09-1B11_S11,PAIRED,NEBNext Ultra II FS,GENOMIC,Mchenga conophorus,ILLUMINA,BigBrain,"MaleFemale/MC/JTS09-1B11_S11_L002_R1_001.fastq.gz,,MaleFemale/MC/JTS09-1B11_S11_L002_R2_001.fastq.gz"
 JTS09-1B18_S16_L001,302,0,BigBrain,1B18,BrainDiversity_s1,Illumina NovaSeq,JTS09-1B18_S16,PAIRED,NEBNext Ultra II FS,GENOMIC,Mchenga conophorus,ILLUMINA,BigBrain,"MaleFemale/MC/JTS09-1B18_S16_L001_R1_001.fastq.gz,,MaleFemale/MC/JTS09-1B18_S16_L001_R2_001.fastq.gz"
