@@ -21,6 +21,11 @@ To Do:
     - For "Whole," the splitting step needs to be skipped, and the whole file must be used as input into PLINK. 
     - The splitting methods are _split_VCF_to_LG for "all" or lg specific analyses, and "_create_inversion_files" for "Inversion"
     - These must be skipped... The above methods take in the self.samples_filtered_master_file as inpout and output to the PCA dir. Instead of outputting a split file to a "Whole" dir in .../PCA I can nmake the "Whole" dir, then pipe outputs from plink there. 
+
+- The script needs the ability to take in multiple regions including the predefined regions, and process these concurrently, instead of havign to run the script multiple times wutgh different non-linkage group inputs. 
+- The way I currently see to do this is to let Nargs stay *, then include if statements to see if various key words are in the passed args. 
+    - If key words are detected, specifically 'Inversion' or 'Whole' then append the inversion region names into self.linakge_groups. Whole can remain in the list as is.
+    - The "Whole" code is special... if it is detected in the list of regions, then it needs to run that special code. We can run a check to see if the list only contains "Whole" or more regions, then run the remaining code if len(regions) > 1, else it passes
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -46,22 +51,23 @@ class PCA_Maker:
         pathlib.Path(output_directory + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
         self.out_dir = output_directory + '/' + file_version + '/' + analysis_ecogroups
 
-        # code block to set the linakge_group and ensure they are valid before proceeding
-        if self.linkage_groups == ['All']: # if we want to run all LGs
-            self.linkage_groups = self.vcf_obj.seqnames[0:22]
-        elif self.linkage_groups == ['Inversion']: # if we want to run just the inverted region of lg11
-            self.linkage_groups = self.linkage_groups = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
-        elif self.linkage_groups == ['Whole']:
-            pass
-        else: # else statement takes in LG names as just "LG7", "LG11", etc. then converts them to the actual contig names and assigns these to self.linkage_groups
-            for lg in self.linkage_groups: # first ensure the passed contigs are valid options using the kets from the dictionary
-                assert lg in self.linkage_group_map.keys()
-            remapped_linkage_groups = [] # empty list that will be used to store the real contig name from UMD2a
-            for lg,contig_name in self.linkage_group_map.items():
-                if lg in self.linkage_groups:
-                    remapped_linkage_groups.append(contig_name) # append the real  contig name to the remapped_linkage_groups list
-            self.linkage_groups = remapped_linkage_groups
-
+        regions_list = []
+        for region in self.linkage_groups:
+            if region in self.linkage_group_map.keys():
+                regions_list.append(self.linkage_group_map[region])
+            elif region == "All":
+                regions_list.extend(self.vcf_obj.seqnames[0:22])
+            elif region == "Inversion":
+                regions_list.extend(['pre_inversion', 'inversion1', 'inversion2', 'post_inversion'])
+            elif region == "Whole":
+                regions_list.append('Whole')
+            else:
+                raise Exception(region + ' is not a valid option')
+        self.linkage_groups = regions_list
+        duplicate_set_test = set(self.linkage_groups)
+        if len(duplicate_set_test) != len(self.linkage_groups):
+            raise Exception('A repeat region has been provided')
+        
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
@@ -97,11 +103,13 @@ class PCA_Maker:
             print('Index created...')
 
     def _split_VCF_to_LG(self, linkage_group_list):
-        if linkage_group_list == ['Whole']:
-            pass
-        else:
-            processes = []
-            for lg in linkage_group_list:
+        processes = []
+        for lg in linkage_group_list:
+            if lg == 'Whole':
+                continue
+            elif lg == "pre_inversion":
+                self._create_inversion_files()
+            else:
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
                 if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
                     print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
@@ -114,9 +122,10 @@ class PCA_Maker:
                             proc.communicate()
                         processes = []
 
-    def _create_inversion_files(self, inversion_regions_list):
+    def _create_inversion_files(self):
         processes1 = []
         processes2 = []
+        inversion_regions_list = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
         for region in inversion_regions_list:
             self.inversion_interval_file = os.getcwd() + '/intervals_lg11/' + region + '.interval_list'
             pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True)
@@ -136,14 +145,14 @@ class PCA_Maker:
                 processes2 = []
 
     def _create_eigenfiles_per_LG(self, linkage_group_list): # new hidden method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
-        if linkage_group_list == ['Whole']:
-            pathlib.Path(self.out_dir + '/PCA/' + 'Whole/').mkdir(parents=True, exist_ok=True)
-            print("Running plink to transform the whole filtered VCF file's data to a plink object...")
-            subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + 'Whole/' + 'test' ]) 
-            print('Generating eigenvalue and eigenvector files...')
-            subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract',  self.out_dir + '/PCA/' + 'Whole/' + 'test.prune.in', '--make-bed', '--pca', '--out',  self.out_dir + '/PCA/' + 'Whole/' + 'test'])
-        else:
-            for lg in linkage_group_list:
+        for lg in linkage_group_list:
+            if lg == 'Whole':
+                pathlib.Path(self.out_dir + '/PCA/' + 'Whole/').mkdir(parents=True, exist_ok=True)
+                print("Running plink to transform the whole filtered VCF file's data to a plink object...")
+                subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + 'Whole/' + 'test' ]) 
+                print('Generating eigenvalue and eigenvector files...')
+                subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract',  self.out_dir + '/PCA/' + 'Whole/' + 'test.prune.in', '--make-bed', '--pca', '--out',  self.out_dir + '/PCA/' + 'Whole/' + 'test'])
+            else:
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
                 if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
                     print('The file ' + lg + '.vcf.gz does not exist. Must run _split_VCF_to_LG to create it.')
@@ -190,10 +199,7 @@ class PCA_Maker:
     def create_PCA(self):
         # code block of the hidden methods used to generate the PCA analysis for the PCA_Maker object
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
-        if self.linkage_groups == ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']:
-            self._create_inversion_files(self.linkage_groups)
-        else:
-            self._split_VCF_to_LG(self.linkage_groups)
+        self._split_VCF_to_LG(self.linkage_groups)
         self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
         # self._create_plots(self.linkage_groups) #commented out for now since interactvie PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
@@ -209,11 +215,13 @@ python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequenc
 DO NOT USE THIS FOR NOW: RUN CODE FOR WHOLE FILTERED VCF FILE:
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
-CODE FOR WHOLE RFILTERED FILE BUT TO A NEW OUT_DIR
+CODE FOR WHOLE REFILTERED FILE BUT TO A NEW OUT_DIR
 python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/no_outliers_pipeline_outputs/ /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
 TEST THE CODE LOCALLY ON NON-OUTLIER SAMPLES
-/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/no_outliers_pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine
+/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/no_outliers_pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
 Plotly color scheme link: https://stackoverflow.com/questions/72496150/user-friendly-names-for-plotly-css-colors
 """
+
+#### I htink that things are getting messed up in the "_split_VCF_to_LG" method for the inversion regions since no values are being written to the VCF files
