@@ -11,6 +11,7 @@ parser.add_argument('sample_database', help = 'sample database that lists ecotyp
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 args = parser.parse_args()
+
 """
 To Do:
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
@@ -21,12 +22,8 @@ To Do:
     - For "Whole," the splitting step needs to be skipped, and the whole file must be used as input into PLINK. 
     - The splitting methods are _split_VCF_to_LG for "all" or lg specific analyses, and "_create_inversion_files" for "Inversion"
     - These must be skipped... The above methods take in the self.samples_filtered_master_file as inpout and output to the PCA dir. Instead of outputting a split file to a "Whole" dir in .../PCA I can nmake the "Whole" dir, then pipe outputs from plink there. 
-
-- The script needs the ability to take in multiple regions including the predefined regions, and process these concurrently, instead of havign to run the script multiple times wutgh different non-linkage group inputs. 
-- The way I currently see to do this is to let Nargs stay *, then include if statements to see if various key words are in the passed args. 
-    - If key words are detected, specifically 'Inversion' or 'Whole' then append the inversion region names into self.linakge_groups. Whole can remain in the list as is.
-    - The "Whole" code is special... if it is detected in the list of regions, then it needs to run that special code. We can run a check to see if the list only contains "Whole" or more regions, then run the remaining code if len(regions) > 1, else it passes
 """
+
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
 # There will be many fucntions defined within the class besides the __init__ function which give objects of the class their attributes.

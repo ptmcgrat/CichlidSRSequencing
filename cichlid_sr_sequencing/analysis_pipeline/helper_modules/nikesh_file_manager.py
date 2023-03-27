@@ -57,8 +57,9 @@ class FileManager():
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
+		self.localDatabasesDir = self.localMasterDir + 'Databases/'
+		self.localOutputDir = self.localMasterDir + 'Outputs/'
 
-		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID
