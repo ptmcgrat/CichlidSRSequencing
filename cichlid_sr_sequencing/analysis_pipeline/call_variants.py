@@ -1,6 +1,5 @@
 import argparse, pdb, os, subprocess, pathlib, pysam, shlex
 import pandas as pd
-from cyvcf2 import VCF
 from helper_modules.nikesh_file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
@@ -84,7 +83,7 @@ class VariantCaller:
         #### Below is the new code to use after splitting the contigs into intervals and running by importing 4 intervals at a time. 100kbp took about 2.41 mins
         for contig in self.contigs:
             # "gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + contig + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingOutputs/' + contig + '_output.vcf'} --heterozygosity 0.0012"))
-            p = subprocess.Popen(['gatk', 'GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../..' + self.fm_obj.localDatabasesDir + contig + '_database/', '-O', self.fm_obj.localOutputDir + contig + 'output.vcf', '--heterozygosity', '0.0012'])
+            p = subprocess.Popen(['gatk', 'GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + contig + '_database/', '-O', self.fm_obj.localOutputDir + contig + 'output.vcf', '--heterozygosity', '0.0012'])
             processes.append(p)
 
         if len(processes) == 22:
@@ -111,5 +110,8 @@ LOCAL TESTING COMMAND TO DOWNLOAD DATA
 
 LOCAL TESTING COMMAND TO RUN PIPELINE ON BIGBRAIN AND BRAINDIVERSITY SAMPLES
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain
+
+RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --download_data --import_databses --genotype
 
 """
