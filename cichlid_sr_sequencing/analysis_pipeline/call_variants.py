@@ -63,7 +63,7 @@ class VariantCaller:
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
-        pdb.set_trace()
+
     def _generate_sample_map(self):
         if args.local_test:
             pass
