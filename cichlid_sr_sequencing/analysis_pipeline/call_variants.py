@@ -36,10 +36,6 @@ class VariantCaller:
         filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)]
         self.sampleIDs = filtered_df['SampleID'].tolist()
 
-        # # Get contig names which will be passed into the GATK commands
-        # self.fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
-        # self.contigs = self.fasta_obj.references[0:22] # defines the LG names for the first 22 LGs in the genome.
-
         # Code block for determining which linkage groups will be processed by the script:
         self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
                              'LG7':'NC_036786.1', 'LG8':'NC_036787.1', 'LG9':'NC_036788.1', 'LG10':'NC_036789.1', 'LG11':'NC_036790.1', 'LG12':'NC_036791.1', 
@@ -59,7 +55,7 @@ class VariantCaller:
             duplicate_set_test = set(self.linkage_groups)
             if len(duplicate_set_test) != len(self.linkage_groups):
                 raise Exception('A repeat region has been provided')
-            
+
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
@@ -93,23 +89,17 @@ class VariantCaller:
     def RunGenomicsDBImport(self):
         processes = []
         for lg in self.linkage_groups:
-            
             if args.local_test:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/local_test_sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
                 processes.append(p)
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
                 processes.append(p)
-            if args.local_test:
-                if len(processes) == len(self.linkage_groups):
-                    for proc in processes:
-                        proc.communicate()
-                    processes = []
-            else:
-                if len(processes) == len(self.linkage_groups):
-                    for proc in processes:
-                        proc.communicate()
-                    processes = []
+
+            if len(processes) == len(self.linkage_groups):
+                for proc in processes:
+                    proc.communicate()
+                processes = []
 
     def RunGenotypeGVCFs(self):
         processes = []
@@ -121,16 +111,10 @@ class VariantCaller:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + 'output.vcf', '--heterozygosity', '0.0012'])
                 processes.append(p)
 
-            if args.local_test:
-                if len(processes) == len(self.linkage_groups):
-                    for proc in processes:
-                        proc.communicate()
-                    processes = []
-            else:
-                if len(processes) == len(self.linkage_groups):
-                    for proc in processes:
-                        proc.communicate()
-                    processes = []
+            if len(processes) == len(self.linkage_groups):
+                for proc in processes:
+                    proc.communicate()
+                processes = []
 
     def run_methods(self):
         self._generate_sample_map()
