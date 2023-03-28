@@ -6,7 +6,7 @@ from cyvcf2 import VCF
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
 parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline', nargs = '*', default = ['All'])
-parser.add_argument('-i', '--import_databses', help = 'Call this flag to run GenomicsDBImport on the samples in the database', action = 'store_true')
+parser.add_argument('-i', '--import_databases', help = 'Call this flag to run GenomicsDBImport on the samples in the database', action = 'store_true')
 parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGVCFs on the samples in the database', action = 'store_true')
 parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to Download Data from Dropbox to include in the analysis', action = 'store_true')
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
@@ -63,7 +63,7 @@ class VariantCaller:
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
-
+        pdb.set_trace()
     def _generate_sample_map(self):
         if args.local_test:
             pass
@@ -101,12 +101,12 @@ class VariantCaller:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
                 processes.append(p)
             if args.local_test:
-                if len(processes) == 3:
+                if len(processes) == len(self.linkage_groups):
                     for proc in processes:
                         proc.communicate()
                     processes = []
             else:
-                if len(processes) == 22:
+                if len(processes) == len(self.linkage_groups):
                     for proc in processes:
                         proc.communicate()
                     processes = []
@@ -122,12 +122,12 @@ class VariantCaller:
                 processes.append(p)
 
             if args.local_test:
-                if len(processes) == 3:
+                if len(processes) == len(self.linkage_groups):
                     for proc in processes:
                         proc.communicate()
                     processes = []
             else:
-                if len(processes) == 22:
+                if len(processes) == len(self.linkage_groups):
                     for proc in processes:
                         proc.communicate()
                     processes = []
@@ -150,9 +150,9 @@ LOCAL TESTING COMMAND TO DOWNLOAD DATA
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -d
 
 LOCAL TESTING COMMAND TO RUN PIPELINE ON BIGBRAIN AND BRAINDIVERSITY SAMPLES
-/Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --import_databses --genotype --regions LG1 LG2 LG3
+/Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --import_databases --genotype --regions LG1 LG2 LG3
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
-python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databses --genotype -r LG1
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype -r LG1
 
 """
