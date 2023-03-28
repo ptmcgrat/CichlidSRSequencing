@@ -30,7 +30,6 @@ class VariantCaller:
         self.fm_obj = FM("Mzebra_UMD2a")
         self.projectIDs = project_ids
         self.memory = memory
-        pdb.set_trace()
 
         # Code block to define the set of SampleIDs based on the passed ProjectIDs
         if self.projectIDs == ['All']:
@@ -141,6 +140,6 @@ LOCAL TESTING COMMAND TO RUN PIPELINE ON BIGBRAIN AND BRAINDIVERSITY SAMPLES
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --import_databases --genotype --regions LG1 LG2 LG3
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
-python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype -r LG2 LG3 LG4 LG7 LG8 LG11 LG12 LG13 LG14 LG15 LG17 LG18 LG19 LG20 LG21 LG22 -m 30
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype -m 21
 
 """
