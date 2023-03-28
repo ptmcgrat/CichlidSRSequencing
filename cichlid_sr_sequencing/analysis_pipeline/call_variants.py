@@ -105,10 +105,10 @@ class VariantCaller:
         processes = []
         for lg in self.linkage_groups:
             if args.local_test:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + 'output.vcf', '--heterozygosity', '0.0012'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
                 processes.append(p)
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + 'output.vcf', '--heterozygosity', '0.0012'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx450G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
                 processes.append(p)
 
             if len(processes) == len(self.linkage_groups):
