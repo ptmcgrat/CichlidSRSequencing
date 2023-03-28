@@ -13,6 +13,7 @@ parser.add_argument('-r', '--regions', help = 'list of linkage groups for which 
 parser.add_argument('-b', '--bam-download', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
 parser.add_argument('-H', '--halplotype-caller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
+parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
 args = parser.parse_args()
 
 """
@@ -24,10 +25,11 @@ gatk GenotypeGVCFs
 """
 
 class VariantCaller:
-    def __init__(self, genome, project_ids, linkage_groups):
+    def __init__(self, genome, project_ids, linkage_groups, memory):
         self.genome = genome
         self.fm_obj = FM("Mzebra_UMD2a")
         self.projectIDs = project_ids
+        self.memory = memory
 
         # Code block to define the set of SampleIDs based on the passed ProjectIDs
         if self.projectIDs == ['All']:
@@ -59,6 +61,7 @@ class VariantCaller:
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
+            self.memory = 5
 
     def _generate_sample_map(self):
         if args.local_test:
@@ -90,10 +93,10 @@ class VariantCaller:
         processes = []
         for lg in self.linkage_groups:
             if args.local_test:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx5G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/local_test_sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/local_test_sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
                 processes.append(p)
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx20G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
                 processes.append(p)
 
             if len(processes) == len(self.linkage_groups):
@@ -105,10 +108,10 @@ class VariantCaller:
         processes = []
         for lg in self.linkage_groups:
             if args.local_test:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx5G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
                 processes.append(p)
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx20G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
                 processes.append(p)
 
             if len(processes) == len(self.linkage_groups):
@@ -126,7 +129,7 @@ class VariantCaller:
         if args.genotype:
             self.RunGenotypeGVCFs()
 
-variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions)
+variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
 variant_caller_obj.run_methods()
 
 """
@@ -137,6 +140,6 @@ LOCAL TESTING COMMAND TO RUN PIPELINE ON BIGBRAIN AND BRAINDIVERSITY SAMPLES
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --import_databases --genotype --regions LG1 LG2 LG3
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
-python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype -r LG2 LG3 LG4 LG7 LG8 LG11 LG12 LG13 LG14 LG15 LG17 LG18 LG19 LG20 LG21 LG22
 
 """
