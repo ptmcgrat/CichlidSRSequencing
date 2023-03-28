@@ -137,7 +137,7 @@ class VariantCaller:
         if args.download_data:
             print('download data will run')
             self.data_downloader()
-        if args.import_databses:
+        if args.import_databases:
             self.RunGenomicsDBImport()
         if args.genotype:
             self.RunGenotypeGVCFs()
