@@ -59,7 +59,7 @@ class VariantCaller:
             duplicate_set_test = set(self.linkage_groups)
             if len(duplicate_set_test) != len(self.linkage_groups):
                 raise Exception('A repeat region has been provided')
-        pdb.set_trace()
+            
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
@@ -153,6 +153,6 @@ LOCAL TESTING COMMAND TO RUN PIPELINE ON BIGBRAIN AND BRAINDIVERSITY SAMPLES
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --import_databses --genotype --regions LG1 LG2 LG3
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
-python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --download_data --import_databses --genotype
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databses --genotype -r LG1
 
 """
