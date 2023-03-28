@@ -65,6 +65,7 @@ class FileManager():
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
+		self.localBamIndex = self.localSampleBamDir + sampleID + '.all.bai'
 		self.localUnmappedBamFile = self.localSampleBamDir + sampleID + '.unmapped.bam'
 		self.localDiscordantBamFile = self.localSampleBamDir + sampleID + '.discordant.bam'
 		self.localInversionBamFile = self.localSampleBamDir + sampleID + '.inversion.bam'

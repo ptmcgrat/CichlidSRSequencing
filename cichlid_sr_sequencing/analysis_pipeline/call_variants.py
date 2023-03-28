@@ -10,8 +10,8 @@ parser.add_argument('-i', '--import_databases', help = 'Call this flag to run Ge
 parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGVCFs on the samples in the database', action = 'store_true')
 parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to Download Data from Dropbox to include in the analysis', action = 'store_true')
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
-parser.add_argument('-b', '--bam-download', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
-parser.add_argument('-H', '--halplotype-caller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
+parser.add_argument('-b', '--bam_download', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
+parser.add_argument('-H', '--halplotype_caller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
 args = parser.parse_args()
@@ -89,6 +89,15 @@ class VariantCaller:
             self.fm_obj.downloadData(self.fm_obj.localGVCFFile + '.tbi')
             print('Done Downloading ' + sampleID)
 
+    def download_BAMs(self):
+        for sampleID in self.sampleIDs:
+            if sampleID in []:
+                continue
+            print('Downloading Bam file for ' + sampleID + '...')
+            self.fm_obj.createSampleFiles(sampleID)
+            self.fm_obj.downloadData(self.fm_obj.localBamFile)
+            self.fm_obj.downloadData(self.fm_obj.localBamIndex)
+
     def RunGenomicsDBImport(self):
         processes = []
         for lg in self.linkage_groups:
@@ -96,7 +105,7 @@ class VariantCaller:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/local_test_sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
                 processes.append(p)
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
                 processes.append(p)
 
             if len(processes) == len(self.linkage_groups):
@@ -111,7 +120,7 @@ class VariantCaller:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
                 processes.append(p)
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
                 processes.append(p)
 
             if len(processes) == len(self.linkage_groups):
@@ -128,8 +137,11 @@ class VariantCaller:
             self.RunGenomicsDBImport()
         if args.genotype:
             self.RunGenotypeGVCFs()
+        if args.bam_download:
+            self.download_BAMs()
 
-variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory[0])
+
+variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
 variant_caller_obj.run_methods()
 
 """
@@ -141,5 +153,8 @@ LOCAL TESTING COMMAND TO RUN PIPELINE ON BIGBRAIN AND BRAINDIVERSITY SAMPLES
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
 python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype -m 21
+
+DOWNLOAD BAM FILES:
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --bam_download
 
 """
