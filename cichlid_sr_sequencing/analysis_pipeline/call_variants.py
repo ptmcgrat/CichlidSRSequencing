@@ -103,7 +103,8 @@ class VariantCaller:
         for sampleID in self.sampleIDs:
             print('Generating new GVCF file for ' + sampleID)
             self.fm_obj.createSampleFiles(sampleID)
-            p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localRedoGVCFFile])
+            p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localRedoGVCFFile])
+            # 	command = f"gatk HaplotypeCaller --emit-ref-confidence GVCF -L {lg7} -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -I {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '.all.bam'} -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '_rerun_230203.g.vcf.gz'}"
             processes.append(p)
 
             if len(processes) == len(self.sampleIDs):
