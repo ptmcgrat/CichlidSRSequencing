@@ -11,7 +11,7 @@ parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGV
 parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to Download Data from Dropbox to include in the analysis', action = 'store_true')
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('-b', '--bam_download', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
-parser.add_argument('-H', '--halplotype_caller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
+parser.add_argument('-H', '--halplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
 args = parser.parse_args()
@@ -97,6 +97,19 @@ class VariantCaller:
             self.fm_obj.createSampleFiles(sampleID)
             self.fm_obj.downloadData(self.fm_obj.localBamFile)
             self.fm_obj.downloadData(self.fm_obj.localBamIndex)
+        
+    def RunHaplotypeCaller(self):
+        processes = []
+        for sampleID in self.sampleIDs:
+            print('Generating new GVCF file for ' + sampleID)
+            self.fm_obj.createSampleFiles(sampleID)
+            p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localRedoGVCFFile])
+            processes.append(p)
+
+            if len(processes) == len(self.sampleIDs):
+                for proc in processes:
+                    proc.communicate()
+                processes = []
 
     def RunGenomicsDBImport(self):
         processes = []
@@ -139,6 +152,8 @@ class VariantCaller:
             self.RunGenotypeGVCFs()
         if args.bam_download:
             self.download_BAMs()
+        if args.halplotypecaller:
+            self.RunHaplotypeCaller()
 
 
 variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
@@ -156,5 +171,8 @@ python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mz
 
 DOWNLOAD BAM FILES:
 python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --bam_download
+
+Rerun GVCF creation:
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --halplotypecaller
 
 """
