@@ -97,19 +97,29 @@ class VariantCaller:
             self.fm_obj.createSampleFiles(sampleID)
             self.fm_obj.downloadData(self.fm_obj.localBamFile)
             self.fm_obj.downloadData(self.fm_obj.localBamIndex)
-        
+
     def RunHaplotypeCaller(self):
+        # Find notes in the CallSmallSNVs Pipeline Notebook on Benchling. Date of entry: Wednesday March 29th, 2023
         processes = []
+
         for sampleID in self.sampleIDs:
             print('Generating new GVCF file for ' + sampleID)
             self.fm_obj.createSampleFiles(sampleID)
-            p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localRedoGVCFFile])
-            # 	command = f"gatk HaplotypeCaller --emit-ref-confidence GVCF -L {lg7} -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -I {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '.all.bam'} -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/' + file + '/' + file + '_rerun_230203.g.vcf.gz'}"
+            gatk_command = ['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localRedoGVCFFile]
+            gatk_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+            gatk_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+            gatk_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality']
+            gatk_command += ['-A', 'DepthPerSampleHC', '-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+            p = subprocess.Popen(gatk_command, stderr = subprocess.PIPE, stdout = subprocess.PIPE)
             processes.append(p)
 
             if len(processes) == len(self.sampleIDs):
                 for proc in processes:
                     proc.communicate()
+                # Before we hit the pdb.set_trace() below, all of the new GVCF files will have been recreated. Run the following code to see if anythign was capttured by the stderr:
+                # proc.stderr.read().decode()
+                # unfortunately, I don't think that this will capture stderr for every sample ... I need to test locally on small BAMS to ensure this works the way I need it to.
+                pdb.set_trace()
                 processes = []
 
     def RunGenomicsDBImport(self):
@@ -129,6 +139,11 @@ class VariantCaller:
 
     def RunGenotypeGVCFs(self):
         processes = []
+        # command = ['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF']
+        # command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+        # command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+        # command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+        # command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
         for lg in self.linkage_groups:
             if args.local_test:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
@@ -161,11 +176,8 @@ variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.
 variant_caller_obj.run_methods()
 
 """
-LOCAL TESTING COMMAND TO DOWNLOAD DATA
-/Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -d
-
-LOCAL TESTING COMMAND TO RUN PIPELINE ON BIGBRAIN AND BRAINDIVERSITY SAMPLES
-/Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --import_databases --genotype --regions LG1 LG2 LG3
+LOCAL TESTING COMMAND SKELETON
+/Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --regions LG1 LG2 LG3
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
 python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype -m 21
