@@ -21,7 +21,6 @@ for sample in sampleIDs:
     fm_obj.createSampleFiles(sample)
     sp.run(f'mv {fm_obj.localRedoGVCFFile} {fm_obj.localGVCFFile}', shell=True)
     sp.run(f"mv {fm_obj.localRedoGVCFFile}.tbi {fm_obj.localGVCFFile}.tbi", shell=True)
-    pdb.set_trace()
 
 
 """
