@@ -11,9 +11,10 @@ parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGV
 parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to Download Data from Dropbox to include in the analysis', action = 'store_true')
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('-b', '--bam_download', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
-parser.add_argument('-H', '--halplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
+parser.add_argument('-H', '--haplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
+parser.add_argument('-f', '--failed_samples', help = 'Run HaplotypeCaller for 74 samples that fail VCF generation for LG7', action = 'store_true')
 args = parser.parse_args()
 
 """
@@ -64,14 +65,11 @@ class VariantCaller:
             self.memory = 5
 
     def _generate_sample_map(self):
-        if args.local_test:
-            pass
-        else:
-            sampleIDs = self.sampleIDs
-            with open('sample_map.txt', 'w') as fh:
-                for sampleID in sampleIDs:
-                    self.fm_obj.createSampleFiles(sampleID)
-                    fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
+        sampleIDs = self.sampleIDs
+        with open('sample_map.txt', 'w') as fh:
+            for sampleID in sampleIDs:
+                self.fm_obj.createSampleFiles(sampleID)
+                fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
 
     def data_downloader(self):
         print('Downloading new Alignment File')
@@ -100,33 +98,42 @@ class VariantCaller:
 
     def RunHaplotypeCaller(self):
         # Find notes in the CallSmallSNVs Pipeline Notebook on Benchling. Date of entry: Wednesday March 29th, 2023
+        # TO DO: RERUN THE ERROR FILES FROM THE ORIGINAL COHORT THROUGH GATK HAPLOTYPECALLER TO REGENERATE THE WHOLE GVCF FILE, UNDER THE ORIGINAL FILE NAME. THESE WILL NEED TO BE RE-UPLOADED TO DROPBOX IF EVERYTHING SUCCEEDS
+        # TO DO: RENAME ALL _REDO_ GVCF SAMPLES FOR THE BIGBRAIN & BRAIN_DIVERSITY COHORTS TO THE ORIGINAL FILENAMES AND REMOVE THE ORIGINAL FILES. 
         processes = []
-
         for sampleID in self.sampleIDs:
             print('Generating new GVCF file for ' + sampleID)
             self.fm_obj.createSampleFiles(sampleID)
-            gatk_command = ['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localRedoGVCFFile]
-            gatk_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-            gatk_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-            gatk_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality']
-            gatk_command += ['-A', 'DepthPerSampleHC', '-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-            p = subprocess.Popen(gatk_command, stderr = subprocess.PIPE, stdout = subprocess.PIPE)
+            if args.local_test:
+                self.fm_obj.localBamFile = self.fm_obj.localSampleBamDir + sampleID + '_small.all.bam'
+            # try running with the basic haplotypecaller command and see if something changes
+            p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localGVCFFile])
             processes.append(p)
 
             if len(processes) == len(self.sampleIDs):
                 for proc in processes:
                     proc.communicate()
-                # Before we hit the pdb.set_trace() below, all of the new GVCF files will have been recreated. Run the following code to see if anythign was capttured by the stderr:
-                # proc.stderr.read().decode()
-                # unfortunately, I don't think that this will capture stderr for every sample ... I need to test locally on small BAMS to ensure this works the way I need it to.
-                pdb.set_trace()
+                processes = []
+
+    def RunFailedSamplesHaplotypeCaller(self):
+        processes = []
+        error_files = ['SAMEA4033321', 'SAMEA2661241', 'SAMEA4032067', 'SAMEA4033318', 'SAMEA4032108', 'SAMEA4033341', 'SAMEA4033314', 'SAMEA4032129', 'SAMEA4033252', 'SAMEA4032105', 'SAMEA3388855', 'SAMEA4032131', 'SAMEA4033248', 'SAMEA2661359', 'SAMEA1877414', 'SAMN06685761', 'SAMEA4032096', 'SAMEA2661294', 'SAMEA4032053', 'SAMEA1920091', 'SAMEA4032046', 'SAMEA4033254', 'SAMEA2661396', 'SAMEA4033283', 'SAMEA4032136', 'SAMEA2661367', 'SAMEA3388862', 'SAMEA4033301', 'SAMEA2661292', 'SAMEA4033271', 'SAMEA4032127', 'SAMEA2661414', 'SAMEA4033317', 'SAMEA2661221', 'SAMEA2661310', 'SAMEA1904322', 'SAMEA4032051', 'SAMEA4032033', 'SAMEA4033277', 'SAMEA4033307', 'SAMEA4032038', 'SAMEA4032042', 'SAMEA2661239', 'SAMN08051112', 'SAMEA4032125', 'SAMEA2661258', 'SAMEA2661306', 'SAMEA4033322', 'SAMEA1920095', 'SAMEA4033284', 'SAMEA4033304', 'SAMEA4033305', 'SAMEA4032137', 'SAMEA1920096', 'SAMEA3388871', 'SAMEA4033278', 'SAMEA4033286', 'SAMEA4032049', 'SAMEA1920092', 'SAMEA4033289', 'SAMEA4033324', 'SAMEA1904832', 'SAMEA2661339', 'SAMEA1877499', 'SAMEA2661277', 'SAMEA2661248', 'SAMEA2661280', 'SAMEA2661381', 'SAMEA1904328', 'SAMEA4033261', 'SAMEA4033287', 'SAMEA4032088', 'SAMEA4032070', 'SAMEA4032069']
+        for file in error_files:
+            print('Generating new GVCF file for ' + file)
+            self.fm_obj.createSampleFiles(file)
+            p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localGVCFFile])
+            processes.append(p)
+
+            if len(processes) == len(error_files):
+                for proc in processes:
+                    proc.communicate()
                 processes = []
 
     def RunGenomicsDBImport(self):
         processes = []
         for lg in self.linkage_groups:
             if args.local_test:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/local_test_sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
                 processes.append(p)
             else:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
@@ -139,17 +146,23 @@ class VariantCaller:
 
     def RunGenotypeGVCFs(self):
         processes = []
-        # command = ['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF']
-        # command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-        # command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-        # command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-        # command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+        # update GenotypeGVCFs command with below annotations
+        local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
+        local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+        local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+        local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+        local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+        genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
+        genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+        genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+        genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+        genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
         for lg in self.linkage_groups:
             if args.local_test:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
+                p = subprocess.Popen(local_command)
                 processes.append(p)
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012'])
+                p = subprocess.Popen(genotypegvcfs_command)
                 processes.append(p)
 
             if len(processes) == len(self.linkage_groups):
@@ -168,9 +181,10 @@ class VariantCaller:
             self.RunGenotypeGVCFs()
         if args.bam_download:
             self.download_BAMs()
-        if args.halplotypecaller:
+        if args.haplotypecaller:
             self.RunHaplotypeCaller()
-
+        if args.failed_samples:
+            self.RunFailedSamplesHaplotypeCaller()
 
 variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
 variant_caller_obj.run_methods()
