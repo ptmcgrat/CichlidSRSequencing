@@ -1,0 +1,5 @@
+MC_1_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/MC_1_m/MC_1_m.g.vcf.gz
+SAMEA2661294	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661294/SAMEA2661294.g.vcf.gz
+SAMEA2661322	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661322/SAMEA2661322.g.vcf.gz
+SAMEA4032100	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032100/SAMEA4032100.g.vcf.gz
+SAMEA4033261	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033261/SAMEA4033261.g.vcf.gz

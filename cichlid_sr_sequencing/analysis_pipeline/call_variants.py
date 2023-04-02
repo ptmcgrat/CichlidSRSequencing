@@ -202,4 +202,7 @@ python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mz
 Rerun GVCF creation:
 python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --halplotypecaller
 
+
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --failed_samples
+
 """
