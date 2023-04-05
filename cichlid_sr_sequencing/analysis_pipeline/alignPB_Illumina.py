@@ -29,14 +29,13 @@ class AlignReads:
         self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile)
         filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)]
         self.sampleIDs = filtered_df['SampleID'].tolist()
-        pdb.set_trace()
 
     def data_downloader(self):
         print('Downloading Unmapped Alignment File')
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
         print('Downloading most recent Genome Dir')
         self.fm_obj.downloadData(self.fm_obj.localGenomeDir)
-
+        pdb.set_trace()
         # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
         for sampleID in self.sampleIDs:
             if sampleID in []:
@@ -56,7 +55,9 @@ align_obj = AlignReads(args.reference, args.projectID, args.platform)
 align_obj.run_methods()
 """
 COMMAND FOR LOCAL TESTING:
-/Users/kmnike/anaconda3/envs/pipeline/bin/python3 alignPB_Illumina.py Mzebra_GT1 ReferenceImprovement illumina -d 
+/Users/kmnike/anaconda3/envs/pipeline/bin/python3 alignPB_Illumina.py Mzebra_GT1 ReferenceImprovement illumina -d
 
+FOR TESTING ON UTAKA SERVER:
+python3 alignPB_Illumina.py Mzebra_GT1 ReferenceImprovement illumina -d
 
 """
