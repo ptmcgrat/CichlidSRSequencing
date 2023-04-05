@@ -47,6 +47,7 @@ class AlignReads:
 
     def uBamtoBam(self):        
         for sampleID in self.sampleIDs:
+            t_bam = self.fm_obj.localTempDir + sampleID + '.sorted.bam'
             self.fm_obj.createSampleFiles(sampleID)
             command1 = ['gatk', 'SamToFastq', '-I', self.fm_obj.localUnmappedBamFile, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
             command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fm_obj.localTempDir]
@@ -60,7 +61,7 @@ class AlignReads:
             command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
             command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
             command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fm_obj.localTempDir]
-            t_bam = self.fm_obj.localTempDir + sampleID + '.' + str(i) + '.sorted.bam'
+
             p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
             p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
             p1.stdout.close()
