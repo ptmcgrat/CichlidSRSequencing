@@ -1,4 +1,4 @@
-import argparse, pdb
+import argparse, pdb, subprocess
 from helper_modules.nikesh_file_manager import FileManager as FM
 import pandas as pd
 
@@ -45,6 +45,29 @@ class AlignReads:
             self.fm_obj.downloadData(self.fm_obj.localUnmappedBamFile)
             print('Done Downloading unmapped BAM for ' + sampleID)
 
+    def uBamtoBam(self):
+        command1 = ['gatk', 'SamToFastq', '-I', self.fm_obj.localUnmappedBamFile, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+        command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fm_obj.localTempDir]
+
+        # Second command aligns fastq data to reference
+        command2 = ['bwa', 'mem', '-t', '12', '-M', '-p', self.fm_obj.localGenomeFile, '/dev/stdin']
+
+        # Final command reads read group information to aligned bam file and sorts it
+        # Figure out how to keep hard clipping
+        command3 = ['gatk', 'MergeBamAlignment', '-R', self.fm_obj.localGenomeFile, '--UNMAPPED_BAM', self.fm_obj.localUnmappedBamFile, '--ALIGNED_BAM', '/dev/stdin']
+        command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+        command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+        command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fm_obj.localTempDir]
+        
+        for sampleID in self.sampleIDs:
+            t_bam = self.fm_obj.localTempDir + sampleID + '.' + str(i) + '.sorted.bam'
+            p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+            p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+            p1.stdout.close()
+            p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+            p2.stdout.close()
+            output = p3.communicate()
+
     def run_methods(self):
         if args.download_data:
             self.data_downloader()
@@ -58,5 +81,7 @@ COMMAND FOR LOCAL TESTING:
 
 FOR TESTING ON UTAKA SERVER:
 python3 alignPB_Illumina.py Mzebra_GT1 ReferenceImprovement illumina -d
+
+gatk SamToFastq -I CV_1_m.unmapped.bam --FASTQ /dev/stdout --CLIPPING_ATTRIBUTE XT --CLIPPING_ACTION 2 --INTERLEAVE true --NON_PF true --TMP_DIR ./Temp
 
 """
