@@ -21,7 +21,7 @@ class AlignReads:
     def __init__(self, genome, project_ids, platform):
         self.genome = genome
         self.platform = platform
-        self.fm_obj = FM("Mzebra_GT1")
+        self.fm_obj = FM(self.genome)
 
         self.projectIDs = project_ids
         if self.projectIDs == ['All']:
@@ -29,6 +29,7 @@ class AlignReads:
         self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile)
         filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)]
         self.sampleIDs = filtered_df['SampleID'].tolist()
+        
 
     def data_downloader(self):
         print('Downloading Unmapped Alignment File')
@@ -49,7 +50,9 @@ class AlignReads:
     def run_methods(self):
         if args.download_data:
             self.data_downloader()
-        
+    
+    
+    print("Pipeline Run Success")
 
 align_obj = AlignReads(args.reference, args.projectID, args.platform)
 align_obj.run_methods()
