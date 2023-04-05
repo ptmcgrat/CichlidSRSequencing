@@ -108,6 +108,9 @@ if args.Platform == 'ILLUMINA':
 		fm_obj.uploadData(args.OutputBam + '.MarkIlluminaErrors.txt')
 		sys.exit()
 
+else:
+	command = ['mv', temp_bam_file, args.OutputBam]
+
 	# Upload data to dropbox
 print('  Uploading uBam files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 fm_obj.uploadData(args.OutputBam)
