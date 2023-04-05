@@ -115,7 +115,7 @@ for index, row in new_dt.iterrows():
 		fq2 = ftps[1]
 
 	# Asynchronously download fastq files (up to 12 at a time)
-	command = [str(x) for x in ['python3', 'unit_scripts/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform]]
+	command = [str(x) for x in ['python3', 'unit_scripts/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
 
 	if args.Local:
 		command += ['--Local']
