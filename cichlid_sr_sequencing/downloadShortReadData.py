@@ -91,6 +91,10 @@ for index, row in new_dt.iterrows():
 		else:
 			fq1 = row['FileLocations']
 			fq2 = row['FileLocations']
+			if fq1[0] != '/':
+				fq1 = fm_obj.localMasterDir + fq1
+				fq2 = fm_obj.localMasterDir + fq2
+
 	else:
 		try:
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
