@@ -21,7 +21,7 @@ class AlignReads:
     def __init__(self, genome, project_ids, platform):
         self.genome = genome
         self.platform = platform
-        self.fm_obj = FM("Mzebra_GT1_v1")
+        self.fm_obj = FM("Mzebra_GT1")
 
         self.projectIDs = project_ids
         if self.projectIDs == ['All']:
