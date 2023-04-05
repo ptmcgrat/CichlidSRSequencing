@@ -110,7 +110,7 @@ if args.Platform == 'ILLUMINA':
 
 else:
 	command = ['mv', temp_bam_file, args.OutputBam]
-
+	subprocess.run(command)
 	# Upload data to dropbox
 print('  Uploading uBam files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 fm_obj.uploadData(args.OutputBam)
