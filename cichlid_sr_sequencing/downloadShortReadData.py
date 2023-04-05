@@ -83,10 +83,14 @@ for index, row in new_dt.iterrows():
 
 	# Download ENA data to determine ftp site of fastq files
 	if args.Local:
-		fq1,fq2 = row['FileLocations'].split(',,')
-		if fq1[0] != '/':
-			fq1 = fm_obj.localMasterDir + fq1
-			fq2 = fm_obj.localMasterDir + fq2
+		if layout == 'PAIRED':
+			fq1,fq2 = row['FileLocations'].split(',,')
+			if fq1[0] != '/':
+				fq1 = fm_obj.localMasterDir + fq1
+				fq2 = fm_obj.localMasterDir + fq2
+			else:
+				fq1 = row['FileLocations']
+				fq2 = row['FileLocations']
 	else:
 		try:
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
@@ -102,13 +106,9 @@ for index, row in new_dt.iterrows():
 			continue 
 
 		# Store file locations for remote and local fq files
-		if layout == 'PAIRED':
-			ftps = ena_dt.fastq_ftp[0].split(';')
-			fq1 = ftps[0]
-			fq2 = ftps[1]
-		else: 
-			fq1 = ena_dt.fastq_ftp[0]
-			fq2 = fq1
+		ftps = ena_dt.fastq_ftp[0].split(';')
+		fq1 = ftps[0]
+		fq2 = ftps[1]
 
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'unit_scripts/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform]]
