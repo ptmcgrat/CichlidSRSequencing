@@ -59,8 +59,8 @@ for index, row in new_dt.iterrows():
 	output_bamfile = fm_obj.localReadsDir + row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 
 	# Make sure we are analyzing paired end reads
-	if layout != 'PAIRED':
-		print('Error on ' + row.RunID + ': Can only handle paired end data. Library layout is: ' + layout, file = sys.stderr)
+	if layout != 'PAIRED' and layout != 'SINGLE':
+		print('Error on ' + row.RunID + ': Can only handle single paired end data. Library layout is: ' + layout, file = sys.stderr)
 		continue
 
 	# Make sure we this run hasn't already been added to the sample database
@@ -85,8 +85,8 @@ for index, row in new_dt.iterrows():
 	if args.Local:
 		fq1,fq2 = row['FileLocations'].split(',,')
 		if fq1[0] != '/':
-			fq1 = fm_obj.localReadsDir + fq1
-			fq2 = fm_obj.localReadsDir + fq2
+			fq1 = fm_obj.localMasterDir + fq1
+			fq2 = fm_obj.localMasterDir + fq2
 	else:
 		try:
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
@@ -102,10 +102,13 @@ for index, row in new_dt.iterrows():
 			continue 
 
 		# Store file locations for remote and local fq files
-		ftps = ena_dt.fastq_ftp[0].split(';')
-		fq1 = ftps[0]
-		fq2 = ftps[1]
-
+		if layout == 'PAIRED':
+			ftps = ena_dt.fastq_ftp[0].split(';')
+			fq1 = ftps[0]
+			fq2 = ftps[1]
+		else: 
+			fq1 = ena_dt.fastq_ftp[0]
+			fq2 = fq1
 
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'unit_scripts/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform]]
