@@ -36,26 +36,22 @@ class AlignReads:
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
         print('Downloading most recent Genome Dir')
         self.fm_obj.downloadData(self.fm_obj.localGenomeDir)
-        pdb.set_trace()
         # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
         for sampleID in self.sampleIDs:
             if sampleID in []:
                 continue
             print('Downloading ' + sampleID + '...')
             self.fm_obj.createSampleFiles(sampleID)
-            self.fm_obj.downloadData(self.fm_obj.localGVCFFile)
-            self.fm_obj.downloadData(self.fm_obj.localGVCFFile + '.tbi')
-            print('Done Downloading ' + sampleID)
+            self.fm_obj.downloadData(self.fm_obj.localUnmappedBamFile)
+            print('Done Downloading unmapped BAM for ' + sampleID)
 
     def run_methods(self):
         if args.download_data:
             self.data_downloader()
-    
-    
-    print("Pipeline Run Success")
 
 align_obj = AlignReads(args.reference, args.projectID, args.platform)
 align_obj.run_methods()
+print('PIPELINE RUN SUCCESSFUL')
 """
 COMMAND FOR LOCAL TESTING:
 /Users/kmnike/anaconda3/envs/pipeline/bin/python3 alignPB_Illumina.py Mzebra_GT1 ReferenceImprovement illumina -d
