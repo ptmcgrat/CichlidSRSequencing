@@ -77,7 +77,7 @@ if args.LibraryLayout == 'PAIRED':
 
 else:
 	with open(fixed_fq1, 'w') as outfq1:
-		for r1 in f1,f:
+		for r1 in f1:
 			if r1.sequence == '':
 				continue
 			else:
