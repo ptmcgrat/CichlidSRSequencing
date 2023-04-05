@@ -77,11 +77,11 @@ if args.LibraryLayout == 'PAIRED':
 
 else:
 	with open(fixed_fq1, 'w') as outfq1:
-	for r1 in f1,f:
-		if r1.sequence == '':
-			continue
-		else:
-			outfq1.write('@' + r1.name + ' 1:N:0:2\n' + r1.sequence + '\n+\n' + r1.quality + '\n')
+		for r1 in f1,f:
+			if r1.sequence == '':
+				continue
+			else:
+				outfq1.write('@' + r1.name + ' 1:N:0:2\n' + r1.sequence + '\n+\n' + r1.quality + '\n')
 
 if args.LibraryLayout == 'PAIRED':
 	command = ['gatk', 'FastqToSam', '--FASTQ', fixed_fq1, '--FASTQ2', fixed_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
