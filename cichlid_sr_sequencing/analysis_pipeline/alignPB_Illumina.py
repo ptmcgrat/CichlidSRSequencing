@@ -71,6 +71,7 @@ class AlignReads:
     def run_methods(self):
         if args.download_data:
             self.data_downloader()
+        self.uBamtoBam()
 
 align_obj = AlignReads(args.reference, args.projectID, args.platform)
 align_obj.run_methods()
