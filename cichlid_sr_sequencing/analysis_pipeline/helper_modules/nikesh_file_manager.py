@@ -53,7 +53,11 @@ class FileManager():
 
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
-		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+		if self.genome_version == 'Mzebra_UMD2a':
+			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+		elif self.genome_version == 'Mzebra_GT1':
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v1.fna'
+
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
@@ -74,6 +78,8 @@ class FileManager():
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 		self.localRedoGVCFFile = self.localSampleBamDir + sampleID + '_redo.g.vcf.gz'
+
+		# for local testing. Remove after testing complete:
 		self.testRedo_GVCFFile = self.localSampleBamDir + "all_contigs_" + sampleID + '_redo.g.vcf.gz'
 		self.testGVCFFile = self.localSampleBamDir + "all_contigs_" + sampleID + '.g.vcf.gz'
 		self.testRedoGVCFIndexFile = self.localSampleBamDir + "all_contigs_" + sampleID + '_redo.g.vcf.gz.tbi'
