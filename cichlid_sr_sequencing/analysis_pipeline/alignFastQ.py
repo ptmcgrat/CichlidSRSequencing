@@ -91,7 +91,7 @@ for sample in good_samples:
 	timer.start('  Downloading uBam files for Sample: ' + sample)
 	#fm_obj.downloadData(fm_obj.localSampleBamDir)
 	os.makedirs(fm_obj.localTempDir, exist_ok = True)
-	pdb.set_trace()
+	# pdb.set_trace()
 	aw_obj.downloadReadData()
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
