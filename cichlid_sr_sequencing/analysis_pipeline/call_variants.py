@@ -23,6 +23,8 @@ gatk GenomicsDBImport
 # gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"])
 gatk GenotypeGVCFs
 # "gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingOutputs/' + lg + '_output.vcf'} --heterozygosity 0.0012"))
+Fix the command so that the Genome input will be just the short name "Mzebra_GT1" or "Mzebra_UMD2a"
+
 """
 
 class VariantCaller:
@@ -188,7 +190,7 @@ class VariantCaller:
 
 variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
 variant_caller_obj.run_methods()
-
+print('PIPELINE RUN SUCCESSFUL')
 """
 LOCAL TESTING COMMAND SKELETON
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py /Users/kmnike/Data_backup/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --local_test --regions LG1 LG2 LG3
@@ -202,7 +204,12 @@ python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mz
 Rerun GVCF creation:
 python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --halplotypecaller
 
-
 python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz --failed_samples
+
+The pipeline is now ready to run on Utaka server since all of the HaplotypeCaller reruns for the previously failed LG7 samples is complete and since the new BigBrain & BrainDiversity_s1 datasets have been rerun, and teh files have been renamed.
+Note that I need to process samples using 4 cores each. Here is the command to run:
+
+python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p All --import_databases --genotype --regions All --memory 4
+
 
 """

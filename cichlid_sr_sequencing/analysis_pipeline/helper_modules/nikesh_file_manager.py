@@ -64,7 +64,6 @@ class FileManager():
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
 
-
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
@@ -110,7 +109,7 @@ class FileManager():
 		dt = pd.read_csv(self.localSampleFile)
 		return set(dt.SampleID)
 
-	def downloadData(self, local_data, tarred = False, tarred_subdirs = False):
+	def downloadData(self, local_dataq, tarred = False, tarred_subdirs = False):
 
 		relative_name = local_data.rstrip('/').split('/')[-1] + '.tar' if tarred else local_data.rstrip('/').split('/')[-1]
 		local_path = local_data.split(local_data.rstrip('/').split('/')[-1])[0]
