@@ -70,7 +70,7 @@ timer.stop()
 
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
-	pdb.set_trace()
+	
 	# Manually exclude samples that are problematic until debugging can be completed
 	# Also SAMEA1904330 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329', 'SAMEA1904328', 'SAMEA4032091', 'SAMEA1920092'
 	if sample in ['SAMEA2661255', 'SAMEA2661406']:
@@ -91,7 +91,7 @@ for sample in good_samples:
 	timer.start('  Downloading uBam files for Sample: ' + sample)
 	#fm_obj.downloadData(fm_obj.localSampleBamDir)
 	os.makedirs(fm_obj.localTempDir, exist_ok = True)
-
+	pdb.set_trace()
 	aw_obj.downloadReadData()
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
