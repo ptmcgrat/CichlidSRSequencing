@@ -209,7 +209,7 @@ class AlignmentWorker():
 				command = command + ['-L', contig , '-O', vcf_files[-1]]
 				processes.append(subprocess.Popen(command, stderr = subprocess.PIPE, stdout = subprocess.PIPE))
 
-			if len(processes) == int(cpu_count()/4):
+			if len(processes) == 23:
 				for p1 in processes:
 					pdb.set_trace()
 					p1.communicate()
