@@ -211,8 +211,8 @@ class AlignmentWorker():
 
 			if len(processes) == int(cpu_count()/4):
 				for p1 in processes:
-					p1.communicate()
 					pdb.set_trace()
+					p1.communicate()
 				processes = []
 
 		for p1 in processes:
