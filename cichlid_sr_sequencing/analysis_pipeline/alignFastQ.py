@@ -2,20 +2,26 @@ import argparse, os, pysam
 from helper_modules.nikesh_file_manager import FileManager as FM
 from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
-
 import pandas as pd
-
-
 import argparse, os, pysam, pdb, subprocess, sys, datetime
 from collections import defaultdict
 from multiprocessing import cpu_count
 
+"""
+Step 1 is to go from UBAM back to Fastq (gatk samtofastq)
+then use those as input into minimap
+minimap takes in a ref genome and the fastq file and outputs a sam file.
+Sam file will need to be processed and annotated into chimeric reads, all reads, discordant reads, etc.
+Assuming nothing is special about PacBio Bam files, then the rest of the functions in alignment_worker should take care of this automatically
+Need a way to pick up the platform info to ensure the correct uBAM dir in the localReadsDir is used... 
+"""
 
 # Need to make SampleIDs and ProjectIDs mutually exclusive
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice. It will also create gvcf files')
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
 parser.add_argument('-s', '--SampleIDs', nargs = '+', help = 'Restrict analysis to the following sampleIDs')
 parser.add_argument('-p', '--ProjectID', type = str, help = 'Restrict analysis to a specific ProjectID')
+parser.add_argument('-t', '--type', nargs = 1, choices = ['illumina', 'pacbio'], help = 'Name of the type of sequencing platform used to generate the inout reads for the pipeline')
 args = parser.parse_args()
 
 # Create FileManager object to keep track of filenames
@@ -70,7 +76,7 @@ timer.stop()
 
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
-	
+	platform = args.type
 	# Manually exclude samples that are problematic until debugging can be completed
 	# Also SAMEA1904330 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329', 'SAMEA1904328', 'SAMEA4032091', 'SAMEA1920092'
 	if sample in ['SAMEA2661255', 'SAMEA2661406']:
@@ -87,21 +93,20 @@ for sample in good_samples:
 	print(' Processing sample: ' + sample + '; Start time: ' + str(datetime.datetime.now()))
 
 	# Loop through all of the runs for a sample
-	aw_obj = AW(fm_obj, s_dt, sample)
+	aw_obj = AW(fm_obj, s_dt, sample, platform)
 	timer.start('  Downloading uBam files for Sample: ' + sample)
 	#fm_obj.downloadData(fm_obj.localSampleBamDir)
 	os.makedirs(fm_obj.localTempDir, exist_ok = True)
-	# pdb.set_trace()
-	aw_obj.downloadReadData()
+	#aw_obj.downloadReadData()
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
-	aw_obj.alignData()
+	#aw_obj.alignData()
 	timer.stop()
 	timer.start('  Marking duplicates for Sample: ' + sample)
-	aw_obj.markDuplicates()
+	#aw_obj.markDuplicates()
 	timer.stop()
 	timer.start('  Splitting reads based upon their alignment for Sample: ' + sample)
-	aw_obj.splitBamfiles()
+	#aw_obj.splitBamfiles()
 	timer.stop()
 	timer.start('  Creating GVCF file for Sample: ' + sample)
 	aw_obj.createGVCF()
