@@ -1,19 +1,25 @@
 import subprocess, pysam, os, pdb
 from multiprocessing import cpu_count
 
+"""
+impletement a platform argument. I can add this to the argparse block in alignFastQ.py and have it get passed here. 
+"""
+
+
+
 class AlignmentWorker():
-	def __init__(self, fileManager, sample_dt, sampleID):
+	def __init__(self, fileManager, sample_dt, sampleID, platform):
 		self.fileManager = fileManager
 		self.sample_dt = sample_dt[sample_dt.SampleID == sampleID]
 		self.sampleID = sampleID
 		self.fileManager.createSampleFiles(self.sampleID)
+		self.platform = platform
 		os.makedirs(self.fileManager.localSampleBamDir, exist_ok = True)
 
 	def downloadReadData(self):
 		# Loop through all of the runs for a sample
 		for i, (index,row) in enumerate(self.sample_dt.iterrows()):
 			# Download unmapped bam file
-			# pdb.set_trace()
 			uBam_file = self.fileManager.localReadsDir + row.FileLocations
 			self.fileManager.downloadData(uBam_file)
 
@@ -29,52 +35,101 @@ class AlignmentWorker():
 
 			# Create temporary outputfile
 			t_bam = self.fileManager.localTempDir + self.sampleID + '.' + str(i) + '.sorted.bam'
+			if self.platform == 'illumina':
+				# Align unmapped bam file following best practices
+				# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
+				# Align fastq files and sort them
+				# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
+				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+				command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fileManager.localTempDir]
 
-			# Align unmapped bam file following best practices
-			# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
-			# Align fastq files and sort them
-			# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
-			command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-			command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fileManager.localTempDir]
+				# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+				#command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+				#command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localTempDir]
+				#subprocess.run(command1)
+				#pdb.set_trace()
 
-			# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-			#command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-			#command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localTempDir]
-			#subprocess.run(command1)
-			#pdb.set_trace()
+				# Second command aligns fastq data to reference
+				command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', self.fileManager.localGenomeFile, '/dev/stdin']
 
-			# Second command aligns fastq data to reference
-			command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', self.fileManager.localGenomeFile, '/dev/stdin']
+				# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+				#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
+				#subprocess.run(command2)
+				#pdb.set_trace()
 
-			# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-			#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
-			#subprocess.run(command2)
-			#pdb.set_trace()
+				# Final command reads read group information to aligned bam file and sorts it
+				# Figure out how to keep hard clipping
+				command3 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
+				command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+				command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+				command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
 
-			# Final command reads read group information to aligned bam file and sorts it
-			# Figure out how to keep hard clipping
-			command3 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
-			command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-			command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-			command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
+				# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+				#command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
+				#command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+				#command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+				#command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
+				#subprocess.run(command3)
+				#pdb.set_trace()
 
-			# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-			#command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
-			#command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-			#command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-			#command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
-			#subprocess.run(command3)
-			#pdb.set_trace()
+				# Figure out how to pipe 3 commands together
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p1.stdout.close()
+				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+				p2.stdout.close()
+				output = p3.communicate()
+				# Remove unmapped reads
+				subprocess.run(['rm', '-f', uBam_file])
+			elif self.platform == 'pacbio':
+				"""
+				For Pacbio Reads:
+				Seems like minimap2 only works on FASTA sequences too so I won't be able to run it on UBAMs just like for illumna reads
+				Step 1: UBAM to Fastq 
+				command1: gatk SamToFastq -I GGBC5251_MZ-003-m_l1.unmapped_marked_adapters.bam --FASTQ test.fastq --INCLUDE_NON_PF_READS true
 
-			# Figure out how to pipe 3 commands together
-			p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-			p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-			p1.stdout.close()
-			p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
-			p2.stdout.close()
-			output = p3.communicate()
-			# Remove unmapped reads
-			subprocess.run(['rm', '-f', uBam_file])
+				Unsure if we need the following extra commands: 
+				--CLIPPING_ATTRIBUTE XT
+				The attribute that stores the position at which the SAM record should be clipped  Default value: null. 
+				--CLIPPING_ACTION 2
+				The action that should be taken with clipped reads: 'X' means the reads and qualities should be trimmed at the clipped position;
+				'N' means the bases should be changed to Ns in the clipped region; and any integer means that the base qualities should be set to that value in the clipped region.  Default value: null. 
+				(So the attribute is where the SAM record should be clipped ad this is replaces by a str(2) value... I think this may have specifically been used due to the nature of the L1 and L2 reads in the BAMs from Illumina data)
+				--Interleave true
+				Will generate an interleaved fastq if paired, each line will have /1 or /2 to describe which end it came from  Default value: false. Possible values: {true, false}
+				Set to False since we don't have paired reads.
+				--NON_PF true
+				not foudn in version 4.3.0.0 for some reason?
+				--INCLUDE_NON_PF_READS true
+				Use this flag instead to get the non_filtered reads to be included in the fastq
+				-- TMP_DIR leave as fm_obj.lcoalTempDir
+
+				command2: minimap2 -asm20 /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_GT1/Mzebra_GT1_v1.fna GGBC5251_MZ-003-m_l1.unmapped_marked_adapters.bam > test.sam
+
+				-asm20 is needed to indicate the reads are PacBio HiFi/CCS reads. 
+
+				"""
+				# command for splitting UBAM to fastq file. Many options used for the illumina reads are exlcuded here. 
+				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--INCLUDE_NON_PF_READS', 'true']
+				# command for generating a sam file using minimap2 (v2.18 or earlier):
+				# be sure that the outpit is piped into the next command instead of into
+				command2 = ['minimap2', '-ax', 'asm20', self.fileManager.localGenomeFile, '/dev/stdin']
+				command3 = ['samtools' 'view' ]
+				command4 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
+				command4 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+				command4 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+				command4 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
+
+				# the chaining commands part:
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p1.stdout.close()
+				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+				p2.stdout.close()
+				p4 = subprocess.Popen(command4, stdin = p3.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+				output = p4.communicate()
+				# Remove unmapped reads
+				subprocess.run(['rm', '-f', uBam_file])
 
 		if i == 0:
 			subprocess.run(['mv', t_bam, sorted_bam])
@@ -152,11 +207,12 @@ class AlignmentWorker():
 
 				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '.g.vcf')
 				command = command + ['-L', contig , '-O', vcf_files[-1]]
-				processes.append(subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
+				processes.append(subprocess.Popen(command, stderr = subprocess.PIPE, stdout = subprocess.PIPE))
 
 			if len(processes) == int(cpu_count()/4):
 				for p1 in processes:
 					p1.communicate()
+					pdb.set_trace()
 				processes = []
 
 		for p1 in processes:
@@ -177,4 +233,3 @@ class AlignmentWorker():
 			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		return stats
-
