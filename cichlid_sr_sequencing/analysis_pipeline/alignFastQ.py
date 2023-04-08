@@ -76,8 +76,6 @@ timer.stop()
 
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
-	if sample != 'CV_2_f':
-		continue
 	platform = args.type
 	# Manually exclude samples that are problematic until debugging can be completed
 	# Also SAMEA1904330 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329', 'SAMEA1904328', 'SAMEA4032091', 'SAMEA1920092'
@@ -102,16 +100,16 @@ for sample in good_samples:
 	#aw_obj.downloadReadData()
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
-	#aw_obj.alignData()
+	aw_obj.alignData()
 	timer.stop()
 	timer.start('  Marking duplicates for Sample: ' + sample)
-	#aw_obj.markDuplicates()
+	aw_obj.markDuplicates()
 	timer.stop()
 	timer.start('  Splitting reads based upon their alignment for Sample: ' + sample)
-	#aw_obj.splitBamfiles()
+	aw_obj.splitBamfiles()
 	timer.stop()
 	timer.start('  Creating GVCF file for Sample: ' + sample)
-	aw_obj.createGVCF()
+	# aw_obj.createGVCF()
 	timer.stop()
 	timer.start('  Uploading data for Sample: ' + sample)
 	fm_obj.uploadData(fm_obj.localSampleBamDir)

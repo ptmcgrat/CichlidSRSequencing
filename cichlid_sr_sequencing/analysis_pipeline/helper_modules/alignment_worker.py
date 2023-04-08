@@ -149,7 +149,6 @@ class AlignmentWorker():
 		subprocess.run(['rm','-f',sorted_bam])
 
 	def splitBamfiles(self):
-
 		# Get contigs
 		bam_obj = pysam.AlignmentFile(self.fileManager.localBamFile)
 		contigs = bam_obj.references  
