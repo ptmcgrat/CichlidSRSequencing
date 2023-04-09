@@ -32,10 +32,10 @@ class AlignmentWorker():
 			# Download unmapped bam file
 			uBam_file = self.fileManager.localReadsDir + row.FileLocations
 			self.fileManager.downloadData(uBam_file)
-
+			pdb.set_trace()
 			# Create temporary outputfile
 			t_bam = self.fileManager.localTempDir + self.sampleID + '.' + str(i) + '.sorted.bam'
-			if self.platform == 'illumina':
+			if self.platform == ['illumina']:
 				# Align unmapped bam file following best practices
 				# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
 				# Align fastq files and sort them
