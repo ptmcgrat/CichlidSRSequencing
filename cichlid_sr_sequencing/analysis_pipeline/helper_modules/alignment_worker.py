@@ -80,7 +80,7 @@ class AlignmentWorker():
 				output = p3.communicate()
 				# Remove unmapped reads
 				subprocess.run(['rm', '-f', uBam_file])
-			elif self.platform == 'pacbio':
+			elif self.platform == ['pacbio']:
 				"""
 				For Pacbio Reads:
 				Seems like minimap2 only works on FASTA sequences too so I won't be able to run it on UBAMs just like for illumna reads
