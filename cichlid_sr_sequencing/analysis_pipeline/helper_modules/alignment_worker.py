@@ -26,7 +26,6 @@ class AlignmentWorker():
 	def alignData(self):
 		# Loop through all of the runs for a sample
 		sorted_bam = self.fileManager.localTempDir + self.sampleID + '.sorted.bam'
-		pdb.set_trace()
 		for i, (index,row) in enumerate(self.sample_dt.iterrows()):
 
 			# Download unmapped bam file
