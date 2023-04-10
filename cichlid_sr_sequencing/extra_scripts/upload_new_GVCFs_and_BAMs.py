@@ -36,6 +36,7 @@ def upload_data(samples):
 def removeExtraFiles(samples):
     for sample in samples:
         fm_obj.createSampleFiles(sample)
+        pdb.set_trace()
         extra_files = [fm_obj.localBamFile]
 
 # upload_data(error_files)
