@@ -37,7 +37,7 @@ def upload_data(samples):
 def removeExtraFiles(samples):
     for sample in samples:
         fm_obj.createSampleFiles(sample)
-        extra_files = fm_obj.
+        extra_files = [fm_obj.localBamFile]
 
 upload_data(error_files)
 
