@@ -77,7 +77,7 @@ class FileManager():
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 		self.localRedoGVCFFile = self.localSampleBamDir + sampleID + '_redo.g.vcf.gz'
-		self.test_file =self.localSampleBamDir + sampleID + '/' + sampleID + '_test.txt'
+		self.test_file =self.localSampleBamDir + sampleID + '_test.txt'
 
 
 	def returnTempGVCFFile(self, contig):
