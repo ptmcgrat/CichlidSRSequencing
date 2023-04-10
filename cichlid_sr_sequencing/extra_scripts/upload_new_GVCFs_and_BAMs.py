@@ -33,12 +33,10 @@ def upload_data(samples):
         fm_obj.CreateSampleFiles()
         fm_obj.UploadData(sample)
 
-        sp.run()
 
 
 
-
-print(sampleIDs)
+# print(sampleIDs)
 
 
 
