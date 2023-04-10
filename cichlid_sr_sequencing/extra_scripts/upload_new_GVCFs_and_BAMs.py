@@ -30,7 +30,7 @@ test_samples = ['CK_1003_p']
 
 def upload_data(samples):
     for sample in samples:
-        fm_obj.CreateSampleFiles(sample)
+        fm_obj.createSampleFiles(sample)
         fm_obj.UploadData(fm_obj.test_file)
 
 upload_data(test_samples)
