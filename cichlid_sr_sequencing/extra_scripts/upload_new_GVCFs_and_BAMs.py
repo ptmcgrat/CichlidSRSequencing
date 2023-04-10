@@ -40,6 +40,7 @@ def removeExtraFiles(samples):
         extra_files = [fm_obj.localBamFile]
 
 upload_data(error_files)
+removeExtraFiles(error_files)
 
 print('DONE')
 
