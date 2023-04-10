@@ -158,8 +158,8 @@ class FileManager():
 			if upload_async:
 				subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path])
 			else:
-				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path, '-P'], capture_output = True, encoding = 'utf-8')
-				output = subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path, '-P'], check = True, capture_output = True, encoding = 'utf-8')
+				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
+				output = subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path], check = True, capture_output = True, encoding = 'utf-8')
 		else:
 			raise Exception(local_data + ' does not exist for upload')
 
