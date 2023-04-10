@@ -31,16 +31,33 @@ test_samples = ['CK_1003_p']
 def upload_data(samples):
     for sample in samples:
         fm_obj.createSampleFiles(sample)
+        print('uploading GVCF file for ', sample)
         fm_obj.uploadData(fm_obj.localGVCFFile)
+        print('GVCF for ', sample, ' uploaded')
+        print('uploading GVCF index file for ', sample)
+        fm_obj.uploadData(fm_obj.localGVCFIndex)
+        print('GVCF index for ', sample, ' uploaded')
+
 
 def removeExtraFiles(samples):
     for sample in samples:
         fm_obj.createSampleFiles(sample)
         pdb.set_trace()
-        extra_files = [fm_obj.localBamFile]
+        if pathlib.Path(fm_obj.localBamFile):
+            print('bam file found for ', sample)
+            print('removing bam file for ', sample)
+            sp.run(['rm', fm_obj.localBamFile])
+            print('bam file removed for ', sample)
+        elif pathlib.Path(fm_obj.localBamIndex):
+            print('bam index found for ', sample)
+            print('removing bam index for ', sample)
+            sp.run(['rm', fm_obj.localBamIndex])
+            print('bam index removed for ', sample)
 
-# upload_data(error_files)
+upload_data(error_files)
 removeExtraFiles(error_files)
+upload_data(sampleIDs)
+removeExtraFiles(sampleIDs)
 
 print('DONE')
 

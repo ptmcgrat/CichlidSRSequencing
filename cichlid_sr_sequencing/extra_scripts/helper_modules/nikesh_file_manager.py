@@ -76,6 +76,7 @@ class FileManager():
 		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
+		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
 		self.localRedoGVCFFile = self.localSampleBamDir + sampleID + '_redo.g.vcf.gz'
 		self.test_file =self.localSampleBamDir + sampleID + '_test.txt'
 
