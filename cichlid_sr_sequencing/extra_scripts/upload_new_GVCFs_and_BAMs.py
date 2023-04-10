@@ -29,15 +29,13 @@ error_files = ['SAMEA4033321', 'SAMEA2661241', 'SAMEA4032067', 'SAMEA4033318', '
 test_samples = ['CK_1003_p']
 
 def upload_data(samples):
-    for sample in test_samples:
-        fm_obj.CreateSampleFiles()
+    for sample in samples:
+        fm_obj.CreateSampleFiles(sample)
         fm_obj.UploadData(fm_obj.test_file)
 
+upload_data(test_samples)
 
-
-
-# print(sampleIDs)
-
+print('DONE')
 
 
 
