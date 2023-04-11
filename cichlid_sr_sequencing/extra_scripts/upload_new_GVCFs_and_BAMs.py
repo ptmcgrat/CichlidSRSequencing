@@ -42,13 +42,13 @@ def upload_data(samples):
 def removeExtraFiles(samples):
     for sample in samples:
         fm_obj.createSampleFiles(sample)
-        pdb.set_trace()
-        if pathlib.Path(fm_obj.localBamFile):
+        # pdb.set_trace()
+        if pathlib.Path(fm_obj.localBamFile).exists():
             print('bam file found for ', sample)
             print('removing bam file for ', sample)
             sp.run(['rm', fm_obj.localBamFile])
             print('bam file removed for ', sample)
-        elif pathlib.Path(fm_obj.localBamIndex):
+        elif pathlib.Path(fm_obj.localBamIndex).exists():
             print('bam index found for ', sample)
             print('removing bam index for ', sample)
             sp.run(['rm', fm_obj.localBamIndex])
