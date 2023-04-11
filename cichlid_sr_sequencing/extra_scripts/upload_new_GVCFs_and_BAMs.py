@@ -53,7 +53,7 @@ def removeExtraFiles(samples):
             sp.run(['rm', fm_obj.localBamIndex])
             print('bam index removed for ', sample)
 
-upload_data(error_files)
+# upload_data(error_files)
 removeExtraFiles(error_files)
 upload_data(sampleIDs)
 removeExtraFiles(sampleIDs)
