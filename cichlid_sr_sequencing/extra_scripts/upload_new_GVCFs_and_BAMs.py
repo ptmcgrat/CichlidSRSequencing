@@ -38,7 +38,6 @@ def upload_data(samples):
         fm_obj.uploadData(fm_obj.localGVCFIndex)
         print('GVCF index for ', sample, ' uploaded')
 
-
 def removeExtraFiles(samples):
     for sample in samples:
         fm_obj.createSampleFiles(sample)
@@ -54,10 +53,27 @@ def removeExtraFiles(samples):
             sp.run(['rm', fm_obj.localBamIndex])
             print('bam index removed for ', sample)
 
+def removeSpecialExtraFiles(samples):
+    for sample in samples:
+        pdb.set_trace()
+        if pathlib.Path(fm_obj.rerun_gvcf_file).exists():
+            print('rerun bam file found for ', sample)
+            print('removing rerun bam file for ', sample)
+            sp.run(['rm', fm_obj.rerun_gvcf_file])
+            print('bam file removed for ', sample)
+        elif pathlib.Path(fm_obj.rerun_gvcf_index_file).exists():
+            print('rerun gvcf index found for ', sample)
+            print('removing rerun gvcf index for ', sample)
+            sp.run(['rm', fm_obj.rerun_gvcf_index_file])
+            print('bam index removed for ', sample)
+
+
+
 # upload_data(error_files)
-removeExtraFiles(error_files)
+# removeExtraFiles(error_files)
 # upload_data(sampleIDs)
-removeExtraFiles(sampleIDs)
+# removeExtraFiles(sampleIDs)
+removeSpecialExtraFiles(error_files)
 
 print('DONE')
 

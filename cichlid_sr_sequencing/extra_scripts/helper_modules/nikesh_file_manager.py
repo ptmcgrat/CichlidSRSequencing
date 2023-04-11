@@ -78,7 +78,10 @@ class FileManager():
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
 		self.localRedoGVCFFile = self.localSampleBamDir + sampleID + '_redo.g.vcf.gz'
-		self.test_file =self.localSampleBamDir + sampleID + '_test.txt'
+		self.test_file = self.localSampleBamDir + sampleID + '_test.txt'
+		self.rerun_gvcf_file = self.localSampleBamDir + sampleID + '_rerun_230203.g.vcf.gz'
+		self.rerun_gvcf_index_file = self.localSampleBamDir + sampleID + '_rerun_230203.g.vcf.gz.tbi'
+
 
 
 	def returnTempGVCFFile(self, contig):
