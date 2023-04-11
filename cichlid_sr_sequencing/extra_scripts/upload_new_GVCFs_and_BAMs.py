@@ -55,6 +55,7 @@ def removeExtraFiles(samples):
 
 def removeSpecialExtraFiles(samples):
     for sample in samples:
+        fm_obj.createSampleFiles(sample)
         pdb.set_trace()
         if pathlib.Path(fm_obj.rerun_gvcf_file).exists():
             print('rerun bam file found for ', sample)

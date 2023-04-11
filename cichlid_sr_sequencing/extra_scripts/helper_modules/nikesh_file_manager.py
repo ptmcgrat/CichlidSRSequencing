@@ -82,8 +82,6 @@ class FileManager():
 		self.rerun_gvcf_file = self.localSampleBamDir + sampleID + '_rerun_230203.g.vcf.gz'
 		self.rerun_gvcf_index_file = self.localSampleBamDir + sampleID + '_rerun_230203.g.vcf.gz.tbi'
 
-
-
 	def returnTempGVCFFile(self, contig):
 		return self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
 
