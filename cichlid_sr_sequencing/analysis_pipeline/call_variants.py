@@ -122,16 +122,57 @@ class VariantCaller:
         processes = []
         for lg in self.linkage_groups:
             if args.local_test:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
+                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 processes.append(p)
+                pdb.set_trace()
             else:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
                 processes.append(p)
 
-            if len(processes) == 11:
+            if len(processes) == 1:
                 for proc in processes:
                     proc.communicate()
                 processes = []
+
+            # if len(self.linkage_groups)%2 != 0:
+            #     if len(processes) == (len(processes) -1) / 2:
+            #         for proc in processes:
+            #             proc.communicate()
+            #         processes = []
+            #     for proc in processes:
+            #         proc.communicate()
+            #     processes = []
+            # elif len(self.linkage_groups)%2 == 0:
+            #     if len(processes) == len(processes) / 2:
+            #         for proc in processes:
+            #             proc.communicate()
+            #         processes = []
+
+
+
+            # if len(processes)%2 == 0:
+            #     if len(processes) == len(processes)/2:
+            #         for proc in processes:
+            #             proc.communicate()
+            #         processes = []
+
+            # elif len(processes)%2 != 0:
+            #     if len(processes) == (len(processes) -1) / 2:
+            #         for proc in processes:
+            #             proc.communicate
+            #         processes = []
+            #     for proc in processes:
+            #         proc.communicate
+            #     processes = []
+
+            
+            # if len(processes) == 11:
+            #     for proc in processes:
+            #         proc.communicate()
+            #     processes = []
+            # for proc in processes:
+            #     proc.communicate()
+            #     processes = []
 
     def RunGenotypeGVCFs(self):
         processes = []
@@ -187,6 +228,9 @@ The pipeline is now ready to run on Utaka server since all of the HaplotypeCalle
 Note that I need to process samples using 4 cores each. Here is the command to run:
 
 python3 call_variants.py Mzebra_UMD2a -p All --import_databases --genotype --regions All --memory 2
+
+For rerunning LG14:
+python3 call_variants.py Mzebra_UMD2a -p All --import_databases --genotype --regions LG14 --memory 100
 
 
 Old Code:
