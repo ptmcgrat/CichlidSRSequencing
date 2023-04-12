@@ -29,13 +29,14 @@ Fix the command so that the Genome input will be just the short name "Mzebra_GT1
 class VariantCaller:
     def __init__(self, genome, project_ids, linkage_groups, memory):
         self.genome = genome
-        self.fm_obj = FM("Mzebra_UMD2a")
+        self.fm_obj = FM(self.genome)
         self.projectIDs = project_ids
         self.memory = memory
 
         # Code block to define the set of SampleIDs based on the passed ProjectIDs
         if self.projectIDs == ['All']:
             self.projectIDs = ['ReferenceImprovement', 'RockSand_v1', 'PRJEB15289', 'PRJEB1254','BrainDiversity_s1', 'BigBrain']
+        self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
         self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile)
         filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)]
         self.sampleIDs = filtered_df['SampleID'].tolist()
