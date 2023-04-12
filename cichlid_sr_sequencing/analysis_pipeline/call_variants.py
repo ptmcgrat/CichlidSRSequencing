@@ -38,7 +38,6 @@ class VariantCaller:
             self.projectIDs = ['ReferenceImprovement', 'RockSand_v1', 'PRJEB15289', 'PRJEB1254','BrainDiversity_s1', 'BigBrain']
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
         self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile)
-        pdb.set_trace()
         filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)]
         filtered_df = filtered_df[filtered_df['GenomeVersion'] == self.genome] # filter by genome version to eliminate duplicate samples that have been sligned ot multiple genome versions
         self.sampleIDs = filtered_df['SampleID'].tolist()
@@ -182,12 +181,12 @@ LOCAL TESTING COMMAND SKELETON
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py Mzebra_UMD2a --local_test --regions LG1 LG2 LG3
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
-python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p BrainDiversity_s1 BigBrain --import_databases --genotype -m 21
+python3 call_variants.py Mzebra_UMD2a -p BrainDiversity_s1 BigBrain --import_databases --genotype -m 21
 
 The pipeline is now ready to run on Utaka server since all of the HaplotypeCaller reruns for the previously failed LG7 samples is complete and since the new BigBrain & BrainDiversity_s1 datasets have been rerun, and teh files have been renamed.
 Note that I need to process samples using 4 cores each. Here is the command to run:
 
-python3 call_variants.py /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna.gz -p All --import_databases --genotype --regions All --memory 2
+python3 call_variants.py Mzebra_UMD2a -p All --import_databases --genotype --regions All --memory 2
 
 
 Old Code:
