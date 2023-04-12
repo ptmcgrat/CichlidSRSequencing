@@ -1,0 +1,2 @@
+"some test text before new stuff is added"
+Newly added text. The file has been edited but retains the same name  

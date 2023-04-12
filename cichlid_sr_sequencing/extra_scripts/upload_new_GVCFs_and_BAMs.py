@@ -47,7 +47,7 @@ def removeExtraFiles(samples):
             print('removing bam file for ', sample)
             sp.run(['rm', fm_obj.localBamFile])
             print('bam file removed for ', sample)
-        elif pathlib.Path(fm_obj.localBamIndex).exists():
+        if pathlib.Path(fm_obj.localBamIndex).exists():
             print('bam index found for ', sample)
             print('removing bam index for ', sample)
             sp.run(['rm', fm_obj.localBamIndex])
@@ -61,19 +61,17 @@ def removeSpecialExtraFiles(samples):
             print('removing rerun bam file for ', sample)
             sp.run(['rm', fm_obj.rerun_gvcf_file])
             print('bam file removed for ', sample)
-        elif pathlib.Path(fm_obj.rerun_gvcf_index_file).exists():
+        if pathlib.Path(fm_obj.rerun_gvcf_index_file).exists():
             print('rerun gvcf index found for ', sample)
             print('removing rerun gvcf index for ', sample)
             sp.run(['rm', fm_obj.rerun_gvcf_index_file])
             print('bam index removed for ', sample)
 
-
-
 # upload_data(error_files)
 # removeExtraFiles(error_files)
 # upload_data(sampleIDs)
 # removeExtraFiles(sampleIDs)
-removeSpecialExtraFiles(error_files)
+# removeSpecialExtraFiles(error_files)
 
 print('DONE')
 

@@ -68,7 +68,7 @@ for index, row in new_dt.iterrows():
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
-	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
+	existing_bamfiles = set([x.split('.')[0] for x in fm_obj. `(fm_obj.localReadsDir + row['ProjectID'] + '/')])
 	if run_id in existing_bamfiles:
 		print('Warning on ' + row.RunID + ': Run data on cloud but not in Sample Database. Adding...', file = sys.stderr)
 		row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'

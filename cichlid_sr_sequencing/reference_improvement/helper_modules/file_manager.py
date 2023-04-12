@@ -53,22 +53,17 @@ class FileManager():
 
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
-		if self.genome_version == 'Mzebra_UMD2a':
-			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
-		elif self.genome_version == 'Mzebra_GT1':
-			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v1.fna'
-
+		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
-		self.localDatabasesDir = self.localMasterDir + 'Databases/'
-		self.localOutputDir = self.localMasterDir + 'Outputs/'
+
+		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
-		self.localBamIndex = self.localSampleBamDir + sampleID + '.all.bai'
 		self.localUnmappedBamFile = self.localSampleBamDir + sampleID + '.unmapped.bam'
 		self.localDiscordantBamFile = self.localSampleBamDir + sampleID + '.discordant.bam'
 		self.localInversionBamFile = self.localSampleBamDir + sampleID + '.inversion.bam'
@@ -76,7 +71,6 @@ class FileManager():
 		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
-		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
 
 	def returnTempGVCFFile(self, contig):
 		return self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
