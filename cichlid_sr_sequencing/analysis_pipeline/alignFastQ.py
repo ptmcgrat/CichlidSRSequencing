@@ -3,9 +3,7 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
 import pandas as pd
-import argparse, os, pysam, pdb, subprocess, sys, datetime
-from collections import defaultdict
-from multiprocessing import cpu_count
+import argparse, os, pysam, pdb, subprocess, datetime
 
 """
 Step 1 is to go from UBAM back to Fastq (gatk samtofastq)
@@ -21,7 +19,8 @@ parser = argparse.ArgumentParser(usage = 'This script will download fastq data t
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
 parser.add_argument('-s', '--SampleIDs', nargs = '+', help = 'Restrict analysis to the following sampleIDs')
 parser.add_argument('-p', '--ProjectID', type = str, help = 'Restrict analysis to a specific ProjectID')
-parser.add_argument('-t', '--type', nargs = 1, choices = ['illumina', 'pacbio'], help = 'Name of the type of sequencing platform used to generate the inout reads for the pipeline')
+parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
+parser.add_argument('-t', '--type', nargs = 1, choices = ['illumina', 'pacbio'], default = ['illumina'], help = 'Name of the type of sequencing platform used to generate the inout reads for the pipeline')
 args = parser.parse_args()
 
 # Create FileManager object to keep track of filenames
@@ -101,6 +100,7 @@ for sample in good_samples:
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
 	aw_obj.alignData()
+	pdb.set_trace()
 	timer.stop()
 	timer.start('  Marking duplicates for Sample: ' + sample)
 	aw_obj.markDuplicates()
@@ -141,3 +141,11 @@ for sample in good_samples:
 	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	print()
 
+
+"""
+COMMAND FOR LOCAL TESTING:
+/Users/kmnike/anaconda3/envs/pipeline/bin/python3 alignFastQ.py Mzebra_GT1 -p LocalTesting -t pacbio
+
+
+
+"""

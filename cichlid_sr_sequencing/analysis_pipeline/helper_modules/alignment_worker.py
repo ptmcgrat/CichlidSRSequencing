@@ -35,51 +35,29 @@ class AlignmentWorker():
 			# Create temporary outputfile
 			t_bam = self.fileManager.localTempDir + self.sampleID + '.' + str(i) + '.sorted.bam'
 			if self.platform == ['illumina']:
-				# Align unmapped bam file following best practices
-				# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
-				# Align fastq files and sort them
-				# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
+				# Align unmapped bam file following best practices (https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently)
+				# Align fastq files and sort them. This First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
 				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 				command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fileManager.localTempDir]
-
-				# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-				#command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-				#command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localTempDir]
-				#subprocess.run(command1)
-				#pdb.set_trace()
 
 				# Second command aligns fastq data to reference
 				command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', self.fileManager.localGenomeFile, '/dev/stdin']
 
-				# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-				#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
-				#subprocess.run(command2)
-				#pdb.set_trace()
-
-				# Final command reads read group information to aligned bam file and sorts it
-				# Figure out how to keep hard clipping
+				# Final command reads read group information to aligned bam file and sorts it. Figure out how to keep hard clipping
 				command3 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
 				command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 				command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
 				command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
 
-				# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-				#command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
-				#command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-				#command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-				#command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
-				#subprocess.run(command3)
-				#pdb.set_trace()
-
-				# Figure out how to pipe 3 commands together
+				# Piping the commands together:
 				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
 				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
 				p1.stdout.close()
 				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
 				p2.stdout.close()
 				output = p3.communicate()
-				# Remove unmapped reads
-				subprocess.run(['rm', '-f', uBam_file])
+				subprocess.run(['rm', '-f', uBam_file]) # Remove unmapped reads
+
 			elif self.platform == ['pacbio']:
 				"""
 				For Pacbio Reads:
@@ -110,9 +88,17 @@ class AlignmentWorker():
 				"""
 				# command for splitting UBAM to fastq file. Many options used for the illumina reads are exlcuded here. 
 				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--INCLUDE_NON_PF_READS', 'true']
-				# command for generating a sam file using minimap2 (v2.18 or earlier):
-				# be sure that the outpit is piped into the next command instead of into
 				command2 = ['minimap2', '-ax', 'asm20', self.fileManager.localGenomeFile, '/dev/stdin']
+
+				# testing command 1 output and then piping into command 2:
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p1.stdout.close()
+				pdb.set_trace()
+
+				# command for generating a sam file using minimap2 (v2.18 or earlier):
+				# be sure that the outpit is piped into the next command instead of into the void
+
 				command3 = ['samtools' 'view' ]
 				command4 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
 				command4 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
@@ -231,3 +217,27 @@ class AlignmentWorker():
 			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		return stats
+	
+
+"""
+Extra Debugging Comments & Code from Patrick. Refer to the version of alignment_worker in the main branch to see where these comments go if they're needed:
+
+# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+#command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+#command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localTempDir]
+#subprocess.run(command1)
+#pdb.set_trace()
+
+# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, fm_obj.localTempDir + 'testing.fq', '-o', fm_obj.localTempDir + 'testing.sam']
+#subprocess.run(command2)
+#pdb.set_trace()
+
+# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
+#command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
+#command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+#command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+#command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localTempDir]
+#subprocess.run(command3)
+#pdb.set_trace()
+"""
