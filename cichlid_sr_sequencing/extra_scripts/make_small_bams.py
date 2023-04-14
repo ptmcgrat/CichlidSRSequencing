@@ -10,4 +10,4 @@ contigs = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4'
 
 for sample in samples:
     for contig in contigs.values():
-        sp.run(f"samtools view {sample}.all.bam {contig}:1-10000 >> {sample}_small.all.sam", shell=True)
+        sp.run(f"samtools view {sample}.all.bam {contig}:1-10000 >> {sample}_small.all.bam", shell=True)

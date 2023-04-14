@@ -1,5 +1,6 @@
 import subprocess, pysam, os, pdb
 from multiprocessing import cpu_count
+import pathlib
 
 """
 impletement a platform argument. I can add this to the argparse block in alignFastQ.py and have it get passed here. 
@@ -50,7 +51,7 @@ class AlignmentWorker():
 				command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
 
 				# Piping the commands together:
-				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
 				p1.stdout.close()
 				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
@@ -62,10 +63,10 @@ class AlignmentWorker():
 				"""
 				For Pacbio Reads:
 				Seems like minimap2 only works on FASTA sequences too so I won't be able to run it on UBAMs just like for illumna reads
-				Step 1: UBAM to Fastq 
+				Step 1: UBAM to Fastq
 				command1: gatk SamToFastq -I GGBC5251_MZ-003-m_l1.unmapped_marked_adapters.bam --FASTQ test.fastq --INCLUDE_NON_PF_READS true
 
-				Unsure if we need the following extra commands: 
+				Unsure if we need the following extra commands:
 				--CLIPPING_ATTRIBUTE XT
 				The attribute that stores the position at which the SAM record should be clipped  Default value: null. 
 				--CLIPPING_ACTION 2
@@ -81,40 +82,52 @@ class AlignmentWorker():
 				Use this flag instead to get the non_filtered reads to be included in the fastq
 				-- TMP_DIR leave as fm_obj.lcoalTempDir
 
-				command2: minimap2 -asm20 /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_GT1/Mzebra_GT1_v1.fna GGBC5251_MZ-003-m_l1.unmapped_marked_adapters.bam > test.sam
+				command2: minimap2 -ax asm20 /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_GT1/Mzebra_GT1_v1.fna GGBC5251_MZ-003-m_l1.unmapped_marked_adapters.bam > test.sam
 
-				-asm20 is needed to indicate the reads are PacBio HiFi/CCS reads. 
+				asm20 is needed to indicate the reads are PacBio HiFi/CCS reads.
 
-				"""
-				# command for splitting UBAM to fastq file. Many options used for the illumina reads are exlcuded here. 
-				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--INCLUDE_NON_PF_READS', 'true']
-				command2 = ['minimap2', '-ax', 'asm20', self.fileManager.localGenomeFile, '/dev/stdin']
-
-				# testing command 1 output and then piping into command 2:
-				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
-				p1.stdout.close()
-				pdb.set_trace()
-
-				# command for generating a sam file using minimap2 (v2.18 or earlier):
-				# be sure that the outpit is piped into the next command instead of into the void
-
-				command3 = ['samtools' 'view' ]
-				command4 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
-				command4 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-				command4 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-				command4 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
-
-				# the chaining commands part:
-				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
 				p1.stdout.close()
 				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
 				p2.stdout.close()
-				p4 = subprocess.Popen(command4, stdin = p3.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
-				output = p4.communicate()
+				output = p3.communicate()
+				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+				command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fileManager.localTempDir]
+				
+				I just ran Patrick's command for SamToFastQ and my version, and the resultant files were identical when checked using the "diff" command
+
+				Seems like minimap2 can get this to work. Here are the commands:
+				command2 = ['pbmm2', 'index', self.fileManager.localPBGenomeFile, self.fileManager.localPBIndex]
+				command2 = ['pbmm2', 'align' self.fileManager.localPBGenomeFile, 'test.fastq', 'test_out.bam', '--preset', 'CCS', '--rg', "'@RG\tID:GGBC5251_MZ-003-m_l1\tSM:MZ-003-m'"]
+				Old code replaced by pbmm2
+				# command2 = ['minimap2', '-ax', 'asm20', self.fileManager.localGenomeFile, '/dev/stdin']
+				# command3 = ['samtools', 'view', '-b']
+				"""				
+				# command for splitting UBAM to fastq file. Many options used for the illumina reads are exlcuded here.
+				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--INCLUDE_NON_PF_READS', 'true', '--TMP_DIR', self.fileManager.localTempDir]
+				alignment_command = ['pbmm2', 'index', self.fileManager.localPBGenomeFile, self.fileManager.localPBIndex]
+				command2 = ['pbmm2', 'align', self.fileManager.localPBGenomeFile, '/dev/stdin', '/dev/stdout', '--preset', 'CCS', '--rg', '@RG\tID:' + self.sample_dt.loc[self.sample_dt['SampleID'] == self.sampleID, 'RunID'].item() + '\tSM:' + self.sampleID]
+				command3 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
+				command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+				command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+				command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
+				pdb.set_trace()
+
+				# testing command 1 output and then piping into command 2:
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				if not pathlib.Path(self.fileManager.localPBIndex).exists():
+					subprocess.run(alignment_command)
+				else:
+					p2 = subprocess.Popen(command2, stdin=p1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+					p1.stdout.close()
+				p3 = subprocess.Popen(command3, stdin = p2.stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+				p2.stdout.close()
+				p3.communicate()
+
+				pdb.set_trace()
 				# Remove unmapped reads
-				subprocess.run(['rm', '-f', uBam_file])
+				# subprocess.run(['rm', '-f', uBam_file])
 
 		if i == 0:
 			subprocess.run(['mv', t_bam, sorted_bam])

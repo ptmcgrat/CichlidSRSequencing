@@ -14,9 +14,7 @@ Link to mapping google doc:
 https://docs.google.com/spreadsheets/d/e/2PACX-1vRLiFIHXSXrljCLzO58qCwqcvdU3sw-lNAA8P_riJcCS14mSQRcNjZMRnsW3eKrAJcZENUbpEJoiakH/pub?output=csv
 
 TODO:
-- There should be no more NNNs being inserted after the last contig 
-- The line breaks need to be encoded in so that they aren't causing issues with IGV and alignment tools. The resultant genome needs to be ready for analysis on IGV. 
-- code needs to be implemented to make sure I can rebuild partial genomes with specified LGs
+Nothing for now...
 """
 
 class ReorderGenome:
@@ -99,6 +97,5 @@ COMMAND FOR LOCAL TESTING:
 
 COMMAND FOR LOCAL TESTING ON LESS LGs:
 /Users/kmnike/anaconda3/envs/pipeline/bin/python3 reorder_umd2a.py Mzebra_UMD2a /Users/kmnike/CichlidSRSequencing/reorder_genome_testing -r LG1 LG2
-
 
 """

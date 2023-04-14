@@ -53,16 +53,20 @@ class FileManager():
 
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
+		self.localPBGenomeFile = self.localGenomesDir + self.genome_version + '_v1.fa'
+		self.localPBIndex = self.localGenomesDir + self.genome_version + '_v1.mmi'
 		if self.genome_version == 'Mzebra_UMD2a':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		elif self.genome_version == 'Mzebra_GT1':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v1.fna'
+		
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
+		
 
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID

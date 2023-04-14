@@ -100,7 +100,7 @@ for sample in good_samples:
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
 	aw_obj.alignData()
-	pdb.set_trace()
+	# pdb.set_trace()
 	timer.stop()
 	timer.start('  Marking duplicates for Sample: ' + sample)
 	aw_obj.markDuplicates()
