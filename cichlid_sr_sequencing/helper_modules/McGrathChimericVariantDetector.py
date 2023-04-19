@@ -188,15 +188,13 @@ class ChimericCaller():
 
         self.t_polys = {} #Stores all polys
 
-    def identifyChimericLocations(self, discoveryBams, genotypeBams, minChimericReads = 5, maxLength = 100000, minMapQ = 10):
+    def identifyChimericVariants(self, discoveryBams, minChimericReads = 5, maxLength = 100000, minMapQ = 10):
 
         discoveryBamObjs = []
-        genotypeBamObjs = []
 
         for bamfile in discoveryBams:
             discoveryBamObjs.append(pysam.AlignmentFile(bamfile))
-        for bamfile in genotypeBams:
-            genotypeBamObjs.append(pysam.AlignmentFile(bamfile))
+
         f = open(self.outvcffile.replace('.vcf', '.tsv'), 'w')
 
         for contig in self.contigNames:
@@ -229,7 +227,7 @@ class ChimericCaller():
                 stop = loc[4]
                 d_type = loc[7]
 
-                if stop - start > maxLength or start >= stop or d_type == 'cf':
+                if abs(stop - start) < maxLength and d_type != 'cf':
                     out_counts = []
                     for i,bam_file in enumerate(discoveryBams):
                         out_counts.append(discoveryChimerasL[loc].count(i))
@@ -260,14 +258,7 @@ class ChimericCaller():
                     print('Unknown d_type: ' + str(d_type), file = sys.stderr)
                     sys.exit()
 
-                badFlag = False
-                """for excludedBamObj in excludedBamObjs:
-                    a = tpoly.genotype_bam(excludedBamObj, 'Temp')
-                    if a[0] != '0/0':
-                        badFlag = True
-                        break"""
-                if not badFlag:
-                    self.t_polys[(contig, start, refbase, altbase)] = tpoly
+                self.t_polys[(contig, start, refbase, altbase)] = tpoly
                 
             print('\t' + str(len(self.t_polys)) + ' total candidate chimeric events')
 
@@ -275,48 +266,52 @@ class ChimericCaller():
         tPolys = Polys(self.t_polys, self.refObj)
         print('Genotyping Poly object')
         f.close()
-        tPolys.genotypePolys(genotypeBamObjs)
-        tPolys.create_VCFfile(self.outvcffile)
+        #tPolys.genotypePolys(genotypeBamObjs)
+        #tPolys.create_VCFfile(self.outvcffile)
 
-    def identifyLargeInsertions(self):
+    def identifyLargeInsertions(self, discordant_bamfiles, binsize = 500, overlap = 250, min_reads):
         # Identify large insertions
-        discordant = pysam.AlignmentFile(FM.ret_asb(sample, self.species, self.Genome_version, 'discordant'))
         
-        for i in range(0,discordant.nreferences):
-            contig = discordant.references[i]
-            length = discordant.lengths[i]
-            current_hit = False
-            hit_bin = False
-            for j in range(0, length-self.bin_size, self.overlap):
-                reads = self.coverage_calculator(discordant, contig, j, j+self.bin_size)
-                #Does bin have necessary number of forward and reverse discordant reads?
-                if reads[0] > self.min_reads and reads[0] > 5 * reads[1]:
-                    if j + 4*self.bin_size < length:
-                        for k in range(1,4):
-                            reads2 = self.coverage_calculator(discordant, contig, j + k*self.bin_size, j + (k+1)*self.bin_size)
-                            if reads2[1] > self.min_reads and reads2[1] > 5*reads2[0]:
-                                hit_bin = True
-                                
-                                # Have we reached the end of the hit?
-                if current_hit == True and hit_bin == False:
-                    mid_pos = int(j + self.bin_size/2)
-                    #Try to identify sequence of 
-                    g = DBGraph(50, contig + ':' + str(mid_pos) + '_' + str(mid_pos), self.ref)
-                    all_reads = self.collect_reads(contig + ':' + str(mid_pos) + '_' + str(mid_pos), discordant)
-                    for read in all_reads:
-                        g.add_read(read)
-                    a = g.identify_polymorphism()
-                    if a is not None:
-                        mut_geno = poly.genotype_bam(mut_all, sample)
-                        if mut_geno[0] == '1/1':
-                            self.tempPolys[(a.chrom, a.start, a.stop, a.alt)] = a
-
-                    current_hit = False
-                    
-                if hit_bin == True:
-                    current_hit = True
+        for i,bam_file in enumerate(discordant_bamfiles):
+            discordant = pysam.AlignmentFile(bam_file)
+        
+            for i in range(0,discordant.nreferences):
+                contig = discordant.references[i]
+                length = discordant.lengths[i]
+                current_hit = False
                 hit_bin = False
-            
+                for j in range(0, length-bin_size, overlap):
+                    reads = self.coverage_calculator(discordant, contig, j, j+bin_size)
+                    #Does bin have necessary number of forward and reverse discordant reads?
+                    if reads[0] > min_reads and reads[0] > 5 * reads[1]:
+                        if j + 4*bin_size < length:
+                            for k in range(1,4):
+                                reads2 = self.coverage_calculator(discordant, contig, j + k*bin_size, j + (k+1)*bin_size)
+                                if reads2[1] > min_reads and reads2[1] > 5*reads2[0]:
+                                    hit_bin = True
+                                    
+                                    # Have we reached the end of the hit?
+                    if current_hit == True and hit_bin == False:
+                        mid_pos = int(j + self.bin_size/2)
+                        #Try to identify sequence of 
+                        g = DBGraph(50, contig + ':' + str(mid_pos) + '_' + str(mid_pos), self.refObj)
+                        all_reads = self.collect_reads(contig + ':' + str(mid_pos) + '_' + str(mid_pos), discordant)
+                        for read in all_reads:
+                            g.add_read(read)
+                        a = g.identify_polymorphism()
+                        print(a.chrom + '\t' + str(a.pos) + '\t' + a.ref + '\t' + a.alt)
+
+                        #if a is not None:
+                        #    mut_geno = poly.genotype_bam(mut_all, sample)
+                        #    if mut_geno[0] == '1/1':
+                        #        self.tempPolys[(a.chrom, a.start, a.stop, a.alt)] = a
+
+                        current_hit = False
+                        
+                    if hit_bin == True:
+                        current_hit = True
+                    hit_bin = False
+                
     def _coverage(self,bam_obj):
         stats = pysam.idxstats(bam_obj.filename).rstrip().split('\n')
         tot_reads = sum([int(x.split('\t')[2]) for x in stats])
@@ -408,6 +403,53 @@ class ChimericCaller():
             return position[1][0]*25000000 + position[1][1]
 
 
+    def collect_reads(transposon, q_bam_file, or_bam_file):
+    all_reads = []
+    
+    reads = q_bam_file.fetch(transposon[0], transposon[1] - 250, transposon[1])
+    for read in reads:
+        if not read.is_reverse:
+            all_reads.append(read.seq)
+            read_name = read.query_name
+            mate_contig = read.next_reference_name
+            mate_pos = read.mpos
+            o_reads = or_bam_file.fetch(mate_contig, max(0,mate_pos - 1), mate_pos + 1)
+            count = 0
+            for o_read in o_reads:
+                if o_read.query_name == read_name:
+                    count += 1
+                    if o_read.is_reverse:
+                        all_reads.append(o_read.seq)
+                    else:
+                        all_reads.append(reverse_complement(o_read.seq))
+                
+    reads = q_bam_file.fetch(transposon[0], transposon[1], transposon[1]+250)
+    for read in reads:
+        if read.is_reverse:
+            all_reads.append(read.seq)
+            read_name = read.query_name
+            mate_contig = read.next_reference_name
+            mate_pos = read.mpos
+            o_reads = or_bam_file.fetch(mate_contig, max(0,mate_pos - 1), mate_pos + 1)
+            count = 0
+            for o_read in o_reads:
+                if o_read.query_name == read_name:
+                    count += 1
+                    if not o_read.is_reverse:
+                        all_reads.append(o_read.seq)
+                    else:
+                        all_reads.append(reverse_complement(o_read.seq))
+def coverage_calculator(bam_file, contig, start, stop):
+    f_reads = 0
+    r_reads = 0
+    reads = bam_file.fetch(contig, start, stop)
+    for read in reads:
+        if 'S' not in read.cigarstring and 'H' not in read.cigarstring:
+            if read.is_reverse:
+                r_reads += 1
+            else:
+                f_reads += 1
+    return (f_reads, r_reads)
 
         
 class Polys():
@@ -808,7 +850,7 @@ class DBGraph:
                 vcf_line = '\t'.join([contig, str(position), '.', reference_bases, inserted_bases, '30', 'PASS', 'NS=0', 'GT:GQ:DP'])
                 print('InsertionCandidate: ' + inserted_bases + '\t' + str(out_aln[0][2]))
                 if len(inserted_bases) > 50 and out_aln[0][2] > 850:
-                    return BT.poly(contig, position, reference_bases, inserted_bases, self.ref_o, is_ins = True)
+                    return self.poly(contig, position, reference_bases, inserted_bases, self.ref_o, is_ins = True)
 
 class db_node:
     def __init__(self, sequence):
