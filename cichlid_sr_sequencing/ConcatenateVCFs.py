@@ -6,7 +6,7 @@ parser.add_argument('Genome', type = str, help = 'Version of the genome use')
 args = parser.parse_args()
 
 # Create FileManager object to keep track of filenames
-fm_obj = FM(args.Genome)
+# fm_obj = FM(args.Genome)
 
 #### use rclone lsf to create a list of existing vcf files 
 outputs = sp.run(shlex.split("rclone lsf ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Outputs --include '*.vcf'"), stdout=sp.PIPE, encoding='utf-8').stdout.splitlines()
