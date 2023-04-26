@@ -1,5 +1,5 @@
 import subprocess as sp, argparse, shlex, pysam, os
-from helper_modules.file_manager import FileManager as FM
+# from helper_modules.file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage = 'This script will concatenate VCF ouputs from the CallSmallSNVs.py pipeline into a master VCF file')
 parser.add_argument('Genome', type = str, help = 'Version of the genome use')
