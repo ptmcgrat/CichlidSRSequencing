@@ -10,7 +10,7 @@ fm_obj = FM(args.Genome)
 
 #### use rclone lsf to create a list of existing vcf files 
 outputs = sp.run(shlex.split("rclone lsf ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Outputs --include '*.vcf'"), stdout=sp.PIPE, encoding='utf-8').stdout.splitlines()
-path_to_outputs = 'ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Outputs/'
+path_to_outputs = 'ptm_dropbox:BioSci-McGrath/Apps/CichlidSequencingData/Outputs/Mzebra_UMD2a/Outputs576Cohort/'
 
 #### check if an output dir exists. If not, make it.
 try:
