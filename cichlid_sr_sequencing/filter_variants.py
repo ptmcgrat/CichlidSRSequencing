@@ -35,9 +35,9 @@ args = parser.parse_args()
 # sp.run(shlex.split(f'gunzip {out}'))
 
 ### Mzebra server File paths
-vcf = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/lg1-22_master_file.vcf.gz'
-ref = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
-out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/filtered.vcf.gz'
+vcf = '/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/vcf_concat_output/576_cohort_master_file.vcf'
+ref = '/Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+out = '/Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/vcf_concat_output/filtered_576_cohort_master_file.vcf'
 # gunzip_out = '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/master_file_filtered.vcf'
 sp.run(shlex.split(f"gatk VariantFiltration \
    -R {ref} \
@@ -90,3 +90,5 @@ sp.run(shlex.split(f"gatk VariantFiltration \
 #       for criteria in filter:
 #          filters[criteria] += 1
 # print(filters)
+
+# gatk VariantFiltration -R ~/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V small_lg1-22_master_file.vcf.gz -O pass.vcf --filter-name 'allele_freq' --filter-expression 'AF < 0.000958' --filter-expression 'DP > 11000' --filter-name 'min_DP'  --filter-not-in-mask
