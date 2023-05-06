@@ -1,0 +1,6 @@
+apple not an interger
+pear not an interger
+orange not an interger
+apple not an interger
+pear not an interger
+orange not an interger

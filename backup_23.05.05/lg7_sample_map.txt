@@ -1,0 +1,3 @@
+SAMEA2661356	/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661356/SAMEA2661356.g.vcf.gz
+SAMEA2661397	/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661397/SAMEA2661397.g.vcf.gz
+SAMEA4033333	/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033333/SAMEA4033333.g.vcf.gz
