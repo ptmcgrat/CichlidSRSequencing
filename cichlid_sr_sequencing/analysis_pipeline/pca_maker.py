@@ -22,6 +22,10 @@ To Do:
     - For "Whole," the splitting step needs to be skipped, and the whole file must be used as input into PLINK. 
     - The splitting methods are _split_VCF_to_LG for "all" or lg specific analyses, and "_create_inversion_files" for "Inversion"
     - These must be skipped... The above methods take in the self.samples_filtered_master_file as inpout and output to the PCA dir. Instead of outputting a split file to a "Whole" dir in .../PCA I can nmake the "Whole" dir, then pipe outputs from plink there. 
+
+
+
+
 """
 
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
@@ -64,7 +68,6 @@ class PCA_Maker:
         duplicate_set_test = set(self.linkage_groups)
         if len(duplicate_set_test) != len(self.linkage_groups):
             raise Exception('A repeat region has been provided')
-        
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
@@ -106,7 +109,7 @@ class PCA_Maker:
                 continue
             elif lg == "pre_inversion":
                 self._create_inversion_files()
-            else:
+            elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
                 if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
                     print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
@@ -134,7 +137,7 @@ class PCA_Maker:
                 processes1 = []
                 
         for region in inversion_regions_list:
-            p2 = subprocess.Popen(['bgzip', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
+            p2 = subprocess.Popen(['bgzip', '-f', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
             processes2.append(p2)
             if len(processes2) == 4:
                 for proc in processes2:
@@ -178,7 +181,7 @@ class PCA_Maker:
         self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir 
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
         color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
-        shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x'}
+        shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x', 'BrainDiversity_s1': 'star', 'BigBrain': 'triangle-up'}
         header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
         for lg in linkage_group_list:
             self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
@@ -206,19 +209,124 @@ pca_obj.create_PCA()
 print('PIPELINE RUN SUCCESSFUL')
 
 """
-TEST THE CODE USING SMALL TEST FILES ON SERVER:
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/small_test_files/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/Test ~/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r LG11 LG15
+CODE FOR RERUNNING ON UTAKA TO GET ALL OUTPUTS PER SAMPLE:
 
-DO NOT USE THIS FOR NOW: RUN CODE FOR WHOLE FILTERED VCF FILE:
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/pipeline_outputs /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e All -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
 
-CODE FOR WHOLE REFILTERED FILE BUT TO A NEW OUT_DIR
-python3 pca_maker.py /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/original_data/PASS_variants_v1.vcf.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/vcf_concat_output/no_outliers_pipeline_outputs/ /home/ad.gatech.edu/bio-mcgrath-dropbox/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
-TEST THE CODE LOCALLY ON NON-OUTLIER SAMPLES
-/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_lg1-22_master_file.vcf.gz ~/CichlidSRSequencing/no_outliers_pipeline /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx
 
-Plotly color scheme link: https://stackoverflow.com/questions/72496150/user-friendly-names-for-plotly-css-colors
+
+lcoal testing:
+/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small_.1_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test/ /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna -r Whole Inversion All
+
+
+The 'symbol' property is an enumeration that may be specified as:
+      - One of the following enumeration values:
+            [0, '0', 'circle', 100, '100', 'circle-open', 200, '200',
+            'circle-dot', 300, '300', 'circle-open-dot', 1, '1',
+            'square', 101, '101', 'square-open', 201, '201',
+            'square-dot', 301, '301', 'square-open-dot', 2, '2',
+            'diamond', 102, '102', 'diamond-open', 202, '202',
+            'diamond-dot', 302, '302', 'diamond-open-dot', 3, '3',
+            'cross', 103, '103', 'cross-open', 203, '203',
+            'cross-dot', 303, '303', 'cross-open-dot', 4, '4', 'x',
+            104, '104', 'x-open', 204, '204', 'x-dot', 304, '304',
+            'x-open-dot', 5, '5', 'triangle-up', 105, '105',
+            'triangle-up-open', 205, '205', 'triangle-up-dot', 305,
+            '305', 'triangle-up-open-dot', 6, '6', 'triangle-down',
+            106, '106', 'triangle-down-open', 206, '206',
+            'triangle-down-dot', 306, '306', 'triangle-down-open-dot',
+            7, '7', 'triangle-left', 107, '107', 'triangle-left-open',
+            207, '207', 'triangle-left-dot', 307, '307',
+            'triangle-left-open-dot', 8, '8', 'triangle-right', 108,
+            '108', 'triangle-right-open', 208, '208',
+            'triangle-right-dot', 308, '308',
+            'triangle-right-open-dot', 9, '9', 'triangle-ne', 109,
+            '109', 'triangle-ne-open', 209, '209', 'triangle-ne-dot',
+            309, '309', 'triangle-ne-open-dot', 10, '10',
+            'triangle-se', 110, '110', 'triangle-se-open', 210, '210',
+            'triangle-se-dot', 310, '310', 'triangle-se-open-dot', 11,
+            '11', 'triangle-sw', 111, '111', 'triangle-sw-open', 211,
+            '211', 'triangle-sw-dot', 311, '311',
+            'triangle-sw-open-dot', 12, '12', 'triangle-nw', 112,
+            '112', 'triangle-nw-open', 212, '212', 'triangle-nw-dot',
+            312, '312', 'triangle-nw-open-dot', 13, '13', 'pentagon',
+            113, '113', 'pentagon-open', 213, '213', 'pentagon-dot',
+            313, '313', 'pentagon-open-dot', 14, '14', 'hexagon', 114,
+            '114', 'hexagon-open', 214, '214', 'hexagon-dot', 314,
+            '314', 'hexagon-open-dot', 15, '15', 'hexagon2', 115,
+            '115', 'hexagon2-open', 215, '215', 'hexagon2-dot', 315,
+            '315', 'hexagon2-open-dot', 16, '16', 'octagon', 116,
+            '116', 'octagon-open', 216, '216', 'octagon-dot', 316,
+            '316', 'octagon-open-dot', 17, '17', 'star', 117, '117',
+            'star-open', 217, '217', 'star-dot', 317, '317',
+            'star-open-dot', 18, '18', 'hexagram', 118, '118',
+            'hexagram-open', 218, '218', 'hexagram-dot', 318, '318',
+            'hexagram-open-dot', 19, '19', 'star-triangle-up', 119,
+            '119', 'star-triangle-up-open', 219, '219',
+            'star-triangle-up-dot', 319, '319',
+            'star-triangle-up-open-dot', 20, '20',
+            'star-triangle-down', 120, '120',
+            'star-triangle-down-open', 220, '220',
+            'star-triangle-down-dot', 320, '320',
+            'star-triangle-down-open-dot', 21, '21', 'star-square',
+            121, '121', 'star-square-open', 221, '221',
+            'star-square-dot', 321, '321', 'star-square-open-dot', 22,
+            '22', 'star-diamond', 122, '122', 'star-diamond-open',
+            222, '222', 'star-diamond-dot', 322, '322',
+            'star-diamond-open-dot', 23, '23', 'diamond-tall', 123,
+            '123', 'diamond-tall-open', 223, '223',
+            'diamond-tall-dot', 323, '323', 'diamond-tall-open-dot',
+            24, '24', 'diamond-wide', 124, '124', 'diamond-wide-open',
+            224, '224', 'diamond-wide-dot', 324, '324',
+            'diamond-wide-open-dot', 25, '25', 'hourglass', 125,
+            '125', 'hourglass-open', 26, '26', 'bowtie', 126, '126',
+            'bowtie-open', 27, '27', 'circle-cross', 127, '127',
+            'circle-cross-open', 28, '28', 'circle-x', 128, '128',
+            'circle-x-open', 29, '29', 'square-cross', 129, '129',
+            'square-cross-open', 30, '30', 'square-x', 130, '130',
+            'square-x-open', 31, '31', 'diamond-cross', 131, '131',
+            'diamond-cross-open', 32, '32', 'diamond-x', 132, '132',
+            'diamond-x-open', 33, '33', 'cross-thin', 133, '133',
+            'cross-thin-open', 34, '34', 'x-thin', 134, '134',
+            'x-thin-open', 35, '35', 'asterisk', 135, '135',
+            'asterisk-open', 36, '36', 'hash', 136, '136',
+            'hash-open', 236, '236', 'hash-dot', 336, '336',
+            'hash-open-dot', 37, '37', 'y-up', 137, '137',
+            'y-up-open', 38, '38', 'y-down', 138, '138',
+            'y-down-open', 39, '39', 'y-left', 139, '139',
+            'y-left-open', 40, '40', 'y-right', 140, '140',
+            'y-right-open', 41, '41', 'line-ew', 141, '141',
+            'line-ew-open', 42, '42', 'line-ns', 142, '142',
+            'line-ns-open', 43, '43', 'line-ne', 143, '143',
+            'line-ne-open', 44, '44', 'line-nw', 144, '144',
+            'line-nw-open', 45, '45', 'arrow-up', 145, '145',
+            'arrow-up-open', 46, '46', 'arrow-down', 146, '146',
+            'arrow-down-open', 47, '47', 'arrow-left', 147, '147',
+            'arrow-left-open', 48, '48', 'arrow-right', 148, '148',
+            'arrow-right-open', 49, '49', 'arrow-bar-up', 149, '149',
+            'arrow-bar-up-open', 50, '50', 'arrow-bar-down', 150,
+            '150', 'arrow-bar-down-open', 51, '51', 'arrow-bar-left',
+            151, '151', 'arrow-bar-left-open', 52, '52',
+            'arrow-bar-right', 152, '152', 'arrow-bar-right-open', 53,
+            '53', 'arrow', 153, '153', 'arrow-open', 54, '54',
+            'arrow-wide', 154, '154', 'arrow-wide-open']
+
+
+
+
+
+
+
+
+
+
+
+
 """
 
 #### I htink that things are getting messed up in the "_split_VCF_to_LG" method for the inversion regions since no values are being written to the VCF files
