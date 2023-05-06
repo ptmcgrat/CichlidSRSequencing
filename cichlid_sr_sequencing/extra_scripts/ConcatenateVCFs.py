@@ -39,7 +39,7 @@ if file_num == 0:
             file_to_write = temp_dir + file 
             if os.path.getsize(f"{output_dir}master_file.vcf") == 0: # if the master file is empty, take the file and write the whole contents. This will write the header
                 f1.write(sp.check_output(shlex.split(f"cat {file_to_write}"), encoding='utf-8') + '\n') #the newline is needed at the end
-            else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file. 
+            else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file.
                 with open(temp_dir + file, 'r') as f2:
                     for line in f2:
                         if not line.startswith('#'):
@@ -62,3 +62,7 @@ else: # if the master file exists, create a new file so that the data in previou
                         f1.write('\n') # last newline needed to not merge lines between files together.
                 sp.run(shlex.split(f"rm {file_to_write}"))
                 sp.run(shlex.split(f"rm  -r {temp_dir}"))
+
+
+print("CONCATENATION COMPLETE")
+

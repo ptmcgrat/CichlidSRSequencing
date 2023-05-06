@@ -53,8 +53,8 @@ class FileManager():
 
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
-		self.localPBGenomeFile = self.localGenomesDir + self.genome_version + '_v1.fa'
-		self.localPBIndex = self.localGenomesDir + self.genome_version + '_v1.mmi'
+		self.localPBGenomeFile = self.localGenomeDir + self.genome_version + '_v1.fa'
+		self.localPBIndex = self.localGenomeDir + self.genome_version + '_v1.mmi'
 		if self.genome_version == 'Mzebra_UMD2a':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		elif self.genome_version == 'Mzebra_GT1':

@@ -100,33 +100,37 @@ class AlignmentWorker():
 				Seems like minimap2 can get this to work. Here are the commands:
 				command2 = ['pbmm2', 'index', self.fileManager.localPBGenomeFile, self.fileManager.localPBIndex]
 				command2 = ['pbmm2', 'align' self.fileManager.localPBGenomeFile, 'test.fastq', 'test_out.bam', '--preset', 'CCS', '--rg', "'@RG\tID:GGBC5251_MZ-003-m_l1\tSM:MZ-003-m'"]
+				
 				Old code replaced by pbmm2
 				# command2 = ['minimap2', '-ax', 'asm20', self.fileManager.localGenomeFile, '/dev/stdin']
 				# command3 = ['samtools', 'view', '-b']
 				"""				
 				# command for splitting UBAM to fastq file. Many options used for the illumina reads are exlcuded here.
+				
 				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--INCLUDE_NON_PF_READS', 'true', '--TMP_DIR', self.fileManager.localTempDir]
-				alignment_command = ['pbmm2', 'index', self.fileManager.localPBGenomeFile, self.fileManager.localPBIndex]
-				command2 = ['pbmm2', 'align', self.fileManager.localPBGenomeFile, '/dev/stdin', '/dev/stdout', '--preset', 'CCS', '--rg', '@RG\tID:' + self.sample_dt.loc[self.sample_dt['SampleID'] == self.sampleID, 'RunID'].item() + '\tSM:' + self.sampleID]
-				command3 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
+				with open('temp.fastq', 'w') as f1:
+					p1 = subprocess.Popen(command1, stdout=f1, stderr=subprocess.PIPE)
+					p1.communicate()
+
+				if not pathlib.Path(self.fileManager.localPBIndex).exists():
+					alignment_command = ['pbmm2', 'index', self.fileManager.localPBGenomeFile, self.fileManager.localPBIndex]
+					subprocess.run(alignment_command)
+				else:
+					with open('temp.bam', 'w') as f2:
+						command2 = ['pbmm2', 'align', self.fileManager.localPBGenomeFile, 'temp.fastq', 'temp.bam', '--preset', 'CCS', '--rg', '@RG\tID:' + self.sample_dt.loc[self.sample_dt['SampleID'] == self.sampleID, 'RunID'].item() + '\tSM:' + self.sampleID]
+						p2 = subprocess.Popen(command2, stdout=f2)
+						p2.communicate()
+
+				command3 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', 'temp.bam']
 				command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 				command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
 				command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
-				pdb.set_trace()
-
-				# testing command 1 output and then piping into command 2:
-				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-				if not pathlib.Path(self.fileManager.localPBIndex).exists():
-					subprocess.run(alignment_command)
-				else:
-					p2 = subprocess.Popen(command2, stdin=p1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-					p1.stdout.close()
-				p3 = subprocess.Popen(command3, stdin = p2.stdout, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-				p2.stdout.close()
+				p3 = subprocess.Popen(command3, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
 				p3.communicate()
-
 				pdb.set_trace()
 				# Remove unmapped reads
+				# subprocess.run(['rm', '-f', uBam_file])
+				# subprocess.run(['rm', '-f', temp.])
 				# subprocess.run(['rm', '-f', uBam_file])
 
 		if i == 0:

@@ -26,6 +26,10 @@ TODO:
 For GenomicsDBImport, if all LGs are run at once with 576+ samples, the server runs out of RAM. We need to split the LGs to run 11 at a time. 
 However, then we run into an error when processing less than 11 LGs or if we process an uneven number of LGs. 
 Code is needed to resolve this issue if there are an uneven number of LGs given or if there are simply less than 11 LGs given 
+
+
+CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH  DECREASE BATCH SIZE TO HALF AND RUN ALL LGS AT ONCE 
+
 """
 
 class VariantCaller:
@@ -121,6 +125,7 @@ class VariantCaller:
                 processes = []
 
     def RunGenomicsDBImport(self):
+        #IMPLEMENT BATCH SIZE CODE TO BE ABEL TO STILL RUN ALL CHROMOSOEMS AT ONCE
         processes = []
         for lg in self.linkage_groups:
             if args.local_test:
