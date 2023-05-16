@@ -25,7 +25,6 @@ To Do:
 
 
 
-
 """
 
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
@@ -178,7 +177,7 @@ class PCA_Maker:
         # This section will ke in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
         # inputs: test.eigenvec per LG, SampleDatabase.xlsx file
         # Outputs: HTML file labeled per LG in in a new interactive_PCA directory
-        self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir 
+        self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
         color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
         shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x', 'BrainDiversity_s1': 'star', 'BigBrain': 'triangle-up'}
@@ -211,16 +210,16 @@ print('PIPELINE RUN SUCCESSFUL')
 """
 CODE FOR RERUNNING ON UTAKA TO GET ALL OUTPUTS PER SAMPLE:
 
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e All -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e All -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
 
 
 
 
-lcoal testing:
+local testing:
 /Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small_.1_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test/ /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna -r Whole Inversion All
 
 
@@ -315,18 +314,6 @@ The 'symbol' property is an enumeration that may be specified as:
             'arrow-bar-right', 152, '152', 'arrow-bar-right-open', 53,
             '53', 'arrow', 153, '153', 'arrow-open', 54, '54',
             'arrow-wide', 154, '154', 'arrow-wide-open']
-
-
-
-
-
-
-
-
-
-
-
-
 """
 
 #### I htink that things are getting messed up in the "_split_VCF_to_LG" method for the inversion regions since no values are being written to the VCF files
