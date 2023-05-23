@@ -146,13 +146,13 @@ class PCA_Maker:
                                 proc.communicate()
                             processes = []
                 else:
-                        print('Generating a subset VCF file for ' + lg + '...')
-                        p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir.
-                        processes.append(p1)
-                        if len(processes) == len(linkage_group_list): # parallelization code
-                            for proc in processes:
-                                proc.communicate()
-                            processes = []
+                    print('Generating a subset VCF file for ' + lg + '...')
+                    p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir.
+                    processes.append(p1)
+                    if len(processes) == len(linkage_group_list): # parallelization code
+                        for proc in processes:
+                            proc.communicate()
+                        processes = []
 
     def _create_exploratory_region_eigen_files(self):
         processes1 = []
@@ -210,7 +210,7 @@ class PCA_Maker:
                 subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + 'Whole/' + 'test' ]) 
                 print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
                 subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract',  self.out_dir + '/PCA/' + 'Whole/' + 'test.prune.in', '--make-bed', '--pca', '--out',  self.out_dir + '/PCA/' + 'Whole/' + 'test'])
-            elif lg in self.linkage_group_map.values():
+            else: #lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
                 if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
                     print('ERROR: THE FILE ' + lg + '.VCF.GZ DOES NOT EXIST. MUST RUN _SPLIT_VCF_TO_LG TO CREATE IT...')
