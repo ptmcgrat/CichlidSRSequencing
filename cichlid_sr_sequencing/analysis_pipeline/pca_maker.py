@@ -106,7 +106,6 @@ class PCA_Maker:
         else:
             self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)] # if sample_subset flag is not called, just get all samples for the given ecogroups and proceed  
             pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
-        # pdb.set_trace()
         if pathlib.Path(self.samples_filtered_master_vcf).exists(): # if the samples_filtered_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
             if subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, capture_output=True, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
                 print(f'\nThe file {self.samples_filtered_master_vcf} exists and samples within the file match those in self.good_samples_csv. New samples_filtered_master_vcf file will not be built.')
@@ -131,7 +130,7 @@ class PCA_Maker:
             if lg == 'Whole':
                 continue
             elif lg == "lg2_YH_Inversion":
-                self._create_exploratory_region_files()
+                self._create_exploratory_region_eigen_files()
             elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
                 if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
@@ -155,7 +154,7 @@ class PCA_Maker:
                                 proc.communicate()
                             processes = []
 
-    def _create_exploratory_region_files(self):
+    def _create_exploratory_region_eigen_files(self):
         processes1 = []
         processes2 = []
         remake_index = False
@@ -207,19 +206,19 @@ class PCA_Maker:
         for lg in linkage_group_list:
             if lg == 'Whole':
                 pathlib.Path(self.out_dir + '/PCA/' + 'Whole/').mkdir(parents=True, exist_ok=True)
-                print("Running plink to transform the whole filtered VCF file's data to a plink object...")
+                print("RUNNING PLINK TO TRANSFORM THE WHOLE FILTERED VCF FILE'S DATA TO A PLINK OBJECT...")
                 subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + 'Whole/' + 'test' ]) 
-                print('Generating eigenvalue and eigenvector files...')
+                print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
                 subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract',  self.out_dir + '/PCA/' + 'Whole/' + 'test.prune.in', '--make-bed', '--pca', '--out',  self.out_dir + '/PCA/' + 'Whole/' + 'test'])
-            else:
+            elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
                 if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
-                    print('The file ' + lg + '.vcf.gz does not exist. Must run _split_VCF_to_LG to create it.')
+                    print('ERROR: THE FILE ' + lg + '.VCF.GZ DOES NOT EXIST. MUST RUN _SPLIT_VCF_TO_LG TO CREATE IT...')
                     raise Exception
                 else:
-                    print('Running plink to transform the VCF data to a plink object...')
+                    print('RUNNING PLINK TO TRANSFORM THE VCF DATA TO A PLINK OBJECT...')
                     subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ]) 
-                    print('Generating eigenvalue and eigenvector files...')
+                    print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
                     subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
 
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
