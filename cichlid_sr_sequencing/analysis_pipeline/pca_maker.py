@@ -12,7 +12,9 @@ parser.add_argument('--sample_subset', help = 'This flag will restruct the sampl
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 args = parser.parse_args()
-
+# subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, capture_output=True, encoding='utf-8').stdout
+# subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout
+# if subprocess.run(f"diff <(bcftools query -l {self.samples_filtered_master_vcf}) <(cat {self.good_samples_csv})", shell=True, capture_output=True, encoding='utf-8').stdout == '': # checks diff command output for sample names in existing self.samples_filtered_master_vcf and the self.good_samples_csv that was just created.
 """
 To Do:
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
@@ -24,9 +26,8 @@ To Do:
     - The splitting methods are _split_VCF_to_LG for "all" or lg specific analyses, and "_create_inversion_files" for "Inversion"
     - These must be skipped... The above methods take in the self.samples_filtered_master_file as inpout and output to the PCA dir. Instead of outputting a split file to a "Whole" dir in .../PCA I can nmake the "Whole" dir, then pipe outputs from plink there. 
 
-- I have generated a new list of regions that need to be analyzed with PCA.
-- These regions need to get regions files and the code needs to be updated to be able to run all special regions. I should lump in all special regions into one region called "Special" instead of "Inversion"
-    - Note that the Inversion regions also need to be reduced from two separate regions into one region that spans both inversions on LG11
+- Add code to check if the number of columns for each vcf file in the PCA dir is teh same as teh number of sampels in samples_to_keep.csv. If not, then make a new file. If so, keep the original
+    - this will ensure overwrites of the files in the event of a --sample_subset call 
 
 """
 
@@ -54,7 +55,7 @@ class PCA_Maker:
         pathlib.Path(output_directory + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
         self.out_dir = output_directory + '/' + file_version + '/' + analysis_ecogroups
 
-        regions_list = []
+        regions_list = [] # regions list will add various linkage group names, or add the names of regions of interest like "Whole" or the various special regions of interest if passed "Exploratory"
         for region in self.linkage_groups:
             if region in self.linkage_group_map.keys():
                 regions_list.append(self.linkage_group_map[region])
@@ -66,8 +67,8 @@ class PCA_Maker:
                 regions_list.append('Whole')
             else:
                 raise Exception(region + ' is not a valid option')
-        self.linkage_groups = regions_list
-        duplicate_set_test = set(self.linkage_groups)
+        self.linkage_groups = regions_list # regions list is assigned to self.linkage_groups which will be used throughout the pipeline
+        duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True
         if len(duplicate_set_test) != len(self.linkage_groups):
             raise Exception('A repeat region has been provided')
         # Ensure index file exists
@@ -91,33 +92,38 @@ class PCA_Maker:
         # Note that the name of the output file is self.good_samples.csv which is where the file pathing for the output file is taken care of
 
         self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
-        if args.sample_subset:
+        if args.sample_subset: # if sample_subset flag is called then self.df_filtered is initialized as a blank DataFrame. 
             self.df_filtered = pd.DataFrame()
-            ecogroup_df = self.df[self.df.Ecogroup.isin(self.ecogroups)]
-            for organism in ecogroup_df['Organism'].unique():
-                organism_rows = ecogroup_df[ecogroup_df['Organism'] == organism]
-                if organism_rows.shape[0] >= 3:
+            ecogroup_df = self.df[self.df.Ecogroup.isin(self.ecogroups)] # gets samples matching eco groups provided to the pipeline
+            for organism in ecogroup_df['Organism'].unique(): # for each unique organism in the ecogroups provided... 
+                organism_rows = ecogroup_df[ecogroup_df['Organism'] == organism] # gets all rows that match that organism name
+                if organism_rows.shape[0] >= 3: # if the number of rows (shape[0]) > 3, then randomly sample using seed 100 and add to self.df_filtered using pd.concat (note that df.append is no longer supported in pandas as of May 2023)
                     sampled_rows = organism_rows.sample(n=3, random_state=100)
                     self.df_filtered = pd.concat([self.df_filtered, sampled_rows], ignore_index=True)
                 else:
-                    self.df_filtered = pd.concat([self.df_filtered, organism_rows], ignore_index=True)
-            pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
+                    self.df_filtered = pd.concat([self.df_filtered, organism_rows], ignore_index=True) # if total rows for organism are less than 3, add all rows to self.df_filtered
+            pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # using the SampleID column, get all unique IDs and write them to self.good_samples_csv which is used to pull samples for VCF filtering in the pipeline 
         else:
-            self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+            self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)] # if sample_subset flag is not called, just get all samples for the given ecogroups and proceed  
             pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
-        #### Below 2 lines are legacy code used to generate a PCA plot using R code  Since the pipeline has shifted to using Plotly instead, this metadata file is no longer needed and will not be gnerated anymore. 
-        # self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
-        # self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
-
-        if pathlib.Path(self.samples_filtered_master_vcf).exists():
-            print(f'\nThe file {self.samples_filtered_master_vcf} exists. New file will not be built.')
-            pass
+        # pdb.set_trace()
+        if pathlib.Path(self.samples_filtered_master_vcf).exists(): # if the samples_filtered_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
+            if subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, capture_output=True, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
+                print(f'\nThe file {self.samples_filtered_master_vcf} exists and samples within the file match those in self.good_samples_csv. New samples_filtered_master_vcf file will not be built.')
+                pass
+            else:
+                print('\nGENERATING A VCF FILE CONTAINING ONLY SAMPLES OF THE ECOGROUPS SPECIFIED.')
+                subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
+                print('FILTERED SAMPLES FILE GENERATED. INDEXING FILE...')
+                subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
+                print('INDEX CREATED...')
         else:
-            print('\nGenerating a vcf file containing only samples of the EcoGroups Specified.')
+            print('\nGENERATING A VCF FILE CONTAINING ONLY SAMPLES OF THE ECOGROUPS SPECIFIED.')
             subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
-            print('Filtered samples file generated. Indexing file...')
+            print('FILTERED SAMPLES FILE GENERATED. INDEXING FILE...')
             subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
-            print('Index created...')
+            print('INDEX CREATED...')
+
 
     def _split_VCF_to_LG(self, linkage_group_list):
         processes = []
@@ -129,35 +135,65 @@ class PCA_Maker:
             elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
                 if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
-                    print('The file ' + lg + '.vcf.gz exists. A file for ' + lg + ' will not be generated.')
+                    # if subprocess.run(f"diff <(bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}) <(cat {self.good_samples_csv})", shell=True, capture_output=True, encoding='utf-8').stdout == '': # checks if the subset vcf file that already exists has matching sample names as those in the samples_to_keep.csv file.
+                    if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}", shell=True, capture_output=True, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout:
+                        print('The file ' + lg + '.vcf.gz exists and has the same samples as self.good_samples_csv. A file for ' + lg + ' will not be generated.')
+                    else:
+                        print('Generating a subset VCF file for ' + lg + '...')
+                        p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir.
+                        processes.append(p1)
+                        if len(processes) == len(linkage_group_list): # parallelization code
+                            for proc in processes:
+                                proc.communicate()
+                            processes = []
                 else:
-                    print('Generating a subset VCF file for ' + lg + '...')
-                    p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir.
-                    processes.append(p1)
-                    if len(processes) == len(linkage_group_list): # parallelization code
-                        for proc in processes:
-                            proc.communicate()
-                        processes = []
+                        print('Generating a subset VCF file for ' + lg + '...')
+                        p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) # takes in samples_filtered_master.vcf and filters out each LG and writes the file into appropriate PCA dir.
+                        processes.append(p1)
+                        if len(processes) == len(linkage_group_list): # parallelization code
+                            for proc in processes:
+                                proc.communicate()
+                            processes = []
 
     def _create_exploratory_region_files(self):
         processes1 = []
         processes2 = []
+        remake_index = False
         exploratory_regions_list = ['lg2_YH_Inversion', 'lg4_YH_CV_Inversion', 'lg5_OB', 'lg9_RockSand_Inversion', 'lg10_MC_Insertion', 'lg10_YH_Inversion', 'lg11_Inversion', 'lg13_YH_Inversion', 'lg20_RockSand_Inversion']
         for region in exploratory_regions_list:
             if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz').exists():
-                print(f'vcf file for {region} exists  skippping and jumping to next region')
-            else:
-                self.special_interval_file = os.getcwd() + '/special_intervals/' + region + '.interval_list'
-                pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True)
-                p1 = subprocess.Popen(['gatk', 'SelectVariants', '-V', self.samples_filtered_master_vcf, '-L', self.special_interval_file, '-O', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
+                # if subprocess.run(f"diff <(bcftools query -l {self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz'}) <(cat {self.good_samples_csv})", shell=True, capture_output=True, encoding='utf-8').stdout == '': # checks if an existing exploratory region vcf file contains the same samples as samples_to_keep.csv. If not, make a new one
+                if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz'}", shell=True, capture_output=True, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout:
+                    print(f'VCF file for {region} exists and number of samples in the vcf file matches the number of samples in self.good_samples_csv. Skippping and jumping to next region')
+                else:
+                    remake_index = True
+                    self.special_interval_file = os.getcwd() + '/special_intervals/' + region + '.interval_list' # gets the interval file for the region specified by searching in the "special_intervals" dir in the dir from where pca_maker.py was called from
+                    pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # builds filepath, if needed for the region of interest
+                    p1 = subprocess.Popen(['gatk', 'SelectVariants', '-V', self.samples_filtered_master_vcf, '-L', self.special_interval_file, '-O', self.out_dir + '/PCA/' + region + '/' + region + '.vcf', '--verbosity', 'WARNING']) # gatk selectvariants gets the variants for the samples in self.samples_filtered_master_vcf in the regions dictated by self.special_interval_file and outputs them to the appropriate directory in PCA
+                    processes1.append(p1)
+                    if len(processes1) == len(exploratory_regions_list):
+                        for proc in processes1:
+                            proc.communicate()
+                        processes1 = []
+            else: # if the vcf file for the region doesn't exist in the first place, then run the gatk SelectVariants code followed by zipping and indexing 
+                self.special_interval_file = os.getcwd() + '/special_intervals/' + region + '.interval_list' # gets the interval file for the region specified by searching in the "special_intervals" dir in the dir from where pca_maker.py was called from
+                pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # builds filepath, if needed for the region of interest
+                p1 = subprocess.Popen(['gatk', 'SelectVariants', '-V', self.samples_filtered_master_vcf, '-L', self.special_interval_file, '-O', self.out_dir + '/PCA/' + region + '/' + region + '.vcf', '--verbosity', 'WARNING']) # gatk selectvariants gets the variants for the samples in self.samples_filtered_master_vcf in the regions dictated by self.special_interval_file and outputs them to the appropriate directory in PCA
                 processes1.append(p1)
                 if len(processes1) == len(exploratory_regions_list):
                     for proc in processes1:
                         proc.communicate()
                     processes1 = []
-                
-        for region in exploratory_regions_list:
-            if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz.idx').exists():
+
+        for region in exploratory_regions_list: # note that currently, this will not generate a new index if the file already exists, which isn't good...
+            if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz.idx').exists() & remake_index:
+                p2 = subprocess.Popen(['bgzip', '-f', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
+                processes2.append(p2)
+                if len(processes2) == len(exploratory_regions_list):
+                    for proc in processes2:
+                        proc.communicate()
+                    processes2 = []
+            elif pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz.idx').exists():
                 print(f'index file for {region} exists  skippping and jumping to next region')
             else:
                 p2 = subprocess.Popen(['bgzip', '-f', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
@@ -185,17 +221,6 @@ class PCA_Maker:
                     subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ]) 
                     print('Generating eigenvalue and eigenvector files...')
                     subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
-
-
-    def _create_plots(self, linkage_group_list): # the method  has been commented out since interative PCAs are preferred. If they are ever needed, we can uncomment. I can also include a flag to determine if an interactive, static, or both plots are desired and then run the correspoding hidden methods. 
-        self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
-        pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True) # generate the filepath to said PCA_output directory
-        for lg in linkage_group_list: # for each lg in the list, generate a PCA plot
-            wd = self.out_dir + '/PCA/' + lg + '/' # for each iteration, this changes the working directory to the LG's eigenvalue/vector files so i dont have to name them uniquely when generating them. I can use the same prefix and just change the dir I'm working in.
-            os.chdir(wd)
-            # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
-            # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
-            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
 
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
         # This section will ke in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
@@ -234,19 +259,35 @@ pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, a
 pca_obj.create_PCA()
 print('PIPELINE RUN SUCCESSFUL')
 
+
+
 """
 CODE FOR RERUNNING ON UTAKA TO GET ALL OUTPUTS PER SAMPLE:
 
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e All -r Whole All Inversion
-python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole Exploratory All --sample_subset
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Non_Riverine -r Whole Exploratory All --sample_subset
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna Utaka Shallow_Benthic Deep_Benthic -r Whole Exploratory All --sample_subset
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e All -r Whole Exploratory All --sample_subset
+python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka Shallow_Benthic Deep_Benthic -r Whole Exploratory All --sample_subset
 
 
 local testing:
-/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test/ /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka -r Whole Inversion All
-/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test/ /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka -r Whole Exploratory All --sample_subset
-"""
+/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka -r Whole Inversion All
+/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole Exploratory All --sample_subset
 
-#### I think that things are getting messed up in the "_split_VCF_to_LG" method for the inversion regions since no values are being written to the VCF files
+
+
+# Old Code for generating ploits using R 
+        #### Below 2 lines are legacy code used to generate a PCA plot using R code  Since the pipeline has shifted to using Plotly instead, this metadata file is no longer needed and will not be gnerated anymore. If needed, add these into the _create_sample_filter_file() function
+        # self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
+        # self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
+    def _create_plots(self, linkage_group_list): # the method  has been commented out since interative PCAs are preferred. If they are ever needed, we can uncomment. I can also include a flag to determine if an interactive, static, or both plots are desired and then run the correspoding hidden methods. 
+        self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
+        pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True) # generate the filepath to said PCA_output directory
+        for lg in linkage_group_list: # for each lg in the list, generate a PCA plot
+            wd = self.out_dir + '/PCA/' + lg + '/' # for each iteration, this changes the working directory to the LG's eigenvalue/vector files so i dont have to name them uniquely when generating them. I can use the same prefix and just change the dir I'm working in.
+            os.chdir(wd)
+            # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
+            # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
+            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
+"""
