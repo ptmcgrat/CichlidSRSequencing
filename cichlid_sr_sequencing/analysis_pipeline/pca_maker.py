@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analy
 parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
 parser.add_argument('output_dir', help = 'absolute filepath to an output directory')
 parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
+parser.add_argument('--sample_subset', help = 'This flag will restruct the samples used for generating the PCA plot to a max of three three samples for any given organism.', action= 'store_true')
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 args = parser.parse_args()
@@ -23,7 +24,9 @@ To Do:
     - The splitting methods are _split_VCF_to_LG for "all" or lg specific analyses, and "_create_inversion_files" for "Inversion"
     - These must be skipped... The above methods take in the self.samples_filtered_master_file as inpout and output to the PCA dir. Instead of outputting a split file to a "Whole" dir in .../PCA I can nmake the "Whole" dir, then pipe outputs from plink there. 
 
-
+- I have generated a new list of regions that need to be analyzed with PCA.
+- These regions need to get regions files and the code needs to be updated to be able to run all special regions. I should lump in all special regions into one region called "Special" instead of "Inversion"
+    - Note that the Inversion regions also need to be reduced from two separate regions into one region that spans both inversions on LG11
 
 """
 
@@ -57,8 +60,8 @@ class PCA_Maker:
                 regions_list.append(self.linkage_group_map[region])
             elif region == "All":
                 regions_list.extend(self.vcf_obj.seqnames[0:22])
-            elif region == "Inversion":
-                regions_list.extend(['pre_inversion', 'inversion1', 'inversion2', 'post_inversion'])
+            elif region == "Exploratory":
+                regions_list.extend(['lg2_YH_Inversion', 'lg4_YH_CV_Inversion', 'lg5_OB', 'lg9_RockSand_Inversion', 'lg10_MC_Insertion', 'lg10_YH_Inversion', 'lg11_Inversion', 'lg13_YH_Inversion', 'lg20_RockSand_Inversion'])
             elif region == "Whole":
                 regions_list.append('Whole')
             else:
@@ -74,7 +77,7 @@ class PCA_Maker:
         self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz'  # plink_master_vcf is an attribute that gives a filepath to an output file in the out dir. Edit to make the filepath more of what you want it to be & use pathlib to generate parent structure if it doesn't exist
         self.good_samples_csv = self.out_dir + '/samples_to_keep.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified. 
         self.metadata_csv = self.out_dir + '/metadata_for_R.csv'
-        # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be. 
+        # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
         if self.ecogroups == ['All']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
         elif self.ecogroups == ['Non_Riverine']:
@@ -85,12 +88,27 @@ class PCA_Maker:
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
         # The to_csv(self.good_samples_txt, header = False, index = False) converts into a csv file that bcftools will be able to take as input. The index/header = False eliminate any index/header information, leaving only filtered samples. 
-        # Note that the name of the output file is self.good_samples.txt which is where the file pathing for the output file is taken care of
+        # Note that the name of the output file is self.good_samples.csv which is where the file pathing for the output file is taken care of
+
         self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
-        self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
-        pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
-        self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
-        self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
+        if args.sample_subset:
+            self.df_filtered = pd.DataFrame()
+            ecogroup_df = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+            for organism in ecogroup_df['Organism'].unique():
+                organism_rows = ecogroup_df[ecogroup_df['Organism'] == organism]
+                if organism_rows.shape[0] >= 3:
+                    sampled_rows = organism_rows.sample(n=3, random_state=100)
+                    self.df_filtered = pd.concat([self.df_filtered, sampled_rows], ignore_index=True)
+                else:
+                    self.df_filtered = pd.concat([self.df_filtered, organism_rows], ignore_index=True)
+            pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
+        else:
+            self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+            pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
+        #### Below 2 lines are legacy code used to generate a PCA plot using R code  Since the pipeline has shifted to using Plotly instead, this metadata file is no longer needed and will not be gnerated anymore. 
+        # self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
+        # self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
+
         if pathlib.Path(self.samples_filtered_master_vcf).exists():
             print(f'\nThe file {self.samples_filtered_master_vcf} exists. New file will not be built.')
             pass
@@ -106,8 +124,8 @@ class PCA_Maker:
         for lg in linkage_group_list:
             if lg == 'Whole':
                 continue
-            elif lg == "pre_inversion":
-                self._create_inversion_files()
+            elif lg == "lg2_YH_Inversion":
+                self._create_exploratory_region_files()
             elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
                 if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
@@ -121,27 +139,33 @@ class PCA_Maker:
                             proc.communicate()
                         processes = []
 
-    def _create_inversion_files(self):
+    def _create_exploratory_region_files(self):
         processes1 = []
         processes2 = []
-        inversion_regions_list = ['pre_inversion', 'inversion1', 'inversion2', 'post_inversion']
-        for region in inversion_regions_list:
-            self.inversion_interval_file = os.getcwd() + '/intervals_lg11/' + region + '.interval_list'
-            pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True)
-            p1 = subprocess.Popen(['gatk', 'SelectVariants', '-V', self.samples_filtered_master_vcf, '-L', self.inversion_interval_file, '-O', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
-            processes1.append(p1)
-            if len(processes1) == 4:
-                for proc in processes1:
-                    proc.communicate()
-                processes1 = []
+        exploratory_regions_list = ['lg2_YH_Inversion', 'lg4_YH_CV_Inversion', 'lg5_OB', 'lg9_RockSand_Inversion', 'lg10_MC_Insertion', 'lg10_YH_Inversion', 'lg11_Inversion', 'lg13_YH_Inversion', 'lg20_RockSand_Inversion']
+        for region in exploratory_regions_list:
+            if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz').exists():
+                print(f'vcf file for {region} exists  skippping and jumping to next region')
+            else:
+                self.special_interval_file = os.getcwd() + '/special_intervals/' + region + '.interval_list'
+                pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True)
+                p1 = subprocess.Popen(['gatk', 'SelectVariants', '-V', self.samples_filtered_master_vcf, '-L', self.special_interval_file, '-O', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
+                processes1.append(p1)
+                if len(processes1) == len(exploratory_regions_list):
+                    for proc in processes1:
+                        proc.communicate()
+                    processes1 = []
                 
-        for region in inversion_regions_list:
-            p2 = subprocess.Popen(['bgzip', '-f', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
-            processes2.append(p2)
-            if len(processes2) == 4:
-                for proc in processes2:
-                    proc.communicate()
-                processes2 = []
+        for region in exploratory_regions_list:
+            if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz.idx').exists():
+                print(f'index file for {region} exists  skippping and jumping to next region')
+            else:
+                p2 = subprocess.Popen(['bgzip', '-f', self.out_dir + '/PCA/' + region + '/' + region + '.vcf'])
+                processes2.append(p2)
+                if len(processes2) == len(exploratory_regions_list):
+                    for proc in processes2:
+                        proc.communicate()
+                    processes2 = []
 
     def _create_eigenfiles_per_LG(self, linkage_group_list): # new hidden method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
         for lg in linkage_group_list:
@@ -181,7 +205,10 @@ class PCA_Maker:
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
         color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
         shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x', 'BrainDiversity_s1': 'star', 'BigBrain': 'triangle-up'}
-        header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
+        if self.df_filtered.shape[0] < 20:
+            header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, self.df_filtered.shape[0] +1)] # set header to 'SampleID' followed by PC1-20
+        else:
+            header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
         for lg in linkage_group_list:
             self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
             self.eigen_df.columns = header # set the header for the eigen_df as SampleID followed by PC1-20
@@ -217,103 +244,9 @@ python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/origin
 python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka Shallow_Benthic Deep_Benthic -r Whole All Inversion
 
 
-
-
 local testing:
-/Users/kmnike/anaconda3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small_.1_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test/ /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Mbuna -r Whole Inversion All
-
-
-The 'symbol' property is an enumeration that may be specified as:
-      - One of the following enumeration values:
-            [0, '0', 'circle', 100, '100', 'circle-open', 200, '200',
-            'circle-dot', 300, '300', 'circle-open-dot', 1, '1',
-            'square', 101, '101', 'square-open', 201, '201',
-            'square-dot', 301, '301', 'square-open-dot', 2, '2',
-            'diamond', 102, '102', 'diamond-open', 202, '202',
-            'diamond-dot', 302, '302', 'diamond-open-dot', 3, '3',
-            'cross', 103, '103', 'cross-open', 203, '203',
-            'cross-dot', 303, '303', 'cross-open-dot', 4, '4', 'x',
-            104, '104', 'x-open', 204, '204', 'x-dot', 304, '304',
-            'x-open-dot', 5, '5', 'triangle-up', 105, '105',
-            'triangle-up-open', 205, '205', 'triangle-up-dot', 305,
-            '305', 'triangle-up-open-dot', 6, '6', 'triangle-down',
-            106, '106', 'triangle-down-open', 206, '206',
-            'triangle-down-dot', 306, '306', 'triangle-down-open-dot',
-            7, '7', 'triangle-left', 107, '107', 'triangle-left-open',
-            207, '207', 'triangle-left-dot', 307, '307',
-            'triangle-left-open-dot', 8, '8', 'triangle-right', 108,
-            '108', 'triangle-right-open', 208, '208',
-            'triangle-right-dot', 308, '308',
-            'triangle-right-open-dot', 9, '9', 'triangle-ne', 109,
-            '109', 'triangle-ne-open', 209, '209', 'triangle-ne-dot',
-            309, '309', 'triangle-ne-open-dot', 10, '10',
-            'triangle-se', 110, '110', 'triangle-se-open', 210, '210',
-            'triangle-se-dot', 310, '310', 'triangle-se-open-dot', 11,
-            '11', 'triangle-sw', 111, '111', 'triangle-sw-open', 211,
-            '211', 'triangle-sw-dot', 311, '311',
-            'triangle-sw-open-dot', 12, '12', 'triangle-nw', 112,
-            '112', 'triangle-nw-open', 212, '212', 'triangle-nw-dot',
-            312, '312', 'triangle-nw-open-dot', 13, '13', 'pentagon',
-            113, '113', 'pentagon-open', 213, '213', 'pentagon-dot',
-            313, '313', 'pentagon-open-dot', 14, '14', 'hexagon', 114,
-            '114', 'hexagon-open', 214, '214', 'hexagon-dot', 314,
-            '314', 'hexagon-open-dot', 15, '15', 'hexagon2', 115,
-            '115', 'hexagon2-open', 215, '215', 'hexagon2-dot', 315,
-            '315', 'hexagon2-open-dot', 16, '16', 'octagon', 116,
-            '116', 'octagon-open', 216, '216', 'octagon-dot', 316,
-            '316', 'octagon-open-dot', 17, '17', 'star', 117, '117',
-            'star-open', 217, '217', 'star-dot', 317, '317',
-            'star-open-dot', 18, '18', 'hexagram', 118, '118',
-            'hexagram-open', 218, '218', 'hexagram-dot', 318, '318',
-            'hexagram-open-dot', 19, '19', 'star-triangle-up', 119,
-            '119', 'star-triangle-up-open', 219, '219',
-            'star-triangle-up-dot', 319, '319',
-            'star-triangle-up-open-dot', 20, '20',
-            'star-triangle-down', 120, '120',
-            'star-triangle-down-open', 220, '220',
-            'star-triangle-down-dot', 320, '320',
-            'star-triangle-down-open-dot', 21, '21', 'star-square',
-            121, '121', 'star-square-open', 221, '221',
-            'star-square-dot', 321, '321', 'star-square-open-dot', 22,
-            '22', 'star-diamond', 122, '122', 'star-diamond-open',
-            222, '222', 'star-diamond-dot', 322, '322',
-            'star-diamond-open-dot', 23, '23', 'diamond-tall', 123,
-            '123', 'diamond-tall-open', 223, '223',
-            'diamond-tall-dot', 323, '323', 'diamond-tall-open-dot',
-            24, '24', 'diamond-wide', 124, '124', 'diamond-wide-open',
-            224, '224', 'diamond-wide-dot', 324, '324',
-            'diamond-wide-open-dot', 25, '25', 'hourglass', 125,
-            '125', 'hourglass-open', 26, '26', 'bowtie', 126, '126',
-            'bowtie-open', 27, '27', 'circle-cross', 127, '127',
-            'circle-cross-open', 28, '28', 'circle-x', 128, '128',
-            'circle-x-open', 29, '29', 'square-cross', 129, '129',
-            'square-cross-open', 30, '30', 'square-x', 130, '130',
-            'square-x-open', 31, '31', 'diamond-cross', 131, '131',
-            'diamond-cross-open', 32, '32', 'diamond-x', 132, '132',
-            'diamond-x-open', 33, '33', 'cross-thin', 133, '133',
-            'cross-thin-open', 34, '34', 'x-thin', 134, '134',
-            'x-thin-open', 35, '35', 'asterisk', 135, '135',
-            'asterisk-open', 36, '36', 'hash', 136, '136',
-            'hash-open', 236, '236', 'hash-dot', 336, '336',
-            'hash-open-dot', 37, '37', 'y-up', 137, '137',
-            'y-up-open', 38, '38', 'y-down', 138, '138',
-            'y-down-open', 39, '39', 'y-left', 139, '139',
-            'y-left-open', 40, '40', 'y-right', 140, '140',
-            'y-right-open', 41, '41', 'line-ew', 141, '141',
-            'line-ew-open', 42, '42', 'line-ns', 142, '142',
-            'line-ns-open', 43, '43', 'line-ne', 143, '143',
-            'line-ne-open', 44, '44', 'line-nw', 144, '144',
-            'line-nw-open', 45, '45', 'arrow-up', 145, '145',
-            'arrow-up-open', 46, '46', 'arrow-down', 146, '146',
-            'arrow-down-open', 47, '47', 'arrow-left', 147, '147',
-            'arrow-left-open', 48, '48', 'arrow-right', 148, '148',
-            'arrow-right-open', 49, '49', 'arrow-bar-up', 149, '149',
-            'arrow-bar-up-open', 50, '50', 'arrow-bar-down', 150,
-            '150', 'arrow-bar-down-open', 51, '51', 'arrow-bar-left',
-            151, '151', 'arrow-bar-left-open', 52, '52',
-            'arrow-bar-right', 152, '152', 'arrow-bar-right-open', 53,
-            '53', 'arrow', 153, '153', 'arrow-open', 54, '54',
-            'arrow-wide', 154, '154', 'arrow-wide-open']
+/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test/ /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka -r Whole Inversion All
+/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test/ /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka -r Whole Exploratory All --sample_subset
 """
 
-#### I htink that things are getting messed up in the "_split_VCF_to_LG" method for the inversion regions since no values are being written to the VCF files
+#### I think that things are getting messed up in the "_split_VCF_to_LG" method for the inversion regions since no values are being written to the VCF files
