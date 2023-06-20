@@ -12,9 +12,8 @@ parser.add_argument('--sample_subset', help = 'This flag will restruct the sampl
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 args = parser.parse_args()
-# subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, capture_output=True, encoding='utf-8').stdout
-# subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout
-# if subprocess.run(f"diff <(bcftools query -l {self.samples_filtered_master_vcf}) <(cat {self.good_samples_csv})", shell=True, capture_output=True, encoding='utf-8').stdout == '': # checks diff command output for sample names in existing self.samples_filtered_master_vcf and the self.good_samples_csv that was just created.
+
+
 """
 To Do:
 - The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
@@ -107,7 +106,7 @@ class PCA_Maker:
             self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)] # if sample_subset flag is not called, just get all samples for the given ecogroups and proceed  
             pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
         if pathlib.Path(self.samples_filtered_master_vcf).exists(): # if the samples_filtered_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
-            if subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, capture_output=True, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
+            if subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
                 print(f'\nThe file {self.samples_filtered_master_vcf} exists and samples within the file match those in self.good_samples_csv. New samples_filtered_master_vcf file will not be built.')
                 pass
             else:
@@ -134,8 +133,7 @@ class PCA_Maker:
             elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
                 if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
-                    # if subprocess.run(f"diff <(bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}) <(cat {self.good_samples_csv})", shell=True, capture_output=True, encoding='utf-8').stdout == '': # checks if the subset vcf file that already exists has matching sample names as those in the samples_to_keep.csv file.
-                    if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}", shell=True, capture_output=True, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout:
+                    if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the subset vcf file that already exists has matching sample names as those in the samples_to_keep.csv file.
                         print('The file ' + lg + '.vcf.gz exists and has the same samples as self.good_samples_csv. A file for ' + lg + ' will not be generated.')
                     else:
                         print('Generating a subset VCF file for ' + lg + '...')
@@ -161,8 +159,7 @@ class PCA_Maker:
         exploratory_regions_list = ['lg2_YH_Inversion', 'lg4_YH_CV_Inversion', 'lg5_OB', 'lg9_RockSand_Inversion', 'lg10_MC_Insertion', 'lg10_YH_Inversion', 'lg11_Inversion', 'lg13_YH_Inversion', 'lg20_RockSand_Inversion']
         for region in exploratory_regions_list:
             if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz').exists():
-                # if subprocess.run(f"diff <(bcftools query -l {self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz'}) <(cat {self.good_samples_csv})", shell=True, capture_output=True, encoding='utf-8').stdout == '': # checks if an existing exploratory region vcf file contains the same samples as samples_to_keep.csv. If not, make a new one
-                if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz'}", shell=True, capture_output=True, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, capture_output=True, encoding='utf-8').stdout:
+                if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + region + '/' + region + '.vcf.gz'}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if an existing exploratory region vcf file contains the same samples as samples_to_keep.csv. If not, make a new one
                     print(f'VCF file for {region} exists and number of samples in the vcf file matches the number of samples in self.good_samples_csv. Skippping and jumping to next region')
                 else:
                     remake_index = True
@@ -271,8 +268,8 @@ python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/origin
 
 
 local testing:
-/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka -r Whole Inversion All
-/Users/kmnike/miniforge3/envs/pipeline_x86/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole Exploratory All --sample_subset
+/Users/kmnike/miniforge3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Utaka -r Whole Inversion All
+/Users/kmnike/miniforge3/envs/pipeline/bin/python3 pca_maker.py /Users/kmnike/Data/CichlidSequencingData/Outputs/small_out_files/small10percent_variants.vcf.gz /Users/kmnike/CichlidSRSequencing/576_pca_test /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole Exploratory All --sample_subset
 
 
 
