@@ -31,11 +31,13 @@ class ContigMapper:
         bases_to_write = []
         with open(self.out, 'w') as fh: # open the outfile to write
             for lg in self.linkage_group_map.keys(): # start by iterating through each LG
-                print('MAPPING CONTGIGS TO ', lg)
+                print('MAPPING CONTGIGS TO', lg)
                 fh.write('>' + lg + '\n') # write LG name and a newline
                 for alignment in self.pysam_obj.fetch(): # per alignment (line) in the bam file,  if the alignment reference starts with the lg name,
-                    if alignment.reference_name.startswith(self.linkage_group_map[lg]):
+                    if alignment.flag in [0,16] and alignment.reference_name.startswith(self.linkage_group_map[lg]):
                         bases_to_write.append(alignment.seq + 'N'*100) # add the sequence for that line into bases_to_write and do it for all lines in the file that start with the lg name
+                    else:
+                        continue
                 bases_to_write = "".join([str(contig) for contig in bases_to_write])[:-len('N' * 100)] # bases_to_write is a list of all of the pieces of each LG that have been combined, in order, into a list This combines them into one string to write into the genome file, then removes the final 100 extra Ns
                 bases_to_write = re.sub("(.{80})", "\\1\n", bases_to_write, 0, re.DOTALL) # this wraps every 80 bp into a newline 
                 fh.write(bases_to_write) # write the wrapped bases for the right formatting
@@ -43,15 +45,19 @@ class ContigMapper:
                 bases_to_write = [] # reset the bases_to_write variable and got through it again for the next LG
                 print(lg, " MAPPED")
 
+
     def _write_unmapped_contigs(self):
         bases_to_write = []
         print('WRITING UNMAPPED CONTIGS TO THE END OF THE FILE...')
         with open(self.out, 'a') as fh: # unmapped regions are appended to the end of the file instead of written 
             for alignment in self.pysam_obj.fetch():
-                if alignment.reference_name not in self.reference_names: # self.reference_names already contains the names of the main linkage groups at this point, so only the non-LGs will be mapped here. 
-                    print('WRITING UNMAPPED CONTIG ', alignment.reference_name)
-                    fh.write('>' + alignment.reference_name + '\n') # write the name of the unmapped contig
-                    self.reference_names.append(alignment.reference_name) # by adding the reference name to the list of stored references, we will keep looping through the "bases_to_write.append(alignment.seq + 'N'*100)" code...
+                if alignment.reference_name not in self.reference_names: # self.reference_names already contains the names of the main linkage groups at this point, so only the non-LGs will be mapped here.
+                    if alignment.flag in [0,16]:
+                        print('WRITING UNMAPPED CONTIG ', alignment.reference_name)
+                        fh.write('>' + alignment.reference_name + '\n') # write the name of the unmapped contig
+                        self.reference_names.append(alignment.reference_name) # by adding the reference name to the list of stored references, we will keep looping through the "bases_to_write.append(alignment.seq + 'N'*100)" code...
+                    else:
+                        continue
                     if len(bases_to_write) > 0: # This code block formats and adds the bases_to_write to the file, only if bases_to_write is not empty. This prevents an extra newline from being added when processing the first unmapped contig 
                         bases_to_write = "".join([str(contig) for contig in bases_to_write])[:-len('N' * 100)] # This combines the list of bases found in bases_to_write into one string to write into the genome file and removes the final 100Ns from the last unmapped contig 
                         bases_to_write = re.sub("(.{80})", "\\1\n", bases_to_write, 0, re.DOTALL) # parses every 80 characters with a newline and removes the final 100bp of NNN nts 
