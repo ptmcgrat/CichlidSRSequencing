@@ -31,7 +31,7 @@ class ContigMapper:
         bases_to_write = []
         with open(self.out, 'w') as fh: # open the outfile to write
             for lg in self.linkage_group_map.keys(): # start by iterating through each LG
-                print('MAPPING CONTGIGS TO', lg)
+                print('MAPPING CONTIGS TO', lg)
                 fh.write('>' + lg + '\n') # write LG name and a newline
                 for alignment in self.pysam_obj.fetch(): # per alignment (line) in the bam file,  if the alignment reference starts with the lg name,
                     if alignment.flag in [0,16] and alignment.reference_name.startswith(self.linkage_group_map[lg]):
@@ -83,4 +83,6 @@ python contig_mapper.py -i /Users/kmnike/Data/CichlidSequencingData/Outputs/alig
 Command for local genome building on all lja assembly contigs
 python contig_mapper.py -i /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/pbmm2/sorted_lja_assembly_to_gt1_v2.bam
 
+Command for mapping lja assembly contigs to LGs using GT1_v2 as the reference on the Mzebra Server:
+python contig_mapper.py -i /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/alignment/pbmm2/sorted_lja_assembly_to_gt1_v2.bam -o /home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/Outputs/alignment/mapped_fastas/lja_contigs_mapped_to_lgs.fasta
 """
