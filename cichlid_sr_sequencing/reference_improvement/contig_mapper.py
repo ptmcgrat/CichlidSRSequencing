@@ -9,13 +9,15 @@ args = parser.parse_args()
 """
 TO DO:
     - the first unmapped contig is 100Gbp long in the output file... This makes no sense..... 
-    - I think what;'s happening is rthat the else statement at the end of the unmapped_conrtig funciton is being triggered since the canonical LGs do not satisfy the original if statement
+    - I think what;'s happening is rthat the else statement at the end of the unmapped_contig funciton is being triggered since the canonical LGs do not satisfy the original if statement
         - let's see what happens if we just yeet this statement 
 
     - what if i approach the unmapped contigs in the same way that I iterate through the main LGs using the predefined self.linkage_group_map 
     - I believe this iteration works, but is very slow as it needs to parse through EVERY line of the BAM file for EVERY unmapped contig
     - The faster approach is still to just go through each line once, and if it maps (0 or 16 flag) then write it for the LG 
 
+    - The new script gives output with errors:
+        - There is ax extra newline ONLY between lg2 and 3 (but this didn't seem to be an issue when creating the index.... and lg 22 is repeated... 
 """
 
 class ContigMapper:
@@ -33,59 +35,43 @@ class ContigMapper:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1'}
         self.unmapped_reference_names = list(self.pysam_obj.references)[22:]
 
+    # def _map_contigs_to_LGs(self):
+    #     bases_to_write = []
+    #     with open(self.out, 'w') as fh: # open the outfile to write
+    #         for lg in self.linkage_group_map.keys(): # start by iterating through each LG
+                
+    #             fh.write('>' + lg + '\n') # write LG name and a newline
+    #             for alignment in self.pysam_obj.fetch(): # per alignment (line) in the bam file,  if the alignment reference starts with the lg name,
+    #                 if alignment.flag in [0,16] and alignment.reference_name.startswith(self.linkage_group_map[lg]):
+    #                     bases_to_write.append(alignment.seq + 'N'*100) # add the sequence for that line into bases_to_write and do it for all lines in the file that start with the lg name
+    #                 else:
+    #                     continue
+    #             bases_to_write = "".join([str(contig) for contig in bases_to_write])[:-len('N' * 100)] # bases_to_write is a list of all of the pieces of each LG that have been combined, in order, into a list This combines them into one string to write into the genome file, then removes the final 100 extra Ns
+    #             bases_to_write = re.sub("(.{80})", "\\1\n", bases_to_write, 0, re.DOTALL) # this wraps every 80 bp into a newline 
+    #             if len(bases_to_write) > 0:
+    #                 fh.write(bases_to_write) # write the wrapped bases for the right formatting
+    #                 fh.write('\n') # insert a newline to signifiy the start of a new LG
+    #             bases_to_write = [] # reset the bases_to_write variable and got through it again for the next LG
+    #             print(lg, "MAPPED")
+
     def _map_contigs_to_LGs(self):
         bases_to_write = []
-        with open(self.out, 'w') as fh: # open the outfile to write
-            for lg in self.linkage_group_map.keys(): # start by iterating through each LG
-                print('MAPPING CONTIGS TO', lg)
-                fh.write('>' + lg + '\n') # write LG name and a newline
-                for alignment in self.pysam_obj.fetch(): # per alignment (line) in the bam file,  if the alignment reference starts with the lg name,
-                    if alignment.flag in [0,16] and alignment.reference_name.startswith(self.linkage_group_map[lg]):
-                        bases_to_write.append(alignment.seq + 'N'*100) # add the sequence for that line into bases_to_write and do it for all lines in the file that start with the lg name
-                    else:
+        with open(self.out, 'w+') as fh:
+            for alignment in self.pysam_obj.fetch():
+                if alignment.reference_name in self.linkage_group_map.values() and alignment.flag in [0, 16]:
+                    if alignment.reference_name in open(self.out).read():
                         continue
-                bases_to_write = "".join([str(contig) for contig in bases_to_write])[:-len('N' * 100)] # bases_to_write is a list of all of the pieces of each LG that have been combined, in order, into a list This combines them into one string to write into the genome file, then removes the final 100 extra Ns
-                bases_to_write = re.sub("(.{80})", "\\1\n", bases_to_write, 0, re.DOTALL) # this wraps every 80 bp into a newline 
-                if len(bases_to_write) > 0:
-                    fh.write(bases_to_write) # write the wrapped bases for the right formatting
-                    fh.write('\n') # insert a newline to signifiy the start of a new LG
-                bases_to_write = [] # reset the bases_to_write variable and got through it again for the next LG
-                print(lg, "MAPPED")
-
-    def _map_lg1_only(self): # for quick local testing... assumes that _map_contigs_to_lgs is workign properly
-        bases_to_write = []
-        with open(self.out, 'w') as fh: # open the outfile to write
-            for lg in ['LG1']:
-                print('MAPPING CONTIGS TO', lg)
-                fh.write('>' + lg + '\n') # write LG name and a newline
-                for alignment in self.pysam_obj.fetch(): # per alignment (line) in the bam file,  if the alignment reference starts with the lg name,
-                    if alignment.flag in [0,16] and alignment.reference_name.startswith(self.linkage_group_map[lg]):
-                        bases_to_write.append(alignment.seq + 'N'*100) # add the sequence for that line into bases_to_write and do it for all lines in the file that start with the lg name
                     else:
-                        continue
+                        fh.write('>' + alignment.reference_name + '\n')
+                    print('MAPPING CONTIGS TO', alignment.reference_name)
+                    bases_to_write.append(alignment.seq + 'N'*100)
                 bases_to_write = "".join([str(contig) for contig in bases_to_write])[:-len('N' * 100)] # bases_to_write is a list of all of the pieces of each LG that have been combined, in order, into a list This combines them into one string to write into the genome file, then removes the final 100 extra Ns
                 bases_to_write = re.sub("(.{80})", "\\1\n", bases_to_write, 0, re.DOTALL) # this wraps every 80 bp into a newline 
                 fh.write(bases_to_write) # write the wrapped bases for the right formatting
-                fh.write('\n') # insert a newline to signifiy the start of a new LG
+                if len(bases_to_write) > 0:
+                    fh.write('\n') # insert a newline to signifiy the start of a new LG
                 bases_to_write = [] # reset the bases_to_write variable and got through it again for the next LG
-                print(lg, "MAPPED")
 
-    # def _write_unmapped_contigs(self):
-    #     bases_to_write = []
-    #     with open(self.out, 'a') as fh:
-    #             for contig in self.unmapped_reference_names: # iterate through the names of the unmapped contigs
-    #                 for alignment in self.pysam_obj.fetch(): # fetch each alignment line from bam file 
-    #                     if alignment.reference_name == contig and alignment.flag in [0,16]: # only fetch lines that are equal to the current iteration of the 
-    #                         print('MAPPING CONTIGS TO UNMAPPED CONTIG', alignment.reference_name)
-    #                         fh.write('>' + alignment.reference_name + '\n')
-    #                         bases_to_write.append(alignment.seq + 'N'*100)
-    #                 bases_to_write = "".join([str(contig) for contig in bases_to_write])[:-len('N' * 100)] # bases_to_write is a list of all of the pieces of each LG that have been combined, in order, into a list This combines them into one string to write into the genome file, then removes the final 100 extra Ns
-    #                 bases_to_write = re.sub("(.{80})", "\\1\n", bases_to_write, 0, re.DOTALL) # this wraps every 80 bp into a newline 
-    #                 fh.write(bases_to_write) # write the wrapped bases for the right formatting
-    #                 if len(bases_to_write) > 0:
-    #                     fh.write('\n') # insert a newline to signifiy the start of a new LG
-    #                 bases_to_write = [] # reset the bases_to_write variable and got through it again for the next LG
-    #                 print(contig, "MAPPED")
 
     def _write_unmapped_contigs(self):
         bases_to_write = []
@@ -107,7 +93,6 @@ class ContigMapper:
 
     def run_methods(self):
         self._map_contigs_to_LGs()
-        # self._map_lg1_only()
         self._write_unmapped_contigs()
 
 contig_mapper_obj = ContigMapper(args.input, args.output)
@@ -118,7 +103,10 @@ print('CONTIGS SUCCESSFULLY MAPPED ')
 Command for local testing on subset bam file:
 python contig_mapper.py -i /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/pbmm2/lja_assembly_to_gt1_v2_subset.bam -o /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/mapped_fastas/subset_mapped_assembly.fasta
 
-python contig_mapper.py -i /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/pbmm2/lja_assembly_to_gt1_v2_subset.bam -o /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/mapped_fastas/faster_subset_mapped_assembly.fasta
+python contig_mapper.py -i /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/pbmm2/lja_assembly_to_gt1_v2_subset.bam -o /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/mapped_fastas/faster_contig_subset_mapped_assembly.fasta
+
+Testing on a sorted BAM file with only 0 flags:
+python contig_mapper.py -i /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/pbmm2/sorted_lja_assebmly_to_gt1_v2_0.16_flags.bam -o /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/mapped_fastas/contig_subset_0_flags_mapped_assembly.fasta
 
 Command for local genome building on all lja assembly contigs
 python contig_mapper.py -i /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/pbmm2/sorted_lja_assembly_to_gt1_v2.bam -o /Users/kmnike/Data/CichlidSequencingData/Outputs/alignment/mapped_fastas/mapped_assembly.fasta
