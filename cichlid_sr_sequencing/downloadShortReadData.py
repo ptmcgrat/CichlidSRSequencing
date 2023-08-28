@@ -85,8 +85,11 @@ for index, row in new_dt.iterrows():
 	if args.Local:
 		fq1,fq2 = row['FileLocations'].split(',,')
 		if fq1[0] != '/':
-			fq1 = fm_obj.localReadsDir + fq1
-			fq2 = fm_obj.localReadsDir + fq2
+			# Note that I am about to change the below lines to fetch the data from the SeqCoreData Directory... Uncomment the below 2 lines to restore orifginal functionality - Nikesh 23.08.28
+			# fq1 = fm_obj.localReadsDir + fq1
+			# fq2 = fm_obj.localReadsDir + fq2
+			fq1 = fm_obj.localSeqCoreDataDir + fq1
+			fq2 = fm_obj.localSeqCoreDataDir + fq2
 	else:
 		try:
 			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
