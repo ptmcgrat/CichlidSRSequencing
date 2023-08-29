@@ -21,6 +21,7 @@ class AlignmentWorker():
 		for i, (index,row) in enumerate(self.sample_dt.iterrows()):
 			# Download unmapped bam file
 			uBam_file = self.fileManager.localReadsDir + row.FileLocations
+			pdb.set_trace()
 			self.fileManager.downloadData(uBam_file)
 
 	def alignData(self):
