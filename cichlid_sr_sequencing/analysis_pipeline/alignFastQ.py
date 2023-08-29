@@ -93,7 +93,7 @@ for sample in good_samples:
 		continue
 	
 	# check if sample matches the platform passed to the script
-	if p_dt.at[sample, 'Platform'] != platform.upper():
+	if p_dt.at[sample, 'Platform'] != platform[0].upper():
 		print(sample + 'does not have' + platform + 'reads. Skipping...')
 		continue
 
