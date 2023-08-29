@@ -79,7 +79,7 @@ timer.stop()
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
 	platform = args.type
-	pdb.set_trace()
+	# pdb.set_trace()
 	# Manually exclude samples that are problematic until debugging can be completed
 	# Also SAMEA1904330 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329', 'SAMEA1904328', 'SAMEA4032091', 'SAMEA1920092'
 	if sample in ['SAMEA2661255', 'SAMEA2661406']:
