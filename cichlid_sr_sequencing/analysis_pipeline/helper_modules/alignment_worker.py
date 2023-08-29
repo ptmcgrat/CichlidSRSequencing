@@ -20,8 +20,8 @@ class AlignmentWorker():
 		# Loop through all of the runs for a sample
 		for i, (index,row) in enumerate(self.sample_dt.iterrows()):
 			# Download unmapped bam file
-			uBam_file = self.fileManager.localReadsDir + row.FileLocations
 			pdb.set_trace()
+			uBam_file = self.fileManager.localReadsDir + row.FileLocations
 			self.fileManager.downloadData(uBam_file)
 
 	def alignData(self):
