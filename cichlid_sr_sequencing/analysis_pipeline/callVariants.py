@@ -98,6 +98,7 @@ class VariantCaller:
         for sampleID in self.sampleIDs:
             if sampleID in []:
                 continue
+            pdb.set_trace()
             print('Downloading ' + sampleID + '...')
             self.fm_obj.createSampleFiles(sampleID)
             self.fm_obj.downloadData(self.fm_obj.localGVCFFile)
