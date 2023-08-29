@@ -7,7 +7,6 @@ impletement a platform argument. I can add this to the argparse block in alignFa
 """
 
 
-
 class AlignmentWorker():
 	def __init__(self, fileManager, sample_dt, sampleID, platform):
 		self.fileManager = fileManager
