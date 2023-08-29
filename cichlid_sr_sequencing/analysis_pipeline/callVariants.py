@@ -96,9 +96,8 @@ class VariantCaller:
 
         # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
         for sampleID in self.sampleIDs:
-            if sampleID in []:
+            if sampleID in []: # confused what this is doing... rememdy it...
                 continue
-            pdb.set_trace()
             print('Downloading ' + sampleID + '...')
             self.fm_obj.createSampleFiles(sampleID)
             self.fm_obj.downloadData(self.fm_obj.localGVCFFile)
