@@ -37,6 +37,9 @@ if args.Genome not in fm_obj.returnGenomeVersions():
 fm_obj.downloadData(fm_obj.localSampleFile)
 s_dt = pd.read_csv(fm_obj.localSampleFile)
 
+# generate a subset dt conatining only samle names and their Platform. This will be used to filter out samples based on what platform's reads are being aligned to the reference.
+p_dt = s_dt[['SampleID', 'Platform']].set_index('SampleID')
+
 # If running on projectID, make sure it is valid and subset sample database to those with the right projectID
 if args.ProjectID is not None:
 	if args.ProjectID not in set(s_dt.ProjectID):
@@ -76,7 +79,7 @@ timer.stop()
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
 	platform = args.type
-	pdb.set_trace()
+
 	# Manually exclude samples that are problematic until debugging can be completed
 	# Also SAMEA1904330 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329', 'SAMEA1904328', 'SAMEA4032091', 'SAMEA1920092'
 	if sample in ['SAMEA2661255', 'SAMEA2661406']:
@@ -90,7 +93,9 @@ for sample in good_samples:
 		continue
 	
 	# check if sample matches the platform passed to the script
-	
+	if p_dt[sample, 'Platform'] != platform.upper():
+		print(sample + 'does not have' + platform + 'reads. Skipping...')
+		continue
 
 	# Make directories and appropriate files
 	print(' Processing sample: ' + sample + '; Start time: ' + str(datetime.datetime.now()))
