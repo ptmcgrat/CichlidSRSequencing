@@ -94,7 +94,7 @@ for sample in good_samples:
 	
 	# check if sample matches the platform passed to the script
 	if p_dt.at[sample, 'Platform'] != platform[0].upper():
-		print(sample + 'does not have' + platform + 'reads. Skipping...')
+		print(sample + 'does not have' + platform[0] + 'reads. Skipping...')
 		continue
 
 	# Make directories and appropriate files
@@ -128,6 +128,7 @@ for sample in good_samples:
 	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 	coverage = stats['all'] * read_length / reference_size
 
+	# edit this line to include the ProjectID from the s_dt
 	sample_data = {'SampleID':sample, 'Organism':s_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
 				   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 				   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
