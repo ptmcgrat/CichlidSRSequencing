@@ -151,7 +151,7 @@ for sample in good_samples:
 	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	print()
 
-
+print('Pipeline run successful')
 """
 COMMAND FOR LOCAL TESTING:
 /Users/kmnike/anaconda3/envs/pipeline/bin/python3 alignFastQ.py Mzebra_GT1 -p LocalTesting -t pacbio

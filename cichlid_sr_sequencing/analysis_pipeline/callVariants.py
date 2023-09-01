@@ -7,9 +7,9 @@ parser.add_argument('reference_genome', help = 'full file path to the reference 
 parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline', nargs = '*', default = ['All'])
 parser.add_argument('-i', '--import_databases', help = 'Call this flag to run GenomicsDBImport on the samples in the database', action = 'store_true')
 parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGVCFs on the samples in the database', action = 'store_true')
-parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to Download Data from Dropbox to include in the analysis', action = 'store_true')
+parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to dwonload the GVCF files from Dropbox to include in the VCF analysis', action = 'store_true')
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
-parser.add_argument('-b', '--bam_download', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
+parser.add_argument('-b', '--download_bams', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
 parser.add_argument('-H', '--haplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
@@ -29,6 +29,9 @@ Code is needed to resolve this issue if there are an uneven number of LGs given 
 
 
 CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH  DECREASE BATCH SIZE TO HALF AND RUN ALL LGS AT ONCE 
+The error with the Sample Names is that they are coming from the alignment database... I shoudl add a column in that Database that maybe preserves the ProjectID inforemation sijnce thjis database filters out all repeat alignments..... I think.....
+
+
 
 """
 
@@ -39,17 +42,18 @@ class VariantCaller:
         self.projectIDs = project_ids
         self.memory = memory
 
-        # Code block to define the set of SampleIDs based on the passed ProjectIDs
+        # codee block to set the ProjectIDs
         self.fm_obj.downloadData(self.fm_obj.localSampleFile) # downloads the most up-to-date SampleDatabase.csv file
         s_df = pd.read_csv(self.fm_obj.localSampleFile)
         valid_project_IDs = s_df['ProjectID'].unique().tolist() # reads in SampleDatabase.csv and converts unique ProjectIDs to a list
         valid_project_IDs.append('All') # will allow 'All' which is teh defualt projectID to be a valid ID and not trip the below Exception
         for projectID in args.projectIDs: # for loop that will check each ProjectID passed to the script
             if projectID not in valid_project_IDs:
-                raise Exception(projectID + ' is not a PorjectID in SampleDatabase.csv; valid Project IDs are:' + '\n' + str(valid_project_IDs))
+                raise Exception(projectID + ' is not a ProjectID in SampleDatabase.csv; valid Project IDs are:' + '\n' + str(valid_project_IDs))
             elif self.projectIDs == ['All']:
                 self.projectIDs = valid_project_IDs[-1] # the -1 ensures the "All" projectID is not incldued in the IDs
 
+        # Code block to define the set of SampleIDs based on the passed ProjectIDs
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # downloads the most up-to-date AlignmentDatabase.csv file from Dropbox. This file contains a list of all samples that have BAM files generated from the previous steps in the pipeline 
         self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile) # read in the AlignmentDatabase.csv file 
         filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)] # filter rows to only include those that are a part of the projectIDs we want to analyze 
@@ -93,6 +97,7 @@ class VariantCaller:
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
         print('Downloading most recent Genome Dir')
         self.fm_obj.downloadData(self.fm_obj.localGenomeDir)
+        pdb.set_trace()
 
         # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
         for sampleID in self.sampleIDs:
@@ -115,12 +120,10 @@ class VariantCaller:
 
     def RunHaplotypeCaller(self):
         # Find notes in the CallSmallSNVs Pipeline Notebook on Benchling. Date of entry: Wednesday March 29th, 2023
-        # TO DO: RERUN THE ERROR FILES FROM THE ORIGINAL COHORT THROUGH GATK HAPLOTYPECALLER TO REGENERATE THE WHOLE GVCF FILE, UNDER THE ORIGINAL FILE NAME. THESE WILL NEED TO BE RE-UPLOADED TO DROPBOX IF EVERYTHING SUCCEEDS
-        # TO DO: RENAME ALL _REDO_ GVCF SAMPLES FOR THE BIGBRAIN & BRAIN_DIVERSITY COHORTS TO THE ORIGINAL FILENAMES AND REMOVE THE ORIGINAL FILES. 
         processes = []
         for sampleID in self.sampleIDs:
             print('Generating new GVCF file for ' + sampleID)
-            self.fm_obj.createSampleFiles(sampleID)
+            self.fm_obj.createSampleFiles(sampleID) # creates a sample specific directory structure so outputs are stored on the server and cloud correctly
             if args.local_test:
                 self.fm_obj.localBamFile = self.fm_obj.localSampleBamDir + sampleID + '_small.all.bam'
             # try running with the basic haplotypecaller command and see if something changes
@@ -133,7 +136,7 @@ class VariantCaller:
                 processes = []
 
     def RunGenomicsDBImport(self):
-        #IMPLEMENT BATCH SIZE CODE TO BE ABEL TO STILL RUN ALL CHROMOSOEMS AT ONCE
+        #IMPLEMENT BATCH SIZE CODE TO BE ABLE TO STILL RUN ALL CHROMOSOMES AT ONCE
         processes = []
         for lg in self.linkage_groups:
             if args.local_test:
@@ -218,13 +221,13 @@ class VariantCaller:
     def run_methods(self):
         self._generate_sample_map()
         if args.download_data:
-            print('download data will run')
+            print('download data will run and GVCF files per sample will be downloaded')
             self.data_downloader()
         if args.import_databases:
             self.RunGenomicsDBImport()
         if args.genotype:
             self.RunGenotypeGVCFs()
-        if args.bam_download:
+        if args.download_bams:
             self.download_BAMs()
         if args.haplotypecaller:
             self.RunHaplotypeCaller()
