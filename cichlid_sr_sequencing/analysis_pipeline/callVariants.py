@@ -139,6 +139,7 @@ class VariantCaller:
         #IMPLEMENT BATCH SIZE CODE TO BE ABLE TO STILL RUN ALL CHROMOSOMES AT ONCE
         processes = []
         for lg in self.linkage_groups:
+            pdb.set_trace()
             if args.local_test:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 processes.append(p)
@@ -147,7 +148,7 @@ class VariantCaller:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
                 processes.append(p)
 
-            if len(processes) == 1:
+            if len(processes) == len(self.linkage_groups):
                 for proc in processes:
                     proc.communicate()
                 processes = []
@@ -165,8 +166,6 @@ class VariantCaller:
             #         for proc in processes:
             #             proc.communicate()
             #         processes = []
-
-
 
             # if len(processes)%2 == 0:
             #     if len(processes) == len(processes)/2:
