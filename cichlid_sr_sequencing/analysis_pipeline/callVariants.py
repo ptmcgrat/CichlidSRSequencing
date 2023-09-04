@@ -150,6 +150,7 @@ class VariantCaller:
                 for proc in processes:
                     proc.communicate()
                 processes = []
+        print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ALL SAMPLES')
 
             # if len(self.linkage_groups)%2 != 0:
             #     if len(processes) == (len(processes) -1) / 2:
@@ -214,7 +215,8 @@ class VariantCaller:
                 for proc in processes:
                     proc.communicate()
                 processes = []
-
+        print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ALL SAMPLES')
+        
     def run_methods(self):
         self._generate_sample_map()
         if args.download_data:
