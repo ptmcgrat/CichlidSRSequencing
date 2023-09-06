@@ -4,7 +4,7 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
-parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline', nargs = '*', default = ['All'])
+parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline. Custom IDs can be provided as a csv file containing one sample per line. Save the file as "custom_samples.csv" in the directory containing this script.', nargs = '*', default = ['All'])
 parser.add_argument('-i', '--import_databases', help = 'Call this flag to run GenomicsDBImport on the samples in the database', action = 'store_true')
 parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGVCFs on the samples in the database', action = 'store_true')
 parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to dwonload the GVCF files from Dropbox to include in the VCF analysis', action = 'store_true')
@@ -31,7 +31,7 @@ Code is needed to resolve this issue if there are an uneven number of LGs given 
 CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH  DECREASE BATCH SIZE TO HALF AND RUN ALL LGS AT ONCE 
 The error with the Sample Names is that they are coming from the alignment database... I shoudl add a column in that Database that maybe preserves the ProjectID inforemation sijnce thjis database filters out all repeat alignments..... I think.....
 
-
+Need a flag to allow a file to be read in that contains a column of custom samples to be read in 
 
 """
 
@@ -42,23 +42,31 @@ class VariantCaller:
         self.projectIDs = project_ids
         self.memory = memory
 
-        # codee block to set the ProjectIDs
+        # code block to set the ProjectIDs
         self.fm_obj.downloadData(self.fm_obj.localSampleFile) # downloads the most up-to-date SampleDatabase.csv file
         s_df = pd.read_csv(self.fm_obj.localSampleFile)
         valid_project_IDs = s_df['ProjectID'].unique().tolist() # reads in SampleDatabase.csv and converts unique ProjectIDs to a list
-        valid_project_IDs.append('All') # will allow 'All' which is teh defualt projectID to be a valid ID and not trip the below Exception
+        valid_project_IDs.extend(['All', 'custom']) # will allow 'All' which is teh defualt projectID, and 'custom' which will allow a file containing vaid sample names to be valid IDs and not trip the below Exception
         for projectID in args.projectIDs: # for loop that will check each ProjectID passed to the script
             if projectID not in valid_project_IDs:
                 raise Exception(projectID + ' is not a ProjectID in SampleDatabase.csv; valid Project IDs are:' + '\n' + str(valid_project_IDs))
-            elif self.projectIDs == ['All']:
-                self.projectIDs = valid_project_IDs[-1] # the -1 ensures the "All" projectID is not incldued in the IDs
+            elif self.projectIDs == ['All'] or self.projectIDs == 'All':
+                self.projectIDs = valid_project_IDs[:-2] # the -2 ensures the "All" and "custom" projectIDs are not incldued in the IDs
 
         # Code block to define the set of SampleIDs based on the passed ProjectIDs
-        self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # downloads the most up-to-date AlignmentDatabase.csv file from Dropbox. This file contains a list of all samples that have BAM files generated from the previous steps in the pipeline 
-        self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile) # read in the AlignmentDatabase.csv file 
-        filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)] # filter rows to only include those that are a part of the projectIDs we want to analyze 
-        filtered_df = filtered_df[filtered_df['GenomeVersion'] == self.genome] # filter by genome version to eliminate duplicate samples that have been aligned to multiple genome versions
-        self.sampleIDs = filtered_df['SampleID'].tolist() # set a sampleID list equal to the samples filtered by ProjectIDs. These will be processed in subsequent methods
+        if self.projectIDs != ['custom']:
+            self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # downloads the most up-to-date AlignmentDatabase.csv file from Dropbox. This file contains a list of all samples that have BAM files generated from the previous steps in the pipeline 
+            self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile) # read in the AlignmentDatabase.csv file 
+            filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)] # filter rows to only include those that are a part of the projectIDs we want to analyze 
+            filtered_df = filtered_df[filtered_df['GenomeVersion'] == self.genome] # filter by genome version to eliminate duplicate samples that have been aligned to multiple genome versions
+            self.sampleIDs = filtered_df['SampleID'].tolist() # set a sampleID list equal to the samples filtered by ProjectIDs. These will be processed in subsequent methods
+        else:
+            custom_samples_df = pd.read_csv('custom_samples.csv', header=None) # read in a custom_file.csv file (assumes no header)
+            self.sampleIDs = custom_samples_df[custom_samples_df.columns[0]].values.tolist() # converts the column of samples to a list 
+        
+        for sample in self.sampleIDs:
+            if not s_df['SampleID'].eq(sample).any():
+                raise Exception(f"{sample} not found in the Sample Database")
 
         # Code block for determining which linkage groups will be processed by the script:
         self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
@@ -141,7 +149,6 @@ class VariantCaller:
             if args.local_test:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
                 processes.append(p)
-                pdb.set_trace()
             else:
                 p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
                 processes.append(p)
@@ -216,7 +223,7 @@ class VariantCaller:
                     proc.communicate()
                 processes = []
         print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ALL SAMPLES')
-        
+
     def run_methods(self):
         self._generate_sample_map()
         if args.download_data:
