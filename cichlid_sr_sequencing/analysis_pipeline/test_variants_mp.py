@@ -125,9 +125,9 @@ class VariantCaller:
         for parallel_processes in contigs_to_process:
             j = Process(target = function, args = (parallel_processes,))
             jobs.append(j)
+            j.start()
         for job in jobs:
-            job.start()
-        jobs.join()
+            job.join()
 
 
             # ### SPLIT JOBS FUNCTION
