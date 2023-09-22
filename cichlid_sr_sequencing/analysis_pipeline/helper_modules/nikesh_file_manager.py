@@ -66,6 +66,7 @@ class FileManager():
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
+		self.localMasterFileDir = self.localOutputDir + 'MasterFile/'
 		
 
 	def createSampleFiles(self, sampleID):
