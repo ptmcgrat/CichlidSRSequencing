@@ -122,10 +122,14 @@ class VariantCaller:
         contigs_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))]
 
         jobs = []
+        count = 0
         for parallel_processes in contigs_to_process:
             j = Process(target = function, args = (parallel_processes,))
             jobs.append(j)
+            print(j)
+            count+=1
             j.start()
+        print(count)
         for job in jobs:
             job.join()
 
