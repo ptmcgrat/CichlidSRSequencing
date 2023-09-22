@@ -127,6 +127,7 @@ class VariantCaller:
             jobs.append(j)
         for job in jobs:
             job.start()
+            job.join()
 
 
             # ### SPLIT JOBS FUNCTION
