@@ -1,5 +1,5 @@
 import subprocess as sp
-from multiprocessing import Process
+from multiprocessing import Process, freeze_support
 import argparse, pdb, os
 import pandas as pd
 from pyfaidx import Fasta
@@ -45,6 +45,7 @@ May need to edit or figure out how the unmapped contig splits will work with the
 """
 
 class VariantCaller:
+
     def __init__(self, genome, project_ids, linkage_groups, memory):
         self.genome = genome
         self.fm_obj = FM(self.genome)
@@ -119,15 +120,13 @@ class VariantCaller:
     def multiprocess(self, function):
         concurrent_processes = 22 # make concurrent processes an argument later and add it as a required argument later
         contigs_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))]
+
         jobs = []
         for parallel_processes in contigs_to_process:
-            # pdb.set_trace()
-            j = Process(target = function, args = (parallel_processes))
+            j = Process(target = function, args = (parallel_processes,))
             jobs.append(j)
         for job in jobs:
             job.start()
-        
-Bill! Bill! Bill!
 
 
             # ### SPLIT JOBS FUNCTION
@@ -207,8 +206,8 @@ Bill! Bill! Bill!
             self.download_BAMs()
         if args.haplotypecaller:
             self.RunHaplotypeCaller()
-        
 
-variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
-variant_caller_obj.run_methods()
-print('PIPELINE RUN SUCCESSFUL')
+if __name__ == "__main__":
+    variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
+    variant_caller_obj.run_methods()
+    print('PIPELINE RUN SUCCESSFUL')
