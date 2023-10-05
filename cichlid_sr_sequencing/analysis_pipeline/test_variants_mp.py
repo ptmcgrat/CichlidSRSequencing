@@ -128,10 +128,9 @@ class VariantCaller:
             jobs.append(j)
             print(j)
             count+=1
-            
+            j.start()
         print(count)
         for job in jobs:
-            j.start()
             job.join()
 
 
