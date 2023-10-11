@@ -121,7 +121,6 @@ class VariantCaller:
     def multiprocess(self, function):
         concurrent_processes = args.concurrent_processes # make concurrent processes an argument later and add it as a required argument later
         contigs_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
-        pdb.set_trace()
 
         jobs = []
         for parallel_processes in contigs_to_process: # for each sublist of processes to start in the larger list of processes:
