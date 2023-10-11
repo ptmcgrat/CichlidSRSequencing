@@ -28,8 +28,8 @@ However, then we run into an error when processing less than 11 LGs or if we pro
 Code is needed to resolve this issue if there are an uneven number of LGs given or if there are simply less than 11 LGs given 
 
 
-CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH  DECREASE BATCH SIZE TO HALF AND RUN ALL LGS AT ONCE 
-The error with the Sample Names is that they are coming from the alignment database... I shoudl add a column in that Database that maybe preserves the ProjectID inforemation sijnce thjis database filters out all repeat alignments..... I think.....
+CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH DECREASE BATCH SIZE TO HALF AND RUN ALL LGS AT ONCE 
+The error with the Sample Names is that they are coming from the alignment database... I should add a column in that Database that maybe preserves the ProjectID inforemation sijnce thjis database filters out all repeat alignments..... I think.....
 
 Need a flag to allow a file to be read in that contains a column of custom samples to be read in 
 
@@ -75,7 +75,7 @@ class VariantCaller:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.linkage_groups = linkage_groups
         if self.linkage_groups == ['All']:
-            self.linkage_groups = self.linkage_group_map.values()
+            self.linkage_groups = list(self.linkage_group_map.values())
         else:
             regions_list = []
             for region in self.linkage_groups:
