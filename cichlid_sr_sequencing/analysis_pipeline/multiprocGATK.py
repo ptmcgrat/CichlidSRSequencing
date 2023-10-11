@@ -18,7 +18,7 @@ parser.add_argument('-H', '--haplotypecaller', help = 'run the gatk HaplotypeCal
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
-parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 22)
+parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 23)
 args = parser.parse_args()
 
 """
@@ -120,12 +120,13 @@ class VariantCaller:
 
     def multiprocess(self, function):
         concurrent_processes = args.concurrent_processes # make concurrent processes an argument later and add it as a required argument later
-        contigs_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))]
+        contigs_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
+        pdb.set_trace()
 
         jobs = []
-        for parallel_processes in contigs_to_process:
-            j = Process(target = function, args = (parallel_processes,))
-            jobs.append(j)
+        for parallel_processes in contigs_to_process: # for each sublist of processes to start in the larger list of processes:
+            j = Process(target = function, args = (parallel_processes,)) # define the processes
+            jobs.append(j) # append the processes we want to start to the list of jobs 
         for job in jobs:
             job.start()
             print("job - ", job, " - started")
@@ -177,7 +178,7 @@ class VariantCaller:
                 sp.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
             else:
                 sp.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
-        print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ALL SAMPLES')
+        print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ' + lg)
 
 
 
