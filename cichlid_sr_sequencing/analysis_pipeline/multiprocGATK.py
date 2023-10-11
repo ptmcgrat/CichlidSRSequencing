@@ -173,7 +173,7 @@ class VariantCaller:
 
     def RunGenomicsDBImport(self, regions):
         for lg in regions:
-            print('tsrating processing ' + lg + 'for all samples in cohort')
+            print('starting processing ' + lg + ' for all samples in cohort')
             if not args.unmapped:
                 sp.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
             else:
