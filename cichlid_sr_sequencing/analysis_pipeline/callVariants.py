@@ -1,6 +1,8 @@
 import argparse, pdb, os, subprocess
 import pandas as pd
+from multiprocessing import Process
 from helper_modules.nikesh_file_manager import FileManager as FM
+
 
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
@@ -13,6 +15,7 @@ parser.add_argument('-b', '--download_bams', help = 'Download the BAM files from
 parser.add_argument('-H', '--haplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
+parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 23)
 args = parser.parse_args()
 
 """
@@ -26,7 +29,7 @@ TODO:
 For GenomicsDBImport, if all LGs are run at once with 576+ samples, the server runs out of RAM. We need to split the LGs to run 11 at a time. 
 However, then we run into an error when processing less than 11 LGs or if we process an uneven number of LGs. 
 Code is needed to resolve this issue if there are an uneven number of LGs given or if there are simply less than 11 LGs given 
-
+Not an issue anymore  Utaka has 1TB ram  
 
 CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH DECREASE BATCH SIZE TO HALF AND RUN ALL LGS AT ONCE 
 The error with the Sample Names is that they are coming from the alignment database... I should add a column in that Database that maybe preserves the ProjectID inforemation sijnce thjis database filters out all repeat alignments..... I think.....
@@ -92,6 +95,7 @@ class VariantCaller:
         if args.local_test:
             self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
             self.memory = 5
+            self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
 
     def _generate_sample_map(self):
         sampleIDs = self.sampleIDs
@@ -142,87 +146,61 @@ class VariantCaller:
                     proc.communicate()
                 processes = []
 
-    def RunGenomicsDBImport(self):
-        #IMPLEMENT BATCH SIZE CODE TO BE ABLE TO STILL RUN ALL CHROMOSOMES AT ONCE
-        processes = []
-        for lg in self.linkage_groups:
+    def RunGenomicsDBImport(self, regions):
+        for lg in regions:
+            print('starting processing ' + lg + ' for all samples in cohort')
             if args.local_test:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-                processes.append(p)
+                subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
+            elif not args.unmapped:
+                subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4',])
             else:
-                p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
-                processes.append(p)
+                subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
+            print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ' + lg)
 
-            if len(processes) == len(self.linkage_groups):
-                for proc in processes:
-                    proc.communicate()
-                processes = []
-        print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ALL SAMPLES')
-
-            # if len(self.linkage_groups)%2 != 0:
-            #     if len(processes) == (len(processes) -1) / 2:
-            #         for proc in processes:
-            #             proc.communicate()
-            #         processes = []
-            #     for proc in processes:
-            #         proc.communicate()
-            #     processes = []
-            # elif len(self.linkage_groups)%2 == 0:
-            #     if len(processes) == len(processes) / 2:
-            #         for proc in processes:
-            #             proc.communicate()
-            #         processes = []
-
-            # if len(processes)%2 == 0:
-            #     if len(processes) == len(processes)/2:
-            #         for proc in processes:
-            #             proc.communicate()
-            #         processes = []
-
-            # elif len(processes)%2 != 0:
-            #     if len(processes) == (len(processes) -1) / 2:
-            #         for proc in processes:
-            #             proc.communicate
-            #         processes = []
-            #     for proc in processes:
-            #         proc.communicate
-            #     processes = []
-
-            
-            # if len(processes) == 11:
-            #     for proc in processes:
-            #         proc.communicate()
-            #     processes = []
-            # for proc in processes:
-            #     proc.communicate()
-            #     processes = []
-
-    def RunGenotypeGVCFs(self):
-        processes = []
-        # update GenotypeGVCFs command with below annotations
-        for lg in self.linkage_groups:
-            if args.local_test:
-                local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
+    def RunGenotypeGVCFs(self, regions):
+        # Still need to add code to run the unmapped contigs 
+        for lg in regions:
+            print('starting processing ' + lg + ' for all samples in cohort')
+            if args.local_test: # update the location of the GenDB if "local testing" on Utaka vs on the mac. As of Oct 13, 2023, gatk4 does not work via a conda install on my M2 mac on Ventura 13.4.1 and it also doesn't work on a fresh conda env on Utaka (gatk 4.0.-.- gets installed when I need at least 4.3.0.0). gatk 4.3.0.0 still works on Utaka in the 'genomics' env
+                # path is to the gendb located on the Utaka server 
+                local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
                 local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
                 local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
                 local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
                 local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-                p = subprocess.Popen(local_command)
-                processes.append(p)
+                subprocess.run(local_command)
+                print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ' + lg)
+            elif not args.unmapped: # make sure this will work with the same parameters 
+                genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
+                genotypegvcfs_unmapped_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                genotypegvcfs_unmapped_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                genotypegvcfs_unmapped_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                subprocess.run(genotypegvcfs_unmapped_command)
             else:
                 genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
                 genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
                 genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
                 genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
                 genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-                p = subprocess.Popen(genotypegvcfs_command)
-                processes.append(p)
+                subprocess.run(genotypegvcfs_command)
+                print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ' + lg)
 
-            if len(processes) == len(self.linkage_groups):
-                for proc in processes:
-                    proc.communicate()
-                processes = []
-        print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ALL SAMPLES')
+    def multiprocess(self, function):
+        # TODO: This only works if the input function takes in linkage groups. So it works fine for GenomicsDBImport & GenotypeGVCFs, but will fail for RunHaplotypeCaller
+        concurrent_processes = args.concurrent_processes # make concurrent processes an argument later and add it as a required argument later
+        contigs_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
+        # remember that the above contigs_to_process is for CONTIGS. For RunHaplotypeCaller to work, we need to pass sample IDs so code will need modification. Maybe multiprocess can take in an argument like "sample_type" which can then be contigs, sampleIDs, projectIDs, etc. 
+        jobs = []
+        for parallel_processes in contigs_to_process: # for each sublist of processes to start in the larger list of processes:
+            j = Process(target = function, args = (parallel_processes,)) # define the processes
+            jobs.append(j) # append the processes we want to start to the list of jobs 
+        for job in jobs:
+            job.start()
+            print("job - ", job, " - started")
+            job.join()
+            print(type(job))
+            print("job - ", job, " - joined")
 
     def run_methods(self):
         self._generate_sample_map()
@@ -230,17 +208,19 @@ class VariantCaller:
             print('download data will run and GVCF files per sample will be downloaded')
             self.data_downloader()
         if args.import_databases:
-            self.RunGenomicsDBImport()
+            self.multiprocess(self.RunGenomicsDBImport)
         if args.genotype:
-            self.RunGenotypeGVCFs()
+            self.multiprocess(self.RunGenotypeGVCFs)
         if args.download_bams:
             self.download_BAMs()
         if args.haplotypecaller:
             self.RunHaplotypeCaller()
 
-variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
-variant_caller_obj.run_methods()
-print('PIPELINE RUN SUCCESSFUL')
+
+if __name__ == "__main__":
+    variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
+    variant_caller_obj.run_methods()
+    print('PIPELINE RUN SUCCESSFUL')
 
 """
 LOCAL TESTING COMMAND SKELETON
@@ -275,4 +255,49 @@ Old Code:
     #             processes = []
     # if args.failed_samples:
     #     self.RunFailedSamplesHaplotypeCaller()
+
+
+    # def old_RunGenomicsDBImport(self):
+    #     #IMPLEMENT BATCH SIZE CODE TO BE ABLE TO STILL RUN ALL CHROMOSOMES AT ONCE
+    #     processes = []
+    #     for lg in self.linkage_groups:
+    #         if args.local_test:
+    #             p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    #             processes.append(p)
+    #         else:
+    #             p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
+    #             processes.append(p)
+
+    #         if len(processes) == len(self.linkage_groups):
+    #             for proc in processes:
+    #                 proc.communicate()
+    #             processes = []
+    #     print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ALL SAMPLES')
+
+       # def old_RunGenotypeGVCFs(self):
+    #     processes = []
+    #     # update GenotypeGVCFs command with below annotations
+    #     for lg in self.linkage_groups:
+    #         if args.local_test:
+    #             local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
+    #             local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+    #             local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+    #             local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+    #             local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+    #             p = subprocess.Popen(local_command)
+    #             processes.append(p)
+    #         else:
+    #             genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
+    #             genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+    #             genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+    #             genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+    #             genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+    #             p = subprocess.Popen(genotypegvcfs_command)
+    #             processes.append(p)
+
+    #         if len(processes) == len(self.linkage_groups):
+    #             for proc in processes:
+    #                 proc.communicate()
+    #             processes = []
+    #     print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ALL SAMPLES')
 """
