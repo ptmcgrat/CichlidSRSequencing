@@ -200,7 +200,6 @@ class VariantCaller:
         jobs = []
         for block in blocks_to_process: # for each sublist of processes to start in the larger list of processes:
             for contig in block:
-                pdb.set_trace()
                 j = Process(target = function, args = (contig,)) # define the processes
                 jobs.append(j) # append the processes we want to start to the list of jobs 
                 j.start()
