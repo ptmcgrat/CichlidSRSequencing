@@ -18,7 +18,6 @@ parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocat
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 23)
 args = parser.parse_args()
 
-pdb.set_trace()
 """
 in order to run variant calling, the script will run 2 main commands
 gatk GenomicsDBImport
