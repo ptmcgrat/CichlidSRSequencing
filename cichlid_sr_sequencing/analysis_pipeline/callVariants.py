@@ -3,7 +3,7 @@ import pandas as pd
 from multiprocessing import Process
 from helper_modules.nikesh_file_manager import FileManager as FM
 
-
+#argparse blocks should be the same between the 2 script. If not, copy this one over to multiprocessGATK.py  
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
 parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline. Custom IDs can be provided as a csv file containing one sample per line. Save the file as "custom_samples.csv" in the directory containing this script.', nargs = '*', default = ['All'])
@@ -18,6 +18,7 @@ parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocat
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 23)
 args = parser.parse_args()
 
+pdb.set_trace()
 """
 in order to run variant calling, the script will run 2 main commands
 gatk GenomicsDBImport
@@ -35,6 +36,10 @@ CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH DECREASE BATCH SIZE TO HALF 
 The error with the Sample Names is that they are coming from the alignment database... I should add a column in that Database that maybe preserves the ProjectID inforemation sijnce thjis database filters out all repeat alignments..... I think.....
 
 Need a flag to allow a file to be read in that contains a column of custom samples to be read in 
+
+Oct. 17, 2023:
+The processes are not starting concurrently... They are still just running concurrently... Not sure why :(
+
 
 """
 
@@ -147,6 +152,7 @@ class VariantCaller:
                 processes = []
 
     def RunGenomicsDBImport(self, regions):
+        # this funciton is what exists in the multiprocvessGATK.py file. It may have some edits not in the other script so u can copy this over to there if u wanna code on the other script instead of this one which has the whole pipeline. 
         for lg in regions:
             print('starting processing ' + lg + ' for all samples in cohort')
             if args.local_test:
@@ -158,6 +164,7 @@ class VariantCaller:
             print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ' + lg)
 
     def RunGenotypeGVCFs(self, regions):
+        # You can ignore this function for now, but I implemented the parallelization code into it
         # Still need to add code to run the unmapped contigs 
         for lg in regions:
             print('starting processing ' + lg + ' for all samples in cohort')
@@ -189,18 +196,25 @@ class VariantCaller:
     def multiprocess(self, function):
         # TODO: This only works if the input function takes in linkage groups. So it works fine for GenomicsDBImport & GenotypeGVCFs, but will fail for RunHaplotypeCaller
         concurrent_processes = args.concurrent_processes # make concurrent processes an argument later and add it as a required argument later
-        contigs_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
+        blocks_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
         # remember that the above contigs_to_process is for CONTIGS. For RunHaplotypeCaller to work, we need to pass sample IDs so code will need modification. Maybe multiprocess can take in an argument like "sample_type" which can then be contigs, sampleIDs, projectIDs, etc. 
+        
         jobs = []
-        for parallel_processes in contigs_to_process: # for each sublist of processes to start in the larger list of processes:
-            j = Process(target = function, args = (parallel_processes,)) # define the processes
-            jobs.append(j) # append the processes we want to start to the list of jobs 
-        for job in jobs:
-            job.start()
-            print("job - ", job, " - started")
-            job.join()
-            print(type(job))
-            print("job - ", job, " - joined")
+        for block in blocks_to_process: # for each sublist of processes to start in the larger list of processes:
+            for contig in block:
+                j = Process(target = function, args = (contig,)) # define the processes
+                jobs.append(j) # append the processes we want to start to the list of jobs 
+                j.start()
+                print(contig, " - started")
+        
+            i = 0
+            for j in jobs:
+                j.join()
+                print(i, " - finished")
+                i += 1
+
+            del jobs[:]
+        
 
     def run_methods(self):
         self._generate_sample_map()
