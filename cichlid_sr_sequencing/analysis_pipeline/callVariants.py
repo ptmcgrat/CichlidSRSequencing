@@ -15,6 +15,7 @@ parser.add_argument('-b', '--download_bams', help = 'Download the BAM files from
 parser.add_argument('-H', '--haplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
+parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 23)
 args = parser.parse_args()
 
@@ -211,7 +212,6 @@ class VariantCaller:
                 i += 1
 
             del jobs[:]
-        
 
     def run_methods(self):
         self._generate_sample_map()
@@ -226,7 +226,6 @@ class VariantCaller:
             self.download_BAMs()
         if args.haplotypecaller:
             self.RunHaplotypeCaller()
-
 
 if __name__ == "__main__":
     variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
