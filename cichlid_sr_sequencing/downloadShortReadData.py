@@ -26,7 +26,7 @@ fm_obj.downloadData(fm_obj.localReadDownloadDir + args.Run_Info_File)
 new_dt = pd.read_csv(fm_obj.localReadDownloadDir + args.Run_Info_File)
 
 # Basic Error checking
-pdb.set_trace()
+# pdb.set_trace()
 if len(set(new_dt.Run)) != len(new_dt):
 	raise Exception('Each line of Run_Info_File should have unique Run data')
 
