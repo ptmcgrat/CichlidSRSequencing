@@ -1,10 +1,9 @@
 import subprocess as sp
-from multiprocessing import Process, freeze_support
-import argparse, pdb, os
+from multiprocessing import Process
+import argparse, pdb, os, time
 import pandas as pd
 from pyfaidx import Fasta
 from helper_modules.nikesh_file_manager import FileManager as FM
-
 
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
@@ -22,6 +21,11 @@ parser.add_argument('--concurrent_processes', help = 'specify the number of proc
 args = parser.parse_args()
 
 """
+Look into the time library: timer = time.time()
+how to get a duration estimate:
+start = time.time() (at start of the program)
+duration = time.time() - start
+
 TODO:
 Lauren's mp script allows us to pass in any number of concureent processes which will run together using the mp module
 
@@ -178,7 +182,7 @@ class VariantCaller:
                 sp.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
             else:
                 sp.run(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'])
-        print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ' + lg)
+            print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ' + lg)
 
 
 

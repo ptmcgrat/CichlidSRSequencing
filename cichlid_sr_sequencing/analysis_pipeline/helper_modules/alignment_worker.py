@@ -233,7 +233,7 @@ class AlignmentWorker():
 			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		return stats
-	
+
 
 """
 Extra Debugging Comments & Code from Patrick. Refer to the version of alignment_worker in the main branch to see where these comments go if they're needed:
