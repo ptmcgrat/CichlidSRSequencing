@@ -18,8 +18,8 @@ args = parser.parse_args()
 # Download and open master sample database file and read it in
 fm_obj = FM()
 master_sample_data = fm_obj.localSampleFile
-fm_obj.downloadData(master_sample_data)
-sample_dt = pd.read_csv(master_sample_data)
+fm_obj.downloadData(master_sample_data) # download SampleDatabase.csv
+sample_dt = pd.read_csv(master_sample_data) # read it in 
 
 # Download and open run info file that contains new data to include
 fm_obj.downloadData(fm_obj.localReadDownloadDir + args.Run_Info_File)
@@ -64,6 +64,7 @@ for index, row in new_dt.iterrows():
 		continue
 
 	# Make sure we this run hasn't already been added to the sample database
+	# Note by Nikesh: If adding additional reads to increase coverage, then the SampleDatabase.csv will need to be edited on Dropbox to remove the samples that have already been processed. 
 	if run_id in set(sample_dt['RunID']):
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
