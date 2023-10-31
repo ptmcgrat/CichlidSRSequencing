@@ -92,9 +92,11 @@ for sample in good_samples:
 		continue
 	
 	# check if sample matches the platform passed to the script
-	if p_dt.at[sample, 'Platform'] != platform[0].upper():
-		print(sample + 'does not have' + platform[0] + 'reads. Skipping...')
-		continue
+	# this section breaks when testing platforms and there are multiple SampleDatabase rows, like for sequecning reruns (Multiome) or L001/L002 samples (BrainDIversity_s1)
+	# pdb.set_trace()
+	# if p_dt.at[sample, 'Platform'] != platform[0].upper():
+	# 	print(sample + 'does not have' + platform[0] + 'reads. Skipping...')
+	# 	continue
 
 	# Make directories and appropriate files
 	print(' Processing sample: ' + sample + '; Start time: ' + str(datetime.datetime.now()))
@@ -155,7 +157,6 @@ print('Pipeline run successful')
 """
 COMMAND FOR LOCAL TESTING:
 /Users/kmnike/anaconda3/envs/pipeline/bin/python3 alignFastQ.py Mzebra_GT1 -p LocalTesting -t pacbio
-
 
 
 """
