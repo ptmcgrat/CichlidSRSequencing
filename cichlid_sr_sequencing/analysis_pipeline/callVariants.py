@@ -83,7 +83,7 @@ class VariantCaller:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.linkage_groups = linkage_groups
         if self.linkage_groups == ['All']:
-            self.linkage_groups = list(self.linkage_group_map.values())
+            self.linkage_groups = list(self.linkage_group_map.values())[:-1]
         else:
             regions_list = []
             for region in self.linkage_groups:
