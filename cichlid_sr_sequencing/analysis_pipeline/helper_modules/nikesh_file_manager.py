@@ -17,6 +17,8 @@ class FileManager():
 		else:
 			#Master directory for local data. This is where the data structure will be setup on the server. It will be '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/'
 			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Data/CichlidSequencingData/'
+			# In Oct 2023, Curtis & I mounted a new RAID array to Utaka server that I then mounted into /Output. The below line will allow the scripts to access data stroed in this directory. 
+			self.localStorageDir = '/Output/'
 		# Identify cloud directory for rclone
 		self.rcloneRemote = rcloneRemote
 		# On some computers, the first directory is McGrath, on others it's BioSci-McGrath. Use rclone to figure out which
@@ -43,9 +45,9 @@ class FileManager():
 		# Same logic applies to all of the below in creating the local directory structure.
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
-		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version 	
+		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version
 	
-		self.localReadsDir = self.localMasterDir + 'Reads/'		
+		self.localReadsDir = self.localMasterDir + 'Reads/'
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
 		self.localTempDir = self.localMasterDir + 'Temp/'
@@ -67,7 +69,10 @@ class FileManager():
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
 		self.localMasterFileDir = self.localOutputDir + 'MasterFile/'
-		
+
+		# Below block is to map file structures in /Output:
+		self.StorageBamfilesDir = self.localStorageDir + 'Bamfiles/'
+		self.StorageBamRefDir = self.StorageBamfilesDir + self.genome_version + '/'
 
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID
@@ -82,6 +87,11 @@ class FileManager():
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
+
+		# Below block is to access files in the /Output storage directory
+		self.StorageSampleBamDir = self.StorageBamRefDir + sampleID + '/'
+		self.StorageGVCFFile = self.StorageSampleBamDir + sampleID + '.g.vcf.gz'
+		self.StorageGVCFIndex = self.StorageSampleBamDir + sampleID + '.g.vcf.gz.tbi'
 
 	def returnTempGVCFFile(self, contig):
 		return self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
