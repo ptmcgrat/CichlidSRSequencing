@@ -107,7 +107,9 @@ class VariantCaller:
         with open('sample_map.txt', 'w') as fh:
             for sampleID in sampleIDs:
                 self.fm_obj.createSampleFiles(sampleID)
-                fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
+                # commenting out below line since BAM and GVCF files are stored at /Output/Bamfiles/Mzebra_UMD2a
+                # fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
+                fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
 
     def data_downloader(self):
         print('Downloading new Alignment File')
