@@ -1,4 +1,4 @@
-import subprocess as sp, argparse, shlex, pysam, os
+import subprocess as sp, argparse, shlex, os
 from helper_modules.nikesh_file_manager import FileManager as FM
 import pdb
 
@@ -6,7 +6,8 @@ import pdb
 The script will assume that the individual VCF files per chromosome are stored on the Utaka server itself in the fm_obj.localOutputDir.
 Within this directory, I need to find files that match '*.vcf' and concatenate these only  
 
-Code is needed to fix the excess newline that's being entered bewteen every linkage group 
+Code is needed to fix the excess newline that's being entered bewteen every linkage group.
+I believe I resolved that issue, btu I am not certain. I'll run a local_test and see if it works
 """
 
 parser = argparse.ArgumentParser(usage = 'This script will concatenate VCF ouputs from the CallSmallSNVs.py pipeline into a master VCF file.')
@@ -53,8 +54,7 @@ class VCF_Concatenator:
                             for line in f2:
                                 if not line.startswith('#'): # avoids writing header information from all subsequent files 
                                     f1.write(line)
-                            # f1.write('\n') # last newline needed to not merge lines between files together.
-        else: # if the master file exists, create a new file so that the data in previous iterations will be preserved. 
+        else: # if the master file exists, create a new file so that the data in previous iterations will be preserved to prevent overwrite of an existing file 
             with open(f"{self.output_dir}master_file{self.file_num}.vcf", 'w+') as f1: # open a new master_file.vcf with a new file_num if one already exists
                 for file in self.linkage_groups:
                     file_to_write = file_to_write = self.fm_obj.localOutputDir + file + '_output.vcf'
@@ -65,7 +65,6 @@ class VCF_Concatenator:
                             for line in f2:
                                 if not line.startswith('#'): # avoids writing header information from all subsequent files 
                                     f1.write(line)
-                            # f1.write('\n') # last newline needed to not merge lines between files together.
 
     def run_methods(self):
         self._make_file_structure()
