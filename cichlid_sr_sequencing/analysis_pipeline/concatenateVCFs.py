@@ -6,17 +6,17 @@ import pdb
 The script will assume that the individual VCF files per chromosome are stored on the Utaka server itself in the fm_obj.localOutputDir.
 Within this directory, I need to find files that match '*.vcf' and concatenate these only  
 
-Code is needed to fix the excess newline that's being entered bewteen every linkage group.
-I believe I resolved that issue, btu I am not certain. I'll run a local_test and see if it works
+Functionality has been added to allow inidividual LG VCF files stored in the storage dir in Utaka to be read in and used for concatenation.
+I will add functionality that will automatically zip and index the VCF file following creation of the master file. 
 """
 
 parser = argparse.ArgumentParser(usage = 'This script will concatenate VCF ouputs from the CallSmallSNVs.py pipeline into a master VCF file.')
 parser.add_argument('reference_genome', type = str, help = 'Version of the genome use')
 parser.add_argument('-u', '--utaka', help = 'use this flag when concatenating on the Utaka server and the individual files are stored in the /Output directory', action = 'store_true')
+parser.add_argument('-z', '--zip', help = 'call on this flag to zip the concatenated masterfile', action = 'store_true')
+parser.add_argument('-i', '--index', help = 'call on this flag to index the zipped masterfile', action = 'store_true')
 parser.add_argument('--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
 args = parser.parse_args()
-
-# Create FileManager object to keep track of filenames
 
 class VCF_Concatenator:
     def __init__(self, genome):
@@ -47,6 +47,7 @@ class VCF_Concatenator:
         if self.file_num == 0:
             with open(f"{self.output_dir}master_file.vcf", 'w+') as f1: # open the master list file if the vcf_concat_output dir is empty
                 for file in self.linkage_groups:
+                    print('Reading in and concatenating ' + file + '...')
                     if args.utaka:
                         file_to_write = self.fm_obj.StorageOutputDir + file + '_output.vcf'
                     else:
@@ -61,6 +62,7 @@ class VCF_Concatenator:
         else: # if the master file exists, create a new file so that the data in previous iterations will be preserved to prevent overwrite of an existing file 
             with open(f"{self.output_dir}master_file{self.file_num}.vcf", 'w+') as f1: # open a new master_file.vcf with a new file_num if one already exists
                 for file in self.linkage_groups:
+                    print('Reading in and concatenating ' + file + '...')
                     if args.utaka:
                         file_to_write = self.fm_obj.StorageOutputDir + file + '_output.vcf'
                     else:
@@ -72,14 +74,37 @@ class VCF_Concatenator:
                             for line in f2:
                                 if not line.startswith('#'): # avoids writing header information from all subsequent files 
                                     f1.write(line)
+        print('MASTER_FILE GENERATED')
 
+    def zip_masterfile(self):
+        print('Starting master_file compression...')
+        if self.file_num == 0:
+            with open(f"{self.output_dir}master_file.vcf.gz", 'w+') as f1:
+                # I've confirmed that the below command gives a zipped file that can be unzipped and has the same data as the original using the diff command and using ls -l and confirming that the bytes are the same
+                sp.call(shlex.split(f"bgzip -c {self.output_dir}master_file.vcf"), stdout=f1)
+        else:
+            with open(f"{self.output_dir}master_file{self.file_num}.vcf.gz", 'w') as f2:
+                sp.call(shlex.split(f"bgzip -c {self.output_dir}master_file.vcf"), stdout=f2)
+        print('MASTER_FILE COMPRESSION COMPLETE')
+
+    def index_masterfile(self):
+        print('Generating index using zipped master_file...')
+        if self.file_num == 0:
+            sp.run(shlex.split(f"tabix -p vcf {self.output_dir}master_file.vcf.gz"))
+        else:
+            sp.run(shlex.split(f"tabix -p vcf {self.output_dir}master_file{self.file_num}.vcf.gz"))
+        print('MASTER_FILE INDEXING COMPLETE')
     def run_methods(self):
         self._make_file_structure()
         self._concat_vcfs()
+        if args.zip:
+            self.zip_masterfile()
+        if args.index:
+            self.index_masterfile()
 
 concat_obj = VCF_Concatenator(args.reference_genome)
 concat_obj.run_methods()
-
+print("Pipeline run complete")
 
 """
 Below is the old code KEEP THE CODE TO PRESVERVE CODE THAT ALLOWS FOR DOWNLOAD AND REMOVE CONCATENATION IF FILES ARE STORED ONLY ON DROPBOX 
@@ -140,6 +165,3 @@ else: # if the master file exists, create a new file so that the data in previou
                 sp.run(shlex.split(f"rm {file_to_write}"))
                 sp.run(shlex.split(f"rm  -r {temp_dir}"))
 """
-
-print("CONCATENATION COMPLETE")
-
