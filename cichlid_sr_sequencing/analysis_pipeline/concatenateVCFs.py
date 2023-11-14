@@ -12,7 +12,7 @@ I believe I resolved that issue, btu I am not certain. I'll run a local_test and
 
 parser = argparse.ArgumentParser(usage = 'This script will concatenate VCF ouputs from the CallSmallSNVs.py pipeline into a master VCF file.')
 parser.add_argument('reference_genome', type = str, help = 'Version of the genome use')
-parser.add_argument('--utaka', help = 'use this flag when concatenating on the Utaka server and the individual files are stored in the /Output directory')
+parser.add_argument('-u', '--utaka', help = 'use this flag when concatenating on the Utaka server and the individual files are stored in the /Output directory', action = 'store_true')
 parser.add_argument('--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
 args = parser.parse_args()
 
