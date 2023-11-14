@@ -74,6 +74,7 @@ class FileManager():
 		# Below block is to map file structures in /Output:
 		self.StorageBamfilesDir = self.localStorageDir + 'Bamfiles/'
 		self.StorageBamRefDir = self.StorageBamfilesDir + self.genome_version + '/'
+		self.StorageOutputDir = self.localStorageDir + 'Outputs/'
 
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID

@@ -12,6 +12,7 @@ I believe I resolved that issue, btu I am not certain. I'll run a local_test and
 
 parser = argparse.ArgumentParser(usage = 'This script will concatenate VCF ouputs from the CallSmallSNVs.py pipeline into a master VCF file.')
 parser.add_argument('reference_genome', type = str, help = 'Version of the genome use')
+parser.add_argument('--utaka', help = 'use this flag when concatenating on the Utaka server and the individual files are stored in the /Output directory')
 parser.add_argument('--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
 args = parser.parse_args()
 
@@ -46,7 +47,10 @@ class VCF_Concatenator:
         if self.file_num == 0:
             with open(f"{self.output_dir}master_file.vcf", 'w+') as f1: # open the master list file if the vcf_concat_output dir is empty
                 for file in self.linkage_groups:
-                    file_to_write = self.fm_obj.localOutputDir + file + '_output.vcf'
+                    if args.utaka:
+                        file_to_write = self.fm_obj.StorageOutputDir + file + '_output.vcf'
+                    else:
+                        file_to_write = self.fm_obj.localOutputDir + file + '_output.vcf'
                     if os.path.getsize(f"{self.output_dir}master_file.vcf") == 0: # if the master file is empty, take the file and write the whole contents. This will write the header
                         f1.write(sp.check_output(shlex.split(f"cat {file_to_write}"), encoding='utf-8')) # the newline is needed at the end
                     else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file.
@@ -57,7 +61,10 @@ class VCF_Concatenator:
         else: # if the master file exists, create a new file so that the data in previous iterations will be preserved to prevent overwrite of an existing file 
             with open(f"{self.output_dir}master_file{self.file_num}.vcf", 'w+') as f1: # open a new master_file.vcf with a new file_num if one already exists
                 for file in self.linkage_groups:
-                    file_to_write = file_to_write = self.fm_obj.localOutputDir + file + '_output.vcf'
+                    if args.utaka:
+                        file_to_write = self.fm_obj.StorageOutputDir + file + '_output.vcf'
+                    else:
+                        file_to_write = file_to_write = self.fm_obj.localOutputDir + file + '_output.vcf'
                     if os.path.getsize(f"{self.output_dir}master_file{self.file_num}.vcf") == 0: # if the master file is empty, take the file and write the whole contents. This will write the header
                         f1.write(sp.check_output(shlex.split(f"cat {file_to_write}"), encoding='utf-8')) # the newline is needed at the end
                     else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file.
