@@ -1,0 +1,82 @@
+# I think the easiest way to invoke this annoying script will be to copy it into the filtering_stats directory and pipe all outputs into a new directory called stats_visualizations or something 
+library('tidyverse')
+setwd(getwd())
+
+# Create a stats_visualization dir if it doesn't already exist in the filtering_stats dir
+if (!(dir.exists('stats_figures'))){
+    dir.create(file.path('stats_figures'))
+}
+out_dir = paste(getwd(), '/stats_figures', sep='')
+
+# for now I will hard_code in that all filenames will have the prefix "612_cohort" since that's the cohort I will run this on the first time I use the script
+
+# stats for mean depth per sample (column)
+ind_depth <- read_delim("612_cohort.idepth", delim = "\t",
+                        col_names = c("ind", "nsites", "depth"), skip = 1)
+a <- ggplot(ind_depth, aes(depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+a + theme_light()
+ggsave(path = out_dir, filename = 'mean_depth_per_sample.png')
+sink('mean_depth_per_column.txt')
+print(summary(ind_depth$depth))
+print(quantile(ind_depth$depth, c(.05, .10, .25, .50, .75, .90, .95)))
+sink()
+
+# stats for depth for each variant (depth in each row)
+var_depth <- read_delim("612_cohort.ldepth.mean", delim = "\t",
+           col_names = c("chr", "pos", "mean_depth", "var_depth"), skip = 1)
+b <- ggplot(var_depth, aes(mean_depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+b + theme_light() + xlim(0,50)
+ggsave(path = out_dir, filename = 'mean_depth_per_row.png')
+sink('mean_depth_per_row.txt')
+print(summary(var_depth$mean_depth))
+print(quantile(var_depth$mean_depth, c(.05, .10, .25, .50, .75, .90, .95)))
+sink()
+
+# stats for depth per each depth, not averaged (by row)
+var_site_depth <- read_delim("612_cohort.ldepth", delim = "\t",
+           col_names = c("chr", "pos", "sum_depth", "sumsq_depth"), skip = 1)
+c <- ggplot(var_site_depth, aes(sum_depth)) + geom_histogram(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+c + theme_light()
+ggsave(path = out_dir, filename = 'total_depth_per_row.png')
+sink('sum_depth_per_row.txt')
+print(summary(var_depth$mean_depth))
+print(quantile(var_depth$mean_depth, c(.05, .10, .25, .50, .75, .90, .95)))
+sink()
+
+# stats for how much data is missing per sample (column)
+ind_miss  <- read_delim("612_cohort.imiss", delim = "\t",
+                        col_names = c("ind", "ndata", "nfiltered", "nmiss", "fmiss"), skip = 1)
+d <- ggplot(ind_miss, aes(fmiss)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+d + theme_light()
+ggsave(path = out_dir, filename = 'missing_data_per_sample.png')
+
+# stats for missing data by variant (row)
+var_miss <- read_delim("612_cohort.lmiss", delim = "\t",
+            col_names = c("chr", "pos", "nchr", "nfiltered", "nmiss", "fmiss"), skip = 1)
+e <- ggplot(var_miss, aes(fmiss)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+e + theme_light()
+ggsave(path = out_dir, filename = 'missing_data_per_variant.png')
+
+# stats for allele frequency of variants
+var_freq <- read_delim("612_cohort.frq", delim = "\t",
+                       col_names = c("chr", "pos", "nalleles", "nchr", "a1", "a2"), skip = 1)
+var_freq$maf <- var_freq %>% select(a1, a2) %>% apply(1, function(z) min(z))
+f <- ggplot(var_freq, aes(maf)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+f + theme_light() + xlim(0, 0.025)
+ggsave(path = out_dir, filename = 'mean_allele_frequency_per_variant.png')
+
+# stats for heterozygosity & inbreeding coefficient
+ind_het <- read_delim("612_cohort.het", delim = "\t",
+           col_names = c("ind","ho", "he", "nsites", "f"), skip = 1)
+g <- ggplot(ind_het, aes(f)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+g + theme_light()
+ggsave(path = out_dir, filename = 'heterozygosity_per_individual.png')
+
+# stats for variant quality (row)
+var_qual <- read_delim("612_cohort.lqual", delim = "\t",
+           col_names = c("chr", "pos", "qual"), skip = 1)
+h <- ggplot(var_qual, aes(qual)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+h + theme_light() + xlim(0,1000)
+ggsave(path = out_dir, filename = 'quality_per_variant.png')
+
+print('Script run successful')

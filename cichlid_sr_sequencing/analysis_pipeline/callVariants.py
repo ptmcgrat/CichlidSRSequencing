@@ -3,7 +3,6 @@ import pandas as pd
 from multiprocessing import Process
 from helper_modules.nikesh_file_manager import FileManager as FM
 
-#argparse blocks should be the same between the 2 script. If not, copy this one over to multiprocessGATK.py  
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
 parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline. Custom IDs can be provided as a csv file containing one sample per line. Save the file as "custom_samples.csv" in the directory containing this script.', nargs = '*', default = ['All'])
@@ -20,26 +19,14 @@ parser.add_argument('--concurrent_processes', help = 'specify the number of proc
 args = parser.parse_args()
 
 """
-in order to run variant calling, the script will run 2 main commands
-gatk GenomicsDBImport
-# gatk GenomicsDBImport --genomicsdb-workspace-path {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg + '_database'} --intervals small_contig.interval_list --sample-name-map sample_map_utaka.txt --max-num-intervals-to-import-in-parallel 4"])
-gatk GenotypeGVCFs
-# "gatk GenotypeGVCFs -R /Data/mcgrath-lab/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna -V {'gendb://../../../../../Data/mcgrath-lab/Data/CichlidSequencingData/TestingDatabases/' + lg + '_database/'}  -O {'/Data/mcgrath-lab/Data/CichlidSequencingData/TestingOutputs/' + lg + '_output.vcf'} --heterozygosity 0.0012"))
-
 TODO:
-For GenomicsDBImport, if all LGs are run at once with 576+ samples, the server runs out of RAM. We need to split the LGs to run 11 at a time. 
-However, then we run into an error when processing less than 11 LGs or if we process an uneven number of LGs. 
-Code is needed to resolve this issue if there are an uneven number of LGs given or if there are simply less than 11 LGs given 
-Not an issue anymore  Utaka has 1TB ram  
 
-CURRENTLY WE CANT RUN ALL 576 TOGETHER IN ONE BATCH DECREASE BATCH SIZE TO HALF AND RUN ALL LGS AT ONCE 
-The error with the Sample Names is that they are coming from the alignment database... I should add a column in that Database that maybe preserves the ProjectID inforemation sijnce thjis database filters out all repeat alignments..... I think.....
-
-Need a flag to allow a file to be read in that contains a column of custom samples to be read in 
-
-Oct. 17, 2023:
-The processes are not starting concurrently... They are still just running concurrently... Not sure why :(
-
+NOTE:
+2023 Nov. 15
+Utaka has upgraded RAM, but there are still constraints with running 22 LGs + mito in parallel with so many samples. 
+Mito doesn't take long to run anyway, so leave it to run after everything else, or run it first 
+Devote as much memory as possible to each child process when running the 22 LGs. Still, some may need more memory than available (1024 total) and could fail. Ideally make the memory allocation divisible by 64
+That's what happened with 3 LGs when I ran GenomicsDBImport.
 
 """
 

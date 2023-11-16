@@ -3,6 +3,7 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 import pdb
 
 """
+USE THE process_vcf.py SCRIPT INSTEAD. IT INCLUDES ALL BELOW CODE ALONG WITH VCF STATS AND FILTERING CODE  
 The script will assume that the individual VCF files per chromosome are stored on the Utaka server itself in the fm_obj.localOutputDir.
 Within this directory, I need to find files that match '*.vcf' and concatenate these only  
 
