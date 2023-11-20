@@ -133,7 +133,7 @@ class VCFProcessor:
         self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz'
         subprocess.run(shlex.split(f"gatk VariantFiltration \
                                     -R {self.fm_obj.localGenomeFile} \
-                                    -V {self.master_file} \
+                                    -V {self.zipped_master_file} \
                                     -O {self.filtered_file} \
                                     --filter-name 'allele_freq' \
                                     --filter-expression 'AF < 0.000817' \
