@@ -35,12 +35,12 @@ sink()
 # stats for depth per each depth, not averaged (by row)
 var_site_depth <- read_delim("612_cohort.ldepth", delim = "\t",
            col_names = c("chr", "pos", "sum_depth", "sumsq_depth"), skip = 1)
-c <- ggplot(var_site_depth, aes(sum_depth)) + geom_histogram(fill = "dodgerblue1", colour = "black", alpha = 0.3)
-c + theme_light()
+c <- ggplot(var_site_depth, aes(sum_depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
+c + theme_light() + xlim(0, 25000) # the x_lim may need to increase as more samples are included
 ggsave(path = out_dir, filename = 'total_depth_per_row.png')
 sink('sum_depth_per_row.txt')
-print(summary(var_depth$mean_depth))
-print(quantile(var_depth$mean_depth, c(.05, .10, .25, .50, .75, .90, .95)))
+print(summary(var_site_depth$sum_depth))
+print(quantile(var_site_depth$sum_depth, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
 
 # stats for how much data is missing per sample (column)
