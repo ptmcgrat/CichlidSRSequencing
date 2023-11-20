@@ -1,22 +1,23 @@
 import argparse, pdb, os, subprocess, pathlib
 import pandas as pd
+from helper_modules.nikesh_file_manager import FileManager as FM
 from cyvcf2 import VCF
 import plotly.express as px
 import plotly.graph_objs as go
 
-parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file")
-parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
+parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file. Note that the script will assume tha name of the vcf file to analyze is pass_variants_master_file.vcf.gz")
+parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
+# parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
 parser.add_argument('output_dir', help = 'absolute filepath to an output directory')
-parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
+# parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
 parser.add_argument('--sample_subset', help = 'This flag will restruct the samples used for generating the PCA plot to a max of three three samples for any given organism.', action= 'store_true')
-parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi'], nargs = '*', default = ['All'])
+parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi', 'Rock_Sand', 'Sand'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
+parser.add_argument('-l', '--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
 args = parser.parse_args()
-
 
 """
 To Do:
-- The location of the pca.R script is hard coded in and assumes the pipeline will be called from the directory conatining pca_maker.py and that this directory contains the modules/pca.R script. See if this can be changed.
 - The location of the intervals for LG 11 are also stored in the 'lg11_intervals' directory which the script will assume is stored in the dir from which pca_maker.py is called. If this is untrue there will be issues... 
 - The script needs to be able to take in a "Whole" option for regions and generate a PCA for the whole genome's variants taken together, instead of being split by EG.
 - The script also needs to be able to taek in multiple regions per LG and run analyses sequentially for all regiosn provided. The regions taht will often be called are "All," "Inversion," & "Whole"
@@ -25,7 +26,7 @@ To Do:
     - The splitting methods are _split_VCF_to_LG for "all" or lg specific analyses, and "_create_inversion_files" for "Inversion"
     - These must be skipped... The above methods take in the self.samples_filtered_master_file as inpout and output to the PCA dir. Instead of outputting a split file to a "Whole" dir in .../PCA I can nmake the "Whole" dir, then pipe outputs from plink there. 
 
-- Add code to check if the number of columns for each vcf file in the PCA dir is teh same as teh number of sampels in samples_to_keep.csv. If not, then make a new file. If so, keep the original
+- Add code to check if the number of columns for each vcf file in the PCA dir is the same as teh number of sampels in samples_to_keep.csv. If not, then make a new file. If so, keep the original
     - this will ensure overwrites of the files in the event of a --sample_subset call 
 
 """
@@ -34,25 +35,27 @@ To Do:
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
 # There will be many fucntions defined within the class besides the __init__ function which give objects of the class their attributes.
 class PCA_Maker:
-    def __init__(self, input_vcffile, output_directory, sample_database, ecogroups, linkage_groups): # The PCA_Maker class will create an object (self) which will then take in (currently) 4 pieces of information (input file out dir, sample_database excel sheet, ecogroup names)
+    def __init__(self, genome, ecogroups, linkage_groups, output_directory): # The PCA_Maker class will create an object (self) which will then take in (currently) 4 pieces of information (input file out dir, sample_database excel sheet, ecogroup names)
         # self.attr indicates that the object made with PCA_Maker will have the attribute named "attr"
         # The linkage_group_map attribute is a hard coded list of LG names
         self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
                              'LG7':'NC_036786.1', 'LG8':'NC_036787.1', 'LG9':'NC_036788.1', 'LG10':'NC_036789.1', 'LG11':'NC_036790.1', 'LG12':'NC_036791.1', 
                              'LG13':'NC_036792.1', 'LG14':'NC_036793.1', 'LG15':'NC_036794.1', 'LG16':'NC_036795.1', 'LG17':'NC_036796.1', 'LG18':'NC_036797.1', 
-                             'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1'}
-        self.in_vcf = input_vcffile # The in_vcf attriubute is sequal to the input file name for the Object. 
-        self.sample_database = sample_database # The sample_database attribute equals the sample_database name for the object
+                             'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
+        self.genome = genome
+        self.fm_obj = FM(self.genome)
+        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
-        self.r_script = os.getcwd() + '/modules/pca.R' # use the dir from which the pipeline is called to get the file path to the R script. 
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
-        # Create a filepath that includes name of input file and ecogroups on whcih the analysis is performed
-        file_version = self.in_vcf.split('/')[-1].split('.')[0]
+
+        # Create a filepath that includes name of input file and ecogroups on whcih the analysis is performed. The below code is necessary to make sure the storage of PCAs are within a filepath unique to each analysis and unique for any VCF file passed in
+        file_version = self.in_vcf.split('/')[-1].split('.')[0] # if we run pca_maker on multiple vcf files, this allows us to ensure all plots from a particular file go to its own dir within the self.our_dir defined below
         analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
-        pathlib.Path(output_directory + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
-        self.out_dir = output_directory + '/' + file_version + '/' + analysis_ecogroups
+        self.out_dir = output_directory
+        pathlib.Path(self.out_dir + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
+        self.out_dir = self.out_dir + '/' + file_version + '/' + analysis_ecogroups
 
         regions_list = [] # regions list will add various linkage group names, or add the names of regions of interest like "Whole" or the various special regions of interest if passed "Exploratory"
         for region in self.linkage_groups:
@@ -73,10 +76,10 @@ class PCA_Maker:
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
-    def _create_sample_filter_file(self): # Here's a hidden function which will carry out a bunch of code in the background using the attributes defined in the __init__ block. 
-        self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz'  # plink_master_vcf is an attribute that gives a filepath to an output file in the out dir. Edit to make the filepath more of what you want it to be & use pathlib to generate parent structure if it doesn't exist
-        self.good_samples_csv = self.out_dir + '/samples_to_keep.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified. 
-        self.metadata_csv = self.out_dir + '/metadata_for_R.csv'
+    def _create_sample_filter_file(self):
+        self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz' # for each analysis, depending on the ecogroups chosen, we generate a subset vcf file. The path and name of that file is defined here.
+        self.good_samples_csv = self.out_dir + '/samples_to_keep.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
+
         # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
         if self.ecogroups == ['All']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
@@ -84,13 +87,19 @@ class PCA_Maker:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
         elif self.ecogroups == ['Lake_Malawi']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
+        elif self.ecogroups == ['Rock_Sand']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
+        elif self.ecogroups == ['Sand']:
+            self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
 
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile) # download fresh SampleDatabase.csv so we can read it in and get ecogroup information
+        self.sample_database = self.fm_obj.localSampleFile # used in the next  code block
+        
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
         # The to_csv(self.good_samples_txt, header = False, index = False) converts into a csv file that bcftools will be able to take as input. The index/header = False eliminate any index/header information, leaving only filtered samples. 
         # Note that the name of the output file is self.good_samples.csv which is where the file pathing for the output file is taken care of
-
-        self.df = pd.read_excel(self.sample_database, sheet_name = 'vcf_samples') # This line generates a pandas dataframe using the "sample_database" attribute so we can use it below:
+        self.df = pd.read_csv(self.sample_database) # generate df from SampleDatabase.csv
         if args.sample_subset: # if sample_subset flag is called then self.df_filtered is initialized as a blank DataFrame. 
             self.df_filtered = pd.DataFrame()
             ecogroup_df = self.df[self.df.Ecogroup.isin(self.ecogroups)] # gets samples matching eco groups provided to the pipeline
@@ -102,9 +111,16 @@ class PCA_Maker:
                 else:
                     self.df_filtered = pd.concat([self.df_filtered, organism_rows], ignore_index=True) # if total rows for organism are less than 3, add all rows to self.df_filtered
             pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # using the SampleID column, get all unique IDs and write them to self.good_samples_csv which is used to pull samples for VCF filtering in the pipeline 
+        elif args.local_test:
+            self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+            local_samples = subprocess.check_output(['bcftools', 'query', '-l', self.in_vcf], encoding='utf-8').split('\n')
+            del local_samples[-1]
+            with open(self.good_samples_csv, 'w') as fh:
+                for sample in local_samples:
+                    fh.write(sample + '\n')
         else:
             self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)] # if sample_subset flag is not called, just get all samples for the given ecogroups and proceed  
-            pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False)
+            pd.DataFrame(self.df_filtered[self.df_filtered.Platform != 'PACBIO'].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # get rid of Pacbio samples and leave only Illumina ones
         if pathlib.Path(self.samples_filtered_master_vcf).exists(): # if the samples_filtered_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
             if subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
                 print(f'\nThe file {self.samples_filtered_master_vcf} exists and samples within the file match those in self.good_samples_csv. New samples_filtered_master_vcf file will not be built.')
@@ -248,12 +264,15 @@ class PCA_Maker:
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
         self._split_VCF_to_LG(self.linkage_groups)
         self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
-        # self._create_plots(self.linkage_groups) #commented out for now since interactvie PCA plots are preferred
+        # self._create_plots(self.linkage_groups) #commented out for now since interactive PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
 
-pca_obj = PCA_Maker(args.input_vcffile, args.output_dir, args.sample_database, args.ecogroups, args.regions)
-pca_obj.create_PCA()
-print('PIPELINE RUN SUCCESSFUL')
+
+
+if __name__ == "__main__":
+    pca_obj = PCA_Maker(args.genome, args.ecogroups, args.regions, args.output_dir)
+    pca_obj.create_PCA()
+    print('PIPELINE RUN SUCCESSFUL')
 
 
 
@@ -274,6 +293,9 @@ local testing:
 
 
 # Old Code for generating ploits using R 
+        self.r_script = os.getcwd() + '/modules/pca.R' # use the dir from which the pipeline is called to get the file path to the R script. Deprecated function since switching to plotly
+        self.metadata_csv = self.out_dir + '/metadata_for_R.csv' # deprecated function. not needed with
+        
         #### Below 2 lines are legacy code used to generate a PCA plot using R code  Since the pipeline has shifted to using Plotly instead, this metadata file is no longer needed and will not be gnerated anymore. If needed, add these into the _create_sample_filter_file() function
         # self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
         # self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
