@@ -129,31 +129,31 @@ class VCFProcessor:
 
     def filter_variants(self):
         print('RUNNING VARIANT FILTERING')
-        # self.filtered_file = self.fm_obj.localOutputDir + 'filtered_'+ self.output
-        # self.pass_file = self.fm_obj.localOutputDir + 'pass_variants_' + self.output
-        # subprocess.run(shlex.split(f"gatk VariantFiltration \
-        #                             -R {self.fm_obj.localGenomeFile} \
-        #                             -V {self.master_file} \
-        #                             -O {self.filtered_file} \
-        #                             --filter-name 'allele_freq' \
-        #                             --filter-expression 'AF < 0.000958' \
-        #                             --filter-name 'inbreeding_test' \
-        #                             --filter-expression 'InbreedingCoeff < -0.6' \
-        #                             --filter-name 'depth_Qual' \
-        #                             --filter-expression 'QD < 2.0' \
-        #                             --filter-name 'max_DP' \
-        #                             --filter-expression 'DP > 12000' \
-        #                             --filter-name 'min_DP' \
-        #                             --filter-expression 'DP < 9000' \
-        #                             --filter-name 'strand_bias' \
-        #                             --filter-expression 'FS > 40.0' \
-        #                             --filter-name 'mapping_quality' \
-        #                             --filter-expression 'MQ < 50.0' \
-        #                             --filter-name 'no_calls' \
-        #                             --filter-expression 'NCC > 125.0' \
-        #                             --verbosity ERROR"))
+        self.filtered_file = self.fm_obj.localOutputDir + 'vcf_concat_output/filtered_master_file.vcf.gz'
+        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz'
+        subprocess.run(shlex.split(f"gatk VariantFiltration \
+                                    -R {self.fm_obj.localGenomeFile} \
+                                    -V {self.master_file} \
+                                    -O {self.filtered_file} \
+                                    --filter-name 'allele_freq' \
+                                    --filter-expression 'AF < 0.000817' \
+                                    --filter-name 'inbreeding_test' \
+                                    --filter-expression 'InbreedingCoeff < -0.6' \
+                                    --filter-name 'depth_Qual' \
+                                    --filter-expression 'QD < 2.0' \
+                                    --filter-name 'max_DP' \
+                                    --filter-expression 'DP > 12000' \
+                                    --filter-name 'min_DP' \
+                                    --filter-expression 'DP < 9000' \
+                                    --filter-name 'strand_bias' \
+                                    --filter-expression 'FS > 40.0' \
+                                    --filter-name 'mapping_quality' \
+                                    --filter-expression 'MQ < 50.0' \
+                                    --filter-name 'no_calls' \
+                                    --filter-expression 'NCC > 146.0' \
+                                    --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
-        # subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
+        subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
         print('PASS VARIANT FILE GENERATED')
 
     def run_methods(self):

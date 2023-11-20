@@ -16,7 +16,7 @@ ind_depth <- read_delim("612_cohort.idepth", delim = "\t",
 a <- ggplot(ind_depth, aes(depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 a + theme_light()
 ggsave(path = out_dir, filename = 'mean_depth_per_sample.png')
-sink('mean_depth_per_column.txt')
+sink('mean_depth_per_column_stats.txt')
 print(summary(ind_depth$depth))
 print(quantile(ind_depth$depth, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
@@ -27,7 +27,7 @@ var_depth <- read_delim("612_cohort.ldepth.mean", delim = "\t",
 b <- ggplot(var_depth, aes(mean_depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 b + theme_light() + xlim(0,50)
 ggsave(path = out_dir, filename = 'mean_depth_per_row.png')
-sink('mean_depth_per_row.txt')
+sink('mean_depth_per_row_stats.txt')
 print(summary(var_depth$mean_depth))
 print(quantile(var_depth$mean_depth, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
@@ -38,7 +38,7 @@ var_site_depth <- read_delim("612_cohort.ldepth", delim = "\t",
 c <- ggplot(var_site_depth, aes(sum_depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 c + theme_light() + xlim(0, 25000) # the x_lim may need to increase as more samples are included
 ggsave(path = out_dir, filename = 'total_depth_per_row.png')
-sink('sum_depth_per_row.txt')
+sink('sum_depth_per_row_stats.txt')
 print(summary(var_site_depth$sum_depth))
 print(quantile(var_site_depth$sum_depth, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
@@ -64,6 +64,10 @@ var_freq$maf <- var_freq %>% select(a1, a2) %>% apply(1, function(z) min(z))
 f <- ggplot(var_freq, aes(maf)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 f + theme_light() + xlim(0, 0.025)
 ggsave(path = out_dir, filename = 'mean_allele_frequency_per_variant.png')
+sink('allele_freq_stats.txt')
+print(summary(var_freq$maf))
+print(quantile(var_freq$maf, c(.05, .10, .25, .50, .75, .90, .95)))
+sink()
 
 # stats for heterozygosity & inbreeding coefficient
 ind_het <- read_delim("612_cohort.het", delim = "\t",
@@ -71,6 +75,10 @@ ind_het <- read_delim("612_cohort.het", delim = "\t",
 g <- ggplot(ind_het, aes(f)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 g + theme_light()
 ggsave(path = out_dir, filename = 'heterozygosity_per_individual.png')
+sink('het_inbreeding_stats.txt')
+print(summary(ind_het$f))
+print(quantile(ind_het$f, c(.05, .10, .25, .50, .75, .90, .95)))
+sink()
 
 # stats for variant quality (row)
 var_qual <- read_delim("612_cohort.lqual", delim = "\t",
@@ -78,5 +86,9 @@ var_qual <- read_delim("612_cohort.lqual", delim = "\t",
 h <- ggplot(var_qual, aes(qual)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 h + theme_light() + xlim(0,1000)
 ggsave(path = out_dir, filename = 'quality_per_variant.png')
+sink('variant_quality_stats.txt')
+print(summary(var_qual$qual))
+print(quantile(var_qual$qual, c(.05, .10, .25, .50, .75, .90, .95)))
+sink()
 
 print('Script run successful')
