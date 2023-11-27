@@ -8,7 +8,7 @@ import plotly.graph_objs as go
 parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file. Note that the script will assume tha name of the vcf file to analyze is pass_variants_master_file.vcf.gz")
 parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
 # parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
-parser.add_argument('output_dir', help = 'absolute filepath to an output directory')
+parser.add_argument('--output_dir', help = 'absolute filepath to an output directory', type=str, required=False)
 # parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
 parser.add_argument('--sample_subset', help = 'This flag will restruct the samples used for generating the PCA plot to a max of three three samples for any given organism.', action= 'store_true')
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi', 'Rock_Sand', 'Sand'], nargs = '*', default = ['All'])
@@ -29,6 +29,13 @@ To Do:
 - Add code to check if the number of columns for each vcf file in the PCA dir is the same as teh number of sampels in samples_to_keep.csv. If not, then make a new file. If so, keep the original
     - this will ensure overwrites of the files in the event of a --sample_subset call 
 
+- Nov 21, 2023:
+    - Want to add parallelization functionality whereby multiple Ecogroups can be called at once and be run in parallel instead of implementing multiple instances/screens for each pipeline call... 
+    - Script works by first constructing which regions and which ecogroups will be run in the analysis... 
+    - The _create_sample_filter_file function takes in the eco groups, and just generates a sample subset that matches the ecogroups...
+        - I can essentially iterate through that function for each ego group passed in... Thus, the 
+
+
 """
 
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
@@ -45,15 +52,55 @@ class PCA_Maker:
         self.genome = genome
         self.fm_obj = FM(self.genome)
         self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        if args.local_test: # since the small test master_file doesn't have many variants, and only 1 that would pass the filtering criteria, use the whole master_file for variant calling
+            self.in_vcf = 'vcf_concat_output/master_file.vcf.gz'
+
+        # below code block allows user to define location of pca outputs or uses defualt locations if running on Utaka/Mzebra and on my lcoal machine
+        if args.output_dir == None:
+            self.out_dir = self.fm_obj.localPCADir
+        elif args.local_test:
+            self.out_dir = '/Users/kmnike/Data/pca_testing'
+        else:
+            self.out_dir = args.output_dir
+
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
+        # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
+        if self.ecogroups == ['All']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
+        elif self.ecogroups == ['Non_Riverine']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
+        elif self.ecogroups == ['Lake_Malawi']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
+        elif self.ecogroups == ['Rock_Sand']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
+        elif self.ecogroups == ['Sand']:
+            self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
 
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile) # download fresh SampleDatabase.csv so we can read it in and get ecogroup information
+        self.sample_database = self.fm_obj.localSampleFile # the SampleDatabase file is used for filtering samples by ecogroup for each analysis 
+
+        self.linkage_groups = regions_list # regions list is assigned to self.linkage_groups which will be used throughout the pipeline
+        duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True
+        if len(duplicate_set_test) != len(self.linkage_groups):
+            raise Exception('A repeat region has been provided')
+        # Ensure index file exists
+        assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
+        if args.local_test: # these are the LGs used for generating the small master_file that I test on locally 
+            self.linakge_groups = ['NC_036787.1', 'NC_036788.1', 'NC_036798.1'] 
+        pdb.set_trace()
+
+    def _create_sample_filter_file(self):
+        # define filepaths for each analysis
+        self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz' # for each analysis, depending on the ecogroups chosen, we generate a subset vcf file. The path and name of that file is defined here.
+        self.good_samples_csv = self.out_dir + '/samples_to_keep.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
+
+        # NEED TO MOVE THE BELOW CODE TO THE NEXT FUNCTUION I THINK TO FACILITATE CREATION OF DIRECTORIES BASED ON WHAT ECOGROUPS WERE CALLED FOR THE ANALYSIS
         # Create a filepath that includes name of input file and ecogroups on whcih the analysis is performed. The below code is necessary to make sure the storage of PCAs are within a filepath unique to each analysis and unique for any VCF file passed in
         file_version = self.in_vcf.split('/')[-1].split('.')[0] # if we run pca_maker on multiple vcf files, this allows us to ensure all plots from a particular file go to its own dir within the self.our_dir defined below
         analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
-        self.out_dir = output_directory
         pathlib.Path(self.out_dir + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
         self.out_dir = self.out_dir + '/' + file_version + '/' + analysis_ecogroups
 
@@ -69,32 +116,7 @@ class PCA_Maker:
                 regions_list.append('Whole')
             else:
                 raise Exception(region + ' is not a valid option')
-        self.linkage_groups = regions_list # regions list is assigned to self.linkage_groups which will be used throughout the pipeline
-        duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True
-        if len(duplicate_set_test) != len(self.linkage_groups):
-            raise Exception('A repeat region has been provided')
-        # Ensure index file exists
-        assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
-    def _create_sample_filter_file(self):
-        self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz' # for each analysis, depending on the ecogroups chosen, we generate a subset vcf file. The path and name of that file is defined here.
-        self.good_samples_csv = self.out_dir + '/samples_to_keep.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
-
-        # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
-        if self.ecogroups == ['All']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
-        elif self.ecogroups == ['Non_Riverine']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
-        elif self.ecogroups == ['Lake_Malawi']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
-        elif self.ecogroups == ['Rock_Sand']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-        elif self.ecogroups == ['Sand']:
-            self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile) # download fresh SampleDatabase.csv so we can read it in and get ecogroup information
-        self.sample_database = self.fm_obj.localSampleFile # used in the next  code block
-        
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
         # The to_csv(self.good_samples_txt, header = False, index = False) converts into a csv file that bcftools will be able to take as input. The index/header = False eliminate any index/header information, leaving only filtered samples. 
@@ -249,7 +271,7 @@ class PCA_Maker:
         for lg in linkage_group_list:
             self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
             self.eigen_df.columns = header # set the header for the eigen_df as SampleID followed by PC1-20
-            self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
+            self.metadata_df = pd.read_csv(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
             self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
             if lg.startswith('NC'):
