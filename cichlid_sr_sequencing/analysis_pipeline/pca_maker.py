@@ -263,7 +263,7 @@ class PCA_Maker:
         # code block of the hidden methods used to generate the PCA analysis for the PCA_Maker object
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
         self._split_VCF_to_LG(self.linkage_groups)
-        # self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
+        self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
         # self._create_plots(self.linkage_groups) #commented out for now since interactive PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
 
