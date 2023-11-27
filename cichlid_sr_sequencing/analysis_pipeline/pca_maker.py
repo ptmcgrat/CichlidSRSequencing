@@ -249,7 +249,7 @@ class PCA_Maker:
         for lg in linkage_group_list:
             self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
             self.eigen_df.columns = header # set the header for the eigen_df as SampleID followed by PC1-20
-            self.metadata_df = pd.read_excel(self.sample_database, sheet_name='vcf_samples') # read in SampleDatabase.xlsx 
+            self.metadata_df = pd.read_csv(self.sample_database) # read in SampleDatabase.xlsx 
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
             self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
             if lg.startswith('NC'):
@@ -263,7 +263,7 @@ class PCA_Maker:
         # code block of the hidden methods used to generate the PCA analysis for the PCA_Maker object
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
         self._split_VCF_to_LG(self.linkage_groups)
-        self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
+        # self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
         # self._create_plots(self.linkage_groups) #commented out for now since interactive PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
 
