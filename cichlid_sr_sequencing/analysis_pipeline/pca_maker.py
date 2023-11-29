@@ -93,7 +93,7 @@ class PCA_Maker:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
 
         self.fm_obj.downloadData(self.fm_obj.localSampleFile) # download fresh SampleDatabase.csv so we can read it in and get ecogroup information
-        self.sample_database = self.fm_obj.localSampleFile # used in the next  code block
+        self.sample_database = self.fm_obj.localSampleFile # used in the next code block
         
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
@@ -110,7 +110,8 @@ class PCA_Maker:
                     self.df_filtered = pd.concat([self.df_filtered, sampled_rows], ignore_index=True)
                 else:
                     self.df_filtered = pd.concat([self.df_filtered, organism_rows], ignore_index=True) # if total rows for organism are less than 3, add all rows to self.df_filtered
-            pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # using the SampleID column, get all unique IDs and write them to self.good_samples_csv which is used to pull samples for VCF filtering in the pipeline 
+            pd.DataFrame(self.df_filtered[self.df_filtered.Platform != 'PACBIO'].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # get rid of Pacbio samples and leave only Illumina ones
+            # pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # using the SampleID column, get all unique IDs and write them to self.good_samples_csv which is used to pull samples for VCF filtering in the pipeline 
         elif args.local_test:
             self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
             local_samples = subprocess.check_output(['bcftools', 'query', '-l', self.in_vcf], encoding='utf-8').split('\n')
@@ -137,7 +138,6 @@ class PCA_Maker:
             print('FILTERED SAMPLES FILE GENERATED. INDEXING FILE...')
             subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
             print('INDEX CREATED...')
-
 
     def _split_VCF_to_LG(self, linkage_group_list):
         processes = []
@@ -314,10 +314,10 @@ time bcftools view bad_lg7_pass_variants_master_file.vcf.gz --regions NC_036780.
 time bgzip -c pass_variants_master_file.vcf > pass_variants_master_file.vcf.gz
 time tabix -p vcf pass_variants_master_file.vcf.gz
 
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e All
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Lake_Malawi
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Non_Riverine
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Rock_Sand
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Sand
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e All
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Lake_Malawi
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Non_Riverine
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Rock_Sand
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Sand
 
 """
