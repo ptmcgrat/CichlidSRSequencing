@@ -44,7 +44,7 @@ class PCA_Maker:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file_no_lg7.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
@@ -308,4 +308,16 @@ local testing:
             # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
             # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
             subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
+
+
+time bcftools view bad_lg7_pass_variants_master_file.vcf.gz --regions NC_036780.1,NC_036781.1,NC_036782.1,NC_036783.1,NC_036784.1,NC_036785.1,NC_036787.1,NC_036788.1,NC_036789.1,NC_036790.1,NC_036791.1,NC_036792.1,NC_036793.1,NC_036794.1,NC_036795.1,NC_036796.1,NC_036797.1,NC_036798.1,NC_036799.1,NC_036800.1,NC_036801.1,NC_027944.1 > pass_variants_master_file.vcf
+time bgzip -c pass_variants_master_file.vcf > pass_variants_master_file.vcf.gz
+time tabix -p vcf pass_variants_master_file.vcf.gz
+
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e All
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Lake_Malawi
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Non_Riverine
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Rock_Sand
+python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 mito -e Sand
+
 """
