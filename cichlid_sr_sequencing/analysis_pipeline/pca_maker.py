@@ -14,6 +14,7 @@ parser.add_argument('--sample_subset', help = 'This flag will restruct the sampl
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi', 'Rock_Sand', 'Sand'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('-l', '--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
+parser.add_argument('-p', '--plink', help = 'use this flag to generate new eigenvalue/vector files using plink', action='store_true')
 args = parser.parse_args()
 
 """
@@ -26,8 +27,10 @@ To Do:
     - The splitting methods are _split_VCF_to_LG for "all" or lg specific analyses, and "_create_inversion_files" for "Inversion"
     - These must be skipped... The above methods take in the self.samples_filtered_master_file as inpout and output to the PCA dir. Instead of outputting a split file to a "Whole" dir in .../PCA I can nmake the "Whole" dir, then pipe outputs from plink there. 
 
-- Add code to check if the number of columns for each vcf file in the PCA dir is the same as teh number of sampels in samples_to_keep.csv. If not, then make a new file. If so, keep the original
-    - this will ensure overwrites of the files in the event of a --sample_subset call 
+- Add code to check if the number of columns for each vcf file in the PCA dir is the same as the number of sampels in samples_to_keep.csv. If not, then make a new file. If so, keep the original
+    - this will ensure overwrites of the files in the event of a --sample_subset call
+
+- Add code to make the Multiome projectID samples larger on the PCA
 
 """
 
@@ -45,6 +48,8 @@ class PCA_Maker:
         self.genome = genome
         self.fm_obj = FM(self.genome)
         self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file_no_lg7.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        if args.local_test:
+            self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz' # since the pass variants local file is small, use the whole masterfile with its 29 samples 
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
@@ -67,6 +72,8 @@ class PCA_Maker:
                 regions_list.extend(['lg2_YH_Inversion', 'lg4_YH_CV_Inversion', 'lg5_OB', 'lg9_RockSand_Inversion', 'lg10_MC_Insertion', 'lg10_YH_Inversion', 'lg11_Inversion', 'lg13_YH_Inversion', 'lg20_RockSand_Inversion'])
             elif region == "Whole":
                 regions_list.append('Whole')
+            elif args.local_test:
+                regions_list.extend(['NC_036787.1', 'NC_036788.1', 'NC_036798.1']) # only these 3 regions are present in the master_file.vcf.gz locally 
             else:
                 raise Exception(region + ' is not a valid option')
         self.linkage_groups = regions_list # regions list is assigned to self.linkage_groups which will be used throughout the pipeline
@@ -112,7 +119,7 @@ class PCA_Maker:
                     self.df_filtered = pd.concat([self.df_filtered, organism_rows], ignore_index=True) # if total rows for organism are less than 3, add all rows to self.df_filtered
             pd.DataFrame(self.df_filtered[self.df_filtered.Platform != 'PACBIO'].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # get rid of Pacbio samples and leave only Illumina ones
             # pd.DataFrame(self.df_filtered.SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # using the SampleID column, get all unique IDs and write them to self.good_samples_csv which is used to pull samples for VCF filtering in the pipeline 
-        elif args.local_test:
+        elif args.local_test: # if using a local file, just take in all of the samples in the small file and set those all to be the samples for testing
             self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)]
             local_samples = subprocess.check_output(['bcftools', 'query', '-l', self.in_vcf], encoding='utf-8').split('\n')
             del local_samples[-1]
@@ -120,7 +127,7 @@ class PCA_Maker:
                 for sample in local_samples:
                     fh.write(sample + '\n')
         else:
-            self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)] # if sample_subset flag is not called, just get all samples for the given ecogroups and proceed  
+            self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)] # if sample_subset flag is not called, just get all samples for the given ecogroups and proceed
             pd.DataFrame(self.df_filtered[self.df_filtered.Platform != 'PACBIO'].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # get rid of Pacbio samples and leave only Illumina ones
         if pathlib.Path(self.samples_filtered_master_vcf).exists(): # if the samples_filtered_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
             if subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
@@ -241,7 +248,7 @@ class PCA_Maker:
         self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
         color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
-        shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x', 'BrainDiversity_s1': 'star', 'BigBrain': 'triangle-up'}
+        shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x', 'BrainDiversity_s1': 'star', 'BigBrain': 'triangle-up', 'Multiome': 'cross'}
         if self.df_filtered.shape[0] < 20:
             header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, self.df_filtered.shape[0] +1)] # set header to 'SampleID' followed by PC1-20
         else:
@@ -249,7 +256,7 @@ class PCA_Maker:
         for lg in linkage_group_list:
             self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
             self.eigen_df.columns = header # set the header for the eigen_df as SampleID followed by PC1-20
-            self.metadata_df = pd.read_csv(self.sample_database) # read in SampleDatabase.xlsx 
+            self.metadata_df = pd.read_csv(self.sample_database) # read in SampleDatabase.csv
             self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
             self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
             if lg.startswith('NC'):
@@ -257,13 +264,16 @@ class PCA_Maker:
             else:
                 plot_title = lg
             fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', color_discrete_map=color_map, symbol_map=shape_map, title=plot_title, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
+            larger_size = 10  # You can adjust this value
+            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='cross'))
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
     def create_PCA(self):
         # code block of the hidden methods used to generate the PCA analysis for the PCA_Maker object
         self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
         self._split_VCF_to_LG(self.linkage_groups)
-        self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
+        if args.plink:
+            self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
         # self._create_plots(self.linkage_groups) #commented out for now since interactive PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
 
@@ -309,15 +319,17 @@ local testing:
             # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
             subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
 
-
 time bcftools view bad_lg7_pass_variants_master_file.vcf.gz --regions NC_036780.1,NC_036781.1,NC_036782.1,NC_036783.1,NC_036784.1,NC_036785.1,NC_036787.1,NC_036788.1,NC_036789.1,NC_036790.1,NC_036791.1,NC_036792.1,NC_036793.1,NC_036794.1,NC_036795.1,NC_036796.1,NC_036797.1,NC_036798.1,NC_036799.1,NC_036800.1,NC_036801.1,NC_027944.1 > pass_variants_master_file.vcf
 time bgzip -c pass_variants_master_file.vcf > pass_variants_master_file.vcf.gz
 time tabix -p vcf pass_variants_master_file.vcf.gz
 
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e All
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Lake_Malawi
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Non_Riverine
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Rock_Sand
-python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Sand
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e All
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Lake_Malawi
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Non_Riverine
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Rock_Sand
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs/ --sample_subset -r LG1 LG2 LG3 LG4 LG5 LG6 LG8 LG9 LG10 LG11 LG12 LG13 LG14 LG15 LG16 LG17 LG18 LG19 LG20 LG21 LG22 -e Sand
+
+
+python pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing --local_test -r LG8 LG9 LG19
 
 """
