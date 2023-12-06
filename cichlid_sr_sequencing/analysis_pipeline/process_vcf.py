@@ -163,12 +163,12 @@ class VCFProcessor:
         self._make_file_structure()
         if args.merge:
             self.merge_vcfs()
-        if args.filter:
-            self.filter_variants()
         if args.compress_and_index:
             self.compress_and_index_vcf()
         if args.vcf_stats:
             self.generate_stats()
+        if args.filter:
+            self.filter_variants()
 
 if __name__ == "__main__":
     vcf_processor_obj = VCFProcessor(args.genome)
