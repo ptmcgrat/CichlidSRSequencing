@@ -22,6 +22,7 @@ Ideally it will incorporate the rclone uploading as well.
 - implement gatk VariantFiltration
 - implement rclone uploads at the end of every piece of the pipeline, but use a flag to dictate whether the upload will happen
     - be sure to implement chunker uplaods for massive output files.
+- I believe a final pass_variant file indexing step is needed. 
 """
 
 class VCFProcessor:
@@ -154,6 +155,8 @@ class VCFProcessor:
                                     --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
         subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
+        print('INDEXING PASS VARIANTS FILE...')
+        subprocess.run(shlex.split(f"tabix -p vcf self.pass_file"))
         print('PASS VARIANT FILE GENERATED')
 
     def run_methods(self):
