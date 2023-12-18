@@ -7,14 +7,14 @@ import plotly.graph_objs as go
 
 parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file. Note that the script will assume tha name of the vcf file to analyze is pass_variants_master_file.vcf.gz")
 parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
-# parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
 parser.add_argument('output_dir', help = 'absolute filepath to an output directory')
-# parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
 parser.add_argument('--sample_subset', help = 'This flag will restruct the samples used for generating the PCA plot to a max of three three samples for any given organism.', action= 'store_true')
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names for filtering the data', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi', 'Rock_Sand', 'Sand'], nargs = '*', default = ['All'])
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('-l', '--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
 parser.add_argument('-p', '--plink', help = 'use this flag to generate new eigenvalue/vector files using plink', action='store_true')
+# parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
+# parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
 args = parser.parse_args()
 
 """
@@ -32,6 +32,9 @@ To Do:
 
 - Add code to make the Multiome projectID samples larger on the PCA
 
+NOTE: The sample filtering and randomization seems to be working, but I count that there should be 613 unique samples excluding outliers and Shallow/Deep Benthic sample and the 2 other samples that cannot run through Bamfile generation... Yet I get 610. Need to address this
+
+
 """
 
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
@@ -47,9 +50,9 @@ class PCA_Maker:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file_no_lg7.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         if args.local_test:
-            self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz' # since the pass variants local file is small, use the whole masterfile with its 29 samples 
+            self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/10k_variants_612_cohort_3_lg_subset.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
         self.ecogroups = ecogroups # This attribute is the list of ecgogroups used for filtering samples
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
@@ -62,6 +65,7 @@ class PCA_Maker:
         pathlib.Path(self.out_dir + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
         self.out_dir = self.out_dir + '/' + file_version + '/' + analysis_ecogroups
 
+
         regions_list = [] # regions list will add various linkage group names, or add the names of regions of interest like "Whole" or the various special regions of interest if passed "Exploratory"
         for region in self.linkage_groups:
             if region in self.linkage_group_map.keys():
@@ -72,20 +76,30 @@ class PCA_Maker:
                 regions_list.extend(['lg2_YH_Inversion', 'lg4_YH_CV_Inversion', 'lg5_OB', 'lg9_RockSand_Inversion', 'lg10_MC_Insertion', 'lg10_YH_Inversion', 'lg11_Inversion', 'lg13_YH_Inversion', 'lg20_RockSand_Inversion'])
             elif region == "Whole":
                 regions_list.append('Whole')
-            elif args.local_test:
-                regions_list.extend(['NC_036787.1', 'NC_036788.1', 'NC_036798.1']) # only these 3 regions are present in the master_file.vcf.gz locally 
             else:
                 raise Exception(region + ' is not a valid option')
+
         self.linkage_groups = regions_list # regions list is assigned to self.linkage_groups which will be used throughout the pipeline
-        duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True
+        duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True:
         if len(duplicate_set_test) != len(self.linkage_groups):
             raise Exception('A repeat region has been provided')
+        
+        # reset self.linkage_groups to include only the 3 lgs tested locally  if the --local_test flag is called
+        if args.local_test:
+            if 'Whole' in args.regions:
+                self.linkage_groups == ['Whole']
+            else:
+                self.linkage_groups = ['NC_036787.1', 'NC_036788.1', 'NC_036798.1']
+            
+
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
-    def _create_sample_filter_file(self):
-        self.samples_filtered_master_vcf = self.out_dir + '/samples_filtered_master.vcf.gz' # for each analysis, depending on the ecogroups chosen, we generate a subset vcf file. The path and name of that file is defined here.
-        self.good_samples_csv = self.out_dir + '/samples_to_keep.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
+    def _create_sample_filter_files(self):
+        self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv'
+        self.all_ecogroup_samples_metadata = self.out_dir + '/all_samples_in_this_ecogroup_with_metadata.csv'
+        self.subset_samples_csv = self.out_dir + '/subset_samples.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
+        self.subset_samples_metadata = self.out_dir + '/subset_samples_with_metadata.csv'
 
         # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
         if self.ecogroups == ['All']:
@@ -98,10 +112,38 @@ class PCA_Maker:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-
         self.fm_obj.downloadData(self.fm_obj.localSampleFile) # download fresh SampleDatabase.csv so we can read it in and get ecogroup information
-        self.sample_database = self.fm_obj.localSampleFile # used in the next code block
-        
+        self.df = pd.read_csv(self.fm_obj.localSampleFile) # generate df from SampleDatabase.csv
+        self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='SampleID') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
+
+        # this code block is used to generate a sample file of ALL samples that are present in a given ecogroup that's being run in the analysis
+        ecogroup_df = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+        ecogroup_df.to_csv(self.all_ecogroup_samples_csv, columns = ['SampleID'], header=False, index=False)
+        ecogroup_df.to_csv(self.all_ecogroup_samples_metadata, columns = ['SampleID', 'Ecogroup', 'Organism'], sep='\t', index=False)
+
+
+        # This code block is to create the subset sample file and an extra metadata file that may be useful for troubleshooting. This subset file is used by plink to generate the subset PC space that all the samples will be projected on to
+        if args.sample_subset:
+            subset_df = pd.DataFrame()
+            ecogroup_df = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+            for organism in ecogroup_df['Organism'].unique():
+                organism_rows = ecogroup_df[ecogroup_df['Organism'] == organism]
+                if organism_rows.shape[0] > 3: # organism_rows.shape[0] gives the number of row. If greater than 3 do the following. If exactly 3 or less, execute the else code
+                    sampled_rows = organism_rows.sample(n=3, random_state=42) # randomly sample 3 samples from the species.
+                    subset_df = pd.concat([subset_df, sampled_rows], ignore_index=True) # add them to df_filtered
+                else: # if only 3 or less samples exist, the sampled_rows are the organism_rows so just concat the organism rows into subset_df
+                    subset_df = pd.concat([subset_df, organism_rows], ignore_index=True) # add them to df_filtered
+            subset_df.to_csv(self.subset_samples_csv, columns = ['SampleID'], header=False, index=False) # store the subset samples into a csv file in the directory for that ecogroup's analysis
+            subset_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup', 'Organism'], sep='\t', index=False) # write an extra csv file containing metadata information for samples included in the subsetting
+        # else: # NOTE: not sure what this is supposed to take care of.... if sample_subset is not called... then don't we not generate a subset and we just do a normal PCA? Commenting it all out for now 
+        #     subset_df = self.df[self.df.Ecogroup.isin(self.ecogroups)]
+        #     subset_df.drop_duplicates(subset='SampleID').to_csv(self.subset_samples_csv, columns = ['SampleID'], header = False, index = False) # store all unique subset samples into a csv file in the directory for that ecogroup's analysis
+        #     subset_df.drop_duplicates(subset='SampleID').to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup', 'Organism'], sep = '\t', index=False) # write an extra csv file containing metadata information for the unique subset samples included in the above file
+
+
+
+        """
+        OLD CODE FOR SUBSETTING SAMPLES:
         # self.s_dt[self.s_dt.Ecogroup.isin(self.ecogroups)] is returning all rows where the self.ecogroups values are contained in the "Ecogroup" column of the excel sheet
         # The .SampleID.unique() is filtering these rows to include only unique values in the SampleIDs column. However, this creates a numpy array so the pd.DataFrame wrapper around the whole thing converts this numpy array to a pandas dataframe. 
         # The to_csv(self.good_samples_txt, header = False, index = False) converts into a csv file that bcftools will be able to take as input. The index/header = False eliminate any index/header information, leaving only filtered samples. 
@@ -129,6 +171,58 @@ class PCA_Maker:
         else:
             self.df_filtered = self.df[self.df.Ecogroup.isin(self.ecogroups)] # if sample_subset flag is not called, just get all samples for the given ecogroups and proceed
             pd.DataFrame(self.df_filtered[self.df_filtered.Platform != 'PACBIO'].SampleID.unique()).to_csv(self.good_samples_csv, header = False, index = False) # get rid of Pacbio samples and leave only Illumina ones
+
+        """
+
+    def _create_ecogroup_specific_vcf(self):
+        # path to the vcf file containing samples only in the ecogroups needed for the analysis
+        self.ecogroup_specific_master_vcf = self.out_dir + '/all_ecogroup_samples.vcf.gz' # for each analysis, depending on the ecogroups chosen, we generate a vcf file with all samples of only that eco group. The path and name of that file is defined here. Old file name = samples_filtered_master.vcf.gz
+        self.subset_master_vcf = self.out_dir + '/subset_samples.vcf.gz' # for each analysis, thi subset vcf file will need to be generated to pull region specific variants from in the next step
+
+        if pathlib.Path(self.ecogroup_specific_master_vcf).exists(): # if the ecogroup_specific_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
+            if subprocess.run(f"bcftools query -l {self.ecogroup_specific_master_vcf}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.all_ecogroup_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
+                print(f'\nThe file {self.ecogroup_specific_master_vcf} exists and samples within the file match those in self.good_samples_csv. New samples_filtered_master_vcf file will not be built.')
+            else:
+                p1 = subprocess.Popen(['bcftools', 'view', self.in_vcf, '--samples-file', self.all_ecogroup_samples_csv, '--min-ac=1', '--no-update', '-o', self.ecogroup_specific_master_vcf, '-O', 'z'])
+                p2 = subprocess.Popen(['bcftools', 'view', self.in_vcf, '--samples-file', self.subset_samples_csv, '-o', self.subset_master_vcf, '-O', 'z'])
+                print('\nGENERATING A VCF FILE CONTAINING ONLY SAMPLES OF THE ECOGROUPS SPECIFIED.')
+                print('\nGENERATING A VCF FILE WITH THE SUBSET SAMPLES FOR THE ECOGROUPS SPECIFIED.')
+                p1.communicate()
+                p2.communicate()
+
+                p3 = subprocess.Popen(['tabix', '-p', 'vcf', self.ecogroup_specific_master_vcf])
+                p4 = subprocess.Popen(['tabix', '-p', 'vcf', self.subset_master_vcf])
+                print('FILTERED SAMPLES FILE GENERATED. INDEXING ALL SAMPLE VCF FILE...')
+                print('INDEXING SUBSET SAMPLE VCF FILE...')
+                p3.communicate()
+                p4.communicate()
+                print('INDEX CREATED...')
+        else: # if no ecogroup_specific_master_vcf file exists yet, go ahead and use the samples to keep file to generate a cvf file containing only samples of the ecogroup being analyzed.
+            p1 = subprocess.Popen(['bcftools', 'view', self.in_vcf, '--samples-file', self.all_ecogroup_samples_csv, '--min-ac=1', '--no-update', '-o', self.ecogroup_specific_master_vcf, '-O', 'z'])
+            p2 = subprocess.Popen(['bcftools', 'view', self.in_vcf, '--samples-file', self.subset_samples_csv, '-o', self.subset_master_vcf, '-O', 'z'])
+            print('\nGENERATING A VCF FILE CONTAINING ONLY SAMPLES OF THE ECOGROUPS SPECIFIED.')
+            print('\nGENERATING A VCF FILE WITH THE SUBSET SAMPLES FOR THE ECOGROUPS SPECIFIED.')
+            p1.communicate()
+            p2.communicate()
+
+            p3 = subprocess.Popen(['tabix', '-p', 'vcf', self.ecogroup_specific_master_vcf])
+            p4 = subprocess.Popen(['tabix', '-p', 'vcf', self.subset_master_vcf])
+            print('FILTERED SAMPLES FILE GENERATED. INDEXING ALL SAMPLE VCF FILE...')
+            print('INDEXING SUBSET SAMPLE VCF FILE...')
+            p3.communicate()
+            p4.communicate()
+            print('INDEX CREATED...')
+
+        """
+        print('\nGENERATING A VCF FILE CONTAINING ONLY SAMPLES OF THE ECOGROUPS SPECIFIED.')
+        subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.all_ecogroup_samples_csv, '-o', self.ecogroup_specific_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
+        print('FILTERED SAMPLES FILE GENERATED. INDEXING FILE...')
+        subprocess.run(['tabix', '-p', 'vcf', self.ecogroup_specific_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
+        print('INDEX CREATED...')
+        """
+
+        """
+        # Below block first checks if any existing samples_filtered_master_vcf file is present. If so, check if it contains the same sampleIDs as the samples we want to include in the analysis we're currently running  If it does don't regenerate it. If it doesn't, make a new samples_filtered_master_vcf file 
         if pathlib.Path(self.samples_filtered_master_vcf).exists(): # if the samples_filtered_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
             if subprocess.run(f"bcftools query -l {self.samples_filtered_master_vcf}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
                 print(f'\nThe file {self.samples_filtered_master_vcf} exists and samples within the file match those in self.good_samples_csv. New samples_filtered_master_vcf file will not be built.')
@@ -139,13 +233,57 @@ class PCA_Maker:
                 print('FILTERED SAMPLES FILE GENERATED. INDEXING FILE...')
                 subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
                 print('INDEX CREATED...')
-        else:
+        else: # if no samples_filtered_master_vcf file exists, go ahead and use the samples to keep file to generate a cvf file containing only samples of the ecogroup being analyzed. 
             print('\nGENERATING A VCF FILE CONTAINING ONLY SAMPLES OF THE ECOGROUPS SPECIFIED.')
             subprocess.run(['bcftools', 'view', self.in_vcf, '--samples-file', self.good_samples_csv, '-o', self.samples_filtered_master_vcf, '-O', 'z']) # code to generate a master_vcf file of filtered samples
             print('FILTERED SAMPLES FILE GENERATED. INDEXING FILE...')
             subprocess.run(['tabix', '-p', 'vcf', self.samples_filtered_master_vcf]) # code to generate an index for this file using bcftools at the location of plink_master_vcf
             print('INDEX CREATED...')
+        """
 
+    def _split_VCF_to_LG(self, linkage_group_list):
+        processes1 = []
+        processes2 = []
+        for lg in linkage_group_list:
+            if lg == 'Whole':
+                continue
+            elif lg == "lg2_YH_Inversion":
+                self._create_exploratory_region_eigen_files()
+            elif lg in self.linkage_group_map.values():
+                pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
+                # TODO: come back to the below if block
+                if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
+                    if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.all_ecogroup_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the subset vcf file that already exists has matching sample names as those in the samples_to_keep.csv file.
+                        print('The file ' + lg + '.vcf.gz exists and has the same samples as self.good_samples_csv. A file for ' + lg + ' will not be generated.')
+                    else:
+                        print('Generating a VCF file containing the subset samples for ' + lg + '...')
+                        p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.ecogroup_specific_master_vcf, '-o', self.out_dir + '/PCA' + lg + '/' + lg + '_whole_ecogroup.vcf.gz', '-O', 'z']) # takes in ecogroup_specific_master_vcf and filters out each LG and writes the file into appropriate PCA dir.
+                        p2 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.subset_master_vcf, '-o', self.out_dir + '/PCA' + lg + '/' + lg + '_sample_subset.vcf.gz', '-O', 'z']) # takes in ecogroup_specific_master_vcf and filters out each LG and writes the file into appropriate PCA dir.])
+                        # p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.samples_filtered_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '-O', 'z']) 
+                        processes1.append(p1)
+                        processes2.append(p2)
+                        if len(processes1) == len(linkage_group_list): # parallelization code
+                            for proc1 in processes1:
+                                proc1.communicate()
+                            processes1 = []
+                        if len(processes2) == len(linkage_group_list):
+                            for proc2 in processes2:
+                                proc2.communicate()
+                else:
+                    print('Generating a VCF file containing the subset samples for ' + lg + '...')
+                    p1 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.ecogroup_specific_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_ecogroup.vcf.gz', '-O', 'z']) # takes in ecogroup_specific_master_vcf and filters out each LG and writes the file into appropriate PCA dir.
+                    p2 = subprocess.Popen(['bcftools', 'filter', '-r', lg, self.subset_master_vcf, '-o', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz', '-O', 'z']) # takes in ecogroup_specific_master_vcf and filters out each LG and writes the file into appropriate PCA dir.])
+                    processes1.append(p1)
+                    processes2.append(p2)
+                    if len(processes1) == len(linkage_group_list): # parallelization code
+                        for proc1 in processes1:
+                            proc1.communicate()
+                        processes1 = []
+                    if len(processes2) == len(linkage_group_list):
+                        for proc2 in processes2:
+                            proc2.communicate()
+
+    """
     def _split_VCF_to_LG(self, linkage_group_list):
         processes = []
         for lg in linkage_group_list:
@@ -156,7 +294,7 @@ class PCA_Maker:
             elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
                 if pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists(): # For each linkage groups' dir in the PCA dir, if the LG's vcf file exists, then skip the generation of that file from the samples_filtered_master.vcf.gz file.
-                    if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.good_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the subset vcf file that already exists has matching sample names as those in the samples_to_keep.csv file.
+                    if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz'}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout == subprocess.run(f"cat {self.all_ecogroup_samples_csv}", shell=True, stdout=subprocess.DEVNULL, encoding='utf-8').stdout: # checks if the subset vcf file that already exists has matching sample names as those in the samples_to_keep.csv file.
                         print('The file ' + lg + '.vcf.gz exists and has the same samples as self.good_samples_csv. A file for ' + lg + ' will not be generated.')
                     else:
                         print('Generating a subset VCF file for ' + lg + '...')
@@ -174,6 +312,7 @@ class PCA_Maker:
                         for proc in processes:
                             proc.communicate()
                         processes = []
+    """
 
     def _create_exploratory_region_eigen_files(self):
         processes1 = []
@@ -223,26 +362,104 @@ class PCA_Maker:
                     processes2 = []
 
     def _create_eigenfiles_per_LG(self, linkage_group_list): # new hidden method that will create PCA plots for each LG in sample. It will define attributes for the object and also takes in a lingage grouup. Calling on this method in a for lopp should generate the eigenvalue/vector files needed per lg in self.contigs
+        """
+        1. generate pfiles for whole and subset vcf files in each LG dir
+        2. fix missing IDs in each linkage groups' whole vcf's pfile and rename that file as "whole_corrected"
+        3. run step1 of pca
+        4. remove any 0 allele count variants from the acounts file using pandas
+        5. run pca step 2
+
+        """
+
         for lg in linkage_group_list:
-            if lg == 'Whole':
-                pathlib.Path(self.out_dir + '/PCA/' + 'Whole/').mkdir(parents=True, exist_ok=True)
-                print("RUNNING PLINK TO TRANSFORM THE WHOLE FILTERED VCF FILE'S DATA TO A PLINK OBJECT...")
-                subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + 'Whole/' + 'test' ]) 
-                print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
-                subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract',  self.out_dir + '/PCA/' + 'Whole/' + 'test.prune.in', '--make-bed', '--pca', '--out',  self.out_dir + '/PCA/' + 'Whole/' + 'test'])
+            if lg == 'Whole': # NOTE: ignore for now 
+                pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
+                subprocess.run(['plink2', '--vcf', self.ecogroup_specific_master_vcf, '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--allow-extra-chr']) # whole vcf file pfile generation for a given lg
+                subprocess.run(['plink2', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--allow-extra-chr']) # subset sample vcf file pfile generation for a given lg
+                subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--allow-extra-chr'])
+                subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2'])
+                
+                
+                # modify the .acounts file to eliminate 0 count alleles:
+                acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', sep='\t')
+                nonzero_acounts_df = acounts_df[acounts_df['ALT_CTS'] != 0]
+                nonzero_acounts_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', sep='\t', index=False)
+
+                # genenrate the .sscore file with eigenvectors for each samples after projection on to the PC space from the subset PCA
+                subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
+
+                # pathlib.Path(self.out_dir + '/PCA/' + 'Whole/').mkdir(parents=True, exist_ok=True)
+                # print("RUNNING PLINK TO TRANSFORM THE WHOLE FILTERED VCF FILE'S DATA TO A PLINK OBJECT...")
+                # subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + 'Whole/' + 'test' ]) 
+                # print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
+                # subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract',  self.out_dir + '/PCA/' + 'Whole/' + 'test.prune.in', '--make-bed', '--pca', '--out',  self.out_dir + '/PCA/' + 'Whole/' + 'test'])
             else: #lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
-                if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
+                if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_ecogroup.vcf.gz').exists(): # NOTE: error checking... revisit later 
                     print('ERROR: THE FILE ' + lg + '.VCF.GZ DOES NOT EXIST. MUST RUN _SPLIT_VCF_TO_LG TO CREATE IT...')
                     raise Exception
-                else:
-                    print('RUNNING PLINK TO TRANSFORM THE VCF DATA TO A PLINK OBJECT...')
-                    subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ]) 
-                    print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
-                    subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
+                else: # do all the plink pca magic here assuming you're going one linkage group at a time... figure out parallelization as I code this referencing the previous function. Parallelization may not be possible because plink likes to execute immediately and doesn't listen to the Popen constructor. It all executres before Popen.communicate() is called.
+                    pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
+                    # pdb.set_trace()
+                    subprocess.run(['plink2', '--vcf', self.ecogroup_specific_master_vcf, '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--allow-extra-chr']) # whole vcf file pfile generation for a given lg
+                    subprocess.run(['plink2', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--allow-extra-chr']) # subset sample vcf file pfile generation for a given lg
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--allow-extra-chr'])
+                    # below command will not work for cohorts less than 50 samples 
+                    # pdb.set_trace()
+                    # if int(subprocess.check_output(['wc', '-l', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset.psam'], encoding='utf-8').split(' ')[6]) < 50:
+                    #     # subprocess.run([])
+                    #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2', '--bad-ld'])
+                    # else:
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2'])
 
+                    # modify the .acounts file to eliminate 0 count alleles:
+                    # pdb.set_trace()
+                    acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', sep='\t')
+                    no_extremes_df = acounts_df[(acounts_df['ALT_CTS'] != 0) & (acounts_df['ALT_CTS'] != max(acounts_df['OBS_CT']))]
+                    # nonzero_acounts_df = acounts_df[acounts_df['ALT_CTS'] != 0]
+                    no_extremes_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', sep='\t', index=False)
+
+                    # genenrate the .sscore file with eigenvectors for each samples after projection on to the PC space from the subset PCA
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
+
+        """
+        if lg == 'Whole':
+            pathlib.Path(self.out_dir + '/PCA/' + 'Whole/').mkdir(parents=True, exist_ok=True)
+            print("RUNNING PLINK TO TRANSFORM THE WHOLE FILTERED VCF FILE'S DATA TO A PLINK OBJECT...")
+            subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + 'Whole/' + 'test' ]) 
+            print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
+            subprocess.run(['plink', '--vcf', self.samples_filtered_master_vcf, '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract',  self.out_dir + '/PCA/' + 'Whole/' + 'test.prune.in', '--make-bed', '--pca', '--out',  self.out_dir + '/PCA/' + 'Whole/' + 'test'])
+        else: #lg in self.linkage_group_map.values():
+            pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
+            if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz').exists():
+                print('ERROR: THE FILE ' + lg + '.VCF.GZ DOES NOT EXIST. MUST RUN _SPLIT_VCF_TO_LG TO CREATE IT...')
+                raise Exception
+            else:
+                print('RUNNING PLINK TO TRANSFORM THE VCF DATA TO A PLINK OBJECT...')
+                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test' ]) 
+                print('GENERATING EIGENVALUE AND EIGENVECTOR FILES...')
+                subprocess.run(['plink', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '.vcf.gz', '--double-id', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--extract', self.out_dir + '/PCA/' + lg + '/' + 'test.prune.in', '--make-bed', '--pca', '--out', self.out_dir + '/PCA/' + lg + '/' + 'test'])
+        """
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
-        # This section will ke in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
+        self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
+        pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
+        color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
+        shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x', 'BrainDiversity_s1': 'star', 'BigBrain': 'triangle-up', 'Multiome': 'cross'}
+        
+        for lg in linkage_group_list:
+            eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection.sscore', sep='\t')
+            eigen_df = eigen_df.rename(columns = {'#IID':'SampleID'})
+            df_merged = pd.merge(eigen_df, self.df, on=['SampleID'])
+            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup', symbol='ProjectID', color_discrete_map=color_map, symbol_map=shape_map, title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
+            # else: # NOTE: if we want to generate a subset PCA uncomment and incorporate below code into the function
+            #     fig = px.scatter(df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', color_discrete_map=color_map, symbol_map=shape_map, title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
+            larger_size = 10  # You can adjust this value
+            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='cross'))
+            fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
+
+        
+        """
+        # This section will be in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
         # inputs: test.eigenvec per LG, SampleDatabase.xlsx file
         # Outputs: HTML file labeled per LG in in a new interactive_PCA directory
         self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
@@ -267,16 +484,16 @@ class PCA_Maker:
             larger_size = 10  # You can adjust this value
             fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='cross'))
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
-
+        """
     def create_PCA(self):
         # code block of the hidden methods used to generate the PCA analysis for the PCA_Maker object
-        self._create_sample_filter_file() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
+        self._create_sample_filter_files() # I think that when an object is initialized, the hidden method _create_sample_filter_file() is run automatically. This is needed so that when creating the object, a samples_filtered file will be created for use in the create_PCA method.
+        self._create_ecogroup_specific_vcf()
         self._split_VCF_to_LG(self.linkage_groups)
         if args.plink:
             self._create_eigenfiles_per_LG(self.linkage_groups) # This line is used to test the _create_PCA_linakge hidden method using only LG1.
         # self._create_plots(self.linkage_groups) #commented out for now since interactive PCA plots are preferred
         self._create_interactive_pca(self.linkage_groups)
-
 
 
 if __name__ == "__main__":
@@ -287,6 +504,10 @@ if __name__ == "__main__":
 
 
 """
+For local testing after rehauling the pipeline 
+python pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing -e Rock_Sand --local_test
+
+
 CODE FOR RERUNNING ON UTAKA TO GET ALL OUTPUTS PER SAMPLE:
 
 python3 pca_maker.py /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/original_data/pass_variants_master_file.vcf.gz /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs /home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/SampleDatabase.xlsx -e Lake_Malawi -r Whole Exploratory All --sample_subset
