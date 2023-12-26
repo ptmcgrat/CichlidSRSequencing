@@ -173,7 +173,8 @@ class PCA_Maker:
 
     def _preprocess_vcfs(self): # this function prunes all variants from self.ecogroup_specific_master_vcf that are not present in self.subset_master_vcf following recalculation and filtering of variants with AF < 0.01.
         # File check code to ensure these files don't already exist. If they do, the samples between existing files and the cohort's samples must match:
-        
+        # rm -r PCA interactive_PCA_outputs
+        # rm af_filtered_subset_samples.vcf.gz af_filtered_subset_samples.vcf.gz.tbi af_recalculated_subset_samples.vcf.gz variants_filtered_ecogroup_samples.recode.vcf.gz variants_filtered_ecogroup_samples.recode.vcf.gz.tbi variants_to_keep.txt
         if pathlib.Path(self.out_dir + '/af_recalculated_subset_samples.vcf.gz').exists():
             # if the ecogroup_specific_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
             if subprocess.run(f"bcftools query -l {self.out_dir + '/af_recalculated_subset_samples.vcf.gz'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout == subprocess.run(f"cat {self.out_dir + '/subset_samples.csv'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
@@ -186,7 +187,7 @@ class PCA_Maker:
                 print('FILTERING OUT VARIANTS WITH AF < 0.01\n')
                 subprocess.run(['bcftools', 'view', '--exclude', 'AF<0.01 || AF == 1', self.out_dir + '/af_recalculated_subset_samples.vcf.gz', '-o', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-Oz'])
                 print('WRITING CHRMOSOME-POSITION FILE\n')
-                subprocess.run(['bcftools', 'query', '-f', '%CHROM\t%POS', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-o', self.out_dir + '/variants_to_keep.txt'])
+                subprocess.run(['bcftools', 'query', '-f', '%CHROM\t%POS\n', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-o', self.out_dir + '/variants_to_keep.txt'])
                 print('PRUNING VARIANTS FROM ECGOGROUP VCF FILE USING THOSE PRESENT IN THE SUBSET\n')
                 subprocess.run(['vcftools', '--positions', self.out_dir + '/variants_to_keep.txt', '--gzvcf', self.ecogroup_specific_master_vcf, '--recode', '--out', self.out_dir + '/variants_filtered_ecogroup_samples'])
                 # the outputs that go into the plink code from here to generate the pfiles are self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf' & self.out_dir + '/af_filtered_subset_samples.vcf.gz'
@@ -209,7 +210,7 @@ class PCA_Maker:
             print('FILTERING OUT VARIANTS WITH AF < 0.01\n')
             subprocess.run(['bcftools', 'view', '--exclude', 'AF<0.01 || AF == 1', self.out_dir + '/af_recalculated_subset_samples.vcf.gz', '-o', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-Oz'])
             print('WRITING CHRMOSOME-POSITION FILE\n')
-            subprocess.run(['bcftools', 'query', '-f', '%CHROM\t%POS', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-o', self.out_dir + '/variants_to_keep.txt'])
+            subprocess.run(['bcftools', 'query', '-f', '%CHROM\t%POS\n', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-o', self.out_dir + '/variants_to_keep.txt'])
             print('PRUNING VARIANTS FROM ECGOGROUP VCF FILE USING THOSE PRESENT IN THE SUBSET\n')
             subprocess.run(['vcftools', '--positions', self.out_dir + '/variants_to_keep.txt', '--gzvcf', self.ecogroup_specific_master_vcf, '--recode', '--out', self.out_dir + '/variants_filtered_ecogroup_samples'])
             # the outputs that go into the plink code from here to generate the pfiles are self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf' & self.out_dir + '/af_filtered_subset_samples.vcf.gz'
@@ -363,40 +364,6 @@ class PCA_Maker:
             fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='star'))
             fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
 
-        """
-        # This section will ke in the test.eigenvec file per LG and generate an interactive PCA plot as an HTML file.
-        # inputs: test.eigenvec per LG, SampleDatabase.xlsx file
-        # Outputs: HTML file labeled per LG in in a new interactive_PCA directory
-        self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
-        pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
-        color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
-        shape_map = {'PRJEB15289': 'square', 'PRJEB1254': 'circle', 'RockSand_v1': 'diamond', 'ReferenceImprovement': 'x', 'BrainDiversity_s1': 'star', 'BigBrain': 'triangle-up', 'Multiome': 'cross'}
-        if self.df_filtered.shape[0] < 20:
-            header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, self.df_filtered.shape[0] +1)] # set header to 'SampleID' followed by PC1-20
-        else:
-            header = ['SampleID'] + ['PC{}'.format(i) for i in range(1, 21)] # set header to 'SampleID' followed by PC1-20
-        for lg in linkage_group_list:
-            self.eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/test.eigenvec', sep=' ', header=None, index_col=0) # read in the lg's eigenvector file as a pandas dataframe
-            self.eigen_df.columns = header # set the header for the eigen_df as SampleID followed by PC1-20
-            self.metadata_df = pd.read_csv(self.sample_database) # read in SampleDatabase.csv
-            self.metadata_df = self.metadata_df.drop_duplicates(subset='SampleID', keep='first') # remove the duplicate SampleIDs in the file and keep only the first instance
-            self.df_merged = pd.merge(self.eigen_df, self.metadata_df, on=['SampleID']) # merge the dataframes on SampleID to get rid of samples not in the eigenvector file (which contains a filtered subset of samples based on eco groups provided to the script)
-            if lg.startswith('NC'):
-                plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
-            else:
-                plot_title = lg
-            fig = px.scatter(self.df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', color_discrete_map=color_map, symbol_map=shape_map, title=plot_title, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
-            larger_size = 10  # You can adjust this value
-            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='cross'))
-            fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
-            
-            
-            """
-
-
-
-
-
     def create_PCA(self):
         # Order of hidden methods to perform the analysis
         self._create_sample_filter_files()
@@ -416,21 +383,11 @@ if __name__ == "__main__":
     print('PIPELINE RUN SUCCESSFUL')
 
 """
-# Old Code for generating ploits using R 
-        self.r_script = os.getcwd() + '/modules/pca.R' # use the dir from which the pipeline is called to get the file path to the R script. Deprecated function since switching to plotly
-        self.metadata_csv = self.out_dir + '/metadata_for_R.csv' # deprecated function. not needed with
-        
-        #### Below 2 lines are legacy code used to generate a PCA plot using R code  Since the pipeline has shifted to using Plotly instead, this metadata file is no longer needed and will not be gnerated anymore. If needed, add these into the _create_sample_filter_file() function
-        # self.df_filtered['metadata_id'] = self.df_filtered['SampleID'] + "_" + self.df_filtered['Ecogroup']
-        # self.df_filtered[['SampleID', 'metadata_id']].to_csv(self.metadata_csv, index = False)
-    def _create_plots(self, linkage_group_list): # the method  has been commented out since interative PCAs are preferred. If they are ever needed, we can uncomment. I can also include a flag to determine if an interactive, static, or both plots are desired and then run the correspoding hidden methods. 
-        self.pca_out = self.out_dir + '/PCA_outputs/' # define a path to an output dir where each PCA plot will go
-        pathlib.Path(self.pca_out).mkdir(parents=True, exist_ok=True) # generate the filepath to said PCA_output directory
-        for lg in linkage_group_list: # for each lg in the list, generate a PCA plot
-            wd = self.out_dir + '/PCA/' + lg + '/' # for each iteration, this changes the working directory to the LG's eigenvalue/vector files so i dont have to name them uniquely when generating them. I can use the same prefix and just change the dir I'm working in.
-            os.chdir(wd)
-            # uses conda to run a script. -n specifies the env you need and the following are commands to run in that env.
-            # Rscript is a command synonymous to "python3" and essentially invokes R to run the rscript. I set a path to the r_script so I don't have to hard code the filepath. I pass in the metadata file, output dir, and linkage group so I can write specific output fiel names
-            subprocess.run(f"conda run -n R Rscript {self.r_script} {self.metadata_csv} {self.pca_out} {lg}", shell=True)
+For running on Utaka:
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e All 2> pca_logs/error_all_.txt 1> pca_logs/log_all.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_.txt 1> pca_logs/log_lm.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Non_Riverine 2> pca_logs/error_non_riverine_.txt 1> pca_logs/log_non_riverine.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_.txt 1> pca_logs/log_rock_sand.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_.txt 1> pca_logs/log_sand.txt
 
 """
