@@ -1,9 +1,12 @@
 import argparse, pdb, os, subprocess, pathlib
 import pandas as pd
+import numpy as np
 from helper_modules.nikesh_file_manager import FileManager as FM
 from cyvcf2 import VCF
 import plotly.express as px
 import plotly.graph_objs as go
+import umap
+
 
 parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file. Note that the script will assume tha name of the vcf file to analyze is pass_variants_master_file.vcf.gz")
 parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
@@ -13,8 +16,7 @@ parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('-l', '--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
 parser.add_argument('-p', '--plink', help = 'use this flag to generate new eigenvalue/vector files using plink', action='store_true')
-# parser.add_argument('input_vcffile', help = 'absolute filepath to the filtered, gzipped input file')
-# parser.add_argument('sample_database', help = 'sample database that lists ecotype for each sample')
+parser.add_argument('-u', '--umap', help = 'use this flag to generate a umap projection of the data in the analysis alongside PCA plots', action='store_true')
 args = parser.parse_args()
 
 """
@@ -345,6 +347,7 @@ class PCA_Maker:
         shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'}
 
         for lg in linkage_group_list:
+            print('GENERATING PCA FOR ' + lg)
             eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection.sscore', sep='\t')
             eigen_df = eigen_df.rename(columns = {'#IID':'SampleID'})
             df_merged = pd.merge(eigen_df, self.df, on=['SampleID'])
@@ -362,7 +365,39 @@ class PCA_Maker:
             fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle'))
             fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle-open'))
             fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='star'))
-            fig.write_html(self.plotly_out + lg + '_plotlyPCA.html')
+            fig.write_html(self.plotly_out + lg + '_PCA.html')
+
+    def _create_umap(self, linkage_group_list):
+        # code to generate and merge the sampledatabase_df and the eigen_df
+        self.umap_out = self.out_dir + '/umap_outputs/'
+        pathlib.Path(self.umap_out).mkdir(parents=True, exist_ok=True) # build a file path to the umap out dir
+        color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
+        shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'}
+        for lg in linkage_group_list:
+            print('GENERATING UMAP FOR ' + lg)
+            eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection.sscore', sep='\t')
+            eigen_df = eigen_df.rename(columns = {'#IID':'SampleID'})
+            df_merged = pd.merge(eigen_df, self.df, on=['SampleID'])
+            ten_pcs = eigen_df.drop(['SampleID', 'ALLELE_CT', 'NAMED_ALLELE_DOSAGE_SUM'], axis=1)
+            ten_pcs_np_array = ten_pcs.to_numpy()
+            # code to use the 10PCs to generate 2 columns of transformed data
+            fit = umap.UMAP()
+            umap_transformed_data = fit.fit_transform(ten_pcs_np_array)
+            if lg.startswith('NC'):
+                plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
+            else:
+                plot_title = lg
+            fig = px.scatter(df_merged, x=umap_transformed_data[:,0], y=umap_transformed_data[:,1], color='Ecogroup', symbol='ProjectID_2', color_discrete_map=color_map, symbol_map=shape_map, title=plot_title, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID_2'])
+            larger_size = 9
+            smaller_size = 3
+            fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='square'))
+            fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='diamond'))
+            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle'))
+            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle-open'))
+            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='star'))
+            fig.write_html(self.umap_out + lg + '_UMAP.html')
+
+
 
     def create_PCA(self):
         # Order of hidden methods to perform the analysis
@@ -376,6 +411,8 @@ class PCA_Maker:
             except:
                 pass
         self._create_interactive_pca(self.linkage_groups)
+        if args.umap:
+            self._create_umap(self.linkage_groups)
 
 if __name__ == "__main__":
     pca_obj = PCA_Maker(args.genome, args.ecogroups, args.regions, args.output_dir)
