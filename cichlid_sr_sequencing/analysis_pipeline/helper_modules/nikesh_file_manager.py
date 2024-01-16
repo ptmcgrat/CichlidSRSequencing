@@ -65,11 +65,12 @@ class FileManager():
 		
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
-		self.localMasterFileDir = self.localOutputDir + 'MasterFile/'
+		self.localPCADir = self.localOutputDir + 'pca_outputs'
 
 		# Below block is to map file structures in /Output:
 		self.StorageBamfilesDir = self.localStorageDir + 'Bamfiles/'
