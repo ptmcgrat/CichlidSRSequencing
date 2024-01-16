@@ -5,7 +5,7 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 from cyvcf2 import VCF
 import plotly.express as px
 import plotly.graph_objs as go
-import umap
+# import umap
 
 parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file. Note that the script will assume tha name of the vcf file to analyze is pass_variants_master_file.vcf.gz")
 parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
@@ -428,11 +428,11 @@ For local testing:
 python pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing --sample_subset --local_test -p --umap -e Rock_Sand
 
 For running on Utaka:
-time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e All 2> pca_logs/error_all_.txt 1> pca_logs/log_all.txt
-time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_.txt 1> pca_logs/log_lm.txt
-time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Non_Riverine 2> pca_logs/error_non_riverine_.txt 1> pca_logs/log_non_riverine.txt
-time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_.txt 1> pca_logs/log_rock_sand.txt
-time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_.txt 1> pca_logs/log_sand.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p --umap -r All Whole Exploratory -e All 2> pca_logs/error_all_.txt 1> pca_logs/log_all.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p --umap -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_.txt 1> pca_logs/log_lm.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p --umap -r All Whole Exploratory -e Non_Riverine 2> pca_logs/error_non_riverine_.txt 1> pca_logs/log_non_riverine.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p --umap -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_24.01.15.txt 1> pca_logs/log_rock_sand_24.01.15.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p --umap -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_.txt 1> pca_logs/log_sand.txt
 
 # UMAP code only (no plink rerun)
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --umap -r All Whole Exploratory -e All 2> pca_logs/error_all_umap_240102.txt 1> pca_logs/log_all_umap_240102.txt
