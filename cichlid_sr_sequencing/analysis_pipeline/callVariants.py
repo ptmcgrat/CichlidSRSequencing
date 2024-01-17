@@ -5,6 +5,7 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
+parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names that will filter the samples on which the pipeline is run', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi', 'Rock_Sand', 'Sand'], nargs = '*', default = ['All'])
 parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline. Custom IDs can be provided as a csv file containing one sample per line. Save the file as "custom_samples.csv" in the directory containing this script.', nargs = '*', default = ['All'])
 parser.add_argument('-i', '--import_databases', help = 'Call this flag to run GenomicsDBImport on the samples in the database', action = 'store_true')
 parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGVCFs on the samples in the database', action = 'store_true')
@@ -13,13 +14,16 @@ parser.add_argument('-r', '--regions', help = 'list of linkage groups for which 
 parser.add_argument('-b', '--download_bams', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
 parser.add_argument('-H', '--haplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
-parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = 4, nargs = 1)
+parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 23)
 args = parser.parse_args()
 
 """
+# Run using the 'vcf' env on personal laptop
 TODO:
+2024.01.17
+- Pipeline needs to be rerun to exlcude all of the extra CraterLake species and just include LakeMalawi species and ACs that Patrick has filtered down in SampleDatabase_v2.xlsx
 
 NOTE:
 2023 Nov. 15
@@ -27,27 +31,39 @@ Utaka has upgraded RAM, but there are still constraints with running 22 LGs + mi
 Mito doesn't take long to run anyway, so leave it to run after everything else, or run it first 
 Devote as much memory as possible to each child process when running the 22 LGs. Still, some may need more memory than available (1024 total) and could fail. Ideally make the memory allocation divisible by 64
 That's what happened with 3 LGs when I ran GenomicsDBImport.
-
 """
 
 class VariantCaller:
-    def __init__(self, genome, project_ids, linkage_groups, memory):
+    def __init__(self, genome, project_ids, linkage_groups, memory, ecogroups):
         self.genome = genome
         self.fm_obj = FM(self.genome)
         self.projectIDs = project_ids
         self.memory = memory
+        self.ecogroups = ecogroups
+        # TODO: need to be able to read a list of teh valid ecogroups in the Ecogroup_PTM column and let all samples be captured if 'All' is called as teh ecogroup. For now, only the 'LakeMalawi' ecogroups are recognized. 
+        if self.ecogroups == ['All']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
+        elif self.ecogroups == ['Non_Riverine']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
+        elif self.ecogroups == ['Lake_Malawi']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
+        elif self.ecogroups == ['Rock_Sand']:
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
+        elif self.ecogroups == ['Sand']:
+            self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
 
+        """
+        # commenting out the projectID code and replacing with the Ecogroup code instead. Revisit if I need to filter by projectIDs and not by Ecogroups in the future - NK, 2024.01.17
         # code block to set the ProjectIDs
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile) # downloads the most up-to-date SampleDatabase.csv file
-        s_df = pd.read_csv(self.fm_obj.localSampleFile)
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase.csv file
+        s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel')
         valid_project_IDs = s_df['ProjectID'].unique().tolist() # reads in SampleDatabase.csv and converts unique ProjectIDs to a list
-        valid_project_IDs.extend(['All', 'custom']) # will allow 'All' which is teh defualt projectID, and 'custom' which will allow a file containing vaid sample names to be valid IDs and not trip the below Exception
+        valid_project_IDs.extend(['All', 'custom']) # will allow 'All' which is the defualt projectID, and 'custom' which will allow a file containing vaid sample names to be valid IDs and not trip the below Exception
         for projectID in args.projectIDs: # for loop that will check each ProjectID passed to the script
             if projectID not in valid_project_IDs:
                 raise Exception(projectID + ' is not a ProjectID in SampleDatabase.csv; valid Project IDs are:' + '\n' + str(valid_project_IDs))
             elif self.projectIDs == ['All'] or self.projectIDs == 'All':
                 self.projectIDs = valid_project_IDs[:-2] # the -2 ensures the "All" and "custom" projectIDs are not incldued in the IDs
-
         # Code block to define the set of SampleIDs based on the passed ProjectIDs
         if self.projectIDs != ['custom']:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # downloads the most up-to-date AlignmentDatabase.csv file from Dropbox. This file contains a list of all samples that have BAM files generated from the previous steps in the pipeline 
@@ -58,7 +74,14 @@ class VariantCaller:
         else:
             custom_samples_df = pd.read_csv('custom_samples.csv', header=None) # read in a custom_file.csv file (assumes no header)
             self.sampleIDs = custom_samples_df[custom_samples_df.columns[0]].values.tolist() # converts the column of samples to a list 
-        
+        """
+
+        # Code block to set the ecogroups
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
+        s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel') # reads in the SampleLevel sheet from SampleDatabase_v2.xlsx
+        eg_filtered_df = s_df[s_df['Ecogroup_PTM'].isin(self.ecogroups)] # filter samples that match the ecogroups in the analysis
+        self.sampleIDs = eg_filtered_df['SampleID'].to_list()
+
         for sample in self.sampleIDs:
             if not s_df['SampleID'].eq(sample).any():
                 raise Exception(f"{sample} not found in the Sample Database")
@@ -86,7 +109,7 @@ class VariantCaller:
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
-            self.memory = 5
+            self.memory = [5]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
 
     def _generate_sample_map(self):
@@ -96,7 +119,10 @@ class VariantCaller:
                 self.fm_obj.createSampleFiles(sampleID)
                 # commenting out below line since BAM and GVCF files are stored at /Output/Bamfiles/Mzebra_UMD2a
                 # fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
-                fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
+                if not args.local_test:
+                    fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
+                else:
+                    fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
 
     def data_downloader(self):
         print('Downloading new Alignment File')
@@ -217,7 +243,7 @@ class VariantCaller:
             self.RunHaplotypeCaller()
 
 if __name__ == "__main__":
-    variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory)
+    variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory, args.ecogroups)
     variant_caller_obj.run_methods()
     print('PIPELINE RUN SUCCESSFUL')
 
