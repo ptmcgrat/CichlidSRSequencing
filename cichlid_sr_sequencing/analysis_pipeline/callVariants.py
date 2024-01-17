@@ -93,7 +93,8 @@ class VariantCaller:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.linkage_groups = linkage_groups
         if self.linkage_groups == ['All']:
-            self.linkage_groups = list(self.linkage_group_map.values())[:-1]
+            self.linkage_groups = list(self.linkage_group_map.values())
+            pdb.set_trace()
         else:
             regions_list = []
             for region in self.linkage_groups:
@@ -250,6 +251,10 @@ if __name__ == "__main__":
 """
 LOCAL TESTING COMMAND SKELETON
 /Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py Mzebra_UMD2a --local_test --regions LG1 LG2 LG3
+
+time python callVariants.py Mzebra_UMD2a -e Lake_Malawi --import_databases --genotype --memory 40 --concurrent_processes 23 2> vcf_pipeline_logs/error_419cohort_24.01.17.txt 1> vcf_pipeline_logs/log_419cohort_24.01.17.txt
+
+
 
 RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
 python3 call_variants.py Mzebra_UMD2a -p BrainDiversity_s1 BigBrain --import_databases --genotype -m 21
