@@ -94,7 +94,6 @@ class VariantCaller:
         self.linkage_groups = linkage_groups
         if self.linkage_groups == ['All']:
             self.linkage_groups = list(self.linkage_group_map.values())
-            pdb.set_trace()
         else:
             regions_list = []
             for region in self.linkage_groups:
