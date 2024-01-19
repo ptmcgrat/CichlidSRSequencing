@@ -6,11 +6,11 @@ from multiprocessing import Process
 parser = argparse.ArgumentParser(usage = 'Once VCF files per chromopsome have been generated, this script will combine the VCFs per LG into one file then optionally perfform compression, filtering, etc.')
 parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
 parser.add_argument('-m', '--merge', help = 'this flag will merge the VCF outputs into a master file', action = 'store_true')
-parser.add_argument('-f', '--filter', help = 'this flag will invoke filtering of the merged vcf file', action = 'store_true')
+parser.add_argument('-c', '--compress_and_index', help = 'call this flag to compress and index the output vcf file using bgzip, then tabix', action = 'store_true')
 parser.add_argument('-v', '--vcf_stats', help = 'this flag will run vcftools to generate vcf stats for a zipped vcf file', action = 'store_true')
 parser.add_argument('-p', '--prefix', help = 'define a prefix for filtering stats files', default = ['cohort_stats'], nargs = 1, type = str)
-parser.add_argument('-c', '--compress_and_index', help = 'call this flag to compress and index the output vcf file using bgzip, then tabix', action = 'store_true')
 parser.add_argument('-u', '--utaka', help = 'use this flag when concatenating on the Utaka server and the individual files are stored in the /Output directory', action = 'store_true')
+parser.add_argument('-f', '--filter', help = 'this flag will invoke filtering of the merged vcf file', action = 'store_true')
 parser.add_argument('--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
 args = parser.parse_args()
 
