@@ -1,4 +1,5 @@
 # I think the easiest way to invoke this annoying script will be to copy it into the filtering_stats directory and pipe all outputs into a new directory called stats_visualizations or something 
+# NOTE: This script will not run on Utaka due to issues installing tidyverse. Get the files on to Mzebra and run it there. 
 library('tidyverse')
 setwd(getwd())
 
