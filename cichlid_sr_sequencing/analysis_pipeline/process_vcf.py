@@ -137,21 +137,21 @@ class VCFProcessor:
                                     -V {self.zipped_master_file} \
                                     -O {self.filtered_file} \
                                     --filter-name 'allele_freq' \
-                                    --filter-expression 'AF < 0.000817' \
+                                    --filter-expression 'AF < 0.05' \
                                     --filter-name 'inbreeding_test' \
                                     --filter-expression 'InbreedingCoeff < -0.6' \
                                     --filter-name 'depth_Qual' \
                                     --filter-expression 'QD < 2.0' \
                                     --filter-name 'max_DP' \
-                                    --filter-expression 'DP > 12000' \
+                                    --filter-expression 'DP > 9700' \
                                     --filter-name 'min_DP' \
-                                    --filter-expression 'DP < 9000' \
+                                    --filter-expression 'DP < 7000' \
                                     --filter-name 'strand_bias' \
                                     --filter-expression 'FS > 40.0' \
                                     --filter-name 'mapping_quality' \
                                     --filter-expression 'MQ < 50.0' \
                                     --filter-name 'no_calls' \
-                                    --filter-expression 'NCC > 146.0' \
+                                    --filter-expression 'NCC > 100' \
                                     --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
         subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
@@ -174,3 +174,6 @@ if __name__ == "__main__":
     vcf_processor_obj = VCFProcessor(args.genome)
     vcf_processor_obj.run_methods()
     print('Pipeline Run Successful')
+
+
+    # time python process_vcf.py Mzebra_UMD2a --merge --compress_and_index --vcf_stats --prefix 419_cohort 2> vcf_pipeline_logs/error_419cohort_concat_24.01.19.txt 1> vcf_pipeline_logs/log_419cohort_concat_24.01.19.txt
