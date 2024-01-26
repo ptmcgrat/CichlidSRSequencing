@@ -75,7 +75,7 @@ class PCA_Maker:
             elif region == "All":
                 regions_list.extend(self.vcf_obj.seqnames[0:22])
             elif region == "Exploratory":
-                regions_list.extend(['lg2_YH_Inversion', 'lg2_non_inverted_region' 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_YH_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_YH_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region'])
+                regions_list.extend(['lg2_YH_Inversion', 'lg2_non_inverted_region', 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_YH_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_YH_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region'])
             elif region == "Whole":
                 regions_list.append('Whole')
             else:
@@ -92,7 +92,7 @@ class PCA_Maker:
             if 'Whole' in args.regions:
                 self.linkage_groups.extend(['Whole'])
             if 'Exploratory' in args.regions:
-                self.linkage_groups.extend(['lg2_YH_Inversion', 'lg2_non_inverted_region' 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_YH_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_YH_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region'])
+                self.linkage_groups.extend(['lg2_YH_Inversion', 'lg2_non_inverted_region', 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_YH_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_YH_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region'])
 
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
@@ -276,7 +276,7 @@ class PCA_Maker:
                             proc2.communicate()
 
     def _create_exploratory_region_eigen_files(self):
-        exploratory_regions_list = ['lg2_YH_Inversion', 'lg2_non_inverted_region' 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_YH_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_YH_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region']
+        exploratory_regions_list = ['lg2_YH_Inversion', 'lg2_non_inverted_region', 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_YH_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_YH_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region']
         processes = []
         for region in exploratory_regions_list:
             pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # make the filepath to the exploratory region output dirs
