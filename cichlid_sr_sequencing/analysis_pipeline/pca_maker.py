@@ -53,7 +53,7 @@ class PCA_Maker:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/612_pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         if args.local_test:
             self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/612_cohort_3_lg_subset.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
         self.ecogroups = ecogroups # This attribute is the list of ecogroups used for filtering samples
@@ -451,9 +451,10 @@ python pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing --sample_subset 
 
 For running on Utaka:
 NOTE: we are no longer running the "All" & "Non_Riverine" groups
-time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_24.01.15.txt.txt 1> pca_logs/log_lm_24.01.15.txt.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_24.01.15.txt 1> pca_logs/log_lm_24.01.15.txt
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_24.01.15.txt 1> pca_logs/log_rock_sand_24.01.15.txt
-time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_24.01.15.txt.txt 1> pca_logs/log_sand_24.01.15.txt.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_24.01.15.txt 1> pca_logs/log_sand_24.01.15.txt
+time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Mbuna 2> pca_logs/error_mbuna_24.01.16.txt 1> pca_logs/log_mbuna_24.01.16.txt
 
 # UMAP code only (no plink rerun)
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --umap -r All Whole Exploratory -e All 2> pca_logs/error_all_umap_240102.txt 1> pca_logs/log_all_umap_240102.txt
