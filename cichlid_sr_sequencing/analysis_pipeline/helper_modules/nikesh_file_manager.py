@@ -60,7 +60,7 @@ class FileManager():
 		self.localPBIndex = self.localGenomeDir + self.genome_version + '_v1.mmi'
 		if self.genome_version == 'Mzebra_UMD2a':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
-		elif self.genome_version == 'Mzebra_GT1':
+		elif self.genome_version == 'Mzebra_GT2':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT2.fna'
 		
 
