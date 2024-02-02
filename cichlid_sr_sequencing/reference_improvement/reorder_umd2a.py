@@ -12,7 +12,7 @@ parser.add_argument('-w', '--write_unmapped_contigs', help = 'flag that will wri
 args = parser.parse_args()
 
 """
-Link top oisntructions for how to get pandas to read the google sheets document
+Link top isntructions for how to get pandas to read the google sheets document
 https://medium.com/geekculture/2-easy-ways-to-read-google-sheets-data-using-python-9e7ef366c775#c6bb
 
 URL backup:
@@ -24,7 +24,7 @@ TODO:
 The reordering of the main linkage groups is messing up. Originally, the script was popping the final contig out. I think this was a remnant from when I used to add in NNNs as their own elements in the self.remapped_genome list
 I removed this, yet the expected length of the LG still doesn't match with, and is less than the original length of the genome. 
 
-I think that the script is fixed at this point, but nwo , I need to re-check whether each LG actually has all of the contigs actually present in the remapping instriuctions by going tthrough the google sheet in detail, per LG. 
+I think that the script is fixed at this point, but now , I need to re-check whether each LG actually has all of the contigs actually present in the remapping instriuctions by going tthrough the google sheet in detail, per LG. 
 There is still 
 
 There is a minor issue where LGs 1, 6, 8, & 15 have an extra N at the end of their sequences. I think this may stem from the fact that newlines are inserted every 80 bases. Sometimes, the last 101 bases have 2 newlines, so one takes up where an N would be removed.
@@ -74,6 +74,7 @@ class ReorderGenome:
             self.contigs_unused_list = []
             for lg in self.linkage_groups:
                 print('Getting Instructions for how to rebuild ' + lg + '...')
+
                 linkage_group_instructions = self.make_remap_instructions(lg)
                 fh.write('>' + self.linkage_group_map[lg] + '\n')
                 self.remapped_genome = []
@@ -84,7 +85,7 @@ class ReorderGenome:
                         print('Gap detected in instructions... Adding 200 Ns to the reference to indicate presence of a gap')
                         self.remapped_genome.append('N'*200)
                     else:
-                        self.bases_to_write = self.pyfaidx_obj[region[0]][region[1]:region[2]]
+                        self.bases_to_write = self.pyfaidx_obj[region[0]][int(region[1]):int(region[2])]
                         if region[0] not in self.contigs_used_list:
                             self.contigs_used_list.append(region[0])
                         if region[3] == "Normal":
@@ -93,8 +94,6 @@ class ReorderGenome:
                         elif region[3] == 'Inversion': # apply Inverted Method to restructure self.bases_to_write
                             print('Inverted contig found. Adding bases in reverse orientation')
                             self.inverted_transformation(self.bases_to_write)
-                # self.remapped_genome.pop() # This line removes the extra Ns written after the final contig in the linkage group before writing the bases into the file.
-                # pdb.set_trace()
                 self.remapped_genome = "".join([str(contig) for contig in self.remapped_genome]) # self.remapped_genome is a list of all of the pieces of each LG that have been oriented or added into the correct orientation/order. This combines them into one string to write into the genome file
                 self.remapped_genome = re.sub("(.{80})", "\\1\n", self.remapped_genome, 0, re.DOTALL)[:-101] # the -102 removes the last 102 characgers which inclues 100 Ns and 2 newlines
                 fh.write(self.remapped_genome)
@@ -108,7 +107,7 @@ class ReorderGenome:
 
     def inverted_transformation(self, basepair_list):
         self.bases = basepair_list
-        self.bases = self.bases.reverse
+        self.bases = self.bases.reverse.complement
         self.bases = self.bases.__str__() + 'N'*100
         self.remapped_genome.append(self.bases)
 
@@ -116,7 +115,6 @@ class ReorderGenome:
         print('WRITING UNUSED CONTIGS TO THE END OF THE FILE...')
         with open(self.out_dir + '/' + self.filename, 'a') as fh: # unmapped regions are appended to the end of the file instead of written 
             # Code that will get all unused contigs and write them to the end of the genome file
-            # pdb.set_trace()
             for contig in self.pyfaidx_obj.keys(): # self.pyfaidx_obj.keys() gives an iterable list of all contig names in UMD2a
                 if contig == 'NC_027944.1': # to account for the mt DNA contig
                     self.contigs_unused_list.append(contig)
@@ -163,4 +161,14 @@ Code for testing the number of contigs in the new GT1 file
 from pyfaidx import Fasta
 gt1 = Fasta('/Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT1/Mzebra_GT1_v2.fna')
 umd2a = Fasta('/Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_UMD2a/GCF_000238955.4_M_zebra_UMD2a_genomic.fna')
+
+Index the genome with bwa index:
+bwa index <GT.fna>
+This one takes a little while.
+Upload the genome and all files to Dropbox. Be sure to include a non-zipped version too. 
+
+build an index using samtools faidx <GT.fa>
+
+build dictionary using gatk CreateSequenceDictionary -R <GT.fa>
+Be sure to remove the genome files from the git directory before pushing anything or I'll crash the repo!
 """

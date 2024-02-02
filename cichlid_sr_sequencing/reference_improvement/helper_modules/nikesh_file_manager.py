@@ -14,9 +14,12 @@ class FileManager():
 		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu':
 			# basically ignore the below line because we'll work on mzebra and not have to deal with the messy setup of utaka server
 			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Data/CichlidSequencingData/'
+			# In Oct 2023, Curtis & I mounted a new RAID array to Utaka server that I then mounted into /Output. The below line will allow the scripts to access data stroed in this directory. 
+			self.localStorageDir = '/Output/'
 		else:
 			#Master directory for local data. This is where the data structure will be setup on the server. It will be '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/'
-			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Data/CichlidSequencingData/' 
+			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Data/CichlidSequencingData/'
+			self.localStorageDir = '/Output/'
 		# Identify cloud directory for rclone
 		self.rcloneRemote = rcloneRemote
 		# On some computers, the first directory is McGrath, on others it's BioSci-McGrath. Use rclone to figure out which
@@ -43,9 +46,9 @@ class FileManager():
 		# Same logic applies to all of the below in creating the local directory structure.
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
-		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version 	
+		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version
 	
-		self.localReadsDir = self.localMasterDir + 'Reads/'		
+		self.localReadsDir = self.localMasterDir + 'Reads/'
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
 		self.localTempDir = self.localMasterDir + 'Temp/'
@@ -53,16 +56,26 @@ class FileManager():
 
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
+		self.localPBGenomeFile = self.localGenomeDir + self.genome_version + '_v1.fa'
+		self.localPBIndex = self.localGenomeDir + self.genome_version + '_v1.mmi'
 		if self.genome_version == 'Mzebra_UMD2a':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		elif self.genome_version == 'Mzebra_GT1':
-			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v2.fna'
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v1.fna'
+		
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
+		self.localPCADir = self.localOutputDir + 'pca_outputs'
+
+		# Below block is to map file structures in /Output:
+		self.StorageBamfilesDir = self.localStorageDir + 'Bamfiles/'
+		self.StorageBamRefDir = self.StorageBamfilesDir + self.genome_version + '/'
+		self.StorageOutputDir = self.localStorageDir + 'Outputs/'
 
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID
@@ -77,6 +90,11 @@ class FileManager():
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
+
+		# Below block is to access files in the /Output storage directory
+		self.StorageSampleBamDir = self.StorageBamRefDir + sampleID + '/'
+		self.StorageGVCFFile = self.StorageSampleBamDir + sampleID + '.g.vcf.gz'
+		self.StorageGVCFIndex = self.StorageSampleBamDir + sampleID + '.g.vcf.gz.tbi'
 
 	def returnTempGVCFFile(self, contig):
 		return self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
