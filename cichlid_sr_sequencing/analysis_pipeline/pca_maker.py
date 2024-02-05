@@ -199,11 +199,14 @@ class PCA_Maker:
     def _preprocess_vcfs(self): # this function prunes all variants from self.ecogroup_specific_master_vcf that are not present in self.subset_master_vcf following recalculation and filtering of variants with AF < 0.05. The 5% threshold was used in the Malinksy E&E papee according to Patrick Unverified by me
         # File check code to ensure these files don't already exist. If they do, the samples between existing files and the cohort's samples must match:
         if pathlib.Path(self.out_dir + '/af_recalculated_subset_samples.vcf.gz').exists():
-            pdb.set_trace()
             # if the ecogroup_specific_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
             if subprocess.run(f"bcftools query -l {self.out_dir + '/af_recalculated_subset_samples.vcf.gz'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout == subprocess.run(f"cat {self.out_dir + '/subset_samples.csv'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
                 print(f'\nThe file af_recalculated_subset_samples.vcf.gz exists in the ecogroup dir and samples within the file match those in subset_samples.csv. VCF preprocessing will be skipped\n')
+                print('stop1')
+                pdb.set_trace()
             else: # if the samples differ between the existing af_recalculated_subset_samples.vcf.gz and the subset_samples.csv, redo all preprocessing steps. 
+                print('stop2')
+                pdb.set_trace()
                 print('\nSamples between the existing af_recalculated_subset_samples.vcf.gz and subset_samples.csv are different. Rerunning VCF preprocessing...\n')
                 print('RESTARTING VCF FILE PREPROCESSING...\n')
                 print('RECALCULATING AF IN THE SUBSET FILE\n')
