@@ -39,6 +39,21 @@ TODO:
     - Need to see where this info is calculated or if I need to run a flag or new command to get this information.
 - Be sure to include all other notes from the slack messages as well in these updates 
 - UMAP is not working on the server due to an import error. It may be a python v 3.7 issue... look into this and fix it if we want UMAP to work on Utaka. It's been commented out for now.
+
+
+2024.02.03
+Patrick wants some specific things done with pca_maker
+1. The whole genome plot PCs don't seem to be calculated with the subppopulation of samples. This must be updated.
+    temp fix implemented but it will not work for ecogroup analyses smaller than 50 samples.
+2. Include only 5 total MCs in the analysis. Start by keeping the samples Patrick keeps when calculating the PCs
+    Done. Implemented into a new SampleDatabase I'll use to run this cohort.
+3. Redo the sizing of the dots
+    Implemented
+4. Do away with the shapes of dots that differ per projectID. Just keep colors based on ecogroup
+    Implemented
+5. Change MCs to shallow benthic for now haha
+    Implemented
+6. 
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -53,7 +68,7 @@ class PCA_Maker:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/419_pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         if args.local_test:
             self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/612_cohort_3_lg_subset.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
         self.ecogroups = ecogroups # This attribute is the list of ecogroups used for filtering samples
@@ -114,8 +129,8 @@ class PCA_Maker:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information
-        self.df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile_for_grant) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information
+        self.df = pd.read_excel(self.fm_obj.localSampleFile_for_grant, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
         self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='SampleID') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
 
         # this code block is used to generate a sample file of ALL samples that are present in a given ecogroup that's being run in the analysis
@@ -313,9 +328,9 @@ class PCA_Maker:
                 subprocess.run(['plink2', '--vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--allow-extra-chr']) # whole vcf file pfile generation. Use the variants_filtered_ecogroup_samples.recode.vcf.gz file as the "whole" file.
                 subprocess.run(['plink2', '--vcf', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--allow-extra-chr']) # subset sample vcf file pfile generation. The subset file is the af_filtered_subset_samples.vcf.gz in self.out_dir
                 subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--allow-extra-chr'])
-                if int(subprocess.check_output(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz '} | wc -l", shell=True, encoding='utf-8').strip()) >= 50:
-                        subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2'])
-
+                if int(subprocess.check_output(f"bcftools query -l {self.out_dir + '/af_filtered_subset_samples.vcf.gz'} | wc -l", shell=True, encoding='utf-8').strip()) >= 50: # NOTE: Since for "Whole", the subset samples are pulled from af_filtered_subset_samples.vcf.gz, this file must be queried to see if it contains less than 50 samples
+                        subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2']) # This code works properly to generate an eigenvec file with the right number of samples. As long as the number of samples in the ecogroup is >50, there shouldn't be an issue.
+                        # plink2 --pfile Whole_subset --freq counts --pca allele-wts --out test_sample_subset_pca --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 10 0.1 --max-alleles 2
                         # modify the .acounts file to eliminate 0 count alleles:
                         acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', sep='\t')
                         no_extremes_df = acounts_df[(acounts_df['ALT_CTS'] != 0) & (acounts_df['ALT_CTS'] != max(acounts_df['OBS_CT']))]
@@ -324,8 +339,8 @@ class PCA_Maker:
                         # genenrate the .sscore file with eigenvectors for each samples after projection on to the PC space from the subset PCA
                         subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
                 else:
-                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2', '--bad-ld'])
-                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr'])
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2', '--bad-ld']) 
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr']) # this is where things are going wrong. Before, "Whole" was always running this faulty code that's generating .eigenvec files with a number of samples equal to the whole ecogroup and not the subset This needs to  be fixed, else Mbuna and other small dataset groups will not run right.
                     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
 
             else: #lg in self.linkage_group_map.values():
@@ -359,7 +374,7 @@ class PCA_Maker:
         self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
         color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
-        shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'}
+        # shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'} # removed for now to exclude shapes when generating data for Patrick's grant. 
         
         for lg in linkage_group_list:
             print('GENERATING PCA FOR ' + lg)
@@ -377,23 +392,33 @@ class PCA_Maker:
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
                 plot_title = lg
-            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup_PTM', symbol='ProjectID_PTM',
+            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup_PTM',
                              labels = {
                                  'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
                                  'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
                              },
-                               color_discrete_map=color_map, symbol_map=shape_map,
-                               title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism', 'ProjectID_PTM'])
+                               color_discrete_map=color_map,
+                               title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism'])
+            fig.update_traces(marker={'size':6})
+            fig.write_html(self.plotly_out + lg + '_PCA.html')
+            # Below is the old code that will allow shapes per projectID
+            # fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup_PTM', symbol='ProjectID_PTM',
+            #                  labels = {
+            #                      'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
+            #                      'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
+            #                  },
+            #                    color_discrete_map=color_map, symbol_map=shape_map,
+            #                    title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism', 'ProjectID_PTM'])
             # else: # NOTE: if we want to generate a subset PCA uncomment and incorporate below code into the function
             #     fig = px.scatter(df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', color_discrete_map=color_map, symbol_map=shape_map, title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
-            larger_size = 9
-            smaller_size = 3
-            fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='square'))
-            fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='diamond'))
-            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle'))
-            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle-open'))
-            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='star'))
-            fig.write_html(self.plotly_out + lg + '_PCA.html')
+            # larger_size = 9
+            # smaller_size = 3
+            # fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='square'))
+            # fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='diamond'))
+            # fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle'))
+            # fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle-open'))
+            # fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='star'))
+            # fig.write_html(self.plotly_out + lg + '_PCA.html')
 
     def _create_umap(self, linkage_group_list):
         # code to generate and merge the sampledatabase_df and the eigen_df
@@ -462,4 +487,23 @@ time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingDa
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --umap -r All Whole Exploratory -e Non_Riverine 2> pca_logs/error_non_riverine_umap_240102.txt 1> pca_logs/log_non_riverine_umap_240102.txt
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --umap -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_umap_240102.txt 1> pca_logs/log_rock_sand_umap_240102.txt
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --umap -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_umap_240102.txt 1> pca_logs/log_sand_umap_240102.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MZ4f/hifiasm/run1_24.01.26/MZ4f_hifi_run1_24.01.26.p_ctg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/m84053_231214_041227_s3.hifi_reads.bc2032.fastq.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/GGBC_old_reads/MZ4.1f/hifiread/m64060_230315_185128.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MZ4f/inspector/hifiasm/run1_24.01.26/ --datatype hifi --thread 36 2> error_run1_240126.txt 1> log_run1_240126.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/LF2f/hifiasm/run1_24.01.24/LF2f_hifi_run1_24.01.24.bp.p_utg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/LF2f/m84053_231214_034121_s2.hifi_reads.bc2031.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/LF2f/inspector/hifiasm/run1_24.01.24 --datatype hifi --thread 18 2> error_run1_240129.txt 1> log_run1_240129.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH7f/hifiasm/run1_24.01.24/YH7f_hifi_run1_24.01.24.bp.p_ctg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH7f/inspector/hifiasm/run1_24.01.24 --datatype hifi --thread 18 2> error_run1_240129.txt 1> log_run1_240129.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH8m/hifiasm/run1_24.01.24/YH8m_hifi_run1_24.01.24.bp.p_ctg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH8m/m84053_231214_034121_s2.hifi_reads.bc2030.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH8m/inspector/hifiasm/run1_24.01.24 --datatype hifi --thread 18 2> error_run1_240129.txt 1> log_run1_240129.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/CV4f/hifiasm/run2_24.01.24/CV4f_hifi_run1_24.01.24.bp.p_utg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/m84053_231123_035918_s3.hifi_reads.bc2010.fastq.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/GGBC_old_reads/CV4.3f/hifireads/m64060_230309_030945.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/CV4f/inspector/hifiasm/run2_24.01.24 --datatype hifi --thread 18 2> error_run2_240129.txt 1> log_run2_240129.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MC3m/hifiasm/run1_24.01.26/MC3m_hifi_run1_24.01.26.bp.p_utg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MC3m/m84053_231123_043024_s4.hifi_reads.bc2011.fastq.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/GGBC_old_reads/MC-003-m/hifireads/m64060_221024_181811.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MC3m/inspector/hifiasm/run1_24.01.26 --datatype hifi --thread 18 2> error_run1_240130.txt 1> log_run1_240130.txt
+
+awk '/^S/{print ">"$2;print $3}' YH7f_hifi_run1_24.01.24.bp.p_ctg.gfa > YH7f_hifi_run1_24.01.24.bp.p_ctg.fa
+awk '/^S/{print ">"$2;print $3}' YH8m_hifi_run1_24.01.24.bp.p_ctg.gfa > YH8m_hifi_run1_24.01.24.bp.p_ctg.fa
+awk '/^S/{print ">"$2;print $3}' LF2f_hifi_run1_24.01.24.bp.p_utg.gfa > LF2f_hifi_run1_24.01.24.bp.p_utg.fa
+awk '/^S/{print ">"$2;print $3}' CV4f_hifi_run1_24.01.24.bp.p_utg.gfa > CV4f_hifi_run1_24.01.24.bp.p_utg.fa
+awk '/^S/{print ">"$2;print $3}' MC3m_hifi_run1_24.01.26.bp.p_utg.gfa > MC3m_hifi_run1_24.01.26.bp.p_utg.fa
+
 """
