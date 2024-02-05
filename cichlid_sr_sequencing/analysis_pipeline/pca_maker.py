@@ -129,7 +129,7 @@ class PCA_Maker:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile_for_grant) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile_for_grant) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information. Changed for now to get data from the grant specific file. - 2024.02.04
         self.df = pd.read_excel(self.fm_obj.localSampleFile_for_grant, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
         self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='SampleID') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
 
@@ -198,6 +198,7 @@ class PCA_Maker:
 
     def _preprocess_vcfs(self): # this function prunes all variants from self.ecogroup_specific_master_vcf that are not present in self.subset_master_vcf following recalculation and filtering of variants with AF < 0.05. The 5% threshold was used in the Malinksy E&E papee according to Patrick Unverified by me
         # File check code to ensure these files don't already exist. If they do, the samples between existing files and the cohort's samples must match:
+        pdb.set_trace()
         if pathlib.Path(self.out_dir + '/af_recalculated_subset_samples.vcf.gz').exists():
             # if the ecogroup_specific_master_vcf (contains all variants per sample for the ecogroups specified) exists, then this checks that the samples match exactly. If not, a new file is built by filtering for samples in the self.good_samples_csv file.
             if subprocess.run(f"bcftools query -l {self.out_dir + '/af_recalculated_subset_samples.vcf.gz'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout == subprocess.run(f"cat {self.out_dir + '/subset_samples.csv'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout: # checks if the output from printing the sample names from samples_to_keep.csv and the column names from samples_filtered_master.vcf.gz are the sample
@@ -217,7 +218,7 @@ class PCA_Maker:
                 print('ZIPPING THE VARIANTS FILTERED ECOGROUP FILE\n')
                 subprocess.run(['bgzip', '-f', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf'])
 
-                # This code needs to be incorporated at the vcf preprocessing stage since the outputs at the end of the file need to get indexed 
+                # This code needs to be incorporated at the vcf preprocessing stage since the outputs at the end of the file need to get indexed
                 p3 = subprocess.Popen(['tabix', '-p', 'vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz'])
                 p4 = subprocess.Popen(['tabix', '-p', 'vcf', self.out_dir + '/af_filtered_subset_samples.vcf.gz'])
                 print('FILTERED SAMPLES FILE GENERATED. INDEXING ALL SAMPLE VCF FILE...')
