@@ -1,13 +1,13 @@
 import os, subprocess, pdb, random, datetime, platform
 import pandas as pd
-import numpy as np
+#import numpy as np
 from xml.etree import ElementTree as ET
 from multiprocessing import cpu_count
 #from pysam import VariantFile
 from collections import defaultdict
 
 class FileManager():
-	def __init__(self, genome_version = '', rcloneRemote = 'cichlidVideo:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = '', rcloneRemote = 'CichlidPiData:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
 
 		self.genome_version = genome_version
 
@@ -62,6 +62,13 @@ class FileManager():
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
 
 	def createSampleFiles(self, sampleID):
+		self.downloadData(self.localSampleFile)
+		dt = pd.read_csv(self.localSampleFile)
+		s_dt = dt[dt.SampleID == sampleID]
+		projectID = s_dt.ProjectID.iloc[0]
+
+		self.localRawBamFiles = [self.localReadsDir + projectID + '/' + x +'.unmapped_marked_adapters.bam' for x in s_dt.RunID.to_list()]
+
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
@@ -72,6 +79,8 @@ class FileManager():
 		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
+
+
 
 	def returnTempGVCFFile(self, contig):
 		return self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
