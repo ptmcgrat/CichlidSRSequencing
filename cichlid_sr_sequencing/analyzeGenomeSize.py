@@ -11,8 +11,8 @@ def process_sample(sampleID, fm_obj):
 	for raw_bam in fm_obj.localRawBamFiles:
 		subprocess.run(['samtools','fastq',raw_bam], stdout = open(fm_obj.localReadsDir + sampleID + '.fq', 'a'))
 
-	subprocess.run(['jellyfish','count','-m','21','-s','3G', '-C', '-o', fm_obj.localReadsDir + sampleID + '_counts.jf', fm_obj.localReadsDir + sampleID + '.fq'])
-	subprocess.run(['jellyfish','histo','-t','-20',fm_obj.localReadsDir + sampleID + '_counts.jf'], stdout = open(fm_obj.localReadsDir + sampleID + '.histo'))
+	subprocess.run(['jellyfish','count','-m','21','-s','256G', '-C', '-t', '96', '-o', fm_obj.localReadsDir + sampleID + '_counts.jf', fm_obj.localReadsDir + sampleID + '.fq'])
+	subprocess.run(['jellyfish','histo','-t','-96',fm_obj.localReadsDir + sampleID + '_counts.jf'], stdout = open(fm_obj.localReadsDir + sampleID + '.histo'))
 	#jellyfish histo -t 10 reads.jf > reads.histo
 	
 
