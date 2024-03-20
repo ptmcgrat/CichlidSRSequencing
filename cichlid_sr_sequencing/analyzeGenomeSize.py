@@ -19,8 +19,8 @@ def process_sample(sampleID, fm_obj):
 fm_obj = FM(genome_version = 'Mzebra_UMD2a')
 
 
-for sample in ['YH_1_m','CV_1_m','CV_2_f','MZ_1_m','MZ_2_f','MC_1_m','MC_2_f']
-process_sample(sample, fm_obj)
+for sample in ['YH_1_m','CV_1_m','CV_2_f','MZ_1_m','MZ_2_f','MC_1_m','MC_2_f']:
+	process_sample(sample, fm_obj)
 
 
 """
