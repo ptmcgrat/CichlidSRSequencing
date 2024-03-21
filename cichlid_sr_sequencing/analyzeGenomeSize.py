@@ -12,7 +12,7 @@ def process_sample(sampleID, fm_obj):
 		subprocess.run(['samtools','fastq',raw_bam], stdout = open(fm_obj.localReadsDir + sampleID + '.fq', 'a'))
 
 	subprocess.run(['fastqc', fm_obj.localReadsDir + sampleID + '.fq'])
-	subprocess.run(['jellyfish','count','-m','21','-s','6G', '-C', '-t', '96', '-o', fm_obj.localReadsDir + sampleID + '_counts.jf', fm_obj.localReadsDir + sampleID + '.fq'])
+	subprocess.run(['jellyfish','count','-m','21','-s','6G', '-C', '-t', '96', '-U','100000', '-o', fm_obj.localReadsDir + sampleID + '_counts.jf', fm_obj.localReadsDir + sampleID + '.fq'])
 	subprocess.run(['jellyfish','histo','-t','96',fm_obj.localReadsDir + sampleID + '_counts.jf'], stdout = open(fm_obj.localReadsDir + sampleID + '.histo', 'w'))
 	subprocess.run(['rm','-f', fm_obj.localReadsDir + sampleID + '.fq', fm_obj.localReadsDir + sampleID + '_counts.jf'] + fm_obj.localRawBamFiles)
 
