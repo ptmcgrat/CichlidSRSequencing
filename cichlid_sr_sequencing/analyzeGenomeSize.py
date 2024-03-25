@@ -18,7 +18,7 @@ def process_sample(sampleID, fm_obj):
 
 # Create fm_obj and grab sample file
 fm_obj = FM(genome_version = 'Mzebra_HybridScaffold')
-fm_obj.downloadData(self.localGenomeFile)
+fm_obj.downloadData(fm_obj.localGenomeFile)
 
 repeatmodelerpath = '/home/ad.gatech.edu/bio-mcgrath-dropbox/anaconda3/envs/GenomeSize/share/RepeatModeler/'
 
