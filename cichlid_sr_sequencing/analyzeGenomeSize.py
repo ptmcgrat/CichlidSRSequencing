@@ -22,7 +22,7 @@ fm_obj.downloadData(fm_obj.localGenomeFile)
 
 repeatmodelerpath = '/home/ad.gatech.edu/bio-mcgrath-dropbox/anaconda3/envs/GenomeSize/share/RepeatModeler/'
 
-subprocess.run([repeatmodelerpath + 'BuildDatabase','-name','HybridScaffold',self.localGenomeFile])
+subprocess.run([repeatmodelerpath + 'BuildDatabase','-name','HybridScaffold',fm_obj.localGenomeFile])
 subprocess.run([repeatmodelerpath + 'RepeatModeler','-database','HybridScaffold','-threads','48','-LTRStruct'])
 
 
