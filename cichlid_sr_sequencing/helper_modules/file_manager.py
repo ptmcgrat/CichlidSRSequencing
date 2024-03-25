@@ -54,6 +54,9 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		elif self.genome_version == 'Mzebra_GT1':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v1.fna'
+		elif self.genome_version == 'Mzebra_HybridScaffold':
+			self.localGenomeFile = self.localGenomeDir + 'HYBRID_SCAFFOLD.fasta'
+
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'

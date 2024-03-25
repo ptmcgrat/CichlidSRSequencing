@@ -17,11 +17,18 @@ def process_sample(sampleID, fm_obj):
 	subprocess.run(['rm','-f', fm_obj.localReadsDir + sampleID + '.fq', fm_obj.localReadsDir + sampleID + '_counts.jf'] + fm_obj.localRawBamFiles)
 
 # Create fm_obj and grab sample file
-fm_obj = FM(genome_version = 'Mzebra_UMD2a')
+fm_obj = FM(genome_version = 'Mzebra_HybridScaffold')
+fm_obj.downloadData(self.localGenomeFile)
+
+repeatmodelerpath = '/home/ad.gatech.edu/bio-mcgrath-dropbox/anaconda3/envs/GenomeSize/share/RepeatModeler/'
+
+subprocess.run([repeatmodelerpath + 'BuildDatabase','-name','HybridScaffold',self.localGenomeFile])
+subprocess.run([repeatmodelerpath + 'RepeatModeler','-database','HybridScaffold','-threads','48','-LTRStruct'])
 
 
-for sample in ['YH_1_m','CV_1_m','CV_2_f','MZ_1_m','MZ_2_f','MC_1_m','MC_2_f']:
-	process_sample(sample, fm_obj)
+
+#for sample in ['YH_1_m','CV_1_m','CV_2_f','MZ_1_m','MZ_2_f','MC_1_m','MC_2_f']:
+#	process_sample(sample, fm_obj)
 
 
 """
