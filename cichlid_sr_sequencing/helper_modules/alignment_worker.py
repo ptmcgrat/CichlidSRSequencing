@@ -1,4 +1,4 @@
-import subprocess, os, pdb
+import subprocess, os, pdb, pysam
 from multiprocessing import cpu_count
 
 class AlignmentWorker():
@@ -132,26 +132,14 @@ class AlignmentWorker():
 		for contig in contigs:
 
 			command = ['gatk', 'HaplotypeCaller', '-R', self.fileManager.localGenomeFile, '-I', self.fileManager.localBamFile, '-ERC', 'GVCF']
-			command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-			command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-			command += ['-A', 'DepthPerSampleHC', '-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+			#command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+			#command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+			#command += ['-A', 'DepthPerSampleHC', '-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
 
-			##contig=<ID=NC_036786.1,length=64916660>
-			if contig == 'NC_036786.1':
-				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '_1.g.vcf')
-				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '_2.g.vcf')
-
-				command1 = command + ['-L', contig + ':1-32400000', '-O', vcf_files[-2]]
-				command2 = command + ['-L', contig + ':32400000-64916660', '-O', vcf_files[-1]]
-
-				processes.append(subprocess.Popen(command1, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
-				processes.append(subprocess.Popen(command2, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
-
-			else:	
-
-				vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '.g.vcf')
-				command = command + ['-L', contig , '-O', vcf_files[-1]]
-				processes.append(subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
+			vcf_files.append(self.fileManager.localTempDir + self.sampleID + '_' + contig + '.g.vcf')
+			command = command + ['-L', contig , '-O', vcf_files[-1]]
+			error_file = self.fileManager.localTempDir + self.sampleID + '_' + contig + '.errors.txt'
+			processes.append(subprocess.Popen(command, stderr = open(error_file, 'w'), stdout = subprocess.DEVNULL))
 
 			if len(processes) == int(cpu_count()/4):
 				for p1 in processes:
