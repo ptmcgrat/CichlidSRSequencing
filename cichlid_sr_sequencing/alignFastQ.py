@@ -118,7 +118,7 @@ for sample in good_samples:
 	aw_obj.splitBamfiles()
 	timer.stop()
 	timer.start('  Creating GVCF file for Sample: ' + sample)
-	aw_obj.createGVCF()
+	#aw_obj.createGVCF()
 	timer.stop()
 	timer.start('  Uploading data for Sample: ' + sample)
 	fm_obj.uploadData(fm_obj.localSampleBamDir)

@@ -11,7 +11,7 @@ class FileManager():
 
 		self.genome_version = genome_version
 
-		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu':
+		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu' or 'utaka' in platform.node():
 			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Temp/CichlidSequencingData/'
 			self.localStorageDir = '/Output/'
 
