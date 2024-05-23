@@ -23,7 +23,7 @@ class AlignmentWorker():
 		for i, (index,row) in enumerate(self.sample_dt.iterrows()):
 
 			# Download unmapped bam file
-			uBam_file = self.fileManager.localReadsDir + row.File
+			uBam_file = self.fileManager.localReadsDir + row.FileLocations
 			self.fileManager.downloadData(uBam_file)
 
 			# Create temporary outputfile
