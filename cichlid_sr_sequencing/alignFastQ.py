@@ -64,6 +64,7 @@ if args.Ecogroups is not None:
 if args.ProjectID is None and args.SampleIDs is None and args.Ecogroups is None:
 	good_samples = set(s_dt.SampleID)
 
+print(str(len(good_samples)) + ' samples will be analyzed')
 # Download master alignment database to keep track of samples that have been aligned
 fm_obj.downloadData(fm_obj.localAlignmentFile)
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
