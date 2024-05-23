@@ -7,7 +7,7 @@ from multiprocessing import cpu_count
 from collections import defaultdict
 
 class FileManager():
-	def __init__(self, genome_version = '', rcloneRemote = 'CichlidPiData:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
 
 		self.genome_version = genome_version
 
