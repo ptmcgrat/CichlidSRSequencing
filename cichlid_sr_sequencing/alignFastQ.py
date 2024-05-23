@@ -6,7 +6,7 @@ from helper_modules.Timer import Timer
 import pandas as pd
 
 
-import argparse, os, pdb, subprocess, sys, datetime
+import argparse, os, pdb, subprocess, sys, datetime, pysam
 from collections import defaultdict
 from multiprocessing import cpu_count
 
@@ -78,7 +78,6 @@ os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
 timer.start('Downloading genome')		
 fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
-pdb.set_trace()
 
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
@@ -106,13 +105,13 @@ for sample in good_samples:
 	#aw_obj.downloadReadData()
 	timer.stop()
 	timer.start('  Aligning fastq files for Sample: ' + sample)
-	#aw_obj.alignData()
+	aw_obj.alignData()
 	timer.stop()
 	timer.start('  Marking duplicates for Sample: ' + sample)
-	#aw_obj.markDuplicates()
+	aw_obj.markDuplicates()
 	timer.stop()
 	timer.start('  Splitting reads based upon their alignment for Sample: ' + sample)
-	#aw_obj.splitBamfiles()
+	aw_obj.splitBamfiles()
 	timer.stop()
 	timer.start('  Creating GVCF file for Sample: ' + sample)
 	aw_obj.createGVCF()
