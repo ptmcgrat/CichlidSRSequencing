@@ -1,4 +1,4 @@
-import argparse, os, pysam
+import argparse, os
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
@@ -6,7 +6,7 @@ from helper_modules.Timer import Timer
 import pandas as pd
 
 
-import argparse, os, pysam, pdb, subprocess, sys, datetime
+import argparse, os, pdb, subprocess, sys, datetime
 from collections import defaultdict
 from multiprocessing import cpu_count
 
@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(usage = 'This script will download fastq data t
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
 parser.add_argument('-s', '--SampleIDs', nargs = '+', help = 'Restrict analysis to the following sampleIDs')
 parser.add_argument('-p', '--ProjectID', type = str, help = 'Restrict analysis to a specific ProjectID')
+parser.add_argument('-e', '--Ecogroups', nargs = '+', type = str, help = 'Restrict analysis to specific Ecogroups')
 args = parser.parse_args()
 
 # Create FileManager object to keep track of filenames
@@ -29,8 +30,8 @@ if args.Genome not in fm_obj.returnGenomeVersions():
 	raise argparse.ArgumentTypeError('Genome version does not exist. Options are: ' + ','.join(fm_obj.returnGenomeVersions()))
 
 # Download master sample database and read it in (this contains info on valid sampleIDs, projectIDs, and file locations)
-fm_obj.downloadData(fm_obj.localSampleFile)
-s_dt = pd.read_csv(fm_obj.localSampleFile)
+fm_obj.downloadData(fm_obj.localSampleFile_v2)
+s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
 
 # If running on projectID, make sure it is valid and subset sample database to those with the right projectID
 if args.ProjectID is not None:
@@ -50,13 +51,23 @@ if args.SampleIDs is not None:
 		raise argparse.ArgumentTypeError('The following samples were not found in sample database: ' + ','.join(bad_samples))
 	good_samples = set(args.SampleIDs)
 
+# If running on ecogroup, make sure they are valid
+if args.Ecogroups is not None:
+	good_samples = set()
+	for ecogroup in args.Ecogroups:
+		if ecogroup not in set(s_dt.Ecogroup_PTM):
+			raise argparse.ArgumentTypeError('Ecogroup ' + ecogroup + ' does not exist. Options are: ' + ','.join(set(s_dt.Ecogroup_PTM)))
+		sub_dt = s_dt[s_dt.Ecogroup_PTM == ecogroup]
+		good_samples.update(sub_dt.SampleID)
+
 # If no filtering options are given, run on all samples
-if args.ProjectID is None and args.SampleIDs is None:
+if args.ProjectID is None and args.SampleIDs is None and args.Ecogroups is None:
 	good_samples = set(s_dt.SampleID)
 
 # Download master alignment database to keep track of samples that have been aligned
 fm_obj.downloadData(fm_obj.localAlignmentFile)
 a_dt = pd.read_csv(fm_obj.localAlignmentFile)
+
 
 # Make directories necessary for analysis
 os.makedirs(fm_obj.localMasterDir, exist_ok = True)
@@ -67,6 +78,7 @@ os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
 timer.start('Downloading genome')		
 fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
+pdb.set_trace()
 
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:

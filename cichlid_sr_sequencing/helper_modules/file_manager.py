@@ -13,8 +13,11 @@ class FileManager():
 
 		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu':
 			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Temp/CichlidSequencingData/'
+			self.localStorageDir = '/Output/'
+
 		else:
 			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Temp/CichlidSequencingData/' #Master directory for local data
+			self.localStorageDir = '/Output/'
 
 		# Identify cloud directory for rclone
 		self.rcloneRemote = rcloneRemote
@@ -56,9 +59,13 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v1.fna'
 		elif self.genome_version == 'Mzebra_HybridScaffold':
 			self.localGenomeFile = self.localGenomeDir + 'HYBRID_SCAFFOLD.fasta'
+		elif self.genome_version == 'Mzebra_GT3':
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
 
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
+
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 

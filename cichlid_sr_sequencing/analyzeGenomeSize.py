@@ -17,13 +17,15 @@ def process_sample(sampleID, fm_obj):
 	subprocess.run(['rm','-f', fm_obj.localReadsDir + sampleID + '.fq', fm_obj.localReadsDir + sampleID + '_counts.jf'] + fm_obj.localRawBamFiles)
 
 # Create fm_obj and grab sample file
-fm_obj = FM(genome_version = 'Mzebra_HybridScaffold')
+genome_version = 'Mzebra_GT3'
+fm_obj = FM(genome_version = genome_version)
 fm_obj.downloadData(fm_obj.localGenomeFile)
 
-repeatmodelerpath = '/home/ad.gatech.edu/bio-mcgrath-dropbox/anaconda3/envs/GenomeSize/share/RepeatModeler/'
+print(fm_obj.localGenomeFile)
 
-subprocess.run([repeatmodelerpath + 'BuildDatabase','-name','HybridScaffold',fm_obj.localGenomeFile])
-subprocess.run([repeatmodelerpath + 'RepeatModeler','-database','HybridScaffold','-pa','12','-LTRStruct'])
+# Problem running this line using the () in the Dropbox name
+#subprocess.run(['BuildDatabase','-name',fm_obj.localGenomeDir + genome_version,fm_obj.localGenomeFile])
+subprocess.run(['RepeatModeler','-database',genome_version,'-threads','12','-LTRStruct'])
 
 
 
