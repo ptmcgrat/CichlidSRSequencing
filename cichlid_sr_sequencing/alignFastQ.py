@@ -32,7 +32,7 @@ if args.Genome not in fm_obj.returnGenomeVersions():
 # Download master sample database and read it in (this contains info on valid sampleIDs, projectIDs, and file locations)
 fm_obj.downloadData(fm_obj.localSampleFile_v2)
 s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
-
+s_dt = s_dt[(s_dt.ProjectID_PTM != 'MC_males') & (s_dt.ProjectID_PTM != 'MC_females')]
 # If running on projectID, make sure it is valid and subset sample database to those with the right projectID
 if args.ProjectID is not None:
 	if args.ProjectID not in set(s_dt.ProjectID):
