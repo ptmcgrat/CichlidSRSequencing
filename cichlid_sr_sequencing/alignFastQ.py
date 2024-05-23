@@ -79,6 +79,10 @@ timer.start('Downloading genome')
 fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
+fm_obj.downloadData(fm_obj.localSampleFile)
+s_dt = pd.read_csv(fm_obj.localSampleFile)
+
+
 # Loop through each sample, determine if it needs to be rerun, and align it to genome
 for sample in good_samples:
 	# Manually exclude samples that are problematic until debugging can be completed
