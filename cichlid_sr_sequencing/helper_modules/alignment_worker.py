@@ -8,6 +8,8 @@ class AlignmentWorker():
 		self.sampleID = sampleID
 		self.fileManager.createSampleFiles(self.sampleID)
 		os.makedirs(self.fileManager.localSampleBamDir, exist_ok = True)
+		os.makedirs(self.fileManager.localTempDir + self.sampleID, exist_ok = True)
+		
 
 	def downloadReadData(self):
 		# Loop through all of the runs for a sample
@@ -55,7 +57,7 @@ class AlignmentWorker():
 			command3 = ['gatk', 'MergeBamAlignment', '-R', self.fileManager.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
 			command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 			command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-			command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir]
+			command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fileManager.localTempDir + self.sampleID + '/']
 
 			# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
 			#command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localTempDir + 'testing.sam']
