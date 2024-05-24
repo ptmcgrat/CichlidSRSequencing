@@ -68,10 +68,11 @@ class AlignmentWorker():
 			#pdb.set_trace()
 
 			# Figure out how to pipe 3 commands together
-			p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = subprocess.DEVNULL)
-			p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = subprocess.DEVNULL)
+			error_file = open(self.fileManager.localTempDir + self.sampleID + '_errors.txt', 'w')
+			p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = error_file)
+			p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = error_file)
 			p1.stdout.close()
-			p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+			p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file, stdout = subprocess.DEVNULL)
 			p2.stdout.close()
 			output = p3.communicate()
 			# Remove unmapped reads
