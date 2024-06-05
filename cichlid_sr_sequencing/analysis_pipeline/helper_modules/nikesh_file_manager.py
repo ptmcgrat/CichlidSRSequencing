@@ -47,7 +47,7 @@ class FileManager():
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
 		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version
-	
+		
 		self.localReadsDir = self.localMasterDir + 'Reads/'
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
@@ -62,6 +62,8 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		elif self.genome_version == 'Mzebra_GT2':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT2.fna'
+		elif self.genome_version == 'Mzebra_GT3':
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
 		
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
@@ -73,7 +75,7 @@ class FileManager():
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
 		self.localPCADir = self.localOutputDir + 'pca_outputs'
 
-		# Below block is to map file structures in /Output:
+		# Below block is to map file structures in /Output on the Utaka server:
 		self.StorageBamfilesDir = self.localStorageDir + 'Bamfiles/'
 		self.StorageBamRefDir = self.StorageBamfilesDir + self.genome_version + '/'
 		self.StorageOutputDir = self.localStorageDir + 'Outputs/'
@@ -81,8 +83,11 @@ class FileManager():
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
+		self.localSampleTestingDir = self.localBamfilesDir + 'nikesh_local_testing/' + sampleID + '/' 
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
+		self.localTestBamFile = self.localSampleTestingDir + sampleID + '_0.01_subset.all.bam'
 		self.localBamIndex = self.localSampleBamDir + sampleID + '.all.bai'
+		self.localTestBamIndex = self.localSampleTestingDir + sampleID + '_0.01_subset.all.bai'
 		self.localUnmappedBamFile = self.localSampleBamDir + sampleID + '.unmapped.bam'
 		self.localDiscordantBamFile = self.localSampleBamDir + sampleID + '.discordant.bam'
 		self.localInversionBamFile = self.localSampleBamDir + sampleID + '.inversion.bam'
@@ -90,7 +95,9 @@ class FileManager():
 		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
+		self.localTestGVCFFile = self.localSampleTestingDir + sampleID + '_0.01_subset.g.vcf.gz'
 		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
+		self.localTestGVCFIndex = self.localSampleTestingDir + sampleID + '_0.01_subset.g.vcf.gz.tbi'
 
 		# Below block is to access files in the /Output storage directory
 		self.StorageSampleBamDir = self.StorageBamRefDir + sampleID + '/'

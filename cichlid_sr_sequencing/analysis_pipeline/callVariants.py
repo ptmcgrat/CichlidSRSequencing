@@ -9,72 +9,83 @@ parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names
 parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline. Custom IDs can be provided as a csv file containing one sample per line. Save the file as "custom_samples.csv" in the directory containing this script.', nargs = '*', default = ['All'])
 parser.add_argument('-i', '--import_databases', help = 'Call this flag to run GenomicsDBImport on the samples in the database', action = 'store_true')
 parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGVCFs on the samples in the database', action = 'store_true')
-parser.add_argument('-d', '--download_data', help = 'Use this flag if you need to download the GVCF files from Dropbox to include in the VCF analysis', action = 'store_true')
+parser.add_argument('-d', '--download_GVCF_data', help = 'Use this flag if you need to download the GVCF files from Dropbox to include in the VCF analysis', action = 'store_true')
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('-b', '--download_bams', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
 parser.add_argument('-H', '--haplotypecaller', help = 'run the gatk HaplotypeCaller algorithm to re-generate GVCF files on which to call the pipeline', action = 'store_true')
+parser.add_argument('--efficient_haplotypecaller', help = 'use this flag to download BAM files and run HaplotypeCaller on samples', action = 'store_true')
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
-parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 23)
+parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 96)
 args = parser.parse_args()
 
 """
-# Run using the 'vcf' env on personal laptop
-TODO:
-2024.01.17
-- Pipeline needs to be rerun to exlcude all of the extra CraterLake species and just include LakeMalawi species and ACs that Patrick has filtered down in SampleDatabase_v2.xlsx
-
+NOTE: 
+as of 2024 June 5, I can conda install -c bioconda gatk4 into a fresh conda env. The version installed is gatk4-4.0.5.1-0
+The GATK 4.5.0.0 binary I have seems to require a new version of Java... maybe Java runtime 17 according to one post I read here: https://gatk.broadinstitute.org/hc/en-us/community/posts/17535513525915-Annotation-for-variant-calling
+I have gatk working in an env called 'gatk' for now.
 NOTE:
-2023 Nov. 15
-Utaka has upgraded RAM, but there are still constraints with running 22 LGs + mito in parallel with so many samples. 
-Mito doesn't take long to run anyway, so leave it to run after everything else, or run it first 
-Devote as much memory as possible to each child process when running the 22 LGs. Still, some may need more memory than available (1024 total) and could fail. Ideally make the memory allocation divisible by 64
-That's what happened with 3 LGs when I ran GenomicsDBImport.
+2024 May 30
+We have a GT3 genome! Patrick has been running alignment to the new genome recently. 
+The new genome has 22 LGs + 40 unmapped contigs + mito + one unplaced scaffold 
+Total conitgs = 64
+
+The first 22 contigs are 933Mbp 
+The unmapped content is 28Mbp. 
+    - The largest of these is 9Mbp
+    - 2nd largest is 4Mbp and it drops off from there
+
+Ther goal is to parallelize GenotypeGVCFs
+Issue is that GenotypeGVCFs operates on a database
+This means each contigs needs to be separated into smaller intervals
+This will give smaller VCF files that will then need to be end-to-end concatenated
+
+
+How GenomicsDBImport parallelization works:
+currently for each LG, I have 4 intervals allowing each Lg to be read in 4 sections at a time and written into the same database
+To use up as many cores as possible, I can leave one core per unmapped contig? 
+Or I can run all the unmapped ones after the fact... lets see....
+
+Ok so to maximize efficiency for GenotypeGVCFs, I need to break the 933Mbp into 96 equivalent sections. Issues may pop up when bridging contigs 
+Look at notes in the GT3_intervals/make_GT3_intervals.py script
+
+2024 June 04 
+The 96 intervals have been generated to maximize the number of cores that will be used when running everything 
+I'll downlaod 3 new BAM files and test this on my mac usign a max of 10 cores (or 8 cores to be safe?)
+Note that the --local_test flag will be updated to work with the GT3 genome and maximize cores to generate 10 databases then 10 VCFs which will be concatenated into one VCF file 
+
+TODO:
+1. sequential data download, GVCF generation, file upload and data deletion
+    - I'll upload the partial BAM files for testing and run it 1 at a time or 2 at a time.
+2. work on HaplotypeCaller changes 
+    - BAMS should be downloaded I think 96 at a time and processed through haplotypecaller 
+    - The GVCFs should be uploaded and the BAMs removed
+
+
 """
 
+
 class VariantCaller:
-    def __init__(self, genome, project_ids, linkage_groups, memory, ecogroups):
+    def __init__(self, genome, project_ids, linkage_groups, memory, ecogroups, processes):
         self.genome = genome
         self.fm_obj = FM(self.genome)
         self.projectIDs = project_ids
         self.memory = memory
         self.ecogroups = ecogroups
+        self.concurrent_processes = processes
         # TODO: need to be able to read a list of teh valid ecogroups in the Ecogroup_PTM column and let all samples be captured if 'All' is called as teh ecogroup. For now, only the 'LakeMalawi' ecogroups are recognized. 
         if self.ecogroups == ['All']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC'] # Note that Patrick added a 'Shallow_Benthic2' ecogroup for some reason aorund May 2024... Unsure what this is. need to talk to him about it 
         elif self.ecogroups == ['Non_Riverine']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
         elif self.ecogroups == ['Lake_Malawi']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
         elif self.ecogroups == ['Rock_Sand']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
+            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
         elif self.ecogroups == ['Sand']:
-            self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
+            self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
 
-        """
-        # commenting out the projectID code and replacing with the Ecogroup code instead. Revisit if I need to filter by projectIDs and not by Ecogroups in the future - NK, 2024.01.17
-        # code block to set the ProjectIDs
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase.csv file
-        s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel')
-        valid_project_IDs = s_df['ProjectID'].unique().tolist() # reads in SampleDatabase.csv and converts unique ProjectIDs to a list
-        valid_project_IDs.extend(['All', 'custom']) # will allow 'All' which is the defualt projectID, and 'custom' which will allow a file containing vaid sample names to be valid IDs and not trip the below Exception
-        for projectID in args.projectIDs: # for loop that will check each ProjectID passed to the script
-            if projectID not in valid_project_IDs:
-                raise Exception(projectID + ' is not a ProjectID in SampleDatabase.csv; valid Project IDs are:' + '\n' + str(valid_project_IDs))
-            elif self.projectIDs == ['All'] or self.projectIDs == 'All':
-                self.projectIDs = valid_project_IDs[:-2] # the -2 ensures the "All" and "custom" projectIDs are not incldued in the IDs
-        # Code block to define the set of SampleIDs based on the passed ProjectIDs
-        if self.projectIDs != ['custom']:
-            self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # downloads the most up-to-date AlignmentDatabase.csv file from Dropbox. This file contains a list of all samples that have BAM files generated from the previous steps in the pipeline 
-            self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile) # read in the AlignmentDatabase.csv file 
-            filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)] # filter rows to only include those that are a part of the projectIDs we want to analyze 
-            filtered_df = filtered_df[filtered_df['GenomeVersion'] == self.genome] # filter by genome version to eliminate duplicate samples that have been aligned to multiple genome versions
-            self.sampleIDs = filtered_df['SampleID'].tolist() # set a sampleID list equal to the samples filtered by ProjectIDs. These will be processed in subsequent methods
-        else:
-            custom_samples_df = pd.read_csv('custom_samples.csv', header=None) # read in a custom_file.csv file (assumes no header)
-            self.sampleIDs = custom_samples_df[custom_samples_df.columns[0]].values.tolist() # converts the column of samples to a list 
-        """
 
         # Code block to set the ecogroups
         self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
@@ -108,9 +119,10 @@ class VariantCaller:
 
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
-            self.sampleIDs = ['MC_1_m', 'SAMEA2661294', 'SAMEA2661322', 'SAMEA4032100', 'SAMEA4033261']
-            self.memory = [5]
+            self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m']
+            self.memory = [3]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
+            self.concurrent_processes = 5
 
     def _generate_sample_map(self):
         sampleIDs = self.sampleIDs
@@ -123,8 +135,8 @@ class VariantCaller:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
                     fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
-
-    def data_downloader(self):
+    
+    def GVCF_downloader(self):
         print('Downloading new Alignment File')
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
         print('Downloading most recent Genome Dir')
@@ -166,6 +178,33 @@ class VariantCaller:
                     proc.communicate()
                 processes = []
 
+    def EfficientHaplotypeCaller(self, sample):
+        # to use multiprocess, this function will sequenctially need to perform BAM/BAI download, GVCF generation, and then deleting the BAM/BAI files
+        if args.local_test:
+            self.fm_obj.createSampleFiles(sample)
+            print('Downloading BAM and BAM index for ' + sample + '...')
+            self.fm_obj.downloadData(self.fm_obj.localTestBamFile)
+            self.fm_obj.downloadData(self.fm_obj.localTestBamIndex)
+
+            print('Generating GCVF file for ' + sample + '...')
+            subprocess.run(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localTestBamFile, '-O', self.fm_obj.localTestGVCFFile])
+            
+            print('Removing BAM file for ' + sample + '...')
+            os.remove(self.fm_obj(self.fm_obj.localTestBamFile))
+            os.remove(self.fm_obj(self.fm_obj.localTestBamIndex))
+        else:
+            self.fm_obj.createSampleFiles(sample)
+            print('Downloading BAM and BAM index for ' + sample + '...')
+            self.fm_obj.downloadData(self.fm_obj.localBamFile)
+            self.fm_obj.downloadData(self.fm_obj.localBamIndex)
+            
+            print('Generating GCVF file for ' + sample + '...')
+            subprocess.run(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localGVCFFile])
+
+            print('Removing BAM file for ' + sample + '...')
+            os.remove(self.fm_obj(self.fm_obj.localBamFile))
+            os.remove(self.fm_obj(self.fm_obj.localBamIndex))
+
     def RunGenomicsDBImport(self, lg):
         # this funciton is what exists in the multiprocvessGATK.py file. It may have some edits not in the other script so u can copy this over to there if u wanna code on the other script instead of this one which has the whole pipeline. 
         print('starting processing ' + lg + ' for all samples in cohort')
@@ -206,12 +245,14 @@ class VariantCaller:
             subprocess.run(genotypegvcfs_command)
             print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ' + lg)
 
-    def multiprocess(self, function):
-        # TODO: This only works if the input function takes in linkage groups. So it works fine for GenomicsDBImport & GenotypeGVCFs, but will fail for RunHaplotypeCaller
-        concurrent_processes = args.concurrent_processes # make concurrent processes an argument later and add it as a required argument later
-        blocks_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
-        # remember that the above contigs_to_process is for CONTIGS. For RunHaplotypeCaller to work, we need to pass sample IDs so code will need modification. Maybe multiprocess can take in an argument like "sample_type" which can then be contigs, sampleIDs, projectIDs, etc. 
-        
+    def multiprocess(self, function, sample_type):
+        # Author: Lauren Sabo
+        concurrent_processes = self.concurrent_processes
+        # the below code will allow multiprocess to be run on a function based on SampleIDs or by LG. Similar code can be added to breakup the run by either projectID, intervals, etc. 
+        if sample_type == 'lg':
+            blocks_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
+        elif sample_type == 'sampleID':
+            blocks_to_process = [self.sampleIDs[i:int(i+concurrent_processes)] for i in range(0, len(self.sampleIDs), int(concurrent_processes))]
         jobs = []
         for block in blocks_to_process: # for each sublist of processes to start in the larger list of processes:
             for contig in block:
@@ -230,20 +271,23 @@ class VariantCaller:
 
     def run_methods(self):
         self._generate_sample_map()
-        if args.download_data:
+        if args.download_GVCF_data:
             print('download data will run and GVCF files per sample will be downloaded')
-            self.data_downloader()
+            self.GVCF_downloader()
+        if args.efficient_haplotypecaller:
+            self.multiprocess(self.EfficientHaplotypeCaller, 'sampleID')
         if args.import_databases:
-            self.multiprocess(self.RunGenomicsDBImport)
+            self.multiprocess(self.RunGenomicsDBImport, 'lg')
         if args.genotype:
-            self.multiprocess(self.RunGenotypeGVCFs)
+            self.multiprocess(self.RunGenotypeGVCFs, 'lg')
         if args.download_bams:
             self.download_BAMs()
         if args.haplotypecaller:
             self.RunHaplotypeCaller()
 
 if __name__ == "__main__":
-    variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory, args.ecogroups)
+    variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
+    variant_caller_obj.multiprocess(variant_caller_obj.EfficientHaplotypeCaller, 'sampleID')
     variant_caller_obj.run_methods()
     print('PIPELINE RUN SUCCESSFUL')
 
@@ -329,4 +373,27 @@ Old Code:
     #                 proc.communicate()
     #             processes = []
     #     print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ALL SAMPLES')
+        
+        # commenting out the projectID code and replacing with the Ecogroup code instead. Revisit if I need to filter by projectIDs and not by Ecogroups in the future - NK, 2024.01.17
+        # code block to set the ProjectIDs
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase.csv file
+        s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel')
+        valid_project_IDs = s_df['ProjectID'].unique().tolist() # reads in SampleDatabase.csv and converts unique ProjectIDs to a list
+        valid_project_IDs.extend(['All', 'custom']) # will allow 'All' which is the defualt projectID, and 'custom' which will allow a file containing vaid sample names to be valid IDs and not trip the below Exception
+        for projectID in args.projectIDs: # for loop that will check each ProjectID passed to the script
+            if projectID not in valid_project_IDs:
+                raise Exception(projectID + ' is not a ProjectID in SampleDatabase.csv; valid Project IDs are:' + '\n' + str(valid_project_IDs))
+            elif self.projectIDs == ['All'] or self.projectIDs == 'All':
+                self.projectIDs = valid_project_IDs[:-2] # the -2 ensures the "All" and "custom" projectIDs are not incldued in the IDs
+        # Code block to define the set of SampleIDs based on the passed ProjectIDs
+        if self.projectIDs != ['custom']:
+            self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # downloads the most up-to-date AlignmentDatabase.csv file from Dropbox. This file contains a list of all samples that have BAM files generated from the previous steps in the pipeline 
+            self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile) # read in the AlignmentDatabase.csv file 
+            filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)] # filter rows to only include those that are a part of the projectIDs we want to analyze 
+            filtered_df = filtered_df[filtered_df['GenomeVersion'] == self.genome] # filter by genome version to eliminate duplicate samples that have been aligned to multiple genome versions
+            self.sampleIDs = filtered_df['SampleID'].tolist() # set a sampleID list equal to the samples filtered by ProjectIDs. These will be processed in subsequent methods
+        else:
+            custom_samples_df = pd.read_csv('custom_samples.csv', header=None) # read in a custom_file.csv file (assumes no header)
+            self.sampleIDs = custom_samples_df[custom_samples_df.columns[0]].values.tolist() # converts the column of samples to a list 
 """
+
