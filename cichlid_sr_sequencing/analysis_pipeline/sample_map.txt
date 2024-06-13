@@ -1,5 +1,5 @@
-MC_1_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/MC_1_m/MC_1_m.g.vcf.gz
-SAMEA2661294	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661294/SAMEA2661294.g.vcf.gz
-SAMEA2661322	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA2661322/SAMEA2661322.g.vcf.gz
-SAMEA4032100	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4032100/SAMEA4032100.g.vcf.gz
-SAMEA4033261	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/Mzebra_UMD2a/SAMEA4033261/SAMEA4033261.g.vcf.gz
+CJ_2204_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/CJ_2204_m/CJ_2204_m_0.01_subset.g.vcf.gz
+CV-006-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/CV-006-m/CV-006-m_0.01_subset.g.vcf.gz
+LA_3006_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/LA_3006_m/LA_3006_m_0.01_subset.g.vcf.gz
+MC-008-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/MC-008-m/MC-008-m_0.01_subset.g.vcf.gz
+OC-001-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/OC-001-m/OC-001-m_0.01_subset.g.vcf.gz

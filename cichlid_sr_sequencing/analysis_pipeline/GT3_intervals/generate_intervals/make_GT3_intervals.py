@@ -27,18 +27,17 @@ per LG:
 - write num_intervals # of files with the equal_bases_for_current_LG
 - ensure that the last inerval goes to the end value equal to the length of the LG
 - repeaaattttt 
-
 """
 import os
 from pyfaidx import Fasta
 import math
 
 # Load the FASTA file using pyfaidx
-fasta_file = '/Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta'
-pyfaidx_obj = Fasta(fasta_file)
+fasta_file = '/Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3a.fasta'
+fasta = Fasta(fasta_file)
 
 # Filter contigs based on the specified criteria
-contigs = {contig: len(pyfaidx_obj[contig]) for contig in pyfaidx_obj.keys() if contig.startswith('NC') and contig != 'NC_027944.1'}
+contigs = {contig: len(fasta[contig]) for contig in fasta.keys() if contig.startswith('LG') and contig != 'Mzebra_UMD2a_mitochrondrial_genome'} # update if contig names are changed 
 
 # Calculate the total number of base pairs
 total_base_pairs = sum(contigs.values())
@@ -47,16 +46,17 @@ total_base_pairs = sum(contigs.values())
 approx_interval_size = total_base_pairs // 96
 
 # Create the output directory if it doesn't exist
-output_dir = '/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/GT3_intervals/intervals'
+output_dir = '/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/GT3_intervals' #update when rerunning 
 if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
 def write_header(file):
     if not os.path.exists(file) or os.path.getsize(file) == 0:
         with open(file, 'w') as f1:
-            with open('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/GT3_intervals/header.tsv', 'r') as f2:
+            with open('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/GT3_intervals/generate_intervals/header_GT3.tsv', 'r') as f2: # update the file path if needed. Update the header if a new dict file is created
                 for line in f2:
                     f1.write(line)
+                f1.write('\n')
 
 # Generate the interval list files
 total_files_created = 0
@@ -78,8 +78,6 @@ for contig, length in contigs.items():
         start = end + 1
         file_num += 1
 
-        # if file_num > 96:
-        #     break
     total_files_created += num_intervals
 
 print(f"Total files created: {total_files_created}")
