@@ -137,6 +137,7 @@ class VariantCaller:
                 if not args.local_test:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
+                    pdb.set_trace()
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
     
     def GVCF_downloader(self):
