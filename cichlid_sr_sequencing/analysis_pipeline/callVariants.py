@@ -69,7 +69,7 @@ TODO:
 
 4. Parallelize GenotypeGVCFs (should be easy)
 """
-pdb.set_trace()
+
 class VariantCaller:
     def __init__(self, genome, project_ids, linkage_groups, memory, ecogroups, processes):
         self.genome = genome
@@ -127,6 +127,7 @@ class VariantCaller:
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
             self.concurrent_processes = 1
 
+
     def _generate_sample_map(self):
         sampleIDs = self.sampleIDs
         with open('sample_map.txt', 'w') as fh:
@@ -137,9 +138,8 @@ class VariantCaller:
                 if not args.local_test:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
-                    pdb.set_trace()
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
-    
+        pdb.set_trace()
     def GVCF_downloader(self):
         print('Downloading new Alignment File')
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
