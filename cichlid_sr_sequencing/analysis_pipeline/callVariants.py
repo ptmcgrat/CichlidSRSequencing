@@ -69,7 +69,7 @@ TODO:
 
 4. Parallelize GenotypeGVCFs (should be easy)
 """
-
+pdb.set_trace()
 class VariantCaller:
     def __init__(self, genome, project_ids, linkage_groups, memory, ecogroups, processes):
         self.genome = genome
