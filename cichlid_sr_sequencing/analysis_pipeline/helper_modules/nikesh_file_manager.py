@@ -11,7 +11,7 @@ class FileManager():
 
 		self.genome_version = genome_version
 
-		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu':
+		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu' or platform.node() == 'utaka':
 			# basically ignore the below line because we'll work on mzebra and not have to deal with the messy setup of utaka server
 			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Data/CichlidSequencingData/'
 			# In Oct 2023, Curtis & I mounted a new RAID array to Utaka server that I then mounted into /Output. The below line will allow the scripts to access data stroed in this directory. 
