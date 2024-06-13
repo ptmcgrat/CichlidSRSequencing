@@ -139,7 +139,7 @@ class VariantCaller:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
-        pdb.set_trace()
+
     def GVCF_downloader(self):
         print('Downloading new Alignment File')
         self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
@@ -251,7 +251,7 @@ class VariantCaller:
                 i += 1
 
             del jobs[:]
-        pdb.set_trace()
+        # pdb.set_trace()
 
     def run_methods(self):
         self._generate_sample_map()
