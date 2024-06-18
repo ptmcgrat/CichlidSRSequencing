@@ -1,18 +1,3 @@
-"""
-2024 June 13 - NK
-Important note for when I start triubleshooting this again:
-
-Addign the unmapped contigs, pyfaidx stuff, and the conditionals may not have broken the script.
-I was able to run GenomicsDBImport from pdb by passing it an unmapped contig and calling on the whole script with --lcoal_test -i and -unmapped flags 
-genotypegvcfs even doesn't run anymore, even if i comment out the genomicsdbimport lines in the run_methods() function. Not sure why it's breaking now... Did the python version change?
-Try this all again in a fresh env? do not install pyfaidx, comment out lines that use it and the unmapped stuff, and see if just installing gatk, openpyxl, pandas, and anyrthing else that's needed can make it run with whatever python version just those tools use
-then install pyfaidx and reruna nd see if thigns break?
-I've confirmed that the main multiprocessing code is teh same as from the backup script, only with 'contig' changed to 'item'
-
-Error: TypeError: cannot pickle '_io.BufferedReader' object
-
-"""
-
 import argparse, pdb, os, subprocess
 import pandas as pd
 from pyfaidx import Fasta
