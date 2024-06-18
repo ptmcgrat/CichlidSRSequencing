@@ -1,5 +1,21 @@
+"""
+2024 June 13 - NK
+Important note for when I start triubleshooting this again:
+
+Addign the unmapped contigs, pyfaidx stuff, and the conditionals may not have broken the script.
+I was able to run GenomicsDBImport from pdb by passing it an unmapped contig and calling on the whole script with --lcoal_test -i and -unmapped flags 
+genotypegvcfs even doesn't run anymore, even if i comment out the genomicsdbimport lines in the run_methods() function. Not sure why it's breaking now... Did the python version change?
+Try this all again in a fresh env? do not install pyfaidx, comment out lines that use it and the unmapped stuff, and see if just installing gatk, openpyxl, pandas, and anyrthing else that's needed can make it run with whatever python version just those tools use
+then install pyfaidx and reruna nd see if thigns break?
+I've confirmed that the main multiprocessing code is teh same as from the backup script, only with 'contig' changed to 'item'
+
+Error: TypeError: cannot pickle '_io.BufferedReader' object
+
+"""
+
 import argparse, pdb, os, subprocess
 import pandas as pd
+from pyfaidx import Fasta
 from multiprocessing import Process
 from helper_modules.nikesh_file_manager import FileManager as FM # type: ignore
 
@@ -16,7 +32,7 @@ parser.add_argument('-H', '--efficient_haplotypecaller', help = 'use this flag t
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
-parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 96)
+parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 4)
 args = parser.parse_args()
 
 """
@@ -125,7 +141,7 @@ class VariantCaller:
             self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m']
             self.memory = [3]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
-            self.concurrent_processes = 1
+            self.concurrent_processes = 10
 
 
     def _generate_sample_map(self):
@@ -186,12 +202,12 @@ class VariantCaller:
     def RunGenomicsDBImport(self, interval):
         # this funciton is what exists in the multiprocvessGATK.py file. It may have some edits not in the other script so u can copy this over to there if u wanna code on the other script instead of this one which has the whole pipeline. 
         print('starting processing ' + interval + ' for all samples in cohort')
-        if args.local_test:
-            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt','--max-num-intervals-to-import-in-parallel', '1', '--overwrite-existing-genomicsdb-workspace'])
-        elif not args.unmapped:
-            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4',])
+        if args.local_test and not args.unmapped:
+            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt','--overwrite-existing-genomicsdb-workspace'])
+        elif args.local_test and args.unmapped:
+            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt'])
         else:
-            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
+            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt'])
         print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR interval ' + interval)
 
     def RunGenotypeGVCFs(self, interval):
@@ -200,12 +216,13 @@ class VariantCaller:
         print('starting processing ' + interval + ' for all samples in cohort')
         if args.local_test: # update the location of the GenDB if "local testing" on Utaka vs on the mac. As of Oct 13, 2023, gatk4 does not work via a conda install on my M2 mac on Ventura 13.4.1 and it also doesn't work on a fresh conda env on Utaka (gatk 4.0.-.- gets installed when I need at least 4.3.0.0). gatk 4.3.0.0 still works on Utaka in the 'genomics' env
             # path is to the gendb located on the Utaka server 
-            local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+            local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
             local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
             local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
             local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
             local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
             subprocess.run(local_command)
+            # gatk GenotypeGVCFs -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -V gendb://1_database -O test.vcf
             print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ' + interval)
         elif not args.unmapped: # make sure this will work with the same parameters
             genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
@@ -235,6 +252,11 @@ class VariantCaller:
             intervals = list(range(1,97))
             str_intervals = list(map(str, intervals))
             blocks_to_process = [str_intervals[i:int(i+concurrent_processes)] for i in range(0, len(str_intervals), int(concurrent_processes))]
+        elif sample_type == 'unmapped':
+            # define the unmapped contigs
+            self.fasta = Fasta(self.fm_obj.localGenomeFile)
+            self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
+            blocks_to_process = [self.unmapped_contigs[i:int(i+concurrent_processes)] for i in range(0, len(self.unmapped_contigs), int(concurrent_processes))]
 
         jobs = []
         for block in blocks_to_process: # for each sublist of processes to start in the larger list of processes:
@@ -251,7 +273,6 @@ class VariantCaller:
                 i += 1
 
             del jobs[:]
-        # pdb.set_trace()
 
     def run_methods(self):
         self._generate_sample_map()
@@ -260,11 +281,12 @@ class VariantCaller:
             self.GVCF_downloader()
         if args.efficient_haplotypecaller:
             self.multiprocess(self.EfficientHaplotypeCaller, 'sampleID')
-        if args.import_databases:
+        if args.import_databases and not args.unmapped:
             self.multiprocess(self.RunGenomicsDBImport, 'interval')
+        if args.import_databases and args.unmapped:
+            self.multiprocess(self.RunGenomicsDBImport, 'unmapped')
         if args.genotype:
             self.multiprocess(self.RunGenotypeGVCFs, 'interval')
-
 
 if __name__ == "__main__":
     variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
@@ -410,5 +432,15 @@ Old Code:
             # self.download_BAMs()
         # if args.haplotypecaller:
             # self.RunHaplotypeCaller()
+
+time gatk HaplotypeCaller --emit-ref-confidence GVCF -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -I MC-008-m.all.bam -O MC-008-m.g.vcf.gz 2> error.txt 1> log.txt
+time gatk HaplotypeCaller --emit-ref-confidence GVCF -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -I OC-001-m.all.bam -O OC-001-m.g.vcf.gz 2> error.txt 1> log.txt
 """
+# ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt','--max-num-intervals-to-import-in-parallel', '1', '--overwrite-existing-genomicsdb-workspace'])
+# time gatk GenomicsDBImport --genomicsdb-workspace-path test_database --intervals /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/GT3_intervals/1.interval_list --sample-name-map sample_map.txt 
+# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/H_Aulon_yelhead_Female.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 96 2> error_240615.txt 1> log_240615.txt
+
+# time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/mabs/Mabs_results/The_best_assembly/H_Aulon_yelhead_Female_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/H_Aulon_yelhead_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/Inspector --datatype hifi --thread 96 2> error_240617.txt 1> log_240617.txt
+
+# time /home/ad.gatech.edu/bio-mcgrath-dropbox/Inspector/inspector-correct.py -i /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/inspector --datatype pacbio-hifi -o /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/inspector/error_correction --thread 96
 
