@@ -32,6 +32,7 @@ parser.add_argument('-H', '--efficient_haplotypecaller', help = 'use this flag t
 parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
+parser.add_argument('-a', '--alignment_file', help = 'use this flag to define samples based on the reference genome and alignments completed present in the ALignmentDatabase.csv file', action = 'store_true')
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 4)
 args = parser.parse_args()
 
@@ -106,15 +107,21 @@ class VariantCaller:
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
 
-        # Code block to set the ecogroups
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
-        s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel') # reads in the SampleLevel sheet from SampleDatabase_v2.xlsx
-        eg_filtered_df = s_df[s_df['Ecogroup_PTM'].isin(self.ecogroups)] # filter samples that match the ecogroups in the analysis
-        self.sampleIDs = eg_filtered_df['SampleID'].to_list()
+        if not args.alignment_file:
+            # Code block to set the ecogroups
+            self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
+            s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel') # reads in the SampleLevel sheet from SampleDatabase_v2.xlsx
+            eg_filtered_df = s_df[s_df['Ecogroup_PTM'].isin(self.ecogroups)] # filter samples that match the ecogroups in the analysis
+            self.sampleIDs = eg_filtered_df['SampleID'].to_list()
 
-        for sample in self.sampleIDs:
-            if not s_df['SampleID'].eq(sample).any():
-                raise Exception(f"{sample} not found in the Sample Database")
+            for sample in self.sampleIDs:
+                if not s_df['SampleID'].eq(sample).any():
+                    raise Exception(f"{sample} not found in the Sample Database")
+        else:
+            self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
+            s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
+            self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on 
+
 
         # Code block for determining which linkage groups will be processed by the script:
         self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
@@ -399,9 +406,6 @@ Old Code:
             self.sampleIDs = custom_samples_df[custom_samples_df.columns[0]].values.tolist() # converts the column of samples to a list 
 
 
-
-
-
     def download_BAMs(self):
         for sampleID in self.sampleIDs:
             if sampleID in []:
@@ -436,11 +440,3 @@ Old Code:
 time gatk HaplotypeCaller --emit-ref-confidence GVCF -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -I MC-008-m.all.bam -O MC-008-m.g.vcf.gz 2> error.txt 1> log.txt
 time gatk HaplotypeCaller --emit-ref-confidence GVCF -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -I OC-001-m.all.bam -O OC-001-m.g.vcf.gz 2> error.txt 1> log.txt
 """
-# ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt','--max-num-intervals-to-import-in-parallel', '1', '--overwrite-existing-genomicsdb-workspace'])
-# time gatk GenomicsDBImport --genomicsdb-workspace-path test_database --intervals /Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/GT3_intervals/1.interval_list --sample-name-map sample_map.txt 
-# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/H_Aulon_yelhead_Female.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 96 2> error_240615.txt 1> log_240615.txt
-
-# time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/mabs/Mabs_results/The_best_assembly/H_Aulon_yelhead_Female_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/H_Aulon_yelhead_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/Inspector --datatype hifi --thread 96 2> error_240617.txt 1> log_240617.txt
-
-# time /home/ad.gatech.edu/bio-mcgrath-dropbox/Inspector/inspector-correct.py -i /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/inspector --datatype pacbio-hifi -o /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/H_Aulon_yelhead_Female/inspector/error_correction --thread 96
-
