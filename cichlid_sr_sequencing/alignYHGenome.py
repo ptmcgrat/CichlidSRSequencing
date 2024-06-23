@@ -19,15 +19,18 @@ fm_obj_yh = FM(genome_version = 'kocher_YH_female')
 
 #subprocess.run(['GSAlign','-dp','-i',fm_obj_mz.localGenomeFile,'-q',fm_obj_yh.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment'])
 
+processes = []
 for inv_contig in ['LG2','LG9','LG10','LG11','LG13','LG20']:
 	subprocess.run(['faidx', fm_obj_mz.localGenomeFile, inversions[inv_contig][0], '-o', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_MZ.fa'])
 	subprocess.run(['faidx', fm_obj_yh.localGenomeFile, inversions[inv_contig][0], '-o', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_YH.fa'])
 
 	command = ['lastz', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_MZ.fa', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_YH.fa']
-	command += ['--strand==both','--nochain','--gap=600,150', '--gappedthresh=3000', '--masking=254', '--hspthresh=4500']
-	command += ['--allocate:traceback=1.99G', '--output=LG2.maf', '--format=maf']
+	command += ['--strand=both','--nochain','--gap=600,150', '--gappedthresh=3000', '--masking=254', '--hspthresh=4500']
+	command += ['--allocate:traceback=1.99G', '--output=' + fm_obj_mz.localGenomesDir + inv_contig + '.maf', '--format=maf']
 
-	subprocess.run(command)
+	processes.append(subprocess.Popen(command))
+for p in processes:
+	p.communicate()
 
 pdb.set_trace()
 aln = AlignIO.parse(fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment.maf', "maf")

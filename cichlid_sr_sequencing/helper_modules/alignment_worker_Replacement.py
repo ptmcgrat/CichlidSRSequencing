@@ -195,8 +195,8 @@ class AlignmentWorker():
 		for sample in self.samples:
 			s_dt = self.sample_dt[self.sample_dt.SampleID == sample]
 			self.fm_obj = self.fileManagers[sample]
-
-			command = ['gatk', 'MarkDuplicatesSpark', '--create-output-bam-index',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', self.fm_obj.localSampleTempDir]
+			command = ['gatk', 'MarkDuplicates', '--CREATE-INDEX',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP-DIR', self.fm_obj.localSampleTempDir]
+			#command = ['gatk', 'MarkDuplicatesSpark', '--create-output-bam-index',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', self.fm_obj.localSampleTempDir]
 			commands.append(command)
 
 			if not parallel:
@@ -212,33 +212,35 @@ class AlignmentWorker():
 
 
 	def splitBamfiles(self):
+		for sample in self.samples:
+			self.fm_obj = self.fileManagers[sample]
+			print('  Splitting sample ' + sample)
+			# Get contigs
+			bam_obj = pysam.AlignmentFile(self.fm_obj.localBamFile)
+			contigs = bam_obj.references  
+			
+			processes = []
+			for contig in contigs:
+				processes.append(subprocess.Popen(['python3', 'unit_scripts/split_bamfile_by_contig.py', self.fm_obj.localBamFile, contig]))
 
-		# Get contigs
-		bam_obj = pysam.AlignmentFile(self.fileManager.localBamFile)
-		contigs = bam_obj.references  
-		
-		processes = []
-		for contig in contigs:
-			processes.append(subprocess.Popen(['python3', 'unit_scripts/split_bamfile_by_contig.py', self.fileManager.localBamFile, contig]))
+				if len(processes) == cpu_count():
+					for p1 in processes:
+						p1.communicate()
+					processes = []
+			for p1 in processes:
+				p1.communicate()
 
-			if len(processes) == cpu_count():
-				for p1 in processes:
-					p1.communicate()
-				processes = []
-		for p1 in processes:
-			p1.communicate()
-
-		for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
-			bam_files = [self.fileManager.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
-			command = ['gatk', 'MergeSamFiles']
-			for bam_file in bam_files:
-				command += ['-I', bam_file]
-			command += ['-O', self.fileManager.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
-			output = subprocess.run(command, capture_output = True)
-			if output.returncode != 0:
-				pdb.set_trace()
-			for bam_file in bam_files:
-				subprocess.run(['rm', bam_file])
+			for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
+				bam_files = [self.fm_obj.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
+				command = ['gatk', 'MergeSamFiles']
+				for bam_file in bam_files:
+					command += ['-I', bam_file]
+				command += ['-O', self.fm_obj.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
+				output = subprocess.run(command, capture_output = True)
+				if output.returncode != 0:
+					pdb.set_trace()
+				for bam_file in bam_files:
+					subprocess.run(['rm', bam_file])
 
 
 	def createGVCF(self, parallel = False):
