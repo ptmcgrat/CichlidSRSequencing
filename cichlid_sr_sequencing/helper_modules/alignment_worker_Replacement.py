@@ -114,6 +114,9 @@ class AlignmentWorker():
 			self.fm_obj = self.fileManagers[sample]
 
 			sorted_bam = self.fm_obj.localTempSortedBamFile
+			if os.path.isfile(sorted_bam):
+				print(sample + ' already run')
+				continue
 
 			if linked:
 				timer.start('  Aligning reads to create sorted Bam files')
