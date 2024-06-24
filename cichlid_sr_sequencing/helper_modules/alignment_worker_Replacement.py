@@ -198,7 +198,7 @@ class AlignmentWorker():
 		for sample in self.samples:
 			s_dt = self.sample_dt[self.sample_dt.SampleID == sample]
 			self.fm_obj = self.fileManagers[sample]
-			command = ['gatk', 'MarkDuplicates', '--CREATE_ INDEX',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir]
+			command = ['gatk', 'MarkDuplicates', '--CREATE_INDEX',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir]
 			#command = ['gatk', 'MarkDuplicatesSpark', '--create-output-bam-index',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', self.fm_obj.localSampleTempDir]
 			commands.append(command)
 
