@@ -115,16 +115,17 @@ for i in range(total_batches):
 	timer.stop()
 
 	timer.start('  Parallel Downloading uBams files for batch ' + str(i+1))
-	aw_obj.downloadReadData('Popen')
+	#aw_obj.downloadReadData('Popen')
 	timer.stop()
 
 	print('  Aligning reads to create sorted Bam files for batch ' + str(i+1))
-	aw_obj.alignData()
+	#aw_obj.alignData()
 	#aw_obj.alignData(linked=True)
-	continue
+	
 	print('  Marking duplicates for bamfiles for batch ' + str(i+1))	
 	aw_obj.markDuplicates()
 	#aw_obj.markDuplicates(parallel = True)
+	continue
 
 	timer.start('  Splitting reads based upon their alignment for Sample: ' + sample)
 	aw_obj.splitBamfiles()
