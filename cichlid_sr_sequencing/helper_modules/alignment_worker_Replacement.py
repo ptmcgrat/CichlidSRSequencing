@@ -197,13 +197,17 @@ class AlignmentWorker():
 		del_files = []
 		for sample in self.samples:
 			s_dt = self.sample_dt[self.sample_dt.SampleID == sample]
+			unsorted_file = self.fm_obj.localTempSortedBamFile + 'unsorted_dedup.bam'
 			self.fm_obj = self.fileManagers[sample]
-			command = ['gatk', 'MarkDuplicates', '--CREATE_INDEX',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir]
+			command1 = ['gatk', 'MarkDuplicates', '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir]
 			#command = ['gatk', 'MarkDuplicatesSpark', '--create-output-bam-index',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', self.fm_obj.localSampleTempDir]
+			
+			command2 = ['gatk', 'MarkDuplicates', '-I', unsorted_file, '-O', self.fm_obj.localBamFile, '-S', 'coordinate', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--CREATE_INDEX']
 			commands.append(command)
 
 			if not parallel:
 				self.monitorProcess(command, 'MarkDuplicates_' + sample)
+				self.monitorProcess(command2,'SortBam_' + sample)
 				#subprocess.run(['rm', '-f', self.fm_obj.localTempSortedBamFile])
 			else:
 				del_files.append(self.fm_obj.localTempSortedBamFile)
@@ -213,6 +217,7 @@ class AlignmentWorker():
 			#for del_file in del_files:
 			#	subprocess.run(['rm','-f',del_file])
 
+			command = ['gatk', 'MarkDuplicates', '--CREATE_INDEX',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir]
 
 	def splitBamfiles(self):
 		for sample in self.samples:
