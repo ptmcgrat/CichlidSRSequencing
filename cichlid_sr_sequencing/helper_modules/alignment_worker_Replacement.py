@@ -66,7 +66,7 @@ class AlignmentWorker():
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
 
 		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)
-		while p1.poll() is None:
+		while processes[0].poll() is None:
 			try:
 				print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)
 			except ZombieProcess:
@@ -214,7 +214,7 @@ class AlignmentWorker():
 				del_files.append(self.fm_obj.localTempSortedBamFile)
 
 		if parallel:
-			self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(sample)))
+			self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(samples)))
 			#for del_file in del_files:
 			#	subprocess.run(['rm','-f',del_file])
 
