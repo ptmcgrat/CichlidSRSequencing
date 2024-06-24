@@ -266,7 +266,7 @@ class AlignmentWorker():
 				self.monitorProcess(command, 'HaplotypeCaller_' + sample)
 
 		if parallel:
-			self.monitorProcesses(commands, 'HaplotypeCaller_' + self.samples[0] + '_' + len(str(self.samples)) + 'OtherSamples')
+			self.monitorProcesses(commands, 'HaplotypeCaller_' + self.samples[0] + '_' + str(len(self.samples)) + 'OtherSamples')
 
 
 	def calculateStats(self):
