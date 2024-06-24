@@ -214,7 +214,7 @@ class AlignmentWorker():
 				del_files.append(self.fm_obj.localTempSortedBamFile)
 
 		if parallel:
-			self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(samples)))
+			self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)))
 			#for del_file in del_files:
 			#	subprocess.run(['rm','-f',del_file])
 
