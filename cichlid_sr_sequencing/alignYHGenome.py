@@ -29,8 +29,8 @@ command = ['minimap2', fm_obj_mz.localGenomeFile, fm_obj_mz.localGenomeFile, '-o
 subprocess.run(command)
 for contig, lg in linkageGroups.items():
 	print('Running :' + lg)
-	subprocess.run(['faidx', fm_obj_mz.localGenomeFile, contig, '-o', fm_obj_mz.localGenomesDir + lg + '_MZ.fa'])
-	subprocess.run(['faidx', fm_obj_yh.localGenomeFile, contig, '-o', fm_obj_mz.localGenomesDir + lg + '_YH.fa'])
+	#subprocess.run(['faidx', fm_obj_mz.localGenomeFile, contig, '-o', fm_obj_mz.localGenomesDir + lg + '_MZ.fa'])
+	#subprocess.run(['faidx', fm_obj_yh.localGenomeFile, contig, '-o', fm_obj_mz.localGenomesDir + lg + '_YH.fa'])
 
 	command = ['minimap2', fm_obj_mz.localGenomesDir + lg + '_MZ.fa', fm_obj_mz.localGenomesDir + lg + '_YH.fa', '-o', fm_obj_mz.localGenomesDir + lg + '.paf']
 	#command = ['lastz', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_MZ.fa', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_YH.fa']
