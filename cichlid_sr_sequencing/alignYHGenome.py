@@ -25,6 +25,8 @@ fm_obj_yh = FM(genome_version = 'kocher_YH_female')
 #subprocess.run(['GSAlign','-dp','-i',fm_obj_mz.localGenomeFile,'-q',fm_obj_yh.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment'])
 
 processes = []
+command = ['minimap2', fm_obj_mz.localGenomeFile, fm_obj_mz.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'AllGenome.paf']
+subprocess.run(command)
 for contig, lg in linkageGroups.items():
 	print('Running :' + lg)
 	subprocess.run(['faidx', fm_obj_mz.localGenomeFile, contig, '-o', fm_obj_mz.localGenomesDir + lg + '_MZ.fa'])
@@ -34,7 +36,7 @@ for contig, lg in linkageGroups.items():
 	#command = ['lastz', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_MZ.fa', fm_obj_mz.localGenomesDir + inversions[inv_contig][0] + '_YH.fa']
 	#command += ['--strand=both','--nochain','--gap=600,150', '--gappedthresh=3000', '--masking=254', '--hspthresh=4500']
 	#command += ['--allocate:traceback=1.99G', '--output=' + fm_obj_mz.localGenomesDir + inv_contig + '.maf', '--format=maf']
-	subprocess.run(command)
+	#subprocess.run(command)
 	#processes.append(subprocess.Popen(command))
 #for p in processes:
 #	p.communicate()
