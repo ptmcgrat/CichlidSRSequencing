@@ -1,8 +1,7 @@
-import argparse, pdb, os, subprocess
+import argparse, pdb, os, subprocess, datetime, time, multiprocessing, pathlib, random
 import pandas as pd
 from pyfaidx import Fasta
-from multiprocessing import Process
-from helper_modules.nikesh_file_manager import FileManager as FM # type: ignore
+from helper_modules.nikesh_file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
@@ -26,50 +25,9 @@ NOTE:
 as of 2024 June 5, I can conda install -c bioconda gatk4 into a fresh conda env. The version installed is gatk4-4.0.5.1-0
 The GATK 4.5.0.0 binary I have seems to require a new version of Java... maybe Java runtime 17 according to one post I read here: https://gatk.broadinstitute.org/hc/en-us/community/posts/17535513525915-Annotation-for-variant-calling
 I have gatk working in an env called 'gatk' for now.
-NOTE:
-2024 May 30
-We have a GT3 genome! Patrick has been running alignment to the new genome recently.
-The new genome has 22 LGs + 40 unmapped contigs + mito + one unplaced scaffold 
-Total conitgs = 64
-
-The first 22 contigs are 933Mbp 
-The unmapped content is 28Mbp. 
-    - The largest of these is 9Mbp
-    - 2nd largest is 4Mbp and it drops off from there
-
-Ther goal is to parallelize GenotypeGVCFs
-Issue is that GenotypeGVCFs operates on a database
-This means each contigs needs to be separated into smaller intervals
-This will give smaller VCF files that will then need to be end-to-end concatenated
-
-
-How GenomicsDBImport parallelization works:
-currently for each LG, I have 4 intervals allowing each Lg to be read in 4 sections at a time and written into the same database
-To use up as many cores as possible, I can leave one core per unmapped contig? 
-Or I can run all the unmapped ones after the fact... lets see....
-
-Ok so to maximize efficiency for GenotypeGVCFs, I need to break the 933Mbp into 96 equivalent sections. Issues may pop up when bridging contigs 
-Look at notes in the GT3_intervals/make_GT3_intervals.py script
-
-2024 June 04 
-The 96 intervals have been generated to maximize the number of cores that will be used when running everything 
-I'll downlaod 3 new BAM files and test this on my mac usign a max of 10 cores (or 8 cores to be safe?)
-Note that the --local_test flag will be updated to work with the GT3 genome and maximize cores to generate 10 databases then 10 VCFs which will be concatenated into one VCF file 
-
 TODO:
-1. sequential data download, GVCF generation, file upload and data deletion
-    - I'll upload the partial BAM files for testing and run it 1 at a time or 2 at a time.
-    - DONE
-2. work on HaplotypeCaller changes 
-    - BAMS should be downloaded I think 96 at a time and processed through haplotypecaller 
-    - The GVCFs should be uploaded and the BAMs removed
-    - DONE
-
-3. Parallelize GenomicsDBImport 
-    - the 96 intervals should be used 
-    - paths to the databases will need to be updated in the sample file or something like that for GenotypeGVCFs
-
-4. Parallelize GenotypeGVCFs (should be easy)
+1. Paralellize gatk Haplotypecaller to run much more efficiently
+    Be sure to include code that will not overwrite files if they exist 
 """
 
 class VariantCaller:
@@ -80,6 +38,7 @@ class VariantCaller:
         self.memory = memory
         self.ecogroups = ecogroups
         self.concurrent_processes = processes
+        self.current_time = datetime.datetime.now()
         # TODO: need to be able to read a list of the valid ecogroups in the Ecogroup_PTM column and let all samples be captured if 'All' is called as teh ecogroup. For now, only the 'LakeMalawi' ecogroups are recognized. 
         if self.ecogroups == ['All']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC'] # Note that Patrick added a 'Shallow_Benthic2' ecogroup for some reason aorund May 2024... Unsure what this is. need to talk to him about it 
@@ -127,14 +86,13 @@ class VariantCaller:
             duplicate_set_test = set(self.linkage_groups)
             if len(duplicate_set_test) != len(self.linkage_groups):
                 raise Exception('A repeat region has been provided')
-
+        pdb.set_trace()
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m']
-            self.memory = [3]
+            self.memory = [1]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
-            self.concurrent_processes = 10
-
+            # self.concurrent_processes = 10
 
     def _generate_sample_map(self):
         sampleIDs = self.sampleIDs
@@ -165,31 +123,63 @@ class VariantCaller:
             print('Done Downloading ' + sampleID)
 
     def EfficientHaplotypeCaller(self, sample):
+        """
+        NOTE: IMPLEMENT A FILE CHECKER TO MAKE SURE EXISTING FILES DO NOT GET DELETED. INCLUDE CODE FOR UPLOADING GVCF FILES AND INDICIES AS WELL 
+        """
+        print(f"Processing for sample {sample} started at {self.current_time}")
         # to use multiprocess, this function will sequenctially need to perform BAM/BAI download, GVCF generation, and then deleting the BAM/BAI files
         if args.local_test:
             self.fm_obj.createSampleFiles(sample)
-            print('Downloading BAM and BAM index for ' + sample + '...')
-            self.fm_obj.downloadData(self.fm_obj.localTestBamFile)
-            self.fm_obj.downloadData(self.fm_obj.localTestBamIndex)
+            if pathlib.Path(self.fm_obj.localTestBamFile).exists():
+                print(f"BAM file for {sample} exists. Skipping download for this sample...")
+            else:
+                print(f"Downloading BAM and BAM index for {sample}...")
+                print(f"BAM Download for sample {sample} started at {self.current_time}")
+                self.fm_obj.downloadData(self.fm_obj.localTestBamFile)
+                self.fm_obj.downloadData(self.fm_obj.localTestBamIndex)
+                print(f"BAM Download for sample {sample} ended at {self.current_time}...")
 
-            print('Generating GCVF file for ' + sample + '...')
-            subprocess.run(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localTestBamFile, '-O', self.fm_obj.localTestGVCFFile])
-            
-            print('Removing BAM file for ' + sample + '...')
-            os.remove(self.fm_obj.localTestBamFile)
-            os.remove(self.fm_obj.localTestBamIndex)
+            if pathlib.Path(self.fm_obj.localTestGVCFFile).exists():
+                print('GCVF file for ' + sample + ' exists. Skipping sample... ')
+            else:
+                print('Generating GCVF file for ' + sample + '...')
+                subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localTestBamFile, '-O', self.fm_obj.localTestGVCFFile])
+
+            # commenting out bam removal code while GCVF code isn't yet working
+            # print('Removing BAM file for ' + saple + '...')
+            # os.remove(self.fm_obj.localTestBamFile)
+            # os.remove(self.fm_obj.localTestBamIndex)
         else:
-            self.fm_obj.createSampleFiles(sample)
-            print('Downloading BAM and BAM index for ' + sample + '...')
-            self.fm_obj.downloadData(self.fm_obj.localBamFile)
-            self.fm_obj.downloadData(self.fm_obj.localBamIndex)
-            
-            print('Generating GCVF file for ' + sample + '...')
-            subprocess.run(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localGVCFFile])
+            self.fm_obj.createSampleFiles(sample) # create the file structure for the sample
+            if pathlib.Path(self.fm_obj.localGVCFIndex).exists(): # If the index for that file exists, then the GVCF file is fine and Haplotypecaller does not need to be rerun 
+                print(f"GVCF and Index created for sample {sample}. Skipping HaplotypeCaller run for this sample")
+            else: # if index doesn't exist, process the sample
+                print(f"No GVCF Index exists for sample {sample}. Starting processing")
+                if pathlib.Path(self.fm_obj.localGVCFFile).exists(): # if a GVCF file is found for the sample without the index, that means it will be a partial one. Thus, it needs to be removed. 
+                    print(f"Partial GVCF with no Index Detected. Deleting the GVCF file for sample {sample} and regenerating it.")
+                    os.remove(self.fm_obj.localGVCFFile)
+                new_gcvf_created = False
+                if pathlib.Path(self.fm_obj.localBamFile).exists(): # If the BAM file exists for the sample, do not download it.
+                    print('BAM file for ' + sample + ' exists. Skipping download for this sample... ')
+                else: # download BAM since it does not exist on the server.
+                    print('Downloading BAM and BAM index for ' + sample + '...')
+                    self.fm_obj.downloadData(self.fm_obj.localBamFile)
+                    self.fm_obj.downloadData(self.fm_obj.localBamIndex)
+                
+                # if the GVCFindex did not exist and a partial file was found, at this stage, the partial file would have been deleted and a new GVCF would need to be generated with the below code:
+                print(f"Generating GCVF file for sample {sample}...")
+                subprocess.run(['gatk', '--java-options', '-Xmx' +  str(self.memory[0]) + 'G', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localGVCFFile])
+                new_gcvf_created = True
 
-            print('Removing BAM file for ' + sample + '...')
-            os.remove(self.fm_obj.localBamFile)
-            os.remove(self.fm_obj.localBamIndex)
+                if new_gcvf_created:
+                    print('Removing BAM file for ' + sample + '...')
+                    os.remove(self.fm_obj.localBamFile)
+                    os.remove(self.fm_obj.localBamIndex)
+
+        print(f"Sample {sample} finished processing at {self.current_time}")
+
+    def uploadGVCFs(self):
+        pass
 
     def RunGenomicsDBImport(self, interval):
         # this funciton is what exists in the multiprocvessGATK.py file. It may have some edits not in the other script so u can copy this over to there if u wanna code on the other script instead of this one which has the whole pipeline. 
@@ -232,39 +222,63 @@ class VariantCaller:
             subprocess.run(genotypegvcfs_command)
             print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ' + interval)
 
+    def mp_test_function(self, interval):
+        print(f"Task {interval} started at {self.current_time}")
+
+        # Simulate some work with sleep
+        time.sleep(interval)
+
+        print(f"Task {interval} finished at {self.current_time}")
+
+    def new_test(self, sample_name):
+        print(f"Task {sample_name} started at {self.current_time}")
+
+        # Simulate some work with sleep
+        print(sample_name)
+        time.sleep(random.randint(1,7))
+
+        print(f"Task {sample_name} finished at {self.current_time}")
+
+    def remove_unprocessed_samples(self, sample_name):
+        """ 
+        sample_name is pased in 
+        createsamplefiles(sample_name)
+        if pathlib.Path(fm_obj.localGVCFIndex):
+        skip sample
+        else:
+            run efficenthaplotypecaller(
+
+        """
+        
+        
+        for sample in 
+
     def multiprocess(self, function, sample_type):
         # Author: Lauren Sabo; edits made by NK
-        concurrent_processes = self.concurrent_processes
         # the below code will allow multiprocess to be run on a function based on SampleIDs or by LG. Similar code can be added to breakup the run by either projectID, intervals, etc. 
         if sample_type == 'lg':
-            blocks_to_process = [self.linkage_groups[i:int(i+concurrent_processes)] for i in range(0, len(self.linkage_groups), int(concurrent_processes))] # this generates the list of lists to process together. For instance, if processing 3 LGs, 2 at a time,  concurrent_processes is [['NC_036780.1', 'NC_036781.1'], ['NC_036782.1']]
+            inputs = self.linkage_groups
         elif sample_type == 'sampleID':
-            blocks_to_process = [self.sampleIDs[i:int(i+concurrent_processes)] for i in range(0, len(self.sampleIDs), int(concurrent_processes))]
+            inputs = self.sampleIDs
         elif sample_type == 'interval':
-            intervals = list(range(1,97))
-            str_intervals = list(map(str, intervals))
-            blocks_to_process = [str_intervals[i:int(i+concurrent_processes)] for i in range(0, len(str_intervals), int(concurrent_processes))]
+            if not args.local_test:
+                intervals = list(range(1,97))
+                inputs = list(map(str, intervals))
+            else:
+                inputs = [5, 3, 8, 2, 6, 1, 7, 4]
         elif sample_type == 'unmapped':
             # define the unmapped contigs
             self.fasta = Fasta(self.fm_obj.localGenomeFile)
             self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
-            blocks_to_process = [self.unmapped_contigs[i:int(i+concurrent_processes)] for i in range(0, len(self.unmapped_contigs), int(concurrent_processes))]
+            inputs = self.unmapped_contigs
 
-        jobs = []
-        for block in blocks_to_process: # for each sublist of processes to start in the larger list of processes:
-            for contig in block:
-                j = Process(target = function, args = (contig,)) # define the processes
-                jobs.append(j) # append the processes we want to start to the list of jobs 
-                j.start()
-                print(contig, " - started")
-        
-            i = 0
-            for j in jobs:
-                j.join()
-                print(i, " - finished")
-                i += 1
+        concurrent_processes = min(self.concurrent_processes, len(inputs))
 
-            del jobs[:]
+        try:
+            with multiprocessing.Pool(processes=concurrent_processes) as pool:
+                pool.map(function, inputs)
+        except Exception as e:
+            print(f"Error occurred during multiprocessing: {e}")
 
     def run_methods(self):
         self._generate_sample_map()
@@ -279,149 +293,17 @@ class VariantCaller:
             self.multiprocess(self.RunGenomicsDBImport, 'unmapped')
         if args.genotype:
             self.multiprocess(self.RunGenotypeGVCFs, 'interval')
+        # if args.local_test:
+        #     self.multiprocess(self.mp_test_function, 'interval')
+        # if args.local_test:
+        #     self.multiprocess(self.new_test, 'sampleID')
 
 if __name__ == "__main__":
     variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
     variant_caller_obj.run_methods()
     print('PIPELINE RUN SUCCESSFUL')
 
-"""
-LOCAL TESTING COMMAND SKELETON
-/Users/kmnike/anaconda3/envs/variant/bin/python3 call_variants.py Mzebra_UMD2a --local_test --regions LG1 LG2 LG3
 
-time python callVariants.py Mzebra_UMD2a -e Lake_Malawi --import_databases --genotype --memory 40 --concurrent_processes 23 2> vcf_pipeline_logs/error_419cohort_24.01.17.txt 1> vcf_pipeline_logs/log_419cohort_24.01.17.txt
-
-
-
-RUNNING WHOLE PIPELINE ON UTAKA SERVER, DOWNLOADING ALL NEEDED DATA, AND RUNNING EACH GATK COMMAND IN PARALLEL:
-python3 call_variants.py Mzebra_UMD2a -p BrainDiversity_s1 BigBrain --import_databases --genotype -m 21
-
-The pipeline is now ready to run on Utaka server since all of the HaplotypeCaller reruns for the previously failed LG7 samples is complete and since the new BigBrain & BrainDiversity_s1 datasets have been rerun, and teh files have been renamed.
-Note that I need to process samples using 4 cores each. Here is the command to run:
-
-python3 call_variants.py Mzebra_UMD2a -p All --import_databases --genotype --regions All --memory 2
-
-For rerunning LG14:
-python3 call_variants.py Mzebra_UMD2a -p All --import_databases --genotype --regions LG14 --memory 100
-
-
-Old Code:
-    # parser.add_argument('-f', '--failed_samples', help = 'Run HaplotypeCaller for 74 samples that fail VCF generation for LG7', action = 'store_true')
-    # def RunFailedSamplesHaplotypeCaller(self):
-    #     processes = []
-    #     error_files = ['SAMEA4033321', 'SAMEA2661241', 'SAMEA4032067', 'SAMEA4033318', 'SAMEA4032108', 'SAMEA4033341', 'SAMEA4033314', 'SAMEA4032129', 'SAMEA4033252', 'SAMEA4032105', 'SAMEA3388855', 'SAMEA4032131', 'SAMEA4033248', 'SAMEA2661359', 'SAMEA1877414', 'SAMN06685761', 'SAMEA4032096', 'SAMEA2661294', 'SAMEA4032053', 'SAMEA1920091', 'SAMEA4032046', 'SAMEA4033254', 'SAMEA2661396', 'SAMEA4033283', 'SAMEA4032136', 'SAMEA2661367', 'SAMEA3388862', 'SAMEA4033301', 'SAMEA2661292', 'SAMEA4033271', 'SAMEA4032127', 'SAMEA2661414', 'SAMEA4033317', 'SAMEA2661221', 'SAMEA2661310', 'SAMEA1904322', 'SAMEA4032051', 'SAMEA4032033', 'SAMEA4033277', 'SAMEA4033307', 'SAMEA4032038', 'SAMEA4032042', 'SAMEA2661239', 'SAMN08051112', 'SAMEA4032125', 'SAMEA2661258', 'SAMEA2661306', 'SAMEA4033322', 'SAMEA1920095', 'SAMEA4033284', 'SAMEA4033304', 'SAMEA4033305', 'SAMEA4032137', 'SAMEA1920096', 'SAMEA3388871', 'SAMEA4033278', 'SAMEA4033286', 'SAMEA4032049', 'SAMEA1920092', 'SAMEA4033289', 'SAMEA4033324', 'SAMEA1904832', 'SAMEA2661339', 'SAMEA1877499', 'SAMEA2661277', 'SAMEA2661248', 'SAMEA2661280', 'SAMEA2661381', 'SAMEA1904328', 'SAMEA4033261', 'SAMEA4033287', 'SAMEA4032088', 'SAMEA4032070', 'SAMEA4032069']
-    #     for file in error_files:
-    #         print('Generating new GVCF file for ' + file)
-    #         self.fm_obj.createSampleFiles(file)
-    #         p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localGVCFFile])
-    #         processes.append(p)
-
-    #         if len(processes) == len(error_files):
-    #             for proc in processes:
-    #                 proc.communicate()
-    #             processes = []
-    # if args.failed_samples:
-    #     self.RunFailedSamplesHaplotypeCaller()
-
-
-    # def old_RunGenomicsDBImport(self):
-    #     #IMPLEMENT BATCH SIZE CODE TO BE ABLE TO STILL RUN ALL CHROMOSOMES AT ONCE
-    #     processes = []
-    #     for lg in self.linkage_groups:
-    #         if args.local_test:
-    #             p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/test_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4', '--overwrite-existing-genomicsdb-workspace'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    #             processes.append(p)
-    #         else:
-    #             p = subprocess.Popen(['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4'])
-    #             processes.append(p)
-
-    #         if len(processes) == len(self.linkage_groups):
-    #             for proc in processes:
-    #                 proc.communicate()
-    #             processes = []
-    #     print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR ALL SAMPLES')
-
-       # def old_RunGenotypeGVCFs(self):
-    #     processes = []
-    #     # update GenotypeGVCFs command with below annotations
-    #     for lg in self.linkage_groups:
-    #         if args.local_test:
-    #             local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
-    #             local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-    #             local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-    #             local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-    #             local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-    #             p = subprocess.Popen(local_command)
-    #             processes.append(p)
-    #         else:
-    #             genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + lg + '_database/', '-O', self.fm_obj.localOutputDir + lg + '_output.vcf', '--heterozygosity', '0.0012']
-    #             genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-    #             genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-    #             genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-    #             genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-    #             p = subprocess.Popen(genotypegvcfs_command)
-    #             processes.append(p)
-
-    #         if len(processes) == len(self.linkage_groups):
-    #             for proc in processes:
-    #                 proc.communicate()
-    #             processes = []
-    #     print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ALL SAMPLES')
-        
-        # commenting out the projectID code and replacing with the Ecogroup code instead. Revisit if I need to filter by projectIDs and not by Ecogroups in the future - NK, 2024.01.17
-        # code block to set the ProjectIDs
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase.csv file
-        s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel')
-        valid_project_IDs = s_df['ProjectID'].unique().tolist() # reads in SampleDatabase.csv and converts unique ProjectIDs to a list
-        valid_project_IDs.extend(['All', 'custom']) # will allow 'All' which is the defualt projectID, and 'custom' which will allow a file containing vaid sample names to be valid IDs and not trip the below Exception
-        for projectID in args.projectIDs: # for loop that will check each ProjectID passed to the script
-            if projectID not in valid_project_IDs:
-                raise Exception(projectID + ' is not a ProjectID in SampleDatabase.csv; valid Project IDs are:' + '\n' + str(valid_project_IDs))
-            elif self.projectIDs == ['All'] or self.projectIDs == 'All':
-                self.projectIDs = valid_project_IDs[:-2] # the -2 ensures the "All" and "custom" projectIDs are not incldued in the IDs
-        # Code block to define the set of SampleIDs based on the passed ProjectIDs
-        if self.projectIDs != ['custom']:
-            self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # downloads the most up-to-date AlignmentDatabase.csv file from Dropbox. This file contains a list of all samples that have BAM files generated from the previous steps in the pipeline 
-            self.alignment_df = pd.read_csv(self.fm_obj.localAlignmentFile) # read in the AlignmentDatabase.csv file 
-            filtered_df = self.alignment_df[self.alignment_df['ProjectID'].isin(self.projectIDs)] # filter rows to only include those that are a part of the projectIDs we want to analyze 
-            filtered_df = filtered_df[filtered_df['GenomeVersion'] == self.genome] # filter by genome version to eliminate duplicate samples that have been aligned to multiple genome versions
-            self.sampleIDs = filtered_df['SampleID'].tolist() # set a sampleID list equal to the samples filtered by ProjectIDs. These will be processed in subsequent methods
-        else:
-            custom_samples_df = pd.read_csv('custom_samples.csv', header=None) # read in a custom_file.csv file (assumes no header)
-            self.sampleIDs = custom_samples_df[custom_samples_df.columns[0]].values.tolist() # converts the column of samples to a list 
-
-
-    def download_BAMs(self):
-        for sampleID in self.sampleIDs:
-            if sampleID in []:
-                continue
-            print('Downloading Bam file for ' + sampleID + '...')
-            self.fm_obj.createSampleFiles(sampleID)
-            self.fm_obj.downloadData(self.fm_obj.localBamFile)
-            self.fm_obj.downloadData(self.fm_obj.localBamIndex)
-
-    def RunHaplotypeCaller(self):
-        # Find notes in the CallSmallSNVs Pipeline Notebook on Benchling. Date of entry: Wednesday March 29th, 2023
-        processes = []
-        for sampleID in self.sampleIDs:
-            print('Generating new GVCF file for ' + sampleID)
-            self.fm_obj.createSampleFiles(sampleID) # creates a sample specific directory structure so outputs are stored on the server and cloud correctly
-            if args.local_test:
-                self.fm_obj.localBamFile = self.fm_obj.localSampleBamDir + sampleID + '_small.all.bam'
-            # try running with the basic haplotypecaller command and see if something changes
-            p = subprocess.Popen(['gatk', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-O', self.fm_obj.localGVCFFile])
-            processes.append(p)
-
-            if len(processes) == len(self.sampleIDs):
-                for proc in processes:
-                    proc.communicate()
-                processes = []
-
-        # if args.download_bams:
-            # self.download_BAMs()
-        # if args.haplotypecaller:
-            # self.RunHaplotypeCaller()
-
-time gatk HaplotypeCaller --emit-ref-confidence GVCF -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -I MC-008-m.all.bam -O MC-008-m.g.vcf.gz 2> error.txt 1> log.txt
-time gatk HaplotypeCaller --emit-ref-confidence GVCF -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -I OC-001-m.all.bam -O OC-001-m.g.vcf.gz 2> error.txt 1> log.txt
-"""
+    """
+    time python callVariants.py Mzebra_GT3 -a -H --concurrent_processes 90 --memory 11 2> error_haplotype_caller_run_240625.txt 1> log_haplotype_caller_run_240625.txt
+    """
