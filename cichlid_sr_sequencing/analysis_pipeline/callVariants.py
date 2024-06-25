@@ -239,20 +239,6 @@ class VariantCaller:
 
         print(f"Task {sample_name} finished at {self.current_time}")
 
-    def remove_unprocessed_samples(self, sample_name):
-        """ 
-        sample_name is pased in 
-        createsamplefiles(sample_name)
-        if pathlib.Path(fm_obj.localGVCFIndex):
-        skip sample
-        else:
-            run efficenthaplotypecaller(
-
-        """
-        
-        
-        for sample in 
-
     def multiprocess(self, function, sample_type):
         # Author: Lauren Sabo; edits made by NK
         # the below code will allow multiprocess to be run on a function based on SampleIDs or by LG. Similar code can be added to breakup the run by either projectID, intervals, etc. 
