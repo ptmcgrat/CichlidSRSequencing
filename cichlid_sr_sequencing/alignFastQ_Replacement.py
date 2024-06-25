@@ -124,10 +124,12 @@ for i in range(total_batches):
 	
 	print('  Marking duplicates for bamfiles for batch ' + str(i+1))	
 	#aw_obj.markDuplicates()
-	#aw_obj.markDuplicates(parallel = True)
+	aw_obj.markDuplicates(parallel = True)
 
+	continue
+	
 	timer.start('  Splitting reads based upon their alignment for Sample: ' + sample)
-	#aw_obj.splitBamfiles()
+	#aw_obj.splitBamfiles()sd
 	timer.stop()
 
 	print('  Calling haplotypes to create gvcf files for batch ' + str(i+1))
