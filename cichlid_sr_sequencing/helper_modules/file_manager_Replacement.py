@@ -33,6 +33,8 @@ class FileManager():
 
 	def _createMasterDirs(self):
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
+		self.localGenomesComparisonDir = self.localMasterDir + 'Genomes/Comparisons/'
+
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
 		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version 	
 	

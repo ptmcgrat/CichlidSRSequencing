@@ -225,7 +225,11 @@ class AlignmentWorker():
 			self.fm_obj = self.fileManagers[sample]
 			print('  Splitting sample ' + sample)
 			# Get contigs
-			bam_obj = pysam.AlignmentFile(self.fm_obj.localBamFile)
+			try:
+				bam_obj = pysam.AlignmentFile(self.fm_obj.localBamFile)
+			except OSError:
+				print( '.........ERROR WITH THIS bam file. Probably truncated ' + sample)
+				continue
 			contigs = bam_obj.references  
 			
 			processes = []
