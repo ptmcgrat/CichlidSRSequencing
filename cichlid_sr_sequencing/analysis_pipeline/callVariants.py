@@ -86,7 +86,7 @@ class VariantCaller:
             duplicate_set_test = set(self.linkage_groups)
             if len(duplicate_set_test) != len(self.linkage_groups):
                 raise Exception('A repeat region has been provided')
-
+            
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m']
@@ -240,6 +240,11 @@ class VariantCaller:
         print(f"Task {sample_name} finished at {self.current_time}")
 
     def multiprocess(self, function, sample_type):
+        """
+        TODO:
+        - find a way to load processes that would take the lonegst time to go first
+        
+        """
         # Author: Lauren Sabo; edits made by NK
         # the below code will allow multiprocess to be run on a function based on SampleIDs or by LG. Similar code can be added to breakup the run by either projectID, intervals, etc. 
         if sample_type == 'lg':
