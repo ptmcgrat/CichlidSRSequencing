@@ -127,11 +127,11 @@ for i in range(total_batches):
 	#aw_obj.markDuplicates(parallel = True)
 
 	timer.start('  Splitting reads based upon their alignment for Sample: ' + sample)
-	#aw_obj.splitBamfiles()
+	aw_obj.splitBamfiles()
 	timer.stop()
 
 	print('  Calling haplotypes to create gvcf files for batch ' + str(i+1))
-	aw_obj.createGVCF(parallel = True)
+	#aw_obj.createGVCF(parallel = True)
 	continue
 
 	timer.start('  Uploading data for Sample: ' + sample)

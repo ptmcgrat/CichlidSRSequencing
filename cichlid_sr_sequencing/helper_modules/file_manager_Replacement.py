@@ -7,7 +7,7 @@ from multiprocessing import cpu_count
 from collections import defaultdict
 
 class FileManager():
-	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:/', masterDir = 'COS/BioSci/BioSci-McGrath/Apps/CichlidSequencingData/'):
 
 		self.genome_version = genome_version
 
@@ -21,17 +21,8 @@ class FileManager():
 
 		# Identify cloud directory for rclone
 		self.rcloneRemote = rcloneRemote
-		# On some computers, the first directory is McGrath, on others it's BioSci-McGrath. Use rclone to figure out which
-		output = subprocess.run(['rclone', 'lsf', self.rcloneRemote + masterDir], capture_output = True, encoding = 'utf-8')
-		if output.stderr == '':
-			self.cloudMasterDir = self.rcloneRemote + masterDir
-		else:
-			output = subprocess.run(['rclone', 'lsf', self.rcloneRemote + 'BioSci-' + masterDir], capture_output = True, encoding = 'utf-8')
-			if output.stderr == '':
-				self.cloudMasterDir = self.rcloneRemote + 'BioSci-' + masterDir
-			else:
-				raise Exception('Cant find master directory (' + masterDir + ') in rclone remote (' + rcloneRemote + '')
-
+		self.cloudMasterDir = self.rcloneRemote + masterDir
+	
 		"""self.linkageGroups = {'NC_036780.1':'LG1', 'NC_036781.1':'LG2', 'NC_036782.1':'LG3', 'NC_036783.1':'LG4', 'NC_036784.1':'LG5', 'NC_036785.1':'LG6', 
 							  'NC_036786.1':'LG7', 'NC_036787.1':'LG8', 'NC_036788.1':'LG9', 'NC_036789.1':'LG10', 'NC_036790.1':'LG11',
 							  'NC_036791.1':'LG12', 'NC_036792.1':'LG13', 'NC_036793.1':'LG14', 'NC_036794.1':'LG15', 'NC_036795.1':'LG16', 'NC_036796.1':'LG17',
@@ -63,7 +54,8 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
 		elif self.genome_version == 'kocher_YH_female':
 			self.localGenomeFile = self.localGenomeDir + 'A_spYH_GT1.fasta'
-
+		elif self.genome_version == 'O_niloticus_UMD_NMBU':
+			self.localGenomeFile = self.localGenomeDir + 'GCF_001858045.2_O_niloticus_UMD_NMBU_genomic.fna'
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
