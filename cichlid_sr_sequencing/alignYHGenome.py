@@ -14,12 +14,23 @@ def align_genomes(genome_version1,genome_version2,contig_mapping):
 	fm_obj_1 = FM(genome_version = genome_version1)
 	fm_obj_2 = FM(genome_version = genome_version2)
 
+	all_dt = pd.DataFrame(columns = ['R_Name','R_Start','R_Stop','Q_Name','Q_Start','Q_Stop','Q_Strand','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','PercentMatch','NewStart','NewStop'])
 	for contig1,contig2 in contig_mapping.items():
 		subprocess.run(['faidx', fm_obj_1.localGenomeFile, contig1, '-o', fm_obj_1.localGenomeDir + contig1 + '.fa'])
 		subprocess.run(['faidx', fm_obj_2.localGenomeFile, contig2, '-o', fm_obj_2.localGenomeDir + contig2 + 'fa'])
-		subprocess.run(['minimap2', fm_obj_1.localGenomeDir + contig1 + '.fa', fm_obj_2.localGenomeDir + contig2 + '.fa'], open(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf')
+		subprocess.run(['minimap2', fm_obj_1.localGenomeDir + contig1 + '.fa', fm_obj_2.localGenomeDir + contig2 + '.fa'], open(fm_obj_1.localTempDir + contig1 + '_' + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
 
-		#dt = pd.read_csv(fm_obj_mz.localGenomesDir + lg + '.paf', sep = '\t', 
+		dt = pd.read_csv(fm_obj_1.localTempDir + contig1 + '_' + genome_version1 + '_' + genome_version2 + '.paf', sep = '\t', 
+			names = ['Q_Name','Q_Size','Q_Start','Q_Stop','Q_Strand','R_Name','R_Size','R_Start','R_Stop','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','c','d','e','f','g'])
+		dt = dt[['R_Name','R_Start','R_Stop','Q_Name','Q_Start','Q_Stop','Q_Strand','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType']].sort_values('R_Start')
+		dt['PercentMatch'] = dt.ResiduesMatch/dt.AlignmentLength
+		dt['NewStart'] = np.where(dt.Q_Strand == '-', dt.Q_Stop,dt.Q_Start)
+		dt['NewStop'] = np.where(dt.Q_Strand == '-', dt.Q_Start,dt.Q_Stop)
+		all_dt = pd.concat([all_dt,dt])
+		a_dt = dt[(dt.PercentMatch > 0.4) & (dt.AlignmentType == 'tp:A:P') & (dt.AlignmentLength > 1000)]
+
+	pdb.set_trace()
+		#with PdfPages(fm_obj_mz.localGenomeComparisonsDir + ) as pdf_pages:
 
 inversions = {'LG2':('NC_036781.1',19705000,19748000,43254805,43658853),'LG9':('NC_036789.1',14453796,15649299,32255605,33496468),'LG10':('NC_036790.1',11674905,11855817,29898615,29898615),
 				'LG11':('NC_036791.1',8302039,8309764,30371888,30459686),'LG12':('NC_036792.1',2249541,2453698,23046928,23131968),'LG20':('NC_036799.1',19614379,19689710,32872827,33764042)}
@@ -45,6 +56,7 @@ fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
 fm_obj_yh.downloadData(fm_obj_yh.localGenomeFile)
 fm_obj_on.downloadData(fm_obj_on.localGenomeFile)
 
+align_genomes('Mzebra_GT3','O_niloticus_UMD_NMBU',LG_MZtoON)
 #subprocess.run(['GSAlign','-dp','-i',fm_obj_mz.localGenomeFile,'-q',fm_obj_yh.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment'])
 
 print('Running minimap2')
