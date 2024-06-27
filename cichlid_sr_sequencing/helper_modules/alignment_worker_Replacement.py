@@ -50,7 +50,6 @@ class AlignmentWorker():
 	def monitorProcesses(self,commands,base_text):
 		
 
-
 		timer = Timer()
 		timer.start('   ' + base_text)
 
@@ -62,7 +61,8 @@ class AlignmentWorker():
 		error_files = []
 		processes = []
 		for i,command in enumerate(commands):
-			error_file = open(self.fm_obj.localSampleTempDir + base_text + '_' + str(i) + '_errors.txt', 'w')
+			self.fm_obj = self.fileManagers[self.samples[i]]
+			error_file = open(self.fm_obj.localSampleTempDir + base_text + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
 
 		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)
@@ -205,7 +205,6 @@ class AlignmentWorker():
 			
 			#command2 = ['gatk', 'SortSam', '-I', unsorted_file, '-O', self.fm_obj.localBamFile, '-S', 'coordinate', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--CREATE_INDEX']
 			commands.append(command)
-
 			if not parallel:
 				self.monitorProcess(command, 'MarkDuplicates_' + sample)
 				#self.monitorProcess(command2,'SortBam_' + sample)

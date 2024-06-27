@@ -17,7 +17,7 @@ def align_genomes(genome_version1,genome_version2,contig_mapping):
 	all_dt = pd.DataFrame(columns = ['R_Name','R_Start','R_Stop','Q_Name','Q_Start','Q_Stop','Q_Strand','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','PercentMatch','NewStart','NewStop'])
 	for contig1,contig2 in contig_mapping.items():
 		subprocess.run(['faidx', fm_obj_1.localGenomeFile, contig1, '-o', fm_obj_1.localGenomeDir + contig1 + '.fa'])
-		subprocess.run(['faidx', fm_obj_2.localGenomeFile, contig2, '-o', fm_obj_2.localGenomeDir + contig2 + 'fa'])
+		subprocess.run(['faidx', fm_obj_2.localGenomeFile, contig2, '-o', fm_obj_2.localGenomeDir + contig2 + '.fa'])
 		subprocess.run(['minimap2', fm_obj_1.localGenomeDir + contig1 + '.fa', fm_obj_2.localGenomeDir + contig2 + '.fa'], stdout = open(fm_obj_1.localTempDir + contig1 + '_' + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
 
 		dt = pd.read_csv(fm_obj_1.localTempDir + contig1 + '_' + genome_version1 + '_' + genome_version2 + '.paf', sep = '\t', 
