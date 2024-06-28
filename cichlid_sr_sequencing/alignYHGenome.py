@@ -16,9 +16,9 @@ def align_genomes_contigbycontig(genome_version1,genome_version2,contig_mapping)
 
 	all_dt = pd.DataFrame(columns = ['R_Name','R_Start','R_Stop','Q_Name','Q_Start','Q_Stop','Q_Strand','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','PercentMatch','NewStart','NewStop'])
 	for contig1,contig2 in contig_mapping.items():
-		subprocess.run(['faidx', fm_obj_1.localGenomeFile, contig1, '-o', fm_obj_1.localGenomeDir + contig1 + '.fa'])
-		subprocess.run(['faidx', fm_obj_2.localGenomeFile, contig2, '-o', fm_obj_2.localGenomeDir + contig2 + '.fa'])
-		subprocess.run(['minimap2', fm_obj_1.localGenomeDir + contig1 + '.fa', fm_obj_2.localGenomeDir + contig2 + '.fa'], stdout = open(fm_obj_1.localTempDir + contig1 + '_' + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
+		#subprocess.run(['faidx', fm_obj_1.localGenomeFile, contig1, '-o', fm_obj_1.localGenomeDir + contig1 + '.fa'])
+		#subprocess.run(['faidx', fm_obj_2.localGenomeFile, contig2, '-o', fm_obj_2.localGenomeDir + contig2 + '.fa'])
+		#subprocess.run(['minimap2', fm_obj_1.localGenomeDir + contig1 + '.fa', fm_obj_2.localGenomeDir + contig2 + '.fa'], stdout = open(fm_obj_1.localTempDir + contig1 + '_' + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
 
 		dt = pd.read_csv(fm_obj_1.localTempDir + contig1 + '_' + genome_version1 + '_' + genome_version2 + '.paf', sep = '\t', 
 			names = ['Q_Name','Q_Size','Q_Start','Q_Stop','Q_Strand','R_Name','R_Size','R_Start','R_Stop','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','c','d','e','f','g'])
@@ -38,6 +38,31 @@ def align_genomes_contigbycontig(genome_version1,genome_version2,contig_mapping)
 			figu = plt.figure(i)
 			lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position', y = 'Position2', hue = 'index', hue_norm = (-255,0)).set(title = lg)
 			pdf_pages.savefig(figu)
+
+def align_genomes(genome_version1,genome_version2):
+	fm_obj_1 = FM(genome_version = genome_version1)
+	fm_obj_2 = FM(genome_version = genome_version2)
+	subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile], stdout = open(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
+
+	all_dt = pd.read_csv(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf', sep = '\t', 
+		names = ['Q_Name','Q_Size','Q_Start','Q_Stop','Q_Strand','R_Name','R_Size','R_Start','R_Stop','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','c','d','e','f','g'])
+	all_dt = all_dt[['R_Name','R_Start','R_Stop','Q_Name','Q_Start','Q_Stop','Q_Strand','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType']].sort_values(['R_Name','R_Start'])
+	all_dt['PercentMatch'] = all_dt.ResiduesMatch/all_dt.AlignmentLength
+	all_dt['NewStart'] = np.where(all_dt.Q_Strand == '-', all_dt.Q_Stop,all_dt.Q_Start)
+	all_dt['NewStop'] = np.where(all_dt.Q_Strand == '-', all_dt.Q_Start,all_dt.Q_Stop)
+	filter_dt = all_dt[(all_dt.PercentMatch > 0.3) & (all_dt.AlignmentType == 'tp:A:P') & (all_dt.AlignmentLength > 300)]
+	all_dt.to_csv(fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.csv')
+
+	with PdfPages(fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.pdf') as pdf_pages:
+		for i,contig in enumerate(linkageGroups.keys()):
+			lg = linkageGroups[contig]
+			contig_dt = filter_dt[filter_dt.R_Name == contig][['R_Start','R_Stop']].melt(var_name = 'AlnLoc', value_name = 'Position', ignore_index = False)
+			contig_dt['Position2'] = filter_dt[filter_dt.R_Name == contig][['NewStart','NewStop']].melt(var_name = 'AlnLoc', value_name = 'Position', ignore_index = False)['Position']
+			figu = plt.figure(i)
+			lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position', y = 'Position2', hue = 'index', hue_norm = (-255,0)).set(title = lg)
+			pdf_pages.savefig(figu)
+
+
 inversions = {'LG2':('NC_036781.1',19705000,19748000,43254805,43658853),'LG9':('NC_036789.1',14453796,15649299,32255605,33496468),'LG10':('NC_036790.1',11674905,11855817,29898615,29898615),
 				'LG11':('NC_036791.1',8302039,8309764,30371888,30459686),'LG12':('NC_036792.1',2249541,2453698,23046928,23131968),'LG20':('NC_036799.1',19614379,19689710,32872827,33764042)}
 
@@ -59,27 +84,16 @@ fm_obj_yh = FM(genome_version = 'kocher_YH_female')
 fm_obj_mz2 = FM(genome_version = 'Mzebra_UMD2a')
 fm_obj_on = FM(genome_version = 'O_niloticus_UMD_NMBU')
 
-
 fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
 fm_obj_yh.downloadData(fm_obj_yh.localGenomeFile)
 fm_obj_on.downloadData(fm_obj_on.localGenomeFile)
 
 #align_genomes_contigbycontig('Mzebra_GT3','O_niloticus_UMD_NMBU',LG_MZtoON)
-align_genomes_contigbycontig('Mzebra_GT3','kocher_YH_female',LG_MZtoYH)
-
+#align_genomes_contigbycontig('Mzebra_GT3','kocher_YH_female',LG_MZtoYH)
+align_genomes('Mzebra_GT3','Rhamp_chilingali')
 #subprocess.run(['GSAlign','-dp','-i',fm_obj_mz.localGenomeFile,'-q',fm_obj_yh.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment'])
 
-print('Running minimap2')
-command = ['minimap2', fm_obj_mz.localGenomeFile, fm_obj_on.localGenomeFile]
-#subprocess.run(command, stdout = open(fm_obj_mz.localGenomesDir + 'Comparisons/MZ_GT3vsON.paf', 'w'))
 
-dt = pd.read_csv(fm_obj_mz.localGenomesDir + 'Comparisons/MZ_GT3vsON.paf', sep = '\t', 
-	names = ['Q_Name','Q_Size','Q_Start','Q_Stop','Q_Strand','R_Name','R_Size','R_Start','R_Stop','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','c','d','e','f','g'])
-dt = dt[['R_Name','R_Start','R_Stop','Q_Name','Q_Start','Q_Stop','Q_Strand','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType']].sort_values('R_Start')
-dt['PercentMatch'] = dt.ResiduesMatch/dt.AlignmentLength
-dt['NewStart'] = np.where(dt.Q_Strand == '-', dt.Q_Stop,dt.Q_Start)
-dt['NewStop'] = np.where(dt.Q_Strand == '-', dt.Q_Start,dt.Q_Stop)
-g_dt = dt[(dt.PercentMatch > 0.4) & (dt.AlignmentType == 'tp:A:P') & (dt.AlignmentLength > 1000)]
 """with PdfPages(fm_obj_mz.localGenomesDir + 'Comparisons/MZ_GT3vsON.pdf') as pdf_pages:
 	for i,(contig,lg) in enumerate(linkageGroups.items()):
 		a_dt = g_dt[g_dt.R_Name == contig]
