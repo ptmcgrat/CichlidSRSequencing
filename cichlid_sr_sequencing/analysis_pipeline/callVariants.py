@@ -17,6 +17,7 @@ parser.add_argument('-l', '--local_test', help = 'when this flag is called, vari
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
 parser.add_argument('-a', '--alignment_file', help = 'use this flag to define samples based on the reference genome and alignments completed present in the ALignmentDatabase.csv file', action = 'store_true')
+parser.add_argument('--temp', help = 'temp argument iused to define specific samples so they run through GVCF creation on Utaka as of 2024.07.01', action = 'store_true')
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 4)
 args = parser.parse_args()
 
@@ -86,6 +87,7 @@ class VariantCaller:
             duplicate_set_test = set(self.linkage_groups)
             if len(duplicate_set_test) != len(self.linkage_groups):
                 raise Exception('A repeat region has been provided')
+        
             
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
@@ -93,6 +95,8 @@ class VariantCaller:
             self.memory = [1]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
             # self.concurrent_processes = 10
+        if args.temp:
+            self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
 
     def _generate_sample_map(self):
         sampleIDs = self.sampleIDs
@@ -297,4 +301,5 @@ if __name__ == "__main__":
 
     """
     time python callVariants.py Mzebra_GT3 -a -H --concurrent_processes 90 --memory 11 2> error_haplotype_caller_run_240625.txt 1> log_haplotype_caller_run_240625.txt
+    python callVariants.py Mzebra_GT3 --temp -H --concurrent_processes 11 --memory 1
     """

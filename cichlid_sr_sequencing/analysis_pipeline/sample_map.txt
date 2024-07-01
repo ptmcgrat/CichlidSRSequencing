@@ -1,5 +1,5 @@
-CJ_2204_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/CJ_2204_m/CJ_2204_m_0.01_subset.g.vcf.gz
-CV-006-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/CV-006-m/CV-006-m_0.01_subset.g.vcf.gz
-LA_3006_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/LA_3006_m/LA_3006_m_0.01_subset.g.vcf.gz
-MC-008-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/MC-008-m/MC-008-m_0.01_subset.g.vcf.gz
-OC-001-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/OC-001-m/OC-001-m_0.01_subset.g.vcf.gz
+CJ_2204_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/CJ_2204_m/CJ_2204_m_0.0001_subset.g.vcf.gz
+CV-006-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/CV-006-m/CV-006-m_0.0001_subset.g.vcf.gz
+LA_3006_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/LA_3006_m/LA_3006_m_0.0001_subset.g.vcf.gz
+MC-008-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/MC-008-m/MC-008-m_0.0001_subset.g.vcf.gz
+OC-001-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/OC-001-m/OC-001-m_0.0001_subset.g.vcf.gz
