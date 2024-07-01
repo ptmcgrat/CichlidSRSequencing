@@ -63,8 +63,11 @@ def align_genomes(genome_version1,genome_version2):
 			pdf_pages.savefig(figu)
 
 
-inversions = {'LG2':('NC_036781.1',19705000,19748000,43254805,43658853),'LG9':('NC_036789.1',14453796,15649299,32255605,33496468),'LG10':('NC_036790.1',11674905,11855817,29898615,29898615),
+#inversions = {'LG2':('NC_036781.1',19705000,19748000,43254805,43658853),'LG9':('NC_036789.1',14453796,15649299,32255605,33496468),'LG10':('NC_036790.1',11674905,11855817,29898615,29898615),
 				'LG11':('NC_036791.1',8302039,8309764,30371888,30459686),'LG12':('NC_036792.1',2249541,2453698,23046928,23131968),'LG20':('NC_036799.1',19614379,19689710,32872827,33764042)}
+
+inversions = {'LG2':('NC_036781.1',19745291,19746383,43556654,43556721),'LG9':('NC_036788.1',14503645,14972797,32763228,32765988),'LG10':('NC_036789.1',11817927,11841666,29881282,29902558),
+				'LG11':('NC_036790.1',8304758,8303033,30372595,30385320),'LG13':('NC_036792.1',2398101,2405661,23071814,23124402),'LG20':('NC_036799.1',19616371,19616393,33288065,33254389)}
 
 linkageGroups = {'NC_036780.1':'LG1', 'NC_036781.1':'LG2', 'NC_036782.1':'LG3', 'NC_036783.1':'LG4', 'NC_036784.1':'LG5', 'NC_036785.1':'LG6', 
 							  'NC_036786.1':'LG7', 'NC_036787.1':'LG8', 'NC_036788.1':'LG9', 'NC_036789.1':'LG10', 'NC_036790.1':'LG11',
@@ -84,8 +87,11 @@ fm_obj_yh = FM(genome_version = 'kocher_YH_female')
 fm_obj_mz2 = FM(genome_version = 'Mzebra_UMD2a')
 fm_obj_on = FM(genome_version = 'O_niloticus_UMD_NMBU')
 fm_obj_yhhf = FM(genome_version = 'kocher_YH_female_hifi')
+fm_obj_pn = FM(genome_version = 'P_nyererei_v2')
 
 fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
+fm_obj_pn.downloadData(fm_obj_pn.localGenomeFile)
+
 fm_obj_mz.createSampleFiles('YH_1_m')
 #fm_obj_mz.downloadData(fm_obj_mz.localSampleBamDir)
 fm_obj_yh.downloadData(fm_obj_yh.localGenomeFile)
@@ -93,9 +99,10 @@ fm_obj_on.downloadData(fm_obj_on.localGenomeFile)
 fm_obj_yhhf.downloadData(fm_obj_yhhf.localGenomeFile)
 #align_genomes_contigbycontig('Mzebra_GT3','O_niloticus_UMD_NMBU',LG_MZtoON)
 #align_genomes_contigbycontig('Mzebra_GT3','kocher_YH_female',LG_MZtoYH)
-align_genomes('Mzebra_GT3','kocher_YH_female_hifi')
+align_genomes('Mzebra_GT3','P_nyererei_v2')
 #subprocess.run(['GSAlign','-dp','-i',fm_obj_mz.localGenomeFile,'-q',fm_obj_yh.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment'])
 
+fm_obj_mz.uploadData(fm_obj_mz.localGenomesComparisonDir)
 
 """with PdfPages(fm_obj_mz.localGenomesDir + 'Comparisons/MZ_GT3vsON.pdf') as pdf_pages:
 	for i,(contig,lg) in enumerate(linkageGroups.items()):

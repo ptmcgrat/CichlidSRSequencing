@@ -59,7 +59,8 @@ class FileManager():
 		elif self.genome_version == 'kocher_YH_female_hifi':
 			self.localGenomeDir = self.localGenomesDir + 'kocher_YH_female/' 
 			self.localGenomeFile = self.localGenomeDir + 'hifiasm_contigs/' + 'A_spYH_GT1_mabs_assembly.fasta'
-
+		elif self.genome_version == 'P_nyererei_v2':
+			self.localGenomeFile = self.localGenomeDir + 'PunNye_v2_hyrbid_scaffold/PunNye_v2_hybrid_scaffold_genome.fasta'
 		elif self.genome_version == 'O_niloticus_UMD_NMBU':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_001858045.2_O_niloticus_UMD_NMBU_genomic.fna'
 		elif self.genome_version == 'Rhamp_chilingali':
