@@ -56,9 +56,15 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
 		elif self.genome_version == 'kocher_YH_female':
 			self.localGenomeFile = self.localGenomeDir + 'A_spYH_GT1.fasta'
+		elif self.genome_version == 'kocher_YH_female_hifi':
+			self.localGenomeDir = self.localGenomesDir + 'kocher_YH_female/' 
+			self.localGenomeFile = self.localGenomeDir + 'hifiasm_contigs/' + 'A_spYH_GT1_mabs_assembly.fasta'
+
 		elif self.genome_version == 'O_niloticus_UMD_NMBU':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_001858045.2_O_niloticus_UMD_NMBU_genomic.fna'
-
+		elif self.genome_version == 'Rhamp_chilingali':
+			self.localGenomeFile = self.localGenomeDir + 'GCA_963969265.1_fRhaChi2.1_genomic.fna'
+		
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
 

@@ -83,14 +83,17 @@ fm_obj_mz = FM(genome_version = 'Mzebra_GT3')
 fm_obj_yh = FM(genome_version = 'kocher_YH_female')
 fm_obj_mz2 = FM(genome_version = 'Mzebra_UMD2a')
 fm_obj_on = FM(genome_version = 'O_niloticus_UMD_NMBU')
+fm_obj_yhhf = FM(genome_version = 'kocher_YH_female_hifi')
 
 fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
+fm_obj_mz.createSampleFiles('YH_1_m')
+#fm_obj_mz.downloadData(fm_obj_mz.localSampleBamDir)
 fm_obj_yh.downloadData(fm_obj_yh.localGenomeFile)
 fm_obj_on.downloadData(fm_obj_on.localGenomeFile)
-
+fm_obj_yhhf.downloadData(fm_obj_yhhf.localGenomeFile)
 #align_genomes_contigbycontig('Mzebra_GT3','O_niloticus_UMD_NMBU',LG_MZtoON)
 #align_genomes_contigbycontig('Mzebra_GT3','kocher_YH_female',LG_MZtoYH)
-align_genomes('Mzebra_GT3','Rhamp_chilingali')
+align_genomes('Mzebra_GT3','kocher_YH_female_hifi')
 #subprocess.run(['GSAlign','-dp','-i',fm_obj_mz.localGenomeFile,'-q',fm_obj_yh.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment'])
 
 
