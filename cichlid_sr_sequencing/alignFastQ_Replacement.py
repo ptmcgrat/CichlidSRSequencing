@@ -131,8 +131,8 @@ for i in range(total_batches):
 	timer.stop()
 
 	print('  Calling haplotypes to create gvcf files for batch ' + str(i+1))
-	#aw_obj.createGVCF(parallel = True)
-
+	aw_obj.createGVCF(parallel = True)
+	continue
 	timer.start('  Uploading data for Sample: ' + sample)
 	processes = []
 	for sample in current_batch:
