@@ -42,7 +42,7 @@ def align_genomes_contigbycontig(genome_version1,genome_version2,contig_mapping)
 def align_genomes(genome_version1,genome_version2):
 	fm_obj_1 = FM(genome_version = genome_version1)
 	fm_obj_2 = FM(genome_version = genome_version2)
-	subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile], stdout = open(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
+	#subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile], stdout = open(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
 
 	all_dt = pd.read_csv(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf', sep = '\t', 
 		names = ['Q_Name','Q_Size','Q_Start','Q_Stop','Q_Strand','R_Name','R_Size','R_Start','R_Stop','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','c','d','e','f','g'])
@@ -52,14 +52,19 @@ def align_genomes(genome_version1,genome_version2):
 	all_dt['NewStop'] = np.where(all_dt.Q_Strand == '-', all_dt.Q_Start,all_dt.Q_Stop)
 	filter_dt = all_dt[(all_dt.PercentMatch > 0.3) & (all_dt.AlignmentType == 'tp:A:P') & (all_dt.AlignmentLength > 300)]
 	all_dt.to_csv(fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.csv')
-
 	with PdfPages(fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.pdf') as pdf_pages:
 		for i,contig in enumerate(linkageGroups.keys()):
 			lg = linkageGroups[contig]
-			contig_dt = filter_dt[filter_dt.R_Name == contig][['R_Start','R_Stop']].melt(var_name = 'AlnLoc', value_name = 'Position', ignore_index = False)
-			contig_dt['Position2'] = filter_dt[filter_dt.R_Name == contig][['NewStart','NewStop']].melt(var_name = 'AlnLoc', value_name = 'Position', ignore_index = False)['Position']
+			t_dt = filter_dt[filter_dt.R_Name == contig][['R_Start','R_Stop','Q_Name','NewStart','NewStop','AlignmentLength']]
+			tophits = t_dt.groupby('Q_Name').sum()['AlignmentLength'].sort_values(ascending = False).head(3)
+			t_dt = t_dt[t_dt.Q_Name.isin(tophits.index)]
+
+			contig_dt = t_dt[['R_Start','R_Stop','Q_Name']].melt(id_vars = ['Q_Name'], var_name = 'AlnLoc', value_name = 'Position', ignore_index = False)
+			contig_dt['Position2'] = t_dt[['NewStart','NewStop']].melt(var_name = 'AlnLoc', value_name = 'Position', ignore_index = False)['Position']
+
 			figu = plt.figure(i)
-			lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position', y = 'Position2', hue = 'index', hue_norm = (-255,0)).set(title = lg)
+			lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position', y = 'Position2', hue = 'Q_Name', units = 'index', estimator = None).set(title = lg)
+			#lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position', y = 'Position2', hue = 'index', hue_norm = (-255,0)).set(title = lg)
 			pdf_pages.savefig(figu)
 
 
@@ -89,17 +94,19 @@ fm_obj_on = FM(genome_version = 'O_niloticus_UMD_NMBU')
 fm_obj_yhhf = FM(genome_version = 'kocher_YH_female_hifi')
 fm_obj_pn = FM(genome_version = 'P_nyererei_v2')
 
-fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
-fm_obj_pn.downloadData(fm_obj_pn.localGenomeFile)
+#fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
+#fm_obj_pn.downloadData(fm_obj_pn.localGenomeFile)
 
-fm_obj_mz.createSampleFiles('YH_1_m')
-#fm_obj_mz.downloadData(fm_obj_mz.localSampleBamDir)
-fm_obj_yh.downloadData(fm_obj_yh.localGenomeFile)
-fm_obj_on.downloadData(fm_obj_on.localGenomeFile)
-fm_obj_yhhf.downloadData(fm_obj_yhhf.localGenomeFile)
+#fm_obj_mz.createSampleFiles('YH_1_m')
+fm_obj_mz.createSampleFiles('MZ_1_m')
+fm_obj_mz.downloadData(fm_obj_mz.localSampleBamDir)
+#fm_obj_yh.downloadData(fm_obj_yh.localGenomeFile)
+#fm_obj_on.downloadData(fm_obj_on.localGenomeFile)
+#fm_obj_yhhf.downloadData(fm_obj_yhhf.localGenomeFile)
 #align_genomes_contigbycontig('Mzebra_GT3','O_niloticus_UMD_NMBU',LG_MZtoON)
 #align_genomes_contigbycontig('Mzebra_GT3','kocher_YH_female',LG_MZtoYH)
 align_genomes('Mzebra_GT3','P_nyererei_v2')
+align_genomes('Mzebra_GT3','O_niloticus_UMD_NMBU')
 #subprocess.run(['GSAlign','-dp','-i',fm_obj_mz.localGenomeFile,'-q',fm_obj_yh.localGenomeFile, '-o', fm_obj_mz.localGenomesDir + 'MZ_YH_Alignment'])
 
 fm_obj_mz.uploadData(fm_obj_mz.localGenomesComparisonDir)
