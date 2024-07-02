@@ -135,7 +135,8 @@ for i in range(total_batches):
 	timer.start('  Uploading data for Sample: ' + sample)
 	processes = []
 	for sample in current_batch:
-		aw_obj.uploadOutputData()
+		fm_obj = FM(sample = sample)
+		fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 		stats = aw_obj.calculateStats(sample)
 
@@ -143,7 +144,7 @@ for i in range(total_batches):
 		reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 		coverage = stats['all'] * read_length / reference_size
 
-		sample_data = {'SampleID':sample, 'Organism':s_dt.Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
+		sample_data = {'SampleID':sample, 'Organism':s_dt[s_dt['SampleID'] == sample].Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
 				   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 				   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
 

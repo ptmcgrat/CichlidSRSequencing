@@ -272,8 +272,9 @@ class AlignmentWorker():
 			self.monitorProcesses(commands, 'HaplotypeCaller_' + self.samples[0] + '_' + str(len(self.samples)) + 'OtherSamples')
 
 
-	def calculateStats(self):
+	def calculateStats(self, sample):
 		stats = {}
+		self.fileManager = self.fileManagers[sample]
 		for filename in [self.fileManager.localBamFile, self.fileManager.localUnmappedBamFile, self.fileManager.localDiscordantBamFile, self.fileManager.localInversionBamFile, self.fileManager.localDuplicationBamFile, self.fileManager.localClippedBamFile, self.fileManager.localChimericBamFile]:
 			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
