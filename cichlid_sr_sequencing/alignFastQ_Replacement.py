@@ -135,7 +135,7 @@ for i in range(total_batches):
 	timer.start('  Uploading data for Sample: ' + sample)
 	processes = []
 	for sample in current_batch:
-		fm_obj = FM(sample = sample)
+		fm_obj.createSampleFiles(sample)
 		fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 		stats = aw_obj.calculateStats(sample)
