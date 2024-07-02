@@ -93,7 +93,7 @@ class FileManager():
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 		self.localTestGVCFFile = self.localSampleTestingDir + sampleID + '_0.0001_subset.g.vcf.gz'
 		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
-		self.localTestGVCFIndex = self.localSampleTestingDir + sampleID + '_0.01_subset.g.vcf.gz.tbi'
+		self.localTestGVCFIndex = self.localSampleTestingDir + sampleID + '_0.0001_subset.g.vcf.gz.tbi'
 
 		# Below block is to access files in the /Output storage directory
 		self.StorageSampleBamDir = self.StorageBamRefDir + sampleID + '/'

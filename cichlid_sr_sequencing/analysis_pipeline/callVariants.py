@@ -17,7 +17,8 @@ parser.add_argument('-l', '--local_test', help = 'when this flag is called, vari
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
 parser.add_argument('-a', '--alignment_file', help = 'use this flag to define samples based on the reference genome and alignments completed present in the ALignmentDatabase.csv file', action = 'store_true')
-parser.add_argument('--temp', help = 'temp argument iused to define specific samples so they run through GVCF creation on Utaka as of 2024.07.01', action = 'store_true')
+parser.add_argument('--upload', help = 'Use this flag to upload GVCF files from the server to Dropbox', action =  'store_true')
+# parser.add_argument('--temp', help = 'temp argument iused to define specific samples so they run through GVCF creation on Utaka as of 2024.07.01', action = 'store_true')
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 4)
 args = parser.parse_args()
 
@@ -94,9 +95,9 @@ class VariantCaller:
             self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m']
             self.memory = [1]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
-            # self.concurrent_processes = 10
-        if args.temp:
-            self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
+            self.concurrent_processes = 10
+        # if args.temp: # explicitly defining the failing samples for GVCF creation. 
+        #     self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
 
     def _generate_sample_map(self):
         sampleIDs = self.sampleIDs
@@ -109,22 +110,72 @@ class VariantCaller:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
+        # pdb.set_trace() UNCOMMENT BEFORE RUNNING ON UTAKA - 2024.07.02 NK
 
-    def GVCF_downloader(self):
-        print('Downloading new Alignment File')
-        self.fm_obj.downloadData(self.fm_obj.localAlignmentFile)
-        print('Downloading most recent Genome Dir')
-        self.fm_obj.downloadData(self.fm_obj.localGenomeDir)
+    def GVCF_downloader(self, sampleID):
+        # Download the GVCF and GVCF.idx files for each sample in self.sampleIDs
+        self.fm_obj.createSampleFiles(sampleID)
+        if args.local_test:
+            if pathlib.Path(self.fm_obj.localTestGVCFFile).exists():
+                print('GCVF file for ' + sampleID + ' exists. Skipping sample...')
+            else:
+                print(f"Starting GVCF and GVCF index download for sample {sampleID} at {self.current_time}")
+                self.fm_obj.downloadData(self.fm_obj.localTestGVCFFile)
+                self.fm_obj.downloadData(self.fm_obj.localTestGVCFIndex)
+                print(f"Download of GVCF and GVCF index for sample {sampleID} complete at {self.current_time}")
+        else:
+            if pathlib.Path(self.fm_obj.localGVCFFile).exists():
+                print('GCVF file for ' + sampleID + ' exists. Skipping sample...')
+            else:
+                print(f"Starting GVCF and GVCF index download for sample {sampleID} at {self.current_time}")
+                self.fm_obj.downloadData(self.fm_obj.localGVCFFile)
+                self.fm_obj.downloadData(self.fm_obj.localGVCFIndex)
+                print(f"Download of GVCF and GVCF index for sample {sampleID} complete at {self.current_time}")
 
-        # Download the GVCF and GVCF.idx files for each sample in the AlignmentDatabase
-        for sampleID in self.sampleIDs:
-            if sampleID in []: # confused what this is doing... rememdy it...
-                continue
-            print('Downloading ' + sampleID + '...')
-            self.fm_obj.createSampleFiles(sampleID)
-            self.fm_obj.downloadData(self.fm_obj.localGVCFFile)
-            self.fm_obj.downloadData(self.fm_obj.localGVCFFile + '.tbi')
-            print('Done Downloading ' + sampleID)
+    def uploadGVCFs(self, sampleID):
+        # upload GVCF file and index for sampleID in self.sampleIDs if it doesn't already exist on Dropbox. 
+        self.fm_obj.createSampleFiles(sampleID)
+        if args.local_test: # code for testing using small local files. 
+            # check to see if the file has already been uploaded to Dropbox. If it does. Skip it
+            print(f"Checking if {sampleID}'s GVCF file and Index exists on Dropbox...")
+            cloud_gvcf_path = self.fm_obj.localTestGVCFFile.replace(self.fm_obj.localMasterDir, self.fm_obj.cloudMasterDir)
+            cloud_gvcf_index_path = self.fm_obj.localTestGVCFIndex.replace(self.fm_obj.localMasterDir, self.fm_obj.cloudMasterDir)
+
+            gvcf_code = subprocess.run(['rclone', 'lsf', cloud_gvcf_path]).returncode
+            if gvcf_code == 0:
+                print(f"Rclone found the GVCF file for {sampleID} on Dropbox. Skipping")
+            else:
+                print(f"GVCF file for {sampleID} is not on dropbox. Starting upload for GVCF file at {self.current_time}")
+                self.fm_obj.uploadData(self.fm_obj.localTestGVCFFile)
+                print(f"GVCF file upload for {sampleID} complete at {self.current_time}")
+                
+            index_code = subprocess.run(['rclone', 'lsf', cloud_gvcf_index_path]).returncode
+            if index_code == 0:
+                print(f"Rclone found the GVCF Index for {sampleID} on Dropbox. Skipping...")
+            else:
+                print(f"Index file for {sampleID} is not on dropbox. Starting upload for GVCF Index at {self.current_time}")
+                self.fm_obj.uploadData(self.fm_obj.localTestGVCFIndex)
+                print(f"GVCF Inxex upload for {sampleID} complete at {self.current_time}")
+        else: # code for uploading server files
+            print(f"Checking if {sampleID}'s GVCF file and Index exists on Dropbox...")
+            cloud_gvcf_path = self.fm_obj.localGVCFFile.replace(self.fm_obj.localMasterDir, self.fm_obj.cloudMasterDir)
+            cloud_gvcf_index_path = self.fm_obj.localGVCFIndex.replace(self.fm_obj.localMasterDir, self.fm_obj.cloudMasterDir)
+
+            gvcf_code = subprocess.run(['rclone', 'lsf', cloud_gvcf_path]).returncode
+            if gvcf_code == 0:
+                print(f"Rclone found the GVCF file for {sampleID} on Dropbox. Skipping")
+            else:
+                print(f"GVCF file for {sampleID} is not on dropbox. Starting upload for GVCF file at {self.current_time}")
+                self.fm_obj.uploadData(self.fm_obj.localGVCFFile)
+                print(f"GVCF file upload for {sampleID} complete at {self.current_time}")
+                
+            index_code = subprocess.run(['rclone', 'lsf', cloud_gvcf_index_path]).returncode
+            if index_code == 0:
+                print(f"Rclone found the GVCF Index for {sampleID} on Dropbox. Skipping...")
+            else:
+                print(f"Index file for {sampleID} is not on dropbox. Starting upload for GVCF Index at {self.current_time}")
+                self.fm_obj.uploadData(self.fm_obj.localGVCFIndex)
+                print(f"GVCF Inxex upload for {sampleID} complete at {self.current_time}")
 
     def EfficientHaplotypeCaller(self, sample):
         """
@@ -182,49 +233,40 @@ class VariantCaller:
 
         print(f"Sample {sample} finished processing at {self.current_time}")
 
-    def uploadGVCFs(self):
-        pass
-
     def RunGenomicsDBImport(self, interval):
-        # this funciton is what exists in the multiprocvessGATK.py file. It may have some edits not in the other script so u can copy this over to there if u wanna code on the other script instead of this one which has the whole pipeline. 
-        print('starting processing ' + interval + ' for all samples in cohort')
-        if args.local_test and not args.unmapped:
-            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt','--overwrite-existing-genomicsdb-workspace'])
-        elif args.local_test and args.unmapped:
+        print(f"Processing for interval {interval} started at {self.current_time}")
+        if args.unmapped: # if args.unmapped, use intervals described in the unmapped intervals dir within analysis_pipeline/
             subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt'])
-        else:
-            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/all_lg_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt'])
-        print('GENOMICSDBIMPORT RUN SUCCESSFULLY FOR interval ' + interval)
+        else: # otherwise, for local_test and non-local_test, use the intervals found in GT3_intervals. 
+            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt','--overwrite-existing-genomicsdb-workspace'])
+        # subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4']) # this is code used if lgs are passed instaed of intervals. This looks to the all_lg_intervals dir and runs based on the old parallelization methods.
+        print(f"Interval {interval} finished processing at {self.current_time}")
 
     def RunGenotypeGVCFs(self, interval):
         # You can ignore this function for now, but I implemented the parallelization code into it
-        # Still need to add code to run the unmapped contigs 
-        print('starting processing ' + interval + ' for all samples in cohort')
+        print(f"Processing for interval {interval} started at {self.current_time}")
         if args.local_test: # update the location of the GenDB if "local testing" on Utaka vs on the mac. As of Oct 13, 2023, gatk4 does not work via a conda install on my M2 mac on Ventura 13.4.1 and it also doesn't work on a fresh conda env on Utaka (gatk 4.0.-.- gets installed when I need at least 4.3.0.0). gatk 4.3.0.0 still works on Utaka in the 'genomics' env
-            # path is to the gendb located on the Utaka server 
             local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
             local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
             local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
             local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
             local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
             subprocess.run(local_command)
-            # gatk GenotypeGVCFs -R /Users/kmnike/Data/CichlidSequencingData/Genomes/Mzebra_GT3/Mzebra_GT3.fasta -V gendb://1_database -O test.vcf
-            print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ' + interval)
-        elif not args.unmapped: # make sure this will work with the same parameters
+        elif not args.unmapped: # For running the standard 96 intervals (not unmappped and not local_test). gendb path is to the gendb located on the Utaka server. Will need to change if running on Mzebra 
             genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
             genotypegvcfs_unmapped_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
             genotypegvcfs_unmapped_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
             genotypegvcfs_unmapped_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
             genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
             subprocess.run(genotypegvcfs_unmapped_command)
-        else:
+        else: # code for running the unmapped contigs
             genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
             genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
             genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
             genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
             genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
             subprocess.run(genotypegvcfs_command)
-            print('GENOTYPEGVCFS RUN SUCCESSFULLY FOR ' + interval)
+        print(f"Interval {interval} finished processing at {self.current_time}")
 
     def mp_test_function(self, interval):
         print(f"Task {interval} started at {self.current_time}")
@@ -247,7 +289,6 @@ class VariantCaller:
         """
         TODO:
         - find a way to load processes that would take the lonegst time to go first
-        
         """
         # Author: Lauren Sabo; edits made by NK
         # the below code will allow multiprocess to be run on a function based on SampleIDs or by LG. Similar code can be added to breakup the run by either projectID, intervals, etc. 
@@ -256,18 +297,21 @@ class VariantCaller:
         elif sample_type == 'sampleID':
             inputs = self.sampleIDs
         elif sample_type == 'interval':
-            if not args.local_test:
-                intervals = list(range(1,97))
-                inputs = list(map(str, intervals))
-            else:
-                inputs = [5, 3, 8, 2, 6, 1, 7, 4]
+            intervals = list(range(1,97))
+            inputs = list(map(str, intervals))
+            # below code was used to test the new_test() and mp_test_function() functions 
+            # if not args.local_test:
+            #     intervals = list(range(1,97))
+            #     inputs = list(map(str, intervals))
+            # else:
+            #     inputs = [5, 3, 8, 2, 6, 1, 7, 4]
         elif sample_type == 'unmapped':
             # define the unmapped contigs
             self.fasta = Fasta(self.fm_obj.localGenomeFile)
             self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
             inputs = self.unmapped_contigs
-
         concurrent_processes = min(self.concurrent_processes, len(inputs))
+        # pdb.set_trace()
 
         try:
             with multiprocessing.Pool(processes=concurrent_processes) as pool:
@@ -278,16 +322,19 @@ class VariantCaller:
     def run_methods(self):
         self._generate_sample_map()
         if args.download_GVCF_data:
-            print('download data will run and GVCF files per sample will be downloaded')
-            self.GVCF_downloader()
+            self.multiprocess(self.GVCF_downloader, 'sampleID')
+        if args.upload:
+            self.multiprocess(self.uploadGVCFs, 'sampleID')
         if args.efficient_haplotypecaller:
             self.multiprocess(self.EfficientHaplotypeCaller, 'sampleID')
         if args.import_databases and not args.unmapped:
             self.multiprocess(self.RunGenomicsDBImport, 'interval')
         if args.import_databases and args.unmapped:
             self.multiprocess(self.RunGenomicsDBImport, 'unmapped')
-        if args.genotype:
+        if args.genotype and not args.unmapped:
             self.multiprocess(self.RunGenotypeGVCFs, 'interval')
+        if args.genotype and args.unmapped:
+            self.multiprocess(self.RunGenomicsDBImport, 'unmapped')
         # if args.local_test:
         #     self.multiprocess(self.mp_test_function, 'interval')
         # if args.local_test:
@@ -301,5 +348,9 @@ if __name__ == "__main__":
 
     """
     time python callVariants.py Mzebra_GT3 -a -H --concurrent_processes 90 --memory 11 2> error_haplotype_caller_run_240625.txt 1> log_haplotype_caller_run_240625.txt
-    python callVariants.py Mzebra_GT3 --temp -H --concurrent_processes 11 --memory 1
+    time python callVariants.py Mzebra_GT3 --temp -H --concurrent_processes 11 --memory 11 # for running the 11 samples that were failing GVCF creation for some reason. 
+    NOTE:
+    TEST THE SAMPLE MAP CODE ON UTAKA BY UNCOMMENTING THE pdb.set_trace() IN self._generate_sample_map(). Ensure that all the samples in the cohort are being written into the sample map 
+    time python callVariants.py Mzebra_GT3 --local_test --import_databases
+    time python callVariants.py Mzebra_GT3 --local_test --genotype
     """

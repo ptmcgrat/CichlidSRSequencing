@@ -1,4 +1,4 @@
-import argparse, pdb, glob, shlex, os
+import argparse, pdb, glob, shlex, os, datetime, time
 from helper_modules.nikesh_file_manager import FileManager as FM
 import subprocess
 from multiprocessing import Process
@@ -32,13 +32,18 @@ class VCFProcessor:
         self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf'
         self.zipped_master_file = self.master_file + '.gz'
         self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/'
-        self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
-                             'LG7':'NC_036786.1', 'LG8':'NC_036787.1', 'LG9':'NC_036788.1', 'LG10':'NC_036789.1', 'LG11':'NC_036790.1', 'LG12':'NC_036791.1', 
-                             'LG13':'NC_036792.1', 'LG14':'NC_036793.1', 'LG15':'NC_036794.1', 'LG16':'NC_036795.1', 'LG17':'NC_036796.1', 'LG18':'NC_036797.1', 
-                             'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
-        self.linkage_groups = list(self.linkage_group_map.values())
+        # getting rid of linkage_group code since it doesn;t apply to the new interval based processing 2024.07.02
+        # self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
+        #                      'LG7':'NC_036786.1', 'LG8':'NC_036787.1', 'LG9':'NC_036788.1', 'LG10':'NC_036789.1', 'LG11':'NC_036790.1', 'LG12':'NC_036791.1', 
+        #                      'LG13':'NC_036792.1', 'LG14':'NC_036793.1', 'LG15':'NC_036794.1', 'LG16':'NC_036795.1', 'LG17':'NC_036796.1', 'LG18':'NC_036797.1', 
+        #                      'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
+        # self.linkage_groups = list(self.linkage_group_map.values())
+        intervals = list(range(1,97))
+        self.intervals = list(map(str, intervals))
+        self.current_time = datetime.datetime.now()
+
         if args.local_test:
-            self.linkage_groups = ['NC_036787.1', 'NC_036788.1', 'NC_036798.1']
+            self.linkage_groups = ['NC_036787.1', 'NC_036788.1', 'NC_036798.1'] # old code based on LG based file processing. Now, even for local_test, intervals will get processed. 
 
     def _make_file_structure(self):
         # check if vcf_concat_output dir exists and make if it doesn't exist 
@@ -58,15 +63,16 @@ class VCFProcessor:
                 self.file_num += 1
 
     def merge_vcfs(self):
+        print(f"VCF Master File concatenation started at {self.current_time}")
     #### if no master file exists, run through the code normally and name the file "master_file.vcf"
         if self.file_num == 0:
             with open(f"{self.vcfConcatDir}master_file.vcf", 'w+') as f1: # open the master list file if the vcf_concat_output dir is empty
-                for file in self.linkage_groups:
-                    print('Reading in and concatenating ' + file + '...')
+                for interval in self.intervals:
+                    print(f"Concatenation of interval {interval} started at {self.current_time}")
                     if args.utaka:
-                        file_to_write = self.fm_obj.StorageOutputDir + file + '_output.vcf'
+                        file_to_write = self.fm_obj.StorageOutputDir + interval + '_output.vcf'
                     else:
-                        file_to_write = self.fm_obj.localOutputDir + file + '_output.vcf'
+                        file_to_write = self.fm_obj.localOutputDir + interval + '_output.vcf'
                     if os.path.getsize(f"{self.vcfConcatDir}master_file.vcf") == 0: # if the master file is empty, take the file and write the whole contents. This will write the header
                         f1.write(subprocess.check_output(shlex.split(f"cat {file_to_write}"), encoding='utf-8')) # the newline is needed at the end
                     else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file.
@@ -74,14 +80,15 @@ class VCFProcessor:
                             for line in f2:
                                 if not line.startswith('#'): # avoids writing header information from all subsequent files 
                                     f1.write(line)
+                    print(f"Concatenation of interval {interval} cpmplete at {self.current_time}")
         else: # if the master file exists, create a new file so that the data in previous iterations will be preserved to prevent overwrite of an existing file 
             with open(f"{self.vcfConcatDir}master_file{self.file_num}.vcf", 'w+') as f1: # open a new master_file.vcf with a new file_num if one already exists
-                for file in self.linkage_groups:
-                    print('Reading in and concatenating ' + file + '...')
+                for interval in self.intervals:
+                    print(f"Concatenation of interval {interval} started at {self.current_time}")
                     if args.utaka:
-                        file_to_write = self.fm_obj.StorageOutputDir + file + '_output.vcf'
+                        file_to_write = self.fm_obj.StorageOutputDir + interval + '_output.vcf'
                     else:
-                        file_to_write = file_to_write = self.fm_obj.localOutputDir + file + '_output.vcf'
+                        file_to_write = file_to_write = self.fm_obj.localOutputDir + interval + '_output.vcf'
                     if os.path.getsize(f"{self.vcfConcatDir}master_file{self.file_num}.vcf") == 0: # if the master file is empty, take the file and write the whole contents. This will write the header
                         f1.write(subprocess.check_output(shlex.split(f"cat {file_to_write}"), encoding='utf-8')) # the newline is needed at the end
                     else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file.
@@ -89,10 +96,11 @@ class VCFProcessor:
                             for line in f2:
                                 if not line.startswith('#'): # avoids writing header information from all subsequent files 
                                     f1.write(line)
-            print('MASTER_FILE GENERATED')
+                    print(f"Concatenation of interval {interval} complete at {self.current_time}")
+        print(f"VCF Master File concatenation complete at {self.current_time}")
 
     def compress_and_index_vcf(self):
-        print('Starting master_file compression...')
+        print(f"master_file.vcf compression staretd at {self.current_time}")
         if self.file_num == 0:
             with open(f"{self.vcfConcatDir}master_file.vcf.gz", 'w+') as f1:
                 # I've confirmed that the below command gives a zipped file that can be unzipped and has the same data as the original using the diff command and using ls -l and confirming that the bytes are the same
@@ -100,18 +108,18 @@ class VCFProcessor:
         else:
             with open(f"{self.vcfConcatDir}master_file{self.file_num}.vcf.gz", 'w') as f2:
                 subprocess.call(shlex.split(f"bgzip -c {self.vcfConcatDir}master_file.vcf"), stdout=f2)
-        print('MASTER_FILE COMPRESSION COMPLETE')
+        print(f"master_file.vcf compression complete at {self.current_time}")
 
         #Below code can easily just be written into its own function if ever needed
-        print('Generating index using zipped master_file...')
+        print(f"master_file.vcf indexing staretd at {self.current_time}")
         if self.file_num == 0:
             subprocess.run(shlex.split(f"tabix -p vcf {self.vcfConcatDir}master_file.vcf.gz"))
         else:
             subprocess.run(shlex.split(f"tabix -p vcf {self.vcfConcatDir}master_file{self.file_num}.vcf.gz"))
-        print('MASTER_FILE INDEXING COMPLETE')
+        print(f"master_file.vcf indexing complete at {self.current_time}")
 
     def generate_stats(self):
-        # confirmed on a small, local VCF file that these commands run in parallel 2023 Nov 16
+        print('Generating stats for master_file.vcf...')
         command1 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --freq2 --max-alleles 2 --out {self.stats_dir}/{args.prefix[0]} ') # allele freq
         command2 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --depth --out {self.stats_dir}/{args.prefix[0]}') # depth per sample 
         command3 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --site-mean-depth --out {self.stats_dir}/{args.prefix[0]}') # mean depth per variant site
@@ -124,9 +132,9 @@ class VCFProcessor:
 
         procs = [subprocess.Popen(i) for i in commands]
         for p in procs:
-            print('STARTING PROCESS' + str(p))
+            print(f"starting process at {self.current_time}")
             p.wait()
-        print('all VCF stats calculated complete')
+        print(f"Stat calculation for vcf file complete at {self.current_time}")
 
     def filter_variants(self):
         print('RUNNING VARIANT FILTERING')
@@ -177,3 +185,5 @@ if __name__ == "__main__":
 
 
     # time python process_vcf.py Mzebra_UMD2a --merge --compress_and_index --vcf_stats --prefix 419_cohort 2> vcf_pipeline_logs/error_419cohort_concat_24.01.19.txt 1> vcf_pipeline_logs/log_419cohort_concat_24.01.19.txt
+
+    # time python process_vcf.py Mzebra_GT3 --merge --compress_and_index
