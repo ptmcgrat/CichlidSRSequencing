@@ -161,7 +161,7 @@ for i in range(total_batches):
 		a_dt = pd.read_csv(fm_obj.localAlignmentFile)
 		a_dt = pd.concat([a_dt, pd.DataFrame.from_records([sample_data])])
 		a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
-		fm_obj.uploadData(fm_obj.localAlignmentFile, parallel = True)
+		fm_obj.uploadData(fm_obj.localAlignmentFile)
 		timer.stop()
 		print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 		print()
