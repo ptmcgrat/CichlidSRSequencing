@@ -110,7 +110,7 @@ class VariantCaller:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
-        # pdb.set_trace() UNCOMMENT BEFORE RUNNING ON UTAKA - 2024.07.02 NK
+        pdb.set_trace() # UNCOMMENT BEFORE RUNNING ON UTAKA - 2024.07.02 NK
 
     def GVCF_downloader(self, sampleID):
         # Download the GVCF and GVCF.idx files for each sample in self.sampleIDs
