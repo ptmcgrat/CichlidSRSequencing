@@ -100,6 +100,7 @@ class VariantCaller:
         #     self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
 
     def _generate_sample_map(self):
+        # Verified that 448 sampels are present in self.sampleIDs when running the script in -a mode. 2024.07.03 - NK
         sampleIDs = self.sampleIDs
         with open('sample_map.txt', 'w') as fh:
             for sampleID in sampleIDs:
@@ -110,7 +111,6 @@ class VariantCaller:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
-        pdb.set_trace() # UNCOMMENT BEFORE RUNNING ON UTAKA - 2024.07.02 NK
 
     def GVCF_downloader(self, sampleID):
         # Download the GVCF and GVCF.idx files for each sample in self.sampleIDs
