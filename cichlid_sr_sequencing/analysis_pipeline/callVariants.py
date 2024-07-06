@@ -108,7 +108,7 @@ class VariantCaller:
                 # commenting out below line since BAM and GVCF files are stored at /Output/Bamfiles/Mzebra_UMD2a
                 # fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
                 if not args.local_test:
-                    fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
+                    fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
                 else:
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
 
@@ -354,3 +354,10 @@ if __name__ == "__main__":
     time python callVariants.py Mzebra_GT3 --local_test --import_databases
     time python callVariants.py Mzebra_GT3 --local_test --genotype
     """
+
+
+# time python callVariants.py Mzebra_GT3 -a --upload --concurrent_processes 84
+# time python callVariants.py Mzebra_GT3 -a -i -g --concurrent_processes 96 -m 10 
+
+# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/G_Aulon_yelhead_Male.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240703.txt 1> log_240703.txt
+# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240703.txt 1> log_240703.txt
