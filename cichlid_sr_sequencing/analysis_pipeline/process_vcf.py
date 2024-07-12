@@ -151,15 +151,15 @@ class VCFProcessor:
                                     --filter-name 'depth_Qual' \
                                     --filter-expression 'QD < 2.0' \
                                     --filter-name 'max_DP' \
-                                    --filter-expression 'DP > 9700' \
+                                    --filter-expression 'DP > 10000' \
                                     --filter-name 'min_DP' \
-                                    --filter-expression 'DP < 7000' \
+                                    --filter-expression 'DP < 7200' \
                                     --filter-name 'strand_bias' \
                                     --filter-expression 'FS > 40.0' \
                                     --filter-name 'mapping_quality' \
                                     --filter-expression 'MQ < 50.0' \
                                     --filter-name 'no_calls' \
-                                    --filter-expression 'NCC > 100' \
+                                    --filter-expression 'NCC > 107' \
                                     --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
         subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
@@ -187,3 +187,11 @@ if __name__ == "__main__":
     # time python process_vcf.py Mzebra_UMD2a --merge --compress_and_index --vcf_stats --prefix 419_cohort 2> vcf_pipeline_logs/error_419cohort_concat_24.01.19.txt 1> vcf_pipeline_logs/log_419cohort_concat_24.01.19.txt
 
     # time python process_vcf.py Mzebra_GT3 --merge --compress_and_index
+    # time python process_vcf.py Mzebra_GT3 --filter 
+
+
+"""
+NOTE:
+Find filtering stats notes in the "VCF Filtering" notebook on Dropbox
+
+"""
