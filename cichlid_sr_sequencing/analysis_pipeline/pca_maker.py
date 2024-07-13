@@ -1,10 +1,10 @@
 import argparse, pdb, os, subprocess, pathlib
-import pandas as pd
-import numpy as np
+import pandas as pd # sometimes pandas will need to be conda remove'd and pip uninstall'd to install python >=3.7 to get this script to work. pip install pandas again afterwards.
+# import numpy as np
 from helper_modules.nikesh_file_manager import FileManager as FM
 from cyvcf2 import VCF
-import plotly.express as px
-import plotly.graph_objs as go
+import plotly.express as px # Do not conda install plotly . Use this: pip install plotly==5.11.0
+import plotly.graph_objs as go # Do not conda install plotly . Use this: pip install plotly==5.11.0
 # import umap
 
 parser = argparse.ArgumentParser(usage = "This pipeline is for running pca analysis on a filtered vcf file. Note that the script will assume tha name of the vcf file to analyze is pass_variants_master_file.vcf.gz")
@@ -53,7 +53,6 @@ Patrick wants some specific things done with pca_maker
     Implemented
 5. Change MCs to shallow benthic for now haha
     Implemented
-6. 
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -68,9 +67,9 @@ class PCA_Maker:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/419_pass_variants_master_file.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/small_gt3_cohort_pass_variants.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         if args.local_test:
-            self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/612_cohort_3_lg_subset.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
+            self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/small_gt3_cohort_pass_variants.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
         self.ecogroups = ecogroups # This attribute is the list of ecogroups used for filtering samples
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
@@ -103,7 +102,7 @@ class PCA_Maker:
         
         # reset self.linkage_groups to include only the 3 lgs tested locally  if the --local_test flag is called
         if args.local_test:
-            self.linkage_groups = ['NC_036787.1', 'NC_036788.1', 'NC_036798.1']
+            self.linkage_groups = ['NC_036781.1', 'NC_036782.1', 'NC_036788.1']
             if 'Whole' in args.regions:
                 self.linkage_groups.extend(['Whole'])
             if 'Exploratory' in args.regions:
@@ -111,7 +110,7 @@ class PCA_Maker:
 
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
-
+        
     def _create_sample_filter_files(self):
         self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv' # this file conatins all samples in the ecogroup(s) the pipeline is being run for. Samples are not subset yet in this file
         self.all_ecogroup_samples_metadata = self.out_dir + '/all_samples_in_this_ecogroup_with_metadata.csv'
@@ -129,8 +128,8 @@ class PCA_Maker:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile_for_grant) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information. Changed for now to get data from the grant specific file. - 2024.02.04
-        self.df = pd.read_excel(self.fm_obj.localSampleFile_for_grant, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
+        self.fm_obj.downloadData(self.fm_obj.localSampleFile_gt3) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information. Changed for now to get data from the grant specific file. - 2024.02.04
+        self.df = pd.read_excel(self.fm_obj.localSampleFile_gt3, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
         self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='SampleID') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
 
         # this code block is used to generate a sample file of ALL samples that are present in a given ecogroup that's being run in the analysis
@@ -139,8 +138,6 @@ class PCA_Maker:
         ecogroup_df.to_csv(self.all_ecogroup_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False)
 
 
-        
-        
         # This code block is to create the subset sample file and an extra metadata file that may be useful for troubleshooting. This subset file is used by plink to generate the subset PC space that all the samples will be projected on to
         if args.sample_subset:
             subset_df = pd.DataFrame()
@@ -173,7 +170,7 @@ class PCA_Maker:
     def _create_ecogroup_specific_vcf(self):
         # path to the vcf file containing samples only in the ecogroups needed for the analysis
         self.ecogroup_specific_master_vcf = self.out_dir + '/all_ecogroup_samples.vcf.gz' # for each analysis, depending on the ecogroups chosen, we generate a vcf file with all samples of only that eco group. The path and name of that file is defined here. Old file name = samples_filtered_master.vcf.gz
-        self.subset_master_vcf = self.out_dir + '/subset_samples.vcf.gz' # for each analysis, thi subset vcf file will need to be generated to pull region specific variants from in the next step
+        self.subset_master_vcf = self.out_dir + '/subset_samples.vcf.gz' # for each analysis, this subset vcf file will need to be generated to pull region specific variants from in the next step
 
         if pathlib.Path(self.ecogroup_specific_master_vcf).exists():
             # The ecogroup_specific master file will always have the same number of samples as the all_ecogroup_samples.csv. However, depending on if the sample_subset flag is called, the subset_samples.csv and subset_samples.vcf.gz may have different numbers of samples. If they do, rerun the first level vcf file creation`.`
@@ -488,22 +485,12 @@ time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingDa
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --umap -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_umap_240102.txt 1> pca_logs/log_rock_sand_umap_240102.txt
 time python pca_maker.py Mzebra_UMD2a /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --umap -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_umap_240102.txt 1> pca_logs/log_sand_umap_240102.txt
 
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MZ4f/hifiasm/run1_24.01.26/MZ4f_hifi_run1_24.01.26.p_ctg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/m84053_231214_041227_s3.hifi_reads.bc2032.fastq.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/GGBC_old_reads/MZ4.1f/hifiread/m64060_230315_185128.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MZ4f/inspector/hifiasm/run1_24.01.26/ --datatype hifi --thread 36 2> error_run1_240126.txt 1> log_run1_240126.txt
 
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/LF2f/hifiasm/run1_24.01.24/LF2f_hifi_run1_24.01.24.bp.p_utg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/LF2f/m84053_231214_034121_s2.hifi_reads.bc2031.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/LF2f/inspector/hifiasm/run1_24.01.24 --datatype hifi --thread 18 2> error_run1_240129.txt 1> log_run1_240129.txt
 
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH7f/hifiasm/run1_24.01.24/YH7f_hifi_run1_24.01.24.bp.p_ctg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH7f/inspector/hifiasm/run1_24.01.24 --datatype hifi --thread 18 2> error_run1_240129.txt 1> log_run1_240129.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Lake Malawi 
 
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH8m/hifiasm/run1_24.01.24/YH8m_hifi_run1_24.01.24.bp.p_ctg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH8m/m84053_231214_034121_s2.hifi_reads.bc2030.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/YH8m/inspector/hifiasm/run1_24.01.24 --datatype hifi --thread 18 2> error_run1_240129.txt 1> log_run1_240129.txt
 
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/CV4f/hifiasm/run2_24.01.24/CV4f_hifi_run1_24.01.24.bp.p_utg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/m84053_231123_035918_s3.hifi_reads.bc2010.fastq.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/GGBC_old_reads/CV4.3f/hifireads/m64060_230309_030945.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/CV4f/inspector/hifiasm/run2_24.01.24 --datatype hifi --thread 18 2> error_run2_240129.txt 1> log_run2_240129.txt
 
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MC3m/hifiasm/run1_24.01.26/MC3m_hifi_run1_24.01.26.bp.p_utg.fa --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MC3m/m84053_231123_043024_s4.hifi_reads.bc2011.fastq.gz /home/ad.gatech.edu/bio-mcgrath-dropbox/GGBC_old_reads/MC-003-m/hifireads/m64060_221024_181811.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/saboAssembly/MC3m/inspector/hifiasm/run1_24.01.26 --datatype hifi --thread 18 2> error_run1_240130.txt 1> log_run1_240130.txt
 
-awk '/^S/{print ">"$2;print $3}' YH7f_hifi_run1_24.01.24.bp.p_ctg.gfa > YH7f_hifi_run1_24.01.24.bp.p_ctg.fa
-awk '/^S/{print ">"$2;print $3}' YH8m_hifi_run1_24.01.24.bp.p_ctg.gfa > YH8m_hifi_run1_24.01.24.bp.p_ctg.fa
-awk '/^S/{print ">"$2;print $3}' LF2f_hifi_run1_24.01.24.bp.p_utg.gfa > LF2f_hifi_run1_24.01.24.bp.p_utg.fa
-awk '/^S/{print ">"$2;print $3}' CV4f_hifi_run1_24.01.24.bp.p_utg.gfa > CV4f_hifi_run1_24.01.24.bp.p_utg.fa
-awk '/^S/{print ">"$2;print $3}' MC3m_hifi_run1_24.01.26.bp.p_utg.gfa > MC3m_hifi_run1_24.01.26.bp.p_utg.fa
-
+python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p -r All Whole Exploratory -e Lake_Malawi --local_test
 """
