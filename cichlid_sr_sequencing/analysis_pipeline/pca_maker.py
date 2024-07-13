@@ -1,6 +1,5 @@
 import argparse, pdb, os, subprocess, pathlib
 import pandas as pd # sometimes pandas will need to be conda remove'd and pip uninstall'd to install python >=3.7 to get this script to work. pip install pandas again afterwards.
-# import numpy as np
 from helper_modules.nikesh_file_manager import FileManager as FM
 from cyvcf2 import VCF
 import plotly.express as px # Do not conda install plotly . Use this: pip install plotly==5.11.0
