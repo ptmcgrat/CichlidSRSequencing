@@ -7,35 +7,34 @@ from multiprocessing import cpu_count
 from collections import defaultdict
 
 class FileManager():
-	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:', masterDir = 'McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:/', masterDir = 'CoS/BioSci/McGrath/Apps/CichlidSequencingData/'):
 
 		self.genome_version = genome_version
-
-		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu':
+		
+		if platform.node() == 'ebb-utaka.biosci.gatech.edu' or platform.node() == 'utaka.biosci.gatech.edu' or platform.node() == 'utaka':
 			# basically ignore the below line because we'll work on mzebra and not have to deal with the messy setup of utaka server
 			self.localMasterDir = '/Data/' + os.getenv('USER') + '/Data/CichlidSequencingData/'
+			# In Oct 2023, Curtis & I mounted a new RAID array to Utaka server that I then mounted into /Output. The below line will allow the scripts to access data stroed in this directory. 
+			self.localStorageDir = '/Output/'
 		else:
 			#Master directory for local data. This is where the data structure will be setup on the server. It will be '/home/ad.gatech.edu/bio-mcgrath-dropbox/Data/CichlidSequencingData/'
-			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Data/CichlidSequencingData/' 
+			self.localMasterDir = os.getenv('HOME').rstrip('/') + '/' + 'Data/CichlidSequencingData/'
+			self.localStorageDir = '/Output/'
 		# Identify cloud directory for rclone
 		self.rcloneRemote = rcloneRemote
+		
 		# On some computers, the first directory is McGrath, on others it's BioSci-McGrath. Use rclone to figure out which
 		output = subprocess.run(['rclone', 'lsf', self.rcloneRemote + masterDir], capture_output = True, encoding = 'utf-8')
 		if output.stderr == '':
 			self.cloudMasterDir = self.rcloneRemote + masterDir
 		else:
-			output = subprocess.run(['rclone', 'lsf', self.rcloneRemote + 'BioSci-' + masterDir], capture_output = True, encoding = 'utf-8')
+			masterDir = 'CoS/BioSci/BioSci-McGrath/Apps/CichlidSequencingData/'
+			output = subprocess.run(['rclone', 'lsf', self.rcloneRemote + masterDir], capture_output = True, encoding = 'utf-8')
 			if output.stderr == '':
-				self.cloudMasterDir = self.rcloneRemote + 'BioSci-' + masterDir
+				self.cloudMasterDir = self.rcloneRemote + masterDir
 			else:
 				raise Exception('Cant find master directory (' + masterDir + ') in rclone remote (' + rcloneRemote + '')
 
-		"""self.linkageGroups = {'NC_036780.1':'LG1', 'NC_036781.1':'LG2', 'NC_036782.1':'LG3', 'NC_036783.1':'LG4', 'NC_036784.1':'LG5', 'NC_036785.1':'LG6', 
-							  'NC_036786.1':'LG7', 'NC_036787.1':'LG8', 'NC_036788.1':'LG9', 'NC_036789.1':'LG10', 'NC_036790.1':'LG11',
-							  'NC_036791.1':'LG12', 'NC_036792.1':'LG13', 'NC_036793.1':'LG14', 'NC_036794.1':'LG15', 'NC_036795.1':'LG16', 'NC_036796.1':'LG17',
-							  'NC_036797.1':'LG18', 'NC_036798.1':'LG19', 'NC_036799.1':'LG20', 'NC_036800.1':'LG22', 'NC_036801.1':'LG23'}
-
-		"""
 		self._createMasterDirs()
 
 	def _createMasterDirs(self):
@@ -43,9 +42,9 @@ class FileManager():
 		# Same logic applies to all of the below in creating the local directory structure.
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
-		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version 	
-	
-		self.localReadsDir = self.localMasterDir + 'Reads/'		
+		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version
+		
+		self.localReadsDir = self.localMasterDir + 'Reads/'
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
 		self.localTempDir = self.localMasterDir + 'Temp/'
@@ -53,17 +52,38 @@ class FileManager():
 
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
-		self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+		self.localPBGenomeFile = self.localGenomeDir + self.genome_version + '_v1.fa'
+		self.localPBIndex = self.localGenomeDir + self.genome_version + '_v1.mmi'
+		if self.genome_version == 'Mzebra_UMD2a':
+			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+		elif self.genome_version == 'Mzebra_GT2':
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT2.fna'
+		elif self.genome_version == 'Mzebra_GT3':
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
+		
+
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
+		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
+		self.localSampleFile_for_grant = self.localReadsDir + 'SampleDatabase_v2_2024_feb_grant.xlsx'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
+		self.localDatabasesDir = self.localMasterDir + 'Databases/'
+		self.localOutputDir = self.localMasterDir + 'Outputs/'
+		self.localPCADir = self.localOutputDir + 'pca_outputs'
 
-		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
+		# Below block is to map file structures in /Output on the Utaka server:
+		self.StorageBamfilesDir = self.localStorageDir + 'Bamfiles/'
+		self.StorageBamRefDir = self.StorageBamfilesDir + self.genome_version + '/'
+		self.StorageOutputDir = self.localStorageDir + 'Outputs/'
 
 	def createSampleFiles(self, sampleID):
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
+		self.localSampleTestingDir = self.localBamfilesDir + 'nikesh_local_testing/' + sampleID + '/' 
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
+		self.localTestBamFile = self.localSampleTestingDir + sampleID + '_0.0001_subset.all.bam'
+		self.localBamIndex = self.localSampleBamDir + sampleID + '.all.bai'
+		self.localTestBamIndex = self.localSampleTestingDir + sampleID + '_0.0001_subset.all.bai'
 		self.localUnmappedBamFile = self.localSampleBamDir + sampleID + '.unmapped.bam'
 		self.localDiscordantBamFile = self.localSampleBamDir + sampleID + '.discordant.bam'
 		self.localInversionBamFile = self.localSampleBamDir + sampleID + '.inversion.bam'
@@ -71,6 +91,14 @@ class FileManager():
 		self.localClippedBamFile = self.localSampleBamDir + sampleID + '.clipped.bam'
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
+		self.localTestGVCFFile = self.localSampleTestingDir + sampleID + '_0.0001_subset.g.vcf.gz'
+		self.localGVCFIndex = self.localSampleBamDir + sampleID + '.g.vcf.gz.tbi'
+		self.localTestGVCFIndex = self.localSampleTestingDir + sampleID + '_0.01_subset.g.vcf.gz.tbi'
+
+		# Below block is to access files in the /Output storage directory
+		self.StorageSampleBamDir = self.StorageBamRefDir + sampleID + '/'
+		self.StorageGVCFFile = self.StorageSampleBamDir + sampleID + '.g.vcf.gz'
+		self.StorageGVCFIndex = self.StorageSampleBamDir + sampleID + '.g.vcf.gz.tbi'
 
 	def returnTempGVCFFile(self, contig):
 		return self.localTempDir + contig + '_' + sampleID + '.g.vcf.gz'
