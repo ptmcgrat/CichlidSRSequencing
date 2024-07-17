@@ -1,8 +1,5 @@
-from helper_modules.file_manager import FileManager as FM
-import pandas as pd 
+from helper_modules.file_manager_Replacement import FileManager as FM
 import pdb, subprocess, sys
-import gffpandas.gffpandas as gffpd
-import pyfaidx
 
 # Create fm_obj and grab sample file
 fm_obj = FM(genome_version = 'Mzebra_GT3')
