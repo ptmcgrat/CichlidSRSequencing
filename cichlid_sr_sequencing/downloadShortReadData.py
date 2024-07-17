@@ -16,17 +16,17 @@ parser.add_argument('-l', '--Local', action = 'store_true', help = 'Use this fla
 args = parser.parse_args()
 
 # Download and open master sample database file and read it in
+pdb.set_trace()
 fm_obj = FM()
 master_sample_data = fm_obj.localSampleFile
-fm_obj.downloadData(master_sample_data) # download SampleDatabase.csv
-sample_dt = pd.read_csv(master_sample_data) # read it in 
+fm_obj.downloadData(master_sample_data) # download SampleDatabase_v2.csv
+sample_dt = pd.read_csv(master_sample_data) # read it in
 
 # Download and open run info file that contains new data to include
 fm_obj.downloadData(fm_obj.localReadDownloadDir + args.Run_Info_File)
 new_dt = pd.read_csv(fm_obj.localReadDownloadDir + args.Run_Info_File)
 
 # Basic Error checking
-# pdb.set_trace()
 if len(set(new_dt.Run)) != len(new_dt):
 	raise Exception('Each line of Run_Info_File should have unique Run data')
 
@@ -64,7 +64,7 @@ for index, row in new_dt.iterrows():
 		print('Error on ' + row.RunID + ': Can only handle paired end data. Library layout is: ' + layout, file = sys.stderr)
 		continue
 
-	# Make sure we this run hasn't already been added to the sample database
+	# Make sure this run hasn't already been added to the sample database
 	# Note by Nikesh: If adding additional reads to increase coverage, then the SampleDatabase.csv will need to be edited on Dropbox to remove the samples that have already been processed. 
 	if run_id in set(sample_dt['RunID']):
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
