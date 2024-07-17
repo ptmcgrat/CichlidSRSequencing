@@ -1,7 +1,7 @@
 import argparse, subprocess, os, urllib, shutil, contextlib, datetime, sys, pdb
 import pandas as pd
 import numpy as np
-from helper_modules.nikesh_file_manager import FileManager as FM
+from helper_modules.file_manager import FileManager as FM
 
 # --java-options "-Xmx8g -Xms4g -Djava.io.tmpdir=${TMP_DIR} -Dsamjdk.compression_level=5"
 
@@ -16,7 +16,6 @@ parser.add_argument('-l', '--Local', action = 'store_true', help = 'Use this fla
 args = parser.parse_args()
 
 # Download and open master sample database file and read it in
-pdb.set_trace()
 fm_obj = FM()
 master_sample_data = fm_obj.localSampleFile
 fm_obj.downloadData(master_sample_data) # download SampleDatabase_v2.csv
