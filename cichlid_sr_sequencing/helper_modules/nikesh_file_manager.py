@@ -34,7 +34,6 @@ class FileManager():
 				self.cloudMasterDir = self.rcloneRemote + masterDir
 			else:
 				raise Exception('Cant find master directory (' + masterDir + ') in rclone remote (' + rcloneRemote + '')
-
 		self._createMasterDirs()
 
 	def _createMasterDirs(self):
