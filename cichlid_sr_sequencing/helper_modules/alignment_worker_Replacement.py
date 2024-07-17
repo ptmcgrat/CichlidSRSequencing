@@ -1,36 +1,60 @@
-import subprocess, os, pdb, psutil
+import subprocess, os, pdb, psutil, shutil
 import pysam
 import pandas as pd
 from helper_modules.file_manager_Replacement import FileManager as FM
-from helper_modules.Timer import Timer
+#from helper_modules.Timer import Timer
 from multiprocessing import cpu_count
 
 class AlignmentWorker():
-	def __init__(self, genome, sample_dt, samples):
-		self.samples = samples
+	def __init__(self, genome, fm_obj):
+		self.fm_obj = fm_obj
+		self.genome = genome
+
 		self.fileManagers = {}
-		self.sample_dt = sample_dt[sample_dt.SampleID.isin(samples)]
-		for sample in samples:
+		
+		self.uBam_files = {}
+
+		sizes = {}
+		for sample in fm_obj.samples:
+			print(sample)
+			# Create sample file manager (need to keep them all in memory for parallelization)
 			self.fileManagers[sample] = FM(genome)
 			self.fileManagers[sample].createSampleFiles(sample)
 
-	def monitorProcess(self,command,base_text):
+			sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sample]
+
+			self.uBam_files[sample] = [self.fileManagers[sample].localReadsDir + x for x in sub_dt.FileLocations]
+			sizes[sample] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files])
+
+		pdb.set_trace()
+
+		# Make sure there is enough
+		total_sample_size = sum(sizes.values())
+		free_memory = shutil.disk_usage(fm_obj.localMasterDir)
+		if 3*total_sample_size > free_memory:
+			raise Exception('Need more space to run this analysis')
+
+
+		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
+
+	def monitorProcess(self,command,base_text,resource_file,error_file):
 		
 		timer = Timer()
 		
-		data_file = open(self.fm_obj.localSampleTempDir + base_text + '_resources.txt', 'w')
-		error_file = open(self.fm_obj.localSampleTempDir + base_text + '_errors.txt', 'w')
+		fm_obj = self.fileManagers[self.samples[i]]
 
+		resource_fp = open(resource_file, 'w')
+		error_fp= open(error_file, 'w')
 		timer.start('    ' + base_text)
-		print('cpu,threads,memory', file = data_file)
+		print('cpu,threads,memory', file = resource_fp)
 
-		p1 = subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL)
+		p1 = subprocess.Popen(command, stderr = error_fp, stdout = subprocess.DEVNULL)
 		proc = psutil.Process(pid = p1.pid)
-		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)
+		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
 
 		while p1.poll() is None:
 			try:
-				print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)
+				print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
 			except psutil.ZombieProcess:
 				break
 			except psutil.NoSuchProcess:
@@ -40,29 +64,26 @@ class AlignmentWorker():
 		p1.communicate()
 
 		data_file.close()
-		dt = pd.read_csv(self.fm_obj.localSampleTempDir + base_text + '_resources.txt')
+		dt = pd.read_csv(resource_file)
 		mean = dt.mean()
 		max_usage = dt.max()
 		#print(' CPU_avg,max: ' + str(round(mean.cpu,1)) + ',' + str(round(max_usage.cpu,1)) + ' RAM_avg,max: ' + str(round(mean.memory,1)) + ',' + str(round(max_usage.memory,1)) + ' Threads: ' + str(mean.threads) + ' ')
 		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads), end = '')
 		timer.stop()
 
-	def monitorProcesses(self,commands,base_text):
+	def monitorProcesses(self, command_dict, base_text, num_parallel):
 		
-
-		timer = Timer()
-		timer.start('   ' + base_text)
+		resource_fp = open(self.fm_obj.localProcessesFile,'w')
 
 		proc = psutil.Process(pid = os.getpid())
 
-		data_file = open(self.fm_obj.localSampleTempDir + base_text + '_resources.txt', 'w')
-		print('cpu,threads,memory', file = data_file)
+		print('cpu,threads,memory', file = resource_fp)
 
 		error_files = []
 		processes = []
-		for i,command in enumerate(commands):
-			self.fm_obj = self.fileManagers[self.samples[i]]
-			error_file = open(self.fm_obj.localSampleTempDir + base_text + '_errors.txt', 'w')
+		for strain,command in command_dict.items()
+			fm_obj = self.fileManagers[strain]
+			error_file = open(fm_obj.localSampleErrorDir + base_text + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
 
 		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)

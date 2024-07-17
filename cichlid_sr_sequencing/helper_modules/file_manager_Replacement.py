@@ -30,6 +30,7 @@ class FileManager():
 
 		"""
 		self._createMasterDirs()
+		
 
 	def _createMasterDirs(self):
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
@@ -54,8 +55,17 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'HYBRID_SCAFFOLD.fasta'
 		elif self.genome_version == 'Mzebra_GT3':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
+		elif self.genome_version == 'kocher_Mzebra_female':
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
+		elif self.genome_version == 'Mzebra_GT3_3rd':
+			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
 		elif self.genome_version == 'kocher_YH_female':
 			self.localGenomeFile = self.localGenomeDir + 'A_spYH_GT1.fasta'
+		elif self.genome_version == 'kocher_YH_male':
+			self.localGenomeFile = self.localGenomeDir + 'hybrid_scaffold_genome/G_Aulon_yelhead_Male_error_corrected_contigs_hs_with_kocher_1m_molecules_all_scaffolds.fasta'
+		elif self.genome_version == 'YH_3':
+			self.localGenomeFile = self.localGenomeDir + 'A_spYH_GT1.fasta'
+
 		elif self.genome_version == 'kocher_YH_female_hifi':
 			self.localGenomeDir = self.localGenomesDir + 'kocher_YH_female/' 
 			self.localGenomeFile = self.localGenomeDir + 'hifiasm_contigs/' + 'A_spYH_GT1_mabs_assembly.fasta'
@@ -65,14 +75,83 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'GCF_001858045.2_O_niloticus_UMD_NMBU_genomic.fna'
 		elif self.genome_version == 'Rhamp_chilingali':
 			self.localGenomeFile = self.localGenomeDir + 'GCA_963969265.1_fRhaChi2.1_genomic.fna'
-		
+		else:
+			raise FileNotFoundError(self.genome_version + 'not an option')
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
 
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 
+		os.makedirs(self.localMasterDir, exist_ok = True)
+		os.makedirs(self.localTempDir, exist_ok = True)
+		os.makedirs(self.localBamRefDir, exist_ok = True)
+
+
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
+
+	def setSamples(self, projectIDs = None, sampleIDs = None, ecogroupIDs = None):
+
+		self.downloadData(self.localSampleFile_v2)
+		s_dt = pd.read_excel(self.localSampleFile_v2, sheet_name = 'SampleLevel')
+
+		if projectIDs is not None:
+			bad_projects = []
+			for projectID in projectIDs:
+				if projectID not in set(s_dt.ProjectID_PTM):
+					bad_projects.append(projectID)
+			if len(bad_projects) > 0:
+				raise FileNotFoundError('The following projects were not found in sample database: ' + ','.join(bad_projects))
+
+			s_dt = s_dt[s_dt.ProjectID_PTM.isin(projectIDs)]
+
+		elif sampleIDs is not None:
+			bad_samples = []
+			for sample in sampleIDs:
+				if sample not in list(s_dt.SampleID):
+					bad_samples.append(sample)
+
+			if len(bad_samples) > 0:
+				raise FileNotFoundError('The following samples were not found in sample database: ' + ','.join(bad_samples))
+
+			s_dt = s_dt[s_dt.ProjectID_PTM.isin(projectIDs)]
+
+		elif ecogroupIDs is not None:
+			bad_ecogroups = []
+			for ecogroup in ecogroupIDs:
+				if ecogroup not in set(s_dt.Ecogroup_PTM):
+					bad_ecogroups.add(ecogroup)
+
+			if len(bad_ecogroups) > 0:
+				raise FileNotFoundError('Ecogroup ' + ecogroup + ' does not exist. Options are: ' + ','.join(set(s_dt.Ecogroup_PTM)))
+
+			s_dt = s_dt[s_dt.Ecogroup_PTM.isin(ecogroupIDs)]
+
+		else: 
+			s_dt = s_dt
+
+		# Download master alignment database to keep track of samples that have been aligned
+		self.downloadData(self.localAlignmentFile)
+		a_dt = pd.read_csv(self.localAlignmentFile)
+		a_dt = a_dt[(a_dt.GenomeVersion == self.genome_version)]
+
+		self.samples = set()
+		already_run_samples = []
+		for sample in set(s_dt.SampleID):
+			if sample in set(a_dt.SampleID):
+				already_run_samples.append(sample)
+			else:
+				self.samples.add(sample)
+
+		if len(already_run_samples) > 0:
+			print('The following samples have already been aligned to the genome and will not be rerun:')
+			print(','.join(sorted(already_run_samples)))
+
+		self.downloadData(self.localSampleFile)
+		s_dt = pd.read_csv(self.localSampleFile)
+
+		self.s_dt = s_dt[s_dt.SampleID.isin(self.samples)]
+
 
 	def createSampleFiles(self, sampleID):
 		if not os.path.isfile(self.localSampleFile):
@@ -198,6 +277,10 @@ class FileManager():
 			if output.returncode != 0:
 				pdb.set_trace()
 				raise Exception('Error in uploading file: ' + output.stderr)
+
+	def returnFileSize(self, local_data):
+		output = subprocess.run(['rclone', 'size', local_data.replace(self.localMasterDir, self.cloudMasterDir)], capture_output = True, encoding = 'utf-8')
+		return int(output.stdout.split(' Byte)')[0].split('(')[-1])
 
 	def returnCloudDirs(self, local_data):
 		output = subprocess.run(['rclone', 'lsf', local_data.replace(self.localMasterDir, self.cloudMasterDir)], capture_output = True, encoding = 'utf-8')

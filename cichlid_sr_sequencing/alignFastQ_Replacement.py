@@ -1,7 +1,7 @@
 import argparse, os, math, pysam
 from helper_modules.file_manager_Replacement import FileManager as FM
 from helper_modules.alignment_worker_Replacement import AlignmentWorker as AW
-from helper_modules.Timer import Timer
+#from helper_modules.Timer import Timer
 
 import pandas as pd
 
@@ -15,8 +15,8 @@ from multiprocessing import cpu_count
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice. It will also create gvcf files')
 parser.add_argument('Genome', type = str, help = 'Version of the genome to align to')
 parser.add_argument('-n', '--NumberParallel', type = int, default = 48, help = 'Specify the number of samples run in parallel. Default is 96')
-parser.add_argument('-s', '--SampleIDs', nargs = '+', help = 'Restrict analysis to the following sampleIDs')
-parser.add_argument('-p', '--ProjectID', type = str, help = 'Restrict analysis to a specific ProjectID')
+parser.add_argument('-s', '--SampleIDs', nargs = '+', type = str, help = 'Restrict analysis to the following sampleIDs')
+parser.add_argument('-p', '--ProjectIDs', nargs = '+', type = str, help = 'Restrict analysis to a specific ProjectIDs')
 parser.add_argument('-e', '--Ecogroups', nargs = '+', type = str, help = 'Restrict analysis to specific Ecogroups')
 args = parser.parse_args()
 
@@ -24,85 +24,18 @@ args = parser.parse_args()
 fm_obj = FM(args.Genome)
 
 # Create timer object to keep track of time
-timer = Timer()
+#timer = Timer()
 
-# Make sure genome version is a valid option
-if args.Genome not in fm_obj.returnGenomeVersions():
-	raise argparse.ArgumentTypeError('Genome version does not exist. Options are: ' + ','.join(fm_obj.returnGenomeVersions()))
-
-# Download master sample database and read it in (this contains info on valid sampleIDs, projectIDs, and file locations)
-fm_obj.downloadData(fm_obj.localSampleFile_v2)
-s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
-
-# This is a temporary exclusion that will need to be replaced
-#s_dt = s_dt[(s_dt.ProjectID_PTM != 'MC_males') & (s_dt.ProjectID_PTM != 'MC_females')]
-
-# If running on projectID, make sure it is valid and subset sample database to those with the right projectID
-if args.ProjectID is not None:
-	if args.ProjectID not in set(s_dt.ProjectID_PTM):
-		raise argparse.ArgumentTypeError('ProjectID ' + args.ProjectID + ' does not exist. Options are: ' + ','.join(set(s_dt.ProjectID)))
-	s_dt = s_dt[s_dt.ProjectID_PTM == args.ProjectID]
-	good_samples = set(s_dt.SampleID)
-
-# If running on sampleIDs, make sure they are valid
-if args.SampleIDs is not None:
-	bad_samples = []
-	for sample in args.SampleIDs:
-		if sample not in list(s_dt.SampleID):
-			bad_samples.append(sample)
-
-	if len(bad_samples) > 0:
-		raise argparse.ArgumentTypeError('The following samples were not found in sample database: ' + ','.join(bad_samples))
-	good_samples = set(args.SampleIDs)
-
-# If running on ecogroup, make sure they are valid
-if args.Ecogroups is not None:
-	good_samples = set()
-	for ecogroup in args.Ecogroups:
-		if ecogroup not in set(s_dt.Ecogroup_PTM):
-			raise argparse.ArgumentTypeError('Ecogroup ' + ecogroup + ' does not exist. Options are: ' + ','.join(set(s_dt.Ecogroup_PTM)))
-		sub_dt = s_dt[s_dt.Ecogroup_PTM == ecogroup]
-		good_samples.update(sub_dt.SampleID)
-
-# If no filtering options are given, run on all samples
-if args.ProjectID is None and args.SampleIDs is None and args.Ecogroups is None:
-	good_samples = set(s_dt.SampleID)
-
-# Download master alignment database to keep track of samples that have been aligned
-fm_obj.downloadData(fm_obj.localAlignmentFile)
-a_dt = pd.read_csv(fm_obj.localAlignmentFile)
-
-
-# Make directories necessary for analysis
-os.makedirs(fm_obj.localMasterDir, exist_ok = True)
-os.makedirs(fm_obj.localTempDir, exist_ok = True)
-os.makedirs(fm_obj.localBamRefDir, exist_ok = True)
+# This command identifies all the samples that will need to be run based upon user input and stores in self.samples and self.s_dt
+fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, ecogroupIDs = args.Ecogroups)
 
 # Download genome data necessary for analysis
-timer.start('Downloading genome')		
-fm_obj.downloadData(fm_obj.localGenomeDir)
-timer.stop()
+#timer.start('Downloading genome')		
+#fm_obj.downloadData(fm_obj.localGenomeDir)
+#timer.stop()
 
-fm_obj.downloadData(fm_obj.localSampleFile)
-s_dt = pd.read_csv(fm_obj.localSampleFile)
-
-final_samples = []
-bad_samples = []
-# Loop through each sample, determine if it needs to be rerun, and add it to good sample list
-for sample in good_samples:
-	# Manually exclude samples that are problematic until debugging can be completed
-	# Also SAMEA1904330 'SAMEA1904323', 'SAMEA4032094', 'SAMEA1904322', 'SAMEA4032090', 'SAMEA1904329', 'SAMEA1904328', 'SAMEA4032091', 'SAMEA1920092'
-	if sample in ['SAMEA2661255', 'SAMEA2661406']:
-		bad_samples.append(sample)
-		continue
-
-	# Determine if sample has already been aligned to genome version
-	sub_a_dt = a_dt[(a_dt.SampleID == sample) & (a_dt.GenomeVersion == args.Genome)]
-	if len(sub_a_dt) != 0:
-		bad_samples.append(sample)
-		continue
-
-	final_samples.append(sample)
+# Create alignment worker object:
+aw_obj = AW(args.Genome, fm_obj)
 
 total_batches = math.ceil(len(final_samples) / args.NumberParallel)
 print(str(len(bad_samples)) + ' already analyzed and will be skipped.')
@@ -111,7 +44,6 @@ print('Will analyze ' + str(len(final_samples)) + ' total samples in ' + str(tot
 for i in range(total_batches):
 	current_batch = final_samples[i*args.NumberParallel:(i+1)*args.NumberParallel]
 	timer.start('  Starting processing of batch ' + str(i+1))
-	aw_obj = AW(args.Genome, s_dt, current_batch)
 	timer.stop()
 
 	timer.start('  Parallel Downloading uBams files for batch ' + str(i+1))
