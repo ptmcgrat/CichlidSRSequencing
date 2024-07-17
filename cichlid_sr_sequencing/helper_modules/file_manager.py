@@ -25,7 +25,6 @@ class FileManager():
 			self.cloudMasterDir = self.rcloneRemote + masterDir
 		else:
 			output = subprocess.run(['rclone', 'lsf', self.rcloneRemote + 'BioSci-' + masterDir], capture_output = True, encoding = 'utf-8')
-			pdb.set_trace()
 			if output.stderr == '':
 				self.cloudMasterDir = self.rcloneRemote + 'BioSci-' + masterDir
 			else:
