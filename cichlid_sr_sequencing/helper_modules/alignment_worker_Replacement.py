@@ -17,7 +17,6 @@ class AlignmentWorker():
 
 		sizes = {}
 		for sample in fm_obj.samples:
-			print(sample)
 			# Create sample file manager (need to keep them all in memory for parallelization)
 			self.fileManagers[sample] = FM(genome)
 			self.fileManagers[sample].createSampleFiles(sample)
@@ -106,7 +105,7 @@ class AlignmentWorker():
 		processes = []
 		# Loop through all of the runs for a sample
 		for sample in self.samples:
-			fm_obj = self.fileManagers[row.SampleID]
+			fm_obj = self.fileManagers[sample]
 			for uBam_file in self.uBam_files[sample]:
 				if approach == 'Normal':
 					fm_obj.downloadData(uBam_file)
@@ -167,11 +166,11 @@ class AlignmentWorker():
 					# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
 					command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localSampleTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
-					self.monitorProcess(command1, 'SamToFastq_' + sample + '_' +str(i))
+					self.monitorProcesses({strain + str(i):command1}, 'SamToFastq_')
 					#subprocess.run(command1)
 
 					# Second command aligns fastq data to reference
-					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-o', self.fm_obj.localSampleTempDir + 'testing.sam', '-p', self.fm_obj.localGenomeFile, self.fm_obj.localSampleTempDir + 'testing.fq']
+					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-o', fm_obj.localSampleTempDir + 'testing.sam', '-p', fm_obj.localGenomeFile, fm_obj.localSampleTempDir + 'testing.fq']
 					#print(command2)
 					self.monitorProcess(command2, 'BWA_' + sample + '_' + str(i))
 					subprocess.run(['rm', '-f', self.fm_obj.localSampleTempDir + 'testing.fq'])
