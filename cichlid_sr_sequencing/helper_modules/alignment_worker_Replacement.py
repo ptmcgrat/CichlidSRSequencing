@@ -26,7 +26,6 @@ class AlignmentWorker():
 			self.uBam_files[sample] = [self.fileManagers[sample].localReadsDir + x for x in sub_dt.FileLocations]
 			sizes[sample] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files])
 
-		pdb.set_trace()
 
 		# Make sure there is enough
 		total_sample_size = sum(sizes.values())
@@ -81,7 +80,7 @@ class AlignmentWorker():
 
 		error_files = []
 		processes = []
-		for strain,command in command_dict.items()
+		for strain,command in command_dict.items():
 			fm_obj = self.fileManagers[strain]
 			error_file = open(fm_obj.localSampleErrorDir + base_text + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
