@@ -83,6 +83,8 @@ class FileManager():
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 
+		self.localProcessesFile = self.localTempDir + 'ProcessInfo.csv'
+
 		os.makedirs(self.localMasterDir, exist_ok = True)
 		os.makedirs(self.localTempDir, exist_ok = True)
 		os.makedirs(self.localBamRefDir, exist_ok = True)
