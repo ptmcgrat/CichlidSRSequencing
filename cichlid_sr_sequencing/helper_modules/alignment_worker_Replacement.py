@@ -137,7 +137,7 @@ class AlignmentWorker():
 			if linked:
 				timer.start('  Aligning reads to create sorted Bam files')
 
-			for i,uBam_file in enumerage(self.uBam_files[sample]):
+			for i,uBam_file in enumerate(self.uBam_files[sample]):
 
 				# Create temporary outputfile
 				t_bam = fm_obj.localSampleTempDir + sample + '.' + str(i) + '.sorted.bam'
