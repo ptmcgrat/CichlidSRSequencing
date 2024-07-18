@@ -25,7 +25,6 @@ class AlignmentWorker():
 			sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sample]
 
 			self.uBam_files[sample] = [self.fileManagers[sample].localReadsDir + x for x in sub_dt.FileLocations]
-			pdb.set_trace()
 			sizes[sample] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sample]])
 
 
@@ -34,7 +33,6 @@ class AlignmentWorker():
 		free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
 		if 3*total_sample_size > free_memory:
 			raise Exception('Need more space to run this analysis')
-
 
 		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
 

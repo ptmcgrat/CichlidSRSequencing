@@ -282,7 +282,6 @@ class FileManager():
 				raise Exception('Error in uploading file: ' + output.stderr)
 
 	def returnFileSize(self, local_data):
-		print(local_data)
 		output = subprocess.run(['rclone', 'size', local_data.replace(self.localMasterDir, self.cloudMasterDir)], capture_output = True, encoding = 'utf-8')
 		return int(output.stdout.split(' Byte)')[0].split('(')[-1])
 
