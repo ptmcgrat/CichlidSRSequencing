@@ -86,20 +86,24 @@ class AlignmentWorker():
 			error_file = open(fm_obj.localErrorsDir + base_text + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
 
-		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)
+		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
 		while processes[0].poll() is None:
 			try:
-				print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = data_file)
+				print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
 			except ZombieProcess:
 				break
-			data_file.flush()
+			resource_fp.flush()
 
 		for p in processes:
 			p.communicate()
 
 		timer.stop()
-		data_file.close()
-		dt = pd.read_csv(self.fm_obj.localSampleTempDir + base_text + '_resources.txt')
+		resources_fp.close()
+		dt = pd.read_csv(self.fm_obj.localProcessesFile)
+		mean = dt.mean()
+		max_usage = dt.max()
+		#print(' CPU_avg,max: ' + str(round(mean.cpu,1)) + ',' + str(round(max_usage.cpu,1)) + ' RAM_avg,max: ' + str(round(mean.memory,1)) + ',' + str(round(max_usage.memory,1)) + ' Threads: ' + str(mean.threads) + ' ')
+		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads), end = '')
 
 
 	def downloadReadData(self, approach = 'Normal'):
