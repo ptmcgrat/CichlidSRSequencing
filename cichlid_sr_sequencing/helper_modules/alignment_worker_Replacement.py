@@ -9,6 +9,7 @@ class AlignmentWorker():
 	def __init__(self, genome, fm_obj):
 		self.fm_obj = fm_obj
 		self.genome = genome
+		self.s_dt = fm_obj.s_dt
 
 		self.fileManagers = {}
 		

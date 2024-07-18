@@ -147,6 +147,9 @@ class FileManager():
 			print('The following samples have already been aligned to the genome and will not be rerun:')
 			print(','.join(sorted(already_run_samples)))
 
+		print('The following samples will be run:')
+		print(','.join(sorted(self.samples)))
+
 		self.downloadData(self.localSampleFile)
 		s_dt = pd.read_csv(self.localSampleFile)
 
