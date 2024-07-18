@@ -35,7 +35,7 @@ class AlignmentWorker():
 			raise Exception('Need more space to run this analysis')
 
 		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
-		print('The order of analysis based on size will be: ' + ',' + join(self.samples))
+		print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
 
 	def monitorProcess(self,command,base_text,resource_file,error_file):
 		
@@ -127,9 +127,9 @@ class AlignmentWorker():
 		# Loop through all of the runs for a sample
 		timer = Timer()
 		for sample in self.samples:
-			self.fm_obj = self.fileManagers[sample]
+			fm_obj = self.fileManagers[sample]
 
-			sorted_bam = self.fm_obj.localTempSortedBamFile
+			sorted_bam = fm_obj.localTempSortedBamFile
 			if os.path.isfile(sorted_bam):
 				print(sample + ' already run')
 				continue
@@ -137,25 +137,21 @@ class AlignmentWorker():
 			if linked:
 				timer.start('  Aligning reads to create sorted Bam files')
 
-
-			for i, (index,row) in enumerate(s_dt.iterrows()):
-
-				# Download unmapped bam file
-				uBam_file = self.fm_obj.localReadsDir + row.FileLocations
+			for i,uBam_file in enumerage(self.uBam_files[sample]):
 
 				# Create temporary outputfile
-				t_bam = self.fm_obj.localSampleTempDir + sample + '.' + str(i) + '.sorted.bam'
+				t_bam = fm_obj.localSampleTempDir + sample + '.' + str(i) + '.sorted.bam'
 
 				if linked:
 					command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fm_obj.localSampleTempDir]
-					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', self.fm_obj.localGenomeFile, '/dev/stdin']
-					command3 = ['gatk', 'MergeBamAlignment', '-R', self.fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
+					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
+					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, '/dev/stdin']
+					command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
 					command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 					command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-					command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', self.fm_obj.localSampleTempDir]
+					command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
 
-					error_file = open(self.fm_obj.localSampleTempDir + 'Alignment_errors.txt', 'w')
+					error_file = open(fm_obj.localSampleTempDir + 'Alignment_errors.txt', 'w')
 					p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = error_file)
 					p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = error_file)
 					p1.stdout.close()
@@ -169,8 +165,8 @@ class AlignmentWorker():
 					# Align fastq files and sort them
 					# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
 					# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-					command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', self.fm_obj.localSampleTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', self.fm_obj.localSampleTempDir]
+					command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localSampleTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
 					self.monitorProcess(command1, 'SamToFastq_' + sample + '_' +str(i))
 					#subprocess.run(command1)
 
