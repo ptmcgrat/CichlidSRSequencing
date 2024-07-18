@@ -97,13 +97,13 @@ class AlignmentWorker():
 		for p in processes:
 			p.communicate()
 
-		timer.stop()
 		resource_fp.close()
 		dt = pd.read_csv(self.fm_obj.localProcessesFile)
 		mean = dt.mean()
 		max_usage = dt.max()
 		#print(' CPU_avg,max: ' + str(round(mean.cpu,1)) + ',' + str(round(max_usage.cpu,1)) + ' RAM_avg,max: ' + str(round(mean.memory,1)) + ',' + str(round(max_usage.memory,1)) + ' Threads: ' + str(mean.threads) + ' ')
-		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads), end = '')
+		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads))
+		timer.stop()
 
 
 	def downloadReadData(self, approach = 'Normal'):
@@ -190,7 +190,7 @@ class AlignmentWorker():
 					command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 					command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
 					command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
-					self.monitorProcess({sample:command3}, 'SortMergeBam_' + sample + '_' + str(i), 1)
+					self.monitorProcesses({sample:command3}, 'SortMergeBam_' + sample + '_' + str(i), 1)
 					#subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.sam'])
 
 				# Remove unmapped reads
