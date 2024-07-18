@@ -30,71 +30,65 @@ fm_obj = FM(args.Genome)
 fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, ecogroupIDs = args.Ecogroups)
 
 # Download genome data necessary for analysis
-#timer.start('Downloading genome')		
-#fm_obj.downloadData(fm_obj.localGenomeDir)
-#timer.stop()
+timer.start('Downloading genome')		
+fm_obj.downloadData(fm_obj.localGenomeDir)
+timer.stop()
 
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj)
 
-total_batches = math.ceil(len(final_samples) / args.NumberParallel)
-print(str(len(bad_samples)) + ' already analyzed and will be skipped.')
-print('Will analyze ' + str(len(final_samples)) + ' total samples in ' + str(total_batches) + ' total batches.')
+print('The following ' + str(len(fm_obj.samples)) + ' samples will be analyzed:')
+print(','.join(fm_obj.samples))
 
-for i in range(total_batches):
-	current_batch = final_samples[i*args.NumberParallel:(i+1)*args.NumberParallel]
-	timer.start('  Starting processing of batch ' + str(i+1))
+timer.start('  Parallel Downloading uBams files')
+aw_obj.downloadReadData('Popen')
+timer.stop()
+
+print('  Aligning reads to create sorted Bam files')
+aw_obj.alignData()
+#aw_obj.alignData(linked=True)
+
+print('  Marking duplicates for bamfiles')
+#aw_obj.markDuplicates()
+aw_obj.markDuplicates(parallel = True)
+
+timer.start('  Splitting reads based upon their alignment')
+aw_obj.splitBamfiles()
+timer.stop()
+
+print('  Calling haplotypes to create gvcf files')
+aw_obj.createGVCF(parallel = True)
+
+processes = []
+for sample in fm_obj.samples:
+	fm_obj.createSampleFiles(sample)
+	fm_obj.uploadData(fm_obj.localSampleBamDir)
+
+	stats = aw_obj.calculateStats(sample)
+
+	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
+	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
+	coverage = stats['all'] * read_length / reference_size
+
+	sample_data = {'SampleID':sample, 'Organism':s_dt[s_dt['SampleID'] == sample].Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
+			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
+			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
+
+	output = subprocess.run(['conda', 'list'], capture_output = True)
+	sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
+	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
+	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
+	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
+
+	# Upload data and delete
+	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+	#subprocess.run(['rm','-rf', fm_obj.localTempDir])
+	fm_obj.downloadData(fm_obj.localAlignmentFile)
+	a_dt = pd.read_csv(fm_obj.localAlignmentFile)
+	a_dt = pd.concat([a_dt, pd.DataFrame.from_records([sample_data])])
+	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
+	fm_obj.uploadData(fm_obj.localAlignmentFile)
 	timer.stop()
-
-	timer.start('  Parallel Downloading uBams files for batch ' + str(i+1))
-	aw_obj.downloadReadData('Popen')
-	timer.stop()
-
-	print('  Aligning reads to create sorted Bam files for batch ' + str(i+1))
-	aw_obj.alignData()
-	#aw_obj.alignData(linked=True)
-	
-	print('  Marking duplicates for bamfiles for batch ' + str(i+1))	
-	#aw_obj.markDuplicates()
-	aw_obj.markDuplicates(parallel = True)
-
-	timer.start('  Splitting reads based upon their alignment for batch: ' + str(i+1))
-	#aw_obj.splitBamfiles()
-	timer.stop()
-
-	print('  Calling haplotypes to create gvcf files for batch ' + str(i+1))
-	aw_obj.createGVCF(parallel = True)
-	timer.start('  Uploading data for Sample: ' + sample)
-	processes = []
-	for sample in current_batch:
-		fm_obj.createSampleFiles(sample)
-		fm_obj.uploadData(fm_obj.localSampleBamDir)
-
-		stats = aw_obj.calculateStats(sample)
-
-		read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
-		reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
-		coverage = stats['all'] * read_length / reference_size
-
-		sample_data = {'SampleID':sample, 'Organism':s_dt[s_dt['SampleID'] == sample].Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
-				   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
-				   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
-
-		output = subprocess.run(['conda', 'list'], capture_output = True)
-		sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
-		sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
-		sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
-		sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
-
-		# Upload data and delete
-		#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-		#subprocess.run(['rm','-rf', fm_obj.localTempDir])
-		fm_obj.downloadData(fm_obj.localAlignmentFile)
-		a_dt = pd.read_csv(fm_obj.localAlignmentFile)
-		a_dt = pd.concat([a_dt, pd.DataFrame.from_records([sample_data])])
-		a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
-		fm_obj.uploadData(fm_obj.localAlignmentFile)
-		timer.stop()
-		print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
-		print()
+	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
+	print()
 
