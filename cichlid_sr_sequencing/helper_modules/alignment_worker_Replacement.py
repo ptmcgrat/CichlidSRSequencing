@@ -2,7 +2,7 @@ import subprocess, os, pdb, psutil, shutil
 import pysam
 import pandas as pd
 from helper_modules.file_manager_Replacement import FileManager as FM
-#from helper_modules.Timer import Timer
+from helper_modules.Timer import Timer
 from multiprocessing import cpu_count
 
 class AlignmentWorker():
@@ -71,7 +71,8 @@ class AlignmentWorker():
 		timer.stop()
 
 	def monitorProcesses(self, command_dict, base_text, num_parallel):
-		
+		timer = Timer()
+		timer.start('    ' + base_text)
 		resource_fp = open(self.fm_obj.localProcessesFile,'w')
 
 		proc = psutil.Process(pid = os.getpid())
@@ -166,13 +167,13 @@ class AlignmentWorker():
 					# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
 					command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localSampleTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
-					self.monitorProcesses({strain:command1}, 'SamToFastq_' + str(i),1)
+					self.monitorProcesses({strain:command1}, 'SamToFastq_' + sample + '_' + str(i),1)
 					#subprocess.run(command1)
 
 					# Second command aligns fastq data to reference
 					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-o', fm_obj.localSampleTempDir + 'testing.sam', '-p', fm_obj.localGenomeFile, fm_obj.localSampleTempDir + 'testing.fq']
 					#print(command2)
-					self.monitorProcesses({strain:command2}, 'BWA_' + str(i),1)
+					self.monitorProcesses({strain:command2}, 'BWA_' + sample + '_' + str(i),1)
 					#subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.fq'])
 
 
@@ -185,7 +186,7 @@ class AlignmentWorker():
 					command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 					command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
 					command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
-					self.monitorProcess({strain:command3}, 'SortMergeBam_' + str(i), 1)
+					self.monitorProcess({strain:command3}, 'SortMergeBam_' + sample + '_' + str(i), 1)
 					#subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.sam'])
 
 				# Remove unmapped reads
