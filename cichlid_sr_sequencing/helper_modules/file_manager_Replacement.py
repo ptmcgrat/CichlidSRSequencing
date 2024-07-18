@@ -84,7 +84,7 @@ class FileManager():
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 
 		self.localProcessesFile = self.localTempDir + 'ProcessInfo.csv'
-		self.localErrorDir = self.localMasterDir + 'Errors/'
+		self.localErrorsDir = self.localMasterDir + 'Errors/'
 		os.makedirs(self.localMasterDir, exist_ok = True)
 		os.makedirs(self.localTempDir, exist_ok = True)
 		os.makedirs(self.localBamRefDir, exist_ok = True)
