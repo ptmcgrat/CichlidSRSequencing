@@ -24,7 +24,7 @@ args = parser.parse_args()
 fm_obj = FM(args.Genome)
 
 # Create timer object to keep track of time
-#timer = Timer()
+timer = Timer()
 
 # This command identifies all the samples that will need to be run based upon user input and stores in self.samples and self.s_dt
 fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, ecogroupIDs = args.Ecogroups)
