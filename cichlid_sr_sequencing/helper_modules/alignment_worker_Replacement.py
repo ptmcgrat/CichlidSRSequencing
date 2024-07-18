@@ -173,7 +173,7 @@ class AlignmentWorker():
 					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-o', fm_obj.localSampleTempDir + 'testing.sam', '-p', fm_obj.localGenomeFile, fm_obj.localSampleTempDir + 'testing.fq']
 					#print(command2)
 					self.monitorProcesses({strain:command2}, 'BWA_' + str(i),1)
-					subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.fq'])
+					#subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.fq'])
 
 
 					# Final command reads read group information to aligned bam file and sorts it
@@ -186,10 +186,10 @@ class AlignmentWorker():
 					command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
 					command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
 					self.monitorProcess({strain:command3}, 'SortMergeBam_' + str(i), 1)
-					subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.sam'])
+					#subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.sam'])
 
 				# Remove unmapped reads
-				subprocess.run(['rm', '-f', uBam_file])
+				#subprocess.run(['rm', '-f', uBam_file])
 				
 			if i == 0:
 				subprocess.run(['mv', t_bam, sorted_bam])
@@ -199,7 +199,7 @@ class AlignmentWorker():
 				for ind_file in ind_files:
 					inputs = inputs + ['-I', ind_file]
 				output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', self.fm_obj.localSampleTempDir] + inputs + ['-O', sorted_bam], stderr = open(self.fm_obj.localSampleTempDir + 'MergeSamFiles_errors.txt', 'w'), stdout = subprocess.DEVNULL)
-				subprocess.run(['rm','-f'] + ind_files)
+				#subprocess.run(['rm','-f'] + ind_files)
 			
 			if linked:
 				timer.stop()

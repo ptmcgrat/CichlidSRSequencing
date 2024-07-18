@@ -38,14 +38,14 @@ timer.stop()
 aw_obj = AW(args.Genome, fm_obj)
 
 timer.start('  Parallel Downloading uBams files')
-aw_obj.downloadReadData('Popen')
+#aw_obj.downloadReadData('Popen')
 timer.stop()
 
-raise Exception
 
 print('  Aligning reads to create sorted Bam files')
 aw_obj.alignData()
 #aw_obj.alignData(linked=True)
+raise Exception
 
 print('  Marking duplicates for bamfiles')
 #aw_obj.markDuplicates()
