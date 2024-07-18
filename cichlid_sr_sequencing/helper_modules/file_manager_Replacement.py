@@ -84,10 +84,11 @@ class FileManager():
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 
 		self.localProcessesFile = self.localTempDir + 'ProcessInfo.csv'
-
+		self.localErrorDir = self.localMasterDir + 'Errors/'
 		os.makedirs(self.localMasterDir, exist_ok = True)
 		os.makedirs(self.localTempDir, exist_ok = True)
 		os.makedirs(self.localBamRefDir, exist_ok = True)
+		os.makedirs(self.localErrorsDir, exist_ok = True)
 
 
 		#self.localSampleFile = self.localReadsDir + 'MCs_to_add.csv'
@@ -172,7 +173,6 @@ class FileManager():
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
 		self.localSampleTempDir = self.localTempDir + sampleID + '/'
-
 		self.localTempSortedBamFile = self.localSampleTempDir + self.sampleID + '.sorted.bam'
 
 		self.localBamFile = self.localSampleBamDir + sampleID + '.all.bam'
