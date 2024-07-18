@@ -29,7 +29,7 @@ class AlignmentWorker():
 
 		# Make sure there is enough
 		total_sample_size = sum(sizes.values())
-		free_memory = shutil.disk_usage(fm_obj.localMasterDir)
+		free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
 		if 3*total_sample_size > free_memory:
 			raise Exception('Need more space to run this analysis')
 
