@@ -98,7 +98,7 @@ class AlignmentWorker():
 			p.communicate()
 
 		timer.stop()
-		resources_fp.close()
+		resource_fp.close()
 		dt = pd.read_csv(self.fm_obj.localProcessesFile)
 		mean = dt.mean()
 		max_usage = dt.max()
