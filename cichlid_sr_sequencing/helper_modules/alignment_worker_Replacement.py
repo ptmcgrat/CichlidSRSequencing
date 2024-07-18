@@ -25,6 +25,7 @@ class AlignmentWorker():
 			sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sample]
 
 			self.uBam_files[sample] = [self.fileManagers[sample].localReadsDir + x for x in sub_dt.FileLocations]
+			pdb.set_trace()
 			sizes[sample] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files])
 
 
