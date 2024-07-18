@@ -37,12 +37,11 @@ timer.stop()
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj)
 
-print('The following ' + str(len(fm_obj.samples)) + ' samples will be analyzed:')
-print(','.join(fm_obj.samples))
-
 timer.start('  Parallel Downloading uBams files')
 aw_obj.downloadReadData('Popen')
 timer.stop()
+
+raise Exception
 
 print('  Aligning reads to create sorted Bam files')
 aw_obj.alignData()

@@ -35,6 +35,7 @@ class AlignmentWorker():
 			raise Exception('Need more space to run this analysis')
 
 		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
+		print('The order of analysis based on size will be: ' + ',' + join(self.samples))
 
 	def monitorProcess(self,command,base_text,resource_file,error_file):
 		
@@ -102,20 +103,17 @@ class AlignmentWorker():
 
 
 	def downloadReadData(self, approach = 'Normal'):
-		self.downloaded_files = []
 		processes = []
-
 		# Loop through all of the runs for a sample
-		for i, (index,row) in enumerate(self.sample_dt.iterrows()):
+		for sample in self.samples:
 			fm_obj = self.fileManagers[row.SampleID]
-			uBam_file = fm_obj.localReadsDir + row.FileLocations
-			if approach == 'Normal':
-				fm_obj.downloadData(uBam_file)
-			elif approach == 'Popen':
-				processes.append(fm_obj.downloadData(uBam_file, parallel = True))
-			elif approach == 'rclone_more_threads':
-				fm_obj.downloadData(uBam_file, rclone = True)
-			self.downloaded_files.append(uBam_file)
+			for uBam_file in self.uBam_files[sample]:
+				if approach == 'Normal':
+					fm_obj.downloadData(uBam_file)
+				elif approach == 'Popen':
+					processes.append(fm_obj.downloadData(uBam_file, parallel = True))
+				elif approach == 'rclone_more_threads':
+					fm_obj.downloadData(uBam_file, rclone = True)
 
 		if approach == 'Popen':
 			for p in processes:
@@ -129,8 +127,6 @@ class AlignmentWorker():
 		# Loop through all of the runs for a sample
 		timer = Timer()
 		for sample in self.samples:
-
-			s_dt = self.sample_dt[self.sample_dt.SampleID == sample]
 			self.fm_obj = self.fileManagers[sample]
 
 			sorted_bam = self.fm_obj.localTempSortedBamFile
