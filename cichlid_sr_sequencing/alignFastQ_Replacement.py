@@ -51,9 +51,8 @@ print('  Marking duplicates for bamfiles')
 #aw_obj.markDuplicates(parallel = True)
 
 timer.start('  Splitting reads based upon their alignment')
-aw_obj.splitBamfiles()
+#aw_obj.splitBamfiles()
 timer.stop()
-raise Exception
 
 print('  Calling haplotypes to create gvcf files')
 aw_obj.createGVCF(parallel = True)

@@ -269,19 +269,19 @@ class AlignmentWorker():
 
 	def createGVCF(self, parallel = False):
 
-		commands = []
+		commands = {}
 		for sample in self.samples:
 			s_dt = self.sample_dt[self.sample_dt.SampleID == sample]
 			self.fm_obj = self.fileManagers[sample]
 			
 			command = ['gatk', 'HaplotypeCaller', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-ERC', 'GVCF', '-O', self.fm_obj.localGVCFFile]
-			commands.append(command)
+			commands[sample] = command
 
 			if not parallel:
 				self.monitorProcess(command, 'HaplotypeCaller_' + sample)
 
 		if parallel:
-			self.monitorProcesses(commands, 'HaplotypeCaller_' + self.samples[0] + '_' + str(len(self.samples)) + 'OtherSamples')
+			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', 48)
 
 
 	def calculateStats(self, sample):
