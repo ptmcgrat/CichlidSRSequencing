@@ -233,11 +233,11 @@ class AlignmentWorker():
 
 	def splitBamfiles(self):
 		for sample in self.samples:
-			self.fm_obj = self.fileManagers[sample]
+			fm_obj = self.fileManagers[sample]
 			print('  Splitting sample ' + sample)
 			# Get contigs
 			try:
-				bam_obj = pysam.AlignmentFile(self.fm_obj.localBamFile)
+				bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
 			except OSError:
 				print( '.........ERROR WITH THIS bam file. Probably truncated ' + sample)
 				continue
@@ -245,7 +245,7 @@ class AlignmentWorker():
 			
 			processes = []
 			for contig in contigs:
-				processes.append(subprocess.Popen(['python3', 'unit_scripts/split_bamfile_by_contig.py', self.fm_obj.localBamFile, contig]))
+				processes.append(subprocess.Popen(['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]))
 
 				if len(processes) == cpu_count():
 					for p1 in processes:
@@ -255,11 +255,11 @@ class AlignmentWorker():
 				p1.communicate()
 
 			for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
-				bam_files = [self.fm_obj.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
+				bam_files = [fm_obj.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
 				command = ['gatk', 'MergeSamFiles']
 				for bam_file in bam_files:
 					command += ['-I', bam_file]
-				command += ['-O', self.fm_obj.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
+				command += ['-O', fm_obj.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
 				output = subprocess.run(command, capture_output = True)
 				if output.returncode != 0:
 					pdb.set_trace()

@@ -47,7 +47,7 @@ def align_genomes(genome_version1,genome_version2):
 	out_csv = fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.csv'
 	out_pdf = fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.pdf'
 
-
+	pdb.set_trace()
 	subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile], stdout = open(out_paf,'w'))
 
 	all_dt = pd.read_csv(out_paf, sep = '\t', 
@@ -96,7 +96,8 @@ LG_MZtoON = {'NC_036780.1':'NC_031965.2', 'NC_036781.1':'NC_031966.2', 'NC_03678
 
 LG_MZtoYH = {x:x for x in linkageGroups.keys()}
 
-genome_versions = ['Mzebra_GT3','kocher_Mzebra_female','kocher_YH_female','kocher_YH_male','YH_3','O_niloticus_UMD_NMBU','P_nyererei_v2','Rhamp_chilingali']
+genome_versions = ['Mzebra_GT3','kocher_N_Met_zebra_Female','MZ4f_ptm','kocher_H_Aulon_yelhead_Female',
+					'kocher_G_Aulon_yelhead_Male','YH7f_ptm','O_niloticus_UMD_NMBU','P_nyererei_v2','Rhamp_chilingali']
 fm_objs = {}
 
 for gv in genome_versions:
@@ -108,17 +109,6 @@ for gv in genome_versions:
 		continue
 	align_genomes('Mzebra_GT3',gv)
 
-
-
-#fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
-#fm_obj_pn.downloadData(fm_obj_pn.localGenomeFile)
-
-#fm_obj_mz.createSampleFiles('YH_1_m')
-fm_obj_mz.createSampleFiles('MZ_1_m')
-#fm_obj_mz.downloadData(fm_obj_mz.localSampleBamDir)
-#fm_obj_yh.downloadData(fm_obj_yh.localGenomeFile)
-#fm_obj_on.downloadData(fm_obj_on.localGenomeFile)
-#fm_obj_yhhf.downloadData(fm_obj_yhhf.localGenomeFile)
 #align_genomes_contigbycontig('Mzebra_GT3','O_niloticus_UMD_NMBU',LG_MZtoON)
 #align_genomes_contigbycontig('Mzebra_GT3','kocher_YH_female',LG_MZtoYH)
 #align_genomes('Mzebra_GT3','P_nyererei_v2')
