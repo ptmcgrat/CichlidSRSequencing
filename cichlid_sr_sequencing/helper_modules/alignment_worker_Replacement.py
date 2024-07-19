@@ -102,7 +102,7 @@ class AlignmentWorker():
 		mean = dt.mean()
 		max_usage = dt.max()
 		#print(' CPU_avg,max: ' + str(round(mean.cpu,1)) + ',' + str(round(max_usage.cpu,1)) + ' RAM_avg,max: ' + str(round(mean.memory,1)) + ',' + str(round(max_usage.memory,1)) + ' Threads: ' + str(mean.threads) + ' ')
-		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads))
+		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads), end = '')
 		timer.stop()
 
 
@@ -200,10 +200,10 @@ class AlignmentWorker():
 				subprocess.run(['mv', t_bam, sorted_bam])
 			else:
 				inputs = []
-				ind_files = [self.fm_obj.localSampleTempDir + sample + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
+				ind_files = [fm_obj.localSampleTempDir + sample + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
 				for ind_file in ind_files:
 					inputs = inputs + ['-I', ind_file]
-				output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', self.fm_obj.localSampleTempDir] + inputs + ['-O', sorted_bam], stderr = open(self.fm_obj.localSampleTempDir + 'MergeSamFiles_errors.txt', 'w'), stdout = subprocess.DEVNULL)
+				output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localSampleTempDir] + inputs + ['-O', sorted_bam], stderr = open(fm_obj.localSampleTempDir + 'MergeSamFiles_errors.txt', 'w'), stdout = subprocess.DEVNULL)
 				#subprocess.run(['rm','-f'] + ind_files)
 			
 			if linked:
