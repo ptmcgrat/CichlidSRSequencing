@@ -107,7 +107,8 @@ for tf in treefiles:
 	out = open(tf.replace('.tree','.modified.tree'), 'w')
 	print(data, file = out, end = '')
 """
-subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','AUTO','-alrt','1000','-B','1000'])
+#subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','AUTO','-alrt','1000','-B','1000'])
+subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','24', '-v'])
 
 ###########################################################
 # 2. Analyze Yellowhead individuals for pedigree analysis #

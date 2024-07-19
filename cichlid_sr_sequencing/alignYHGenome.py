@@ -42,17 +42,27 @@ def align_genomes_contigbycontig(genome_version1,genome_version2,contig_mapping)
 def align_genomes(genome_version1,genome_version2):
 	fm_obj_1 = FM(genome_version = genome_version1)
 	fm_obj_2 = FM(genome_version = genome_version2)
-	#subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile], stdout = open(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf', 'w'))
 
-	all_dt = pd.read_csv(fm_obj_1.localTempDir + genome_version1 + '_' + genome_version2 + '.paf', sep = '\t', 
+	out_paf = fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '.paf',
+	out_csv = fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.csv'
+	out_pdf = fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.pdf'
+
+
+	subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile], stdout = open(out_paf,'w'))
+
+	all_dt = pd.read_csv(out_paf, sep = '\t', 
 		names = ['Q_Name','Q_Size','Q_Start','Q_Stop','Q_Strand','R_Name','R_Size','R_Start','R_Stop','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','c','d','e','f','g'])
 	all_dt = all_dt[['R_Name','R_Start','R_Stop','Q_Name','Q_Start','Q_Stop','Q_Strand','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType']].sort_values(['R_Name','R_Start'])
+
 	all_dt['PercentMatch'] = all_dt.ResiduesMatch/all_dt.AlignmentLength
 	all_dt['NewStart'] = np.where(all_dt.Q_Strand == '-', all_dt.Q_Stop,all_dt.Q_Start)
 	all_dt['NewStop'] = np.where(all_dt.Q_Strand == '-', all_dt.Q_Start,all_dt.Q_Stop)
+
 	filter_dt = all_dt[(all_dt.PercentMatch > 0.3) & (all_dt.AlignmentType == 'tp:A:P') & (all_dt.AlignmentLength > 300)]
-	all_dt.to_csv(fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.csv')
-	with PdfPages(fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.pdf') as pdf_pages:
+
+	all_dt.to_csv(out_csv)
+
+	with PdfPages(out_pdf) as pdf_pages:
 		for i,contig in enumerate(linkageGroups.keys()):
 			lg = linkageGroups[contig]
 			t_dt = filter_dt[filter_dt.R_Name == contig][['R_Start','R_Stop','Q_Name','NewStart','NewStop','AlignmentLength']]
@@ -86,13 +96,19 @@ LG_MZtoON = {'NC_036780.1':'NC_031965.2', 'NC_036781.1':'NC_031966.2', 'NC_03678
 
 LG_MZtoYH = {x:x for x in linkageGroups.keys()}
 
+genome_versions = ['Mzebra_GT3','kocher_Mzebra_female','kocher_YH_female','kocher_YH_male','YH_3','O_niloticus_UMD_NMBU','P_nyererei_v2','Rhamp_chilingali']
+fm_objs = {}
 
-fm_obj_mz = FM(genome_version = 'Mzebra_GT3')
-fm_obj_yh = FM(genome_version = 'kocher_YH_female')
-fm_obj_mz2 = FM(genome_version = 'Mzebra_UMD2a')
-fm_obj_on = FM(genome_version = 'O_niloticus_UMD_NMBU')
-fm_obj_yhhf = FM(genome_version = 'kocher_YH_female_hifi')
-fm_obj_pn = FM(genome_version = 'P_nyererei_v2')
+for gv in genome_versions:
+	fm_objs[gv] = FM(genome_version = gv)
+	fm_objs[gv].downloadData(fm_objs[gv].localGenomeFile)
+		
+for gv in genome_versions:
+	if gv == 'Mzebra_GT3':
+		continue
+	align_genomes('Mzebra_GT3',gv)
+
+
 
 #fm_obj_mz.downloadData(fm_obj_mz.localGenomeFile)
 #fm_obj_pn.downloadData(fm_obj_pn.localGenomeFile)

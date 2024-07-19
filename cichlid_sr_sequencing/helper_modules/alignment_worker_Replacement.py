@@ -209,20 +209,18 @@ class AlignmentWorker():
 			if linked:
 				timer.stop()
 	def markDuplicates(self, parallel = False):
-		commands = []
+		commands = {}
 		del_files = []
 		for sample in self.samples:
-			s_dt = self.sample_dt[self.sample_dt.SampleID == sample]
-			self.fm_obj = self.fileManagers[sample]
-			unsorted_file = self.fm_obj.localTempSortedBamFile + 'unsorted_dedup.bam'
+			fm_obj = self.fileManagers[sample]
 
-			command = ['gatk', 'MarkDuplicates', '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--CREATE_INDEX']
+			command = ['gatk', 'MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--CREATE_INDEX']
 			#command = ['gatk', 'MarkDuplicatesSpark', '--create-output-bam-index',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', self.fm_obj.localSampleTempDir]
 			
 			#command2 = ['gatk', 'SortSam', '-I', unsorted_file, '-O', self.fm_obj.localBamFile, '-S', 'coordinate', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--CREATE_INDEX']
-			commands.append(command)
+			commands[sample] = command
 			if not parallel:
-				self.monitorProcess(command, 'MarkDuplicates_' + sample)
+				self.monitorProcesses({strain:command}, 'MarkDuplicates_' + sample, 1)
 				#self.monitorProcess(command2,'SortBam_' + sample)
 				#subprocess.run(['rm', '-f', self.fm_obj.localTempSortedBamFile])
 			else:
@@ -232,8 +230,6 @@ class AlignmentWorker():
 			self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)))
 			#for del_file in del_files:
 			#	subprocess.run(['rm','-f',del_file])
-
-			command = ['gatk', 'MarkDuplicates', '--CREATE_INDEX',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir]
 
 	def splitBamfiles(self):
 		for sample in self.samples:

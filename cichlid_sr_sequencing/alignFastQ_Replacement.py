@@ -43,13 +43,13 @@ timer.stop()
 
 
 print('  Aligning reads to create sorted Bam files')
-aw_obj.alignData()
+#aw_obj.alignData()
 #aw_obj.alignData(linked=True)
-raise Exception
 
 print('  Marking duplicates for bamfiles')
 #aw_obj.markDuplicates()
 aw_obj.markDuplicates(parallel = True)
+raise Exception
 
 timer.start('  Splitting reads based upon their alignment')
 aw_obj.splitBamfiles()
