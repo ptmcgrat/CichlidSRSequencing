@@ -271,10 +271,9 @@ class AlignmentWorker():
 
 		commands = {}
 		for sample in self.samples:
-			s_dt = self.sample_dt[self.sample_dt.SampleID == sample]
-			self.fm_obj = self.fileManagers[sample]
+			fm_obj = self.fileManagers[sample]
 			
-			command = ['gatk', 'HaplotypeCaller', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-ERC', 'GVCF', '-O', self.fm_obj.localGVCFFile]
+			command = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
 			commands[sample] = command
 
 			if not parallel:
