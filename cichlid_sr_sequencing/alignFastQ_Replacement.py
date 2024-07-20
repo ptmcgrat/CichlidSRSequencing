@@ -55,7 +55,7 @@ timer.start('  Splitting reads based upon their alignment')
 timer.stop()
 
 print('  Calling haplotypes to create gvcf files')
-aw_obj.createGVCF(parallel = True)
+#aw_obj.createGVCF(parallel = True)
 
 processes = []
 for sample in fm_obj.samples:
@@ -64,6 +64,7 @@ for sample in fm_obj.samples:
 
 	stats = aw_obj.calculateStats(sample)
 
+	s_dt = fm_obj.s_dt
 	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 	coverage = stats['all'] * read_length / reference_size

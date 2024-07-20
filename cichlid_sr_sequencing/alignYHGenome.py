@@ -47,7 +47,7 @@ def align_genomes(genome_version1,genome_version2):
 	out_csv = fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.csv'
 	out_pdf = fm_obj_1.localGenomesComparisonDir + genome_version1 + '_' + genome_version2 + '_whole_genome.pdf'
 
-	subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile], stdout = open(out_paf,'w'))
+	subprocess.run(['minimap2', fm_obj_1.localGenomeFile, fm_obj_2.localGenomeFile, '-t','12'], stdout = open(out_paf,'w'))
 
 	all_dt = pd.read_csv(out_paf, sep = '\t', 
 		names = ['Q_Name','Q_Size','Q_Start','Q_Stop','Q_Strand','R_Name','R_Size','R_Start','R_Stop','ResiduesMatch','AlignmentLength','MappingQuality','AlignmentType','c','d','e','f','g'])
