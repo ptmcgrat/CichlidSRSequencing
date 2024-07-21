@@ -99,6 +99,7 @@ class VariantCaller:
         # if args.temp: # explicitly defining the failing samples for GVCF creation. 
         #     self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
 
+        pdb.set_trace()
     def _generate_sample_map(self):
         # Verified that 448 sampels are present in self.sampleIDs when running the script in -a mode. 2024.07.03 - NK
         sampleIDs = self.sampleIDs
@@ -361,3 +362,9 @@ if __name__ == "__main__":
 
 # time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/G_Aulon_yelhead_Male.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240703.txt 1> log_240703.txt
 # time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240703.txt 1> log_240703.txt
+
+
+
+
+# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/combined_MZ4f_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240712.txt 1> log_240712.txt
+# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240712.txt 1> log_240712.txt
