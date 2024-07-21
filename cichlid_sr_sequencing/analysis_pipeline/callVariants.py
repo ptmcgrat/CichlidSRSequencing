@@ -261,6 +261,7 @@ class VariantCaller:
             genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
             subprocess.run(genotypegvcfs_unmapped_command)
         else: # code for running the unmapped contigs
+            # NOTE: UPDATED THE COMMAND TO INCLUDE THE --ALL-SITES FLAG WHICH WILL HELP US PERFORM PI CALCULATIONS USING PIXY - 24.07.21 NK
             genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175', '--all-sites', 'True'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
             genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
             genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
