@@ -66,7 +66,7 @@ class VariantCaller:
         else:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
             s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
-            self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on 
+            self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on
 
 
         # Code block for determining which linkage groups will be processed by the script:
@@ -98,6 +98,8 @@ class VariantCaller:
             self.concurrent_processes = 10
         # if args.temp: # explicitly defining the failing samples for GVCF creation. 
         #     self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
+        print(f"Number of samples for this pipeline run is {len(self.sampleIDs)}")
+
 
     def _generate_sample_map(self):
         # Verified that 448 sampels are present in self.sampleIDs when running the script in -a mode. 2024.07.03 - NK
@@ -367,3 +369,10 @@ if __name__ == "__main__":
 
 # time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/combined_MZ4f_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240712.txt 1> log_240712.txt
 # time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240712.txt 1> log_240712.txt
+"""
+time python callVariants.py Mzebra_GT3 -b  -H -a --concurrent_processes 24 -m 40 2> error_sd_rerun_240721.txt 1> log_sd_rerun240721.txt
+time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
+
+time python callVariants.py Mzebra_GT3 -d -a --concurrent_processes 24 -m 40
+
+"""
