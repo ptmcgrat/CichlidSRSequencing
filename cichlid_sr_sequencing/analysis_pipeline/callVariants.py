@@ -99,6 +99,7 @@ class VariantCaller:
         # if args.temp: # explicitly defining the failing samples for GVCF creation. 
         #     self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
         print(f"Number of samples for this pipeline run is {len(self.sampleIDs)}")
+        pdb.set_trace()
 
     def _generate_sample_map(self):
         # Verified that 448 sampels are present in self.sampleIDs when running the script in -a mode. 2024.07.03 - NK
@@ -373,6 +374,6 @@ if __name__ == "__main__":
 time python callVariants.py Mzebra_GT3 -b  -H -a --concurrent_processes 24 -m 40 2> error_sd_rerun_240721.txt 1> log_sd_rerun240721.txt
 time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
 
-time python callVariants.py Mzebra_GT3 -d -a --concurrent_processes 24 -m 40
+time python callVariants.py Mzebra_GT3 -i -g -a --concurrent_processes 96 -m 10 
 
 """
