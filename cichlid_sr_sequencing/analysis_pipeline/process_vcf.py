@@ -187,7 +187,7 @@ if __name__ == "__main__":
     # time python process_vcf.py Mzebra_UMD2a --merge --compress_and_index --vcf_stats --prefix 419_cohort 2> vcf_pipeline_logs/error_419cohort_concat_24.01.19.txt 1> vcf_pipeline_logs/log_419cohort_concat_24.01.19.txt
 
     # time python process_vcf.py Mzebra_GT3 --merge --compress_and_index
-    # time python process_vcf.py Mzebra_GT3 --filter 
+    # time python process_vcf.py Mzebra_GT3 --filter 2> error_filter_gt3_master_file_240712.txt 1> log_filter_gt3_master_file_240712.txt
 
 
 """
