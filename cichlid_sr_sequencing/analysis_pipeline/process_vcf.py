@@ -23,6 +23,8 @@ Ideally it will incorporate the rclone uploading as well.
 - implement rclone uploads at the end of every piece of the pipeline, but use a flag to dictate whether the upload will happen
     - be sure to implement chunker uplaods for massive output files.
 - I believe a final pass_variant file indexing step is needed. 
+
+time python process_vcf.py -m -c -v
 """
 
 class VCFProcessor:
@@ -153,13 +155,13 @@ class VCFProcessor:
                                     --filter-name 'max_DP' \
                                     --filter-expression 'DP > 10000' \
                                     --filter-name 'min_DP' \
-                                    --filter-expression 'DP < 7200' \
+                                    --filter-expression 'DP < 7500' \
                                     --filter-name 'strand_bias' \
                                     --filter-expression 'FS > 40.0' \
                                     --filter-name 'mapping_quality' \
                                     --filter-expression 'MQ < 50.0' \
                                     --filter-name 'no_calls' \
-                                    --filter-expression 'NCC > 107' \
+                                    --filter-expression 'NCC > 113' \
                                     --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
         subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
