@@ -30,6 +30,7 @@ I have gatk working in an env called 'gatk' for now.
 TODO:
 1. Paralellize gatk Haplotypecaller to run much more efficiently
     Be sure to include code that will not overwrite files if they exist 
+2. CODE DOES NOT EXIST ANYMORE TO DOWNLOAD BAM OR GVCF FILES OR ITS BROKEN. NEED TO FIX THIS!!
 """
 
 class VariantCaller:
@@ -262,7 +263,7 @@ class VariantCaller:
             subprocess.run(genotypegvcfs_unmapped_command)
         else: # code for running the unmapped contigs
             # NOTE: UPDATED THE COMMAND TO INCLUDE THE --include-non-variant-sites FLAG WHICH WILL HELP US PERFORM PI CALCULATIONS USING PIXY. This option is true only in gatk v4.3.0.0 - 24.07.23 NK. This flag is --all-sites on older versions!! Be careful with this option depending on what file you're using!!
-            genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'True'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+            genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'true'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
             genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
             genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
             genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
@@ -373,7 +374,7 @@ if __name__ == "__main__":
 time python callVariants.py Mzebra_GT3 -b  -H -a --concurrent_processes 24 -m 40 2> error_sd_rerun_240721.txt 1> log_sd_rerun240721.txt
 time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
 
-time python callVariants.py Mzebra_GT3 -i -g -a --concurrent_processes 96 -m 10 
+time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 96 -m 10
 
 
 
