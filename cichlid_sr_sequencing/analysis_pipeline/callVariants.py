@@ -402,5 +402,9 @@ time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/K
 time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome/kocher_N_Met_zebra_Female_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
 
 
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/mabs/Mabs_results/The_best_assembly/C_Copad_virgin_Male_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/C_Copad_virgin_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/inspector/mabs --datatype hifi --thread 24 2> error_240715.txt 1> log_240715.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/mabs/Mabs_results/The_best_assembly/D_Copad_virgin_Female_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/D_Copad_virgin_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/mabs --datatype hifi --thread 24 2> error_240715.txt 1> log_240715.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/mabs/Mabs_results/The_best_assembly/CV4f_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/combined_CV4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/mabs --datatype hifi --thread 24 2> error_240715.txt 1> log_240715.txt
+
 
 """
