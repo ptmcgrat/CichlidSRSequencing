@@ -383,4 +383,24 @@ time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pac
 time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/D_Copad_virgin_Female.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 30 2> error_240721.txt 1> log_240721.txt
 time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/combined_CV4f_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 30 2> error_240722.txt 1> log_240722.txt
 
+
+
+hs_assemblies
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/hybrid_scaffold_genome/YH7f_ptm_error_corrected_contigs_hs_with_kocher_2f_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/hybrid_scaffold_genome/G_Aulon_yelhead_Male_error_corrected_contigs_hs_with_kocher_1m_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/G_Aulon_yelhead_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/hybrid_scaffold_genome/MZ4f_ptm_error_corrected_contigs_hs_with_MZ-010-f_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/combined_MZ4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/hybrid_scaffold_genome/N_Met_zebra_Female_error_corrected_contigs_hs_with_MZ7.1m_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+
+
+
+anchored_assemblies
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/anchored_genome/YH7f_ptm_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/anchored_genome/kocher_G_Aulon_yelhead_Male_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/G_Aulon_yelhead_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/anchored_genome/MZ4f_ptm_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/combined_MZ4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome/kocher_N_Met_zebra_Female_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
+
+
+
 """
