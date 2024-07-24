@@ -16,6 +16,7 @@ parser.add_argument('-l', '--local_test', help = 'call this flag to predefine va
 parser.add_argument('-p', '--plink', help = 'use this flag to generate new eigenvalue/vector files using plink', action='store_true')
 args = parser.parse_args()
 
+
 """
 TODO:
 2024.01.15
@@ -93,9 +94,6 @@ class PCA_Maker:
             else:
                 raise Exception(region + ' is not a valid option')
 
-            []
-
-
         self.linkage_groups = regions_list # regions list is assigned to self.linkage_groups which will be used throughout the pipeline
         duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True:
         if len(duplicate_set_test) != len(self.linkage_groups):
@@ -112,6 +110,8 @@ class PCA_Maker:
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
         
+        pdb.set_trace()
+
     def _create_sample_filter_files(self):
         self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv' # this file conatins all samples in the ecogroup(s) the pipeline is being run for. Samples are not subset yet in this file
         self.all_ecogroup_samples_metadata = self.out_dir + '/all_samples_in_this_ecogroup_with_metadata.csv'
@@ -413,7 +413,6 @@ class PCA_Maker:
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
                 plot_title = lg
-            # pdb.set_trace()
             if self.ecogroups == ['Core_and_SD']:
                 # Below is the old code that will allow shapes per projectID
                 fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup_PTM', symbol='Relevant_Sexed_Samples',
@@ -541,4 +540,7 @@ time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData
 Local_Testing_Code:
 python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p -r All Whole Exploratory -e Core_and_SD --local_test
 test
+
+code for running on the TCM:
+python pca_maker.py Mzebra_GT3 /Users/nkumar317/Data/CichlidSequencingData/Outputs/pca_outpus --sample-subset -p -r All Whole Exploratory -e Core_and_SD
 """
