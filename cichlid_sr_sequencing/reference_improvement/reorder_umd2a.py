@@ -21,14 +21,14 @@ The sheet is called "UMD2a_remap_v1" in my google sheets.
 
 
 TODO:
-The reordering of the main linkage groups is messing up. Originally, the script was popping the final contig out. I think this was a remnant from when I used to add in NNNs as their own elements in the self.remapped_genome list
-I removed this, yet the expected length of the LG still doesn't match with, and is less than the original length of the genome. 
-
-I think that the script is fixed at this point, but now , I need to re-check whether each LG actually has all of the contigs actually present in the remapping instriuctions by going tthrough the google sheet in detail, per LG. 
-There is still 
+The script is fixed at this point, but now , I need to re-check whether each LG actually has all of the contigs actually present in the remapping instriuctions by going tthrough the google sheet in detail, per LG. 
 
 There is a minor issue where LGs 1, 6, 8, & 15 have an extra N at the end of their sequences. I think this may stem from the fact that newlines are inserted every 80 bases. Sometimes, the last 101 bases have 2 newlines, so one takes up where an N would be removed.
-Resolve by adding newlines after splitting, or remove Ns before adding newlines.
+Resolve by adding newlines after splitting, or remove Ns before adding newlines. This issue still exists as of 2024.02.02 -NK
+
+The genome length is still just 927MB, meaning 30Mbp of genome is missing for some reason... This will need to be addressed in the future -2024.02.02 NK
+
+Actually, after running genome stats, the total amount of basepairs capturerd is 960,019,172 which is 7Mbp more than UMD2a...? The number of Ns is greater by 18.7k which doesn't account for it... There's also 130 fewer unmapped contigs since they were placed... Not sure whats going on - 2024.02.02 NK
 """
 
 class ReorderGenome:

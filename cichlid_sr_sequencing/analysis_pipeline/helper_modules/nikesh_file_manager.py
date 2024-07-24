@@ -66,6 +66,7 @@ class FileManager():
 		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
 		self.localSampleFile_gt3 = self.localReadsDir + 'SampleDatabase_v2_gt3.xlsx'
 		self.localSampleFile_for_grant = self.localReadsDir + 'SampleDatabase_v2_2024_feb_grant.xlsx'
+		self.localSampleFileKT = self.localReadsDir + 'KT_Metadata.xlsx'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'

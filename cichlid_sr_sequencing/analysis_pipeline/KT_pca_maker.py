@@ -17,40 +17,10 @@ parser.add_argument('-p', '--plink', help = 'use this flag to generate new eigen
 args = parser.parse_args()
 
 """
-TODO:
-2024.01.15
-- get rid of some weird MC samples (see slack). Remove 3C9, 2C18, 2B19, 2B10, 2C14, 2B13, 2B17, 2C10, 2C19.
-    - Samples are associated with the 'Cellular profiling of a recently-evolved social behavior' BigBrain paper.
-    - DONE Implemented by changing Ecogroup_PTM to 'Exclude' for these samples
-- figure out how to run mbuna alone
-- generate PCAs for the non-inverted regions of LG9, etc
-    - Also, just include LGs 2, 9, 10_YH, 11, 13, 20. For each of these also include a not inverted part of the chromosomes
-    - DONE: Non inverted parts of all chromosomes have been written into files and these can be accessed in the special_intervals folder within analysis_pipeline
-    - SIDENOTE: I will not change names of these regions. They make sense
-    - Also, I have removed the lg5, lg10 MC insertion regions as these are not interesting 
-- revisit the eco group classifications and confirm they are correct and update any that need to be.
-    - I believe Patrick has extensively completed this work. Use the 'Ecogroup_PTM' column in the SampleDatabase_PTM_Notes.xlsx file (SampleLevel sheet) to get the proper ecogroups.
-- Patrick has hand picked samples to include when subsetting. So the random 3 code will be ignored and a new function will need to be coded in
-    - These new samples will be used to generate the subset eigenvectors. Then the rest of the code should operate similarly 
-    - DONE: Random Sampling code has been commented out and the subset_samples.csv file is now being generated only using the 'CorePCA' column.
-- Include what % variance is explained by each PC and include that information on the axes titles 
-    - Need to see where this info is calculated or if I need to run a flag or new command to get this information.
-- Be sure to include all other notes from the slack messages as well in these updates 
-- UMAP is not working on the server due to an import error. It may be a python v 3.7 issue... look into this and fix it if we want UMAP to work on Utaka. It's been commented out for now.
+time python KT_pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing -e Mbuna -r All Whole Exploratory -l --plink --sample_subset
+time python KT_pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing -e Mbuna -r All Whole Exploratory -l --sample_subset
+time python KT_pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing -e Mbuna -r Exploratory -l --plink --sample_subset
 
-
-2024.02.03
-Patrick wants some specific things done with pca_maker
-1. The whole genome plot PCs don't seem to be calculated with the subppopulation of samples. This must be updated.
-    temp fix implemented but it will not work for ecogroup analyses smaller than 50 samples.
-2. Include only 5 total MCs in the analysis. Start by keeping the samples Patrick keeps when calculating the PCs
-    Done. Implemented into a new SampleDatabase I'll use to run this cohort.
-3. Redo the sizing of the dots
-    Implemented
-4. Do away with the shapes of dots that differ per projectID. Just keep colors based on ecogroup
-    Implemented
-5. Change MCs to shallow benthic for now haha
-    Implemented
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -67,7 +37,7 @@ class PCA_Maker:
         self.fm_obj = FM(self.genome)
         self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/fixed_sample_names_gt3_cohort_pass_variants.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         if args.local_test:
-            self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/fixed_sample_name_small_gt3_cohort_pass_variants.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
+            self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/BgrB/JTS22_BgrB_pooled_duplicates_removed.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
         self.ecogroups = ecogroups # This attribute is the list of ecogroups used for filtering samples
 
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
@@ -87,14 +57,11 @@ class PCA_Maker:
             elif region == "All":
                 regions_list.extend(self.vcf_obj.seqnames[0:22])
             elif region == "Exploratory":
-                regions_list.extend(['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion.csv', 'lg20_non_inverted_region'])
+                regions_list.extend(['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region'])
             elif region == "Whole":
                 regions_list.append('Whole')
             else:
                 raise Exception(region + ' is not a valid option')
-
-            []
-
 
         self.linkage_groups = regions_list # regions list is assigned to self.linkage_groups which will be used throughout the pipeline
         duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True:
@@ -103,11 +70,11 @@ class PCA_Maker:
         
         # reset self.linkage_groups to include only the 3 lgs tested locally  if the --local_test flag is called
         if args.local_test:
-            self.linkage_groups = ['NC_036781.1', 'NC_036782.1', 'NC_036788.1']
+            self.linkage_groups = self.vcf_obj.seqnames[0:22]
             if 'Whole' in args.regions:
                 self.linkage_groups.extend(['Whole'])
             if 'Exploratory' in args.regions:
-                self.linkage_groups.extend(['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion.csv', 'lg20_non_inverted_region'])
+                self.linkage_groups.extend(['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region'])
 
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
@@ -130,9 +97,10 @@ class PCA_Maker:
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
 
-        self.fm_obj.downloadData(self.fm_obj.localSampleFile_gt3) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information. Changed for now to get data from the grant specific file. - 2024.02.04
-        self.df = pd.read_excel(self.fm_obj.localSampleFile_gt3, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
-        self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='SampleID') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
+        self.fm_obj.downloadData(self.fm_obj.localSampleFileKT) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information. Changed for now to get data from the grant specific file. - 2024.02.04
+        self.df = pd.read_excel(self.fm_obj.localSampleFileKT, sheet_name = 'Sheet1') # generate df from SampleDatabase.csv
+        
+        # self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='Name') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
         # this code block is used to generate a sample file of ALL samples that are present in a given ecogroup that's being run in the analysis
         if self.ecogroups == ['Core_and_SD']: # Only if the ecogroup is Core_and_SD, then filter based on the Ecogroup_SexDet column in the SampleDatabase_v2_gt3 excel sheet
             ecogroup_df = self.df[self.df.Ecogroup_SexDet.isin(self.ecogroups)]
@@ -141,8 +109,7 @@ class PCA_Maker:
         else:
             ecogroup_df = self.df[self.df.Ecogroup_PTM.isin(self.ecogroups)]
             ecogroup_df.to_csv(self.all_ecogroup_samples_csv, columns = ['SampleID'], header=False, index=False)
-            ecogroup_df.to_csv(self.all_ecogroup_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False)
-        
+            ecogroup_df.to_csv(self.all_ecogroup_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM'], sep='\t', index=False)
         # This code block is to create the subset sample file and an extra metadata file that may be useful for troubleshooting. This subset file is used by plink to generate the subset PC space that all the samples will be projected on to
         if args.sample_subset:
             subset_df = pd.DataFrame()
@@ -150,13 +117,13 @@ class PCA_Maker:
                 ecogroup_df = self.df[self.df.Ecogroup_SexDet.isin(self.ecogroups)]
                 subset_df = ecogroup_df[ecogroup_df['CorePCA']=='Yes']
                 subset_df.to_csv(self.subset_samples_csv, columns = ['SampleID'], header=False, index=False) # store the subset samples into a csv file in the directory for that ecogroup's analysis
-                subset_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup_SexDet', 'Organism'], sep='\t', index=False) # write an extra csv file containing metadata information for samples included in the subsetting
+                subset_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM'], sep='\t', index=False) # write an extra csv file containing metadata information for samples included in the subsetting
             else:
                 ecogroup_df = self.df[self.df.Ecogroup_PTM.isin(self.ecogroups)] # filter the whole df to only include rows of the revelvant ecogroup(s)
                 # instead, now we will simply filter on the 'CorePCA' column and write the samples with 'Yes' to subset_df
                 subset_df = ecogroup_df[ecogroup_df['CorePCA']=='Yes']
                 subset_df.to_csv(self.subset_samples_csv, columns = ['SampleID'], header=False, index=False) # store the subset samples into a csv file in the directory for that ecogroup's analysis
-                subset_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False) # write an extra csv file containing metadata information for samples included in the subsetting
+                subset_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM'], sep='\t', index=False) # write an extra csv file containing metadata information for samples included in the subsetting
 
             """
             # 2024.01.15. This below code block was previously used to randomly subset each species for 3 random samples. In Jan 2024, Patrick manually curated a list of samples to include when generating the subset PCs.
@@ -168,7 +135,7 @@ class PCA_Maker:
             #     else: # if only 3 or less samples exist, the sampled_rows are the organism_rows so just concat the organism rows into subset_df
             #         subset_df = pd.concat([subset_df, organism_rows], ignore_index=True) # add them to df_filtered
             """
-
+        
         else: # we will not generate a subset vcf file that will be used in the analyses. Thus, self.subset_samples_csv & self.subset_samples_metadata will not be generated. 
             # To make it easier to keep the code revolving around the subset code that already exists, I can simply generate the same files but just make them equal to what exists in all_samples files. 
             warning = input("WARNING: You have called on the script to run without subsetting samples.\nYour PCA results may be driven by overrepresented samples in the ecogroup you're analyzing. Are you sure you wish to continue? (Y/N): ")
@@ -177,8 +144,7 @@ class PCA_Maker:
             else:
                 exit()
             ecogroup_df.to_csv(self.subset_samples_csv, columns = ['SampleID'], header=False, index=False) # write the same samples that created the self.all_ecogroup_samples_csv and self.all_ecogroup_samples_metadata into the subset files so that I don't have to change code in other functions
-            ecogroup_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False)
-
+            ecogroup_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM'], sep='\t', index=False)
         # code that checks if the samples in self.subset_samples.csv are in self.in_vcf:
         in_vcf_samples = subprocess.check_output(['bcftools', 'query', '-l', self.in_vcf], encoding = 'utf-8').strip().split('\n')
         in_vcf_samples = {'SampleID':in_vcf_samples}
@@ -186,7 +152,7 @@ class PCA_Maker:
         unmatched_samples = ecogroup_df[~ecogroup_df['SampleID'].isin(in_vcf_samples_df['SampleID'])]
         if unmatched_samples.shape[0] != 0: # if all samples in ecogroup_df match those in in_vcf, then the row length should be 0. If the value is different, raise an exception
             raise Exception(f"Some samples in ecogroup_df are not in the input vcf file. See samples in {unmatched_samples}")
-
+        
     def _create_ecogroup_specific_vcf(self):
         # path to the vcf file containing samples only in the ecogroups needed for the analysis
         self.ecogroup_specific_master_vcf = self.out_dir + '/all_ecogroup_samples.vcf.gz' # for each analysis, depending on the ecogroups chosen, we generate a vcf file with all samples of only that eco group. The path and name of that file is defined here. Old file name = samples_filtered_master.vcf.gz
@@ -309,9 +275,7 @@ class PCA_Maker:
                             proc2.communicate()
 
     def _create_exploratory_region_eigen_files(self):
-        # changes list to include a split lg11 and lg20 interval. The middle value for LG11 is 18425216 and the middle value for lg20 is 29716509. These values assume the Mzebra_GT3 genome.
-        #  also expanded the list to equally split the lg9 inversion into 5 equivalent regions. This will be run alongside the whole lg9 inverted region and the whole of lg9
-        exploratory_regions_list = ['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion.csv', 'lg20_non_inverted_region']
+        exploratory_regions_list = ['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20_RockSand_Inversion', 'lg20_non_inverted_region']
         processes = []
         for region in exploratory_regions_list:
             pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # make the filepath to the exploratory region output dirs
@@ -321,8 +285,8 @@ class PCA_Maker:
                 else:
                     print('The sample_subset.vcf.gz file for ' + region + ' has samples that does not match with those found in subset_samples.csv. New whole_ecogroup and sample_subset vcf files will be generated.\n')
                     print('Regenerating subset and whole_ecogroup vcf files for the regions in ' + region + '...\n')
-                    p1 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '-R', os.getcwd() + '/special_intervals/' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_whole_ecogroup.vcf.gz', '-Oz'])
-                    p2 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-R', os.getcwd() + '/special_intervals/' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz', '-Oz'])
+                    p1 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '-R', os.getcwd() + '/special_intervals/UMD2a_intervals' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_whole_ecogroup.vcf.gz', '-Oz'])
+                    p2 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-R', os.getcwd() + '/special_intervals/UMD2a_intervals' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz', '-Oz'])
                     processes.append(p1)
                     processes.append(p2)
                     if len(processes) == 2*len(exploratory_regions_list): # parallelization code
@@ -332,8 +296,8 @@ class PCA_Maker:
             else: # if the files don't exist in the first place, go alead and generate each region's sample_subset.vcf.gz and _whole_ecogroup.vcf.gz files. 
                 # Generate 2 vcf files... a subset file one using the regions and a filtered ecogroup one using the regions. Do it all in parallel eventually
                 print('Generating subset and whole_ecogroup vcf files for the regions in ' + region + '...\n')
-                p1 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '-R', os.getcwd() + '/special_intervals/' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_whole_ecogroup.vcf.gz', '-Oz'])
-                p2 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-R', os.getcwd() + '/special_intervals/' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz', '-Oz'])
+                p1 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '-R', os.getcwd() + '/special_intervals/UMD2a_intervals' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_whole_ecogroup.vcf.gz', '-Oz'])
+                p2 = subprocess.Popen(['bcftools', 'view', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '-R', os.getcwd() + '/special_intervals/UMD2a_intervals' + region + '.csv', '-o', self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz', '-Oz'])
                 processes.append(p1)
                 processes.append(p2)
                 if len(processes) == 2*len(exploratory_regions_list): # parallelization code
@@ -362,7 +326,7 @@ class PCA_Maker:
                     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2', '--bad-ld']) 
                     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr']) # this is where things are going wrong. Before, "Whole" was always running this faulty code that's generating .eigenvec files with a number of samples equal to the whole ecogroup and not the subset This needs to  be fixed, else Mbuna and other small dataset groups will not run right.
                     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
-
+    
             else: #lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
                 if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_ecogroup.vcf.gz').exists(): # NOTE: error checking... revisit later
@@ -374,6 +338,7 @@ class PCA_Maker:
                     subprocess.run(['plink2', '--vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--allow-extra-chr']) # whole vcf file pfile generation for a given lg
                     subprocess.run(['plink2', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--allow-extra-chr']) # subset sample vcf file pfile generation for a given lg
                     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--allow-extra-chr'])
+                    
                     # If number of samples in the analysis is > 50: run code as normal
                     if int(subprocess.check_output(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz '} | wc -l", shell=True, encoding='utf-8').strip()) >= 50:
                         subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2'])
@@ -385,11 +350,14 @@ class PCA_Maker:
 
                         # genenrate the .sscore file with eigenvectors for each samples after projection on to the PC space from the subset PCA
                         subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
+                    
                     else:
+                        # NOTE: SHIT IS MESSED UP RIGHT HEEERREEEEEEEEE
                         subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '10', '0.1', '--max-alleles', '2', '--bad-ld'])
+                        pdb.set_trace()
                         subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr'])
                         subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
-
+                        
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
         self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
@@ -413,7 +381,6 @@ class PCA_Maker:
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
                 plot_title = lg
-            # pdb.set_trace()
             if self.ecogroups == ['Core_and_SD']:
                 # Below is the old code that will allow shapes per projectID
                 fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup_PTM', symbol='Relevant_Sexed_Samples',
@@ -438,7 +405,7 @@ class PCA_Maker:
                                     'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
                                 },
                                 color_discrete_map=color_map,
-                                title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism'])
+                                title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM'])
                 fig.update_traces(marker={'size':6})
                 fig.write_html(self.plotly_out + lg + '_PCA.html')
             # Below is the old code that will allow shapes per projectID
@@ -540,5 +507,4 @@ time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData
 
 Local_Testing_Code:
 python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p -r All Whole Exploratory -e Core_and_SD --local_test
-test
 """
