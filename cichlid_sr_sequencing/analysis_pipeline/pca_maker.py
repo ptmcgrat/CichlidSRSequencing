@@ -66,7 +66,7 @@ class PCA_Maker:
                              'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/fixed_sample_names_gt3_cohort_pass_variants.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
+        self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/corrected_sexed_gt3_cohort_pass_variants.vcf.gz' # The in_vcf attriubute is equal to the input file name for the Object.
         if args.local_test:
             self.in_vcf = self.fm_obj.localOutputDir + 'vcf_concat_output/fixed_sample_name_small_gt3_cohort_pass_variants.vcf.gz' # This file is a subset of the 612 cohort pass_variants_master_file. By default, the script will use this whole file as input for local testing 
         self.ecogroups = ecogroups # This attribute is the list of ecogroups used for filtering samples
@@ -109,8 +109,7 @@ class PCA_Maker:
 
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
-        
-        pdb.set_trace()
+
 
     def _create_sample_filter_files(self):
         self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv' # this file conatins all samples in the ecogroup(s) the pipeline is being run for. Samples are not subset yet in this file
@@ -157,7 +156,7 @@ class PCA_Maker:
                 subset_df = ecogroup_df[ecogroup_df['CorePCA']=='Yes']
                 subset_df.to_csv(self.subset_samples_csv, columns = ['SampleID'], header=False, index=False) # store the subset samples into a csv file in the directory for that ecogroup's analysis
                 subset_df.to_csv(self.subset_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False) # write an extra csv file containing metadata information for samples included in the subsetting
-
+            
             """
             # 2024.01.15. This below code block was previously used to randomly subset each species for 3 random samples. In Jan 2024, Patrick manually curated a list of samples to include when generating the subset PCs.
             # for organism in ecogroup_df['Organism'].unique():
@@ -542,5 +541,5 @@ python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p
 test
 
 code for running on the TCM:
-python pca_maker.py Mzebra_GT3 /Users/nkumar317/Data/CichlidSequencingData/Outputs/pca_outpus --sample-subset -p -r All Whole Exploratory -e Core_and_SD
+time python pca_maker.py Mzebra_GT3 /Users/nkumar317/Data/CichlidSequencingData/Outputs/pca_outpus --sample_subset -p -r All Whole Exploratory -e Core_and_SD 2> error_gt3_pca_pipeline.txt 1> log_gt3_pca_pipeline.txt
 """
