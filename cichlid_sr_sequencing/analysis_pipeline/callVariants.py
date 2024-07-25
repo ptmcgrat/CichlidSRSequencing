@@ -409,5 +409,5 @@ time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/K
 time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/mabs/Mabs_results/The_best_assembly/D_Copad_virgin_Female_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/D_Copad_virgin_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
 time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/mabs/Mabs_results/The_best_assembly/CV4f_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/combined_CV4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
 
-
+time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 24 -m 10 2> error_all_sites_rerun_240725.txt 1> log_all_sites_rerun_240725.txt
 """
