@@ -246,30 +246,34 @@ class VariantCaller:
 
     def RunGenotypeGVCFs(self, interval):
         # You can ignore this function for now, but I implemented the parallelization code into it
-        print(f"Processing for interval {interval} started at {self.current_time}")
-        if args.local_test: # update the location of the GenDB if "local testing" on Utaka vs on the mac. As of Oct 13, 2023, gatk4 does not work via a conda install on my M2 mac on Ventura 13.4.1 and it also doesn't work on a fresh conda env on Utaka (gatk 4.0.-.- gets installed when I need at least 4.3.0.0). gatk 4.3.0.0 still works on Utaka in the 'genomics' env
-            local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
-            local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-            local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-            local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-            local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-            subprocess.run(local_command)
-        elif not args.unmapped: # For running the standard 96 intervals (not unmappped and not local_test). gendb path is to the gendb located on the Utaka server. Will need to change if running on Mzebra 
-            # NOTE: UPDATED THE COMMAND TO INCLUDE THE --include-non-variant-sites FLAG WHICH WILL HELP US PERFORM PI CALCULATIONS USING PIXY. This option is true only in gatk v4.3.0.0 - 24.07.23 NK. This flag is --all-sites on older versions!! Be careful with this option depending on what file you're using!!
-            genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'true', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
-            genotypegvcfs_unmapped_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-            genotypegvcfs_unmapped_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-            genotypegvcfs_unmapped_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-            genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-            subprocess.run(genotypegvcfs_unmapped_command)
-        else: # code for running the unmapped contigs
-            genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
-            genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-            genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-            genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-            genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-            subprocess.run(genotypegvcfs_command)
-        print(f"Interval {interval} finished processing at {self.current_time}")
+        # check if a vcf index file already exists for the intervalk you're working on  if it does, skip it and move to another interval
+        if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.idx').exists():
+            print(f"VCF file's index for interval {interval} found. Skipping GenotypeGVCFs for this interval")
+        else:
+            print(f"Processing for interval {interval} started at {self.current_time}")
+            if args.local_test: # update the location of the GenDB if "local testing" on Utaka vs on the mac. As of Oct 13, 2023, gatk4 does not work via a conda install on my M2 mac on Ventura 13.4.1 and it also doesn't work on a fresh conda env on Utaka (gatk 4.0.-.- gets installed when I need at least 4.3.0.0). gatk 4.3.0.0 still works on Utaka in the 'genomics' env
+                local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                subprocess.run(local_command)
+            elif not args.unmapped: # For running the standard 96 intervals (not unmappped and not local_test). gendb path is to the gendb located on the Utaka server. Will need to change if running on Mzebra 
+                # NOTE: UPDATED THE COMMAND TO INCLUDE THE --include-non-variant-sites FLAG WHICH WILL HELP US PERFORM PI CALCULATIONS USING PIXY. This option is true only in gatk v4.3.0.0 - 24.07.23 NK. This flag is --all-sites on older versions!! Be careful with this option depending on what file you're using!!
+                genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'true', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                genotypegvcfs_unmapped_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                genotypegvcfs_unmapped_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                genotypegvcfs_unmapped_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                subprocess.run(genotypegvcfs_unmapped_command)
+            else: # code for running the unmapped contigs
+                genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                subprocess.run(genotypegvcfs_command)
+            print(f"Interval {interval} finished processing at {self.current_time}")
 
     def mp_test_function(self, interval):
         print(f"Task {interval} started at {self.current_time}")
@@ -314,7 +318,6 @@ class VariantCaller:
             self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
             inputs = self.unmapped_contigs
         concurrent_processes = min(self.concurrent_processes, len(inputs))
-        # pdb.set_trace()
 
         try:
             with multiprocessing.Pool(processes=concurrent_processes) as pool:
@@ -402,9 +405,9 @@ time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/K
 time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome/kocher_N_Met_zebra_Female_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
 
 
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/mabs/Mabs_results/The_best_assembly/C_Copad_virgin_Male_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/C_Copad_virgin_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/inspector/mabs --datatype hifi --thread 24 2> error_240715.txt 1> log_240715.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/mabs/Mabs_results/The_best_assembly/D_Copad_virgin_Female_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/D_Copad_virgin_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/mabs --datatype hifi --thread 24 2> error_240715.txt 1> log_240715.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/mabs/Mabs_results/The_best_assembly/CV4f_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/combined_CV4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/mabs --datatype hifi --thread 24 2> error_240715.txt 1> log_240715.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/mabs/Mabs_results/The_best_assembly/C_Copad_virgin_Male_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/C_Copad_virgin_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/mabs/Mabs_results/The_best_assembly/D_Copad_virgin_Female_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/D_Copad_virgin_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
+time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/mabs/Mabs_results/The_best_assembly/CV4f_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/combined_CV4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
 
 
 """
