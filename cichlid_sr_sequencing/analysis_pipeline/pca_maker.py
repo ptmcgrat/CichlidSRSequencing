@@ -541,5 +541,5 @@ python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p
 test
 
 code for running on the TCM:
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Core_and_SD 2> error_gt3_pca_pipeline.txt 1> log_gt3_pca_pipeline.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r lg20b_RockSand_Inversion -e Core_and_SD 2> error_lg20b_240726.txt 1> log_lg20b_240726.txt
 """
