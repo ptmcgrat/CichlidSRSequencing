@@ -315,6 +315,7 @@ class PCA_Maker:
         exploratory_regions_list = ['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region']
         processes = []
         for region in exploratory_regions_list:
+            pdb.set_trace()
             pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # make the filepath to the exploratory region output dirs
             if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz').exists(): # if one of the files already exists, test if the number of sample is the same as in the subset_csv file in self.out_dir
                 if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout == subprocess.run(f"cat {self.subset_samples_csv}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout: # checks if an existing exploratory region vcf file contains the same samples as samples_to_keep.csv. If not, make a new one
