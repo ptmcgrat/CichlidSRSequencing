@@ -319,6 +319,7 @@ class PCA_Maker:
         for region in self.linkage_groups:
             if region in inversion_regions:
                 exploratory_regions_list.append(region)
+        processes = []
 
         for region in exploratory_regions_list:
             pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # make the filepath to the exploratory region output dirs
