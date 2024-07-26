@@ -271,6 +271,7 @@ class PCA_Maker:
     def _split_VCF_to_LG(self, linkage_group_list):
         processes1 = []
         processes2 = []
+        pdb.set_trace()
         for lg in linkage_group_list:
             if lg == 'Whole':
                 continue
