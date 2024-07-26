@@ -271,7 +271,7 @@ class PCA_Maker:
     def _split_VCF_to_LG(self, linkage_group_list):
         processes1 = []
         processes2 = []
-        # pdb.set_trace()
+        pdb.set_trace()
         for lg in linkage_group_list:
             if lg == 'Whole':
                 continue
@@ -322,7 +322,6 @@ class PCA_Maker:
                 exploratory_regions_list.append(region)
 
         for region in exploratory_regions_list:
-            pdb.set_trace()
             pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # make the filepath to the exploratory region output dirs
             if pathlib.Path(self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz').exists(): # if one of the files already exists, test if the number of sample is the same as in the subset_csv file in self.out_dir
                 if subprocess.run(f"bcftools query -l {self.out_dir + '/PCA/' + region + '/' + region + '_sample_subset.vcf.gz'}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout == subprocess.run(f"cat {self.subset_samples_csv}", shell=True, stdout=subprocess.PIPE, encoding='utf-8').stdout: # checks if an existing exploratory region vcf file contains the same samples as samples_to_keep.csv. If not, make a new one
