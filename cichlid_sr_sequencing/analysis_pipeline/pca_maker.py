@@ -313,13 +313,13 @@ class PCA_Maker:
     def _create_exploratory_region_eigen_files(self):
         # changes list to include a split lg11 and lg20 interval. The middle value for LG11 is 18425216 and the middle value for lg20 is 29716509. These values assume the Mzebra_GT3 genome.
         #  also expanded the list to equally split the lg9 inversion into 5 equivalent regions. This will be run alongside the whole lg9 inverted region and the whole of lg9
-        pdb.set_trace()
+        
         inversion_regions = ['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region']
         exploratory_regions_list = []
         for region in self.linkage_groups:
             if region in inversion_regions:
                 exploratory_regions_list.append(region)
-
+        pdb.set_trace()
         for region in exploratory_regions_list:
             # pdb.set_trace()
             pathlib.Path(self.out_dir + '/PCA/' + region + '/').mkdir(parents=True, exist_ok=True) # make the filepath to the exploratory region output dirs
