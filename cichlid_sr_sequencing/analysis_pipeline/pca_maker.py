@@ -502,8 +502,8 @@ class PCA_Maker:
             except:
                 pass
         self._create_interactive_pca(self.linkage_groups)
-        if args.umap:
-            self._create_umap(self.linkage_groups)
+        # if args.umap:
+        #     self._create_umap(self.linkage_groups)
 
 if __name__ == "__main__":
     pca_obj = PCA_Maker(args.genome, args.ecogroups, args.regions, args.output_dir)
