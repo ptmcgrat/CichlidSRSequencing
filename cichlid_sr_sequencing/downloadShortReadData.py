@@ -13,6 +13,7 @@ Data in the Run Info File should be Run,AvgSpotLen,Bases,BioProject,BioSample,Ex
 parser.add_argument('Run_Info_File', type = str, help = 'File containing information on each run')
 parser.add_argument('-t', '--TestData', action = 'store_true', help = 'Use this flag if you want to create a small test file (1000 reads) instead of the entire read set')
 parser.add_argument('-l', '--Local', action = 'store_true', help = 'Use this flag if the data is local. The Run Info File should include a FileLocations column that lists the absolute or relative path to the Reads files (split by ,,)')
+parser.add_argument('-n', '--kmnike', help = '>:)', action = 'store_true')
 args = parser.parse_args()
 
 # Download and open master sample database file and read it in
@@ -68,6 +69,7 @@ for index, row in new_dt.iterrows():
 	if run_id in set(sample_dt['RunID']):
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
+	# good until here -NK 24.07.29
 
 	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
 	if run_id in existing_bamfiles:
@@ -108,13 +110,16 @@ for index, row in new_dt.iterrows():
 		fq1 = ftps[0]
 		fq2 = ftps[1]
 
-
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'unit_scripts/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform]]
-
+	
 	if args.Local:
 		command += ['--Local']
-
+	if args.kmnike:
+		command += ['--kmnike']
+	# pdb.set_trace()
+	# for troubleshooting -NK 24.07.30
+	# subprocess.run(command)
 	processes.append(subprocess.Popen(command))
 
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'

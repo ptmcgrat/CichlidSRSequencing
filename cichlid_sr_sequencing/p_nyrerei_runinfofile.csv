@@ -1,0 +1,4 @@
+﻿Run,AvgSpotLen,Bases,BioProject,BioSample,Experiment,Instrument,Library Name,LibraryLayout,LibrarySelection,LibrarySource,Organism,Platform,SRA Study,FileLocations
+SRR17908713,300,5.30E+10,PRJNA802233,SAMN25689335,PunNye,Illumina NovaSeq 6000,p_nye_m_wo_B_chr_pool,PAIRED,NEBNext DNA Library Prep,GENOMIC,Pundamilia nyereri,ILLUMINA,Sex determination in East African cichlids,
+SRR17908715,300,4.49E+10,PRJNA802233,SAMN25689334,PunNye,Illumina NovaSeq 6000,p_nye_m_w_B_chr_pool,PAIRED,NEBNext DNA Library Prep,GENOMIC,Pundamilia nyereri,ILLUMINA,Sex determination in East African cichlids,
+SRR17908716,300,4.18E+10,PRJNA802233,SAMN25689333 ,PunNye,Illumina NovaSeq 6000,p_nye_f_w_B_chr_pool,PAIRED,NEBNext DNA Library Prep,GENOMIC,Pundamilia nyereri,ILLUMINA,Sex determination in East African cichlids,

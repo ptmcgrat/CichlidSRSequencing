@@ -1,0 +1,8 @@
+  Fastq files acsping for SRR17908716, Time:2024-07-29 23:48:30.904695
+  Converting fastq files to uBam file
+  Fastq files acsping for SRR17908715, Time:2024-07-29 23:48:27.431399
+  Converting fastq files to uBam file
+  Fastq files acsping for SRR17908713, Time:2024-07-29 23:48:26.349226
+  Converting fastq files to uBam file
+  Waiting for processes to complete
+Database uploaded
