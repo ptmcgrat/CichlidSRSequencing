@@ -42,7 +42,7 @@ else:
 		for i in range(3):
 			pdb.set_trace()
 			if args.kmnike:
-				output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniforge3/envs/gatk/etc/asperaweb_id_dsa.openssh', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
+				output = subprocess.run(['/Applications/Aspera\ Connect.app/Contents/Resources/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniforge3/envs/gatk/etc/asperaweb_id_dsa.openssh', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 			elif args.TCM:
 				output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/genomics/etc/asperaweb_id_dsa.openssh', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 			else:
@@ -58,7 +58,7 @@ else:
 	else:
 		for i in range(3):
 			if args.kmnike:
-				output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniforge3/envs/gatk/etc/asperaweb_id_dsa.openssh', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
+				output = subprocess.run(['/Applications/Aspera\ Connect.app/Contents/Resources/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniforge3/envs/gatk/etc/asperaweb_id_dsa.openssh', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 			elif args.TCM:
 				output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/genomics/etc/asperaweb_id_dsa.openssh', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 			else:
