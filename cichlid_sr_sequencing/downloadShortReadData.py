@@ -14,6 +14,7 @@ parser.add_argument('Run_Info_File', type = str, help = 'File containing informa
 parser.add_argument('-t', '--TestData', action = 'store_true', help = 'Use this flag if you want to create a small test file (1000 reads) instead of the entire read set')
 parser.add_argument('-l', '--Local', action = 'store_true', help = 'Use this flag if the data is local. The Run Info File should include a FileLocations column that lists the absolute or relative path to the Reads files (split by ,,)')
 parser.add_argument('-n', '--kmnike', help = '>:)', action = 'store_true')
+parser.add_argument('-m', '--TCM', action = 'store_true', help = 'for running on TCM')
 args = parser.parse_args()
 
 # Download and open master sample database file and read it in
