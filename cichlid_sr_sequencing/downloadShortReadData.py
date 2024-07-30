@@ -122,7 +122,7 @@ for index, row in new_dt.iterrows():
 		command += ['--kmnike']
 	if args.TCM:
 		command += ['--TCM']
-	pdb.set_trace()
+	# pdb.set_trace()
 	# for troubleshooting -NK 24.07.30
 	# subprocess.run(command)
 	processes.append(subprocess.Popen(command))
