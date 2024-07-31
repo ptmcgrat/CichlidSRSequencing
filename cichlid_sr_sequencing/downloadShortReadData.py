@@ -5,6 +5,7 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 
 # --java-options "-Xmx8g -Xms4g -Djava.io.tmpdir=${TMP_DIR} -Dsamjdk.compression_level=5"
 # time python downloadShortReadData.py p_nyrerei_runinfofile.csv --TCM 2> error_pun_nye_240731.txt 1> log_pun_nye_240731.txt
+# runs on gatk 4.3.0.0 on TCM. Did not work with gatk 4.5.0.0 
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data from the ENA database and place it into the McGrath Apps Sequencing folder\n \
 Data is stored as uBam format to follow best practices:\n \
 https://gatk.broadinstitute.org/hc/en-us/articles/4403687183515--How-to-Generate-an-unmapped-BAM-from-FASTQ-or-aligned-BAM\n \
