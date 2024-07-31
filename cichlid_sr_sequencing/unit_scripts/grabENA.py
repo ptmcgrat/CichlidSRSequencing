@@ -79,20 +79,20 @@ f2 = pysam.FastqFile(local_fq2)
 
 fixed_fq1 = local_fq1.replace(local_fq1.split('/')[-1],'fixed_' + local_fq1.split('/')[-1]).replace('.gz','')
 fixed_fq2 = local_fq2.replace(local_fq2.split('/')[-1],'fixed_' + local_fq2.split('/')[-1]).replace('.gz','')
-
-with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
-	for r1,r2 in zip(f1,f2):
-		if r1.sequence == '' or r2.sequence == '':
-			continue
-		else:
-			try:
+if pathlib.Path(fixed_fq1).exists() and pathlib.Path(fixed_fq2).exists():
+	print('Both fixed fastq files exist. Skipping the fixing stuff...')
+else:
+	with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
+		for r1,r2 in zip(f1,f2):
+			if r1.sequence == '' or r2.sequence == '':
+				continue
+			else:
 				outfq1.write('@' + r1.name + ' 1:N:0:2\n' + r1.sequence + '\n+\n' + r1.quality + '\n')
 				outfq2.write('@' + r2.name + ' 2:N:0:2\n' + r2.sequence + '\n+\n' + r2.quality + '\n')
-			except:
-				print('ERRORED OUT IN THE SAME PLACE AS BEFORE ON TCM')
-				# pdb.set_trace()
+
 command = ['gatk', 'FastqToSam', '--FASTQ', fixed_fq1, '--FASTQ2', fixed_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
+print('Done Fixing the fastqs. Staring UBAM conversion')
 output1 = subprocess.run(command, capture_output = True)
 if output1.returncode != 0:
 	with open(args.OutputBam + '.FastQToSamErrors.txt', 'w') as f:
@@ -118,3 +118,5 @@ print('  Finished for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 
 # Remove files that were created
 subprocess.run(['rm', local_fq1, local_fq2, fixed_fq1, fixed_fq2, temp_bam_file, args.OutputBam, args.OutputBam + '.metrics.txt'])
+
+# gatk FastqToSam --FASTQ /Users/nkumar317/Data/CichlidSequencingData/Temp/fixed_SRR17908713_1.fastq --FASTQ2 /Users/nkumar317/Data/CichlidSequencingData/Temp/fixed_SRR17908713_2.fastq --READ_GROUP_NAME SRR17908713 --TMP_DIR /Users/nkumar317/Data/CichlidSequencingData/Temp/ --OUTPUT /Users/nkumar317/Data/CichlidSequencingData/Temp/SRR17908713_temp.bam --SAMPLE_NAME SAMN25689335 --LIBRARY_NAME p_nye_m_wo_B_chr_pool --PLATFORM ILLUMINA

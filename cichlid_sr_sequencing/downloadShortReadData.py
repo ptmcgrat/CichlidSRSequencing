@@ -4,7 +4,7 @@ import numpy as np
 from helper_modules.nikesh_file_manager import FileManager as FM
 
 # --java-options "-Xmx8g -Xms4g -Djava.io.tmpdir=${TMP_DIR} -Dsamjdk.compression_level=5"
-# time python downloadShortReadData.py p_nyrerei_runinfofile.csv --TCM 2> error_pun_nye_240730.txt 1> log_pun_nye_240730.txt
+# time python downloadShortReadData.py p_nyrerei_runinfofile.csv --TCM 2> error_pun_nye_240731.txt 1> log_pun_nye_240731.txt
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data from the ENA database and place it into the McGrath Apps Sequencing folder\n \
 Data is stored as uBam format to follow best practices:\n \
 https://gatk.broadinstitute.org/hc/en-us/articles/4403687183515--How-to-Generate-an-unmapped-BAM-from-FASTQ-or-aligned-BAM\n \
@@ -70,7 +70,6 @@ for index, row in new_dt.iterrows():
 	if run_id in set(sample_dt['RunID']):
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
-	# good until here -NK 24.07.29
 
 	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
 	if run_id in existing_bamfiles:
@@ -122,8 +121,8 @@ for index, row in new_dt.iterrows():
 		command += ['--kmnike']
 	if args.TCM:
 		command += ['--TCM']
+	# good until here -NK 24.07.31
 	# pdb.set_trace()
-	# for troubleshooting -NK 24.07.30
 	# subprocess.run(command)
 	processes.append(subprocess.Popen(command))
 
