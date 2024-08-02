@@ -393,6 +393,8 @@ time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
 
 time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 96 -m 10
 
+time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --temp_zip 2> error_zip_allsites_vcfs_240802.txt 1> log_zip_allsites_vcfs_240802.txt
+
 
 
 
