@@ -57,16 +57,19 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
 		elif self.genome_version == 'kocher_N_Met_zebra_Female':
 			self.localGenomeFile = self.localGenomeDir + 'kocher_N_Met_zebra_Female_anchored_assembly.fasta.gz'
-
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'N_Met_zebra_Female_error_corrected_contigs_hs_with_MZ7.1m_molecules_all_scaffolds.fasta'
 		elif self.genome_version == 'MZ4f_ptm':
 			self.localGenomeFile = self.localGenomeDir + 'MZ4f_ptm_anchored_assembly.fasta.gz'
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'MZ4f_ptm_error_corrected_contigs_hs_with_MZ-010-f_molecules_all_scaffolds.fasta'
 		elif self.genome_version == 'kocher_H_Aulon_yelhead_Female':
 			self.localGenomeFile = self.localGenomeDir + 'A_spYH_GT1.fasta'
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'kocher_YH_female_mabs_error_corrected_hs_with_YH15.fasta'			
 		elif self.genome_version == 'kocher_G_Aulon_yelhead_Male':
 			self.localGenomeFile = self.localGenomeDir + 'kocher_G_Aulon_yelhead_Male_anchored_assembly.fasta.gz'
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'G_Aulon_yelhead_Male_error_corrected_contigs_hs_with_kocher_1m_molecules_all_scaffolds.fasta'
 		elif self.genome_version == 'YH7f_ptm':
 			self.localGenomeFile = self.localGenomeDir + 'YH7f_ptm_anchored_assembly.fasta.gz'
-
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'YH7f_ptm_error_corrected_contigs_hs_with_kocher_2f_molecules_all_scaffolds.fasta'
 		elif self.genome_version == 'P_nyererei_v2':
 			self.localGenomeFile = self.localGenomeDir + 'PunNye_v2_hyrbid_scaffold/PunNye_v2_hybrid_scaffold_genome.fasta'
 		elif self.genome_version == 'O_niloticus_UMD_NMBU':
@@ -257,8 +260,9 @@ class FileManager():
 		if tarred:
 			output = subprocess.run(['tar', '-cvf', local_path + relative_name + '.tar', '-C', local_path, relative_name], capture_output = True, encoding = 'utf-8')
 			if output.returncode != 0:
-				print(output.stderr)
-				raise Exception('Error in tarring ' + local_data)
+				if '.DS_Store' not in output.stderr:
+					print(output.stderr)
+					raise Exception('Error in tarring ' + local_data)
 			relative_name += '.tar'
 
 		if os.path.isdir(local_path + relative_name):
@@ -280,8 +284,8 @@ class FileManager():
 
 		if not upload_async:
 			if output.returncode != 0:
-				pdb.set_trace()
-				raise Exception('Error in uploading file: ' + output.stderr)
+				if '.DS_Store' not in output.stderr:
+					raise Exception('Error in uploading file: ' + output.stderr)
 
 	def returnFileSize(self, local_data):
 		output = subprocess.run(['rclone', 'size', local_data.replace(self.localMasterDir, self.cloudMasterDir)], capture_output = True, encoding = 'utf-8')

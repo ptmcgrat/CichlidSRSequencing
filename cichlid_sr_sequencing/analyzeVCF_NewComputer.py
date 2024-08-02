@@ -4,8 +4,9 @@ import subprocess, pdb, os
 from helper_modules.file_manager_Replacement import FileManager as FM
 from Bio import AlignIO
 import matplotlib.pyplot as plt
-inversions = {'LG2':('NC_036781.1',19743639,20311160,43254805,43658853),'LG9':('NC_036789.1',14453796,15649299,32255605,33496468),'LG10':('NC_036790.1',11674905,11855817,29898615,29898615),
-				'LG11':('NC_036791.1',8302039,8309764,30371888,30459686),'LG13':('NC_036792.1',2249541,2453698,23046928,23131968),'LG20':('NC_036799.1',19614379,19689710,32872827,33764042)}
+inversions = {'LG2':('NC_036781.1',19743639,20311160,43254805,43658853),'LG9':('NC_036788.1',14453796,15649299,32255605,33496468),'LG10':('NC_036789.1',11674905,11855817,29898615,29898615),
+				'LG11':('NC_036790.1',8302039,8309764,30371888,30459686),'LG13':('NC_036792.1',2249541,2453698,23046928,23131968),'LG20a':('NC_036799.1',19614379,19689710,29716509,29673642),
+				'LG20b':('NC_036799.1',29716509,29673642,32872827,33764042)}
 
 
 def parallel_filter(input_vcf, output_vcf, samples):
@@ -21,7 +22,7 @@ def parallel_filter(input_vcf, output_vcf, samples):
 	for lg in linkageGroups.keys():
 		lg_vcf = base_path + '/' + lg + '.vcf.gz'
 		vcf_files.append(lg_vcf)
-		processes.append(subprocess.Popen(['bcftools','view','-V','indels,other','-s',','.join(samples), '--min-ac','1:minor', '-r', lg, '-o', lg_vcf, '-O', 'b', input_vcf]))
+		processes.append(subprocess.Popen(['bcftools','view','-m','2','-M','2','-V','indels,other','-s',','.join(samples), '--min-ac','1:minor', '-r', lg, '-o', lg_vcf, '-O', 'b', input_vcf]))
 
 	for p in processes:
 		p.communicate()
@@ -46,6 +47,13 @@ fm_obj.downloadData(main_vcf + '.tbi')
 fm_obj.downloadData(fm_obj.localSampleFile_v2)
 s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
 
+#pdb.set_trace()
+
+#fm_obj.createSampleFiles('SAMEA4032069')
+#fm_obj.downloadData(fm_obj.localSampleBamDir)
+#fm_obj.createSampleFiles('SAMEA4032070')
+#fm_obj.downloadData(fm_obj.localSampleBamDir)
+
 #############################################################
 # 1. Create phylogenies for whole genome and each inversion #
 #############################################################
@@ -53,10 +61,10 @@ s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
 malawi_samples = s_dt[s_dt.CorePCA == 'Yes'].SampleID.to_list()
 c_dt = s_dt[s_dt.CorePCA == 'Yes']
 malawi_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals.vcf.gz'
-"""
-#parallel_filter(main_vcf, malawi_vcf, malawi_samples)
-subprocess.run(['bcftools','index', malawi_vcf])
 
+"""
+parallel_filter(main_vcf, malawi_vcf, malawi_samples)
+subprocess.run(['bcftools','index', '-f', malawi_vcf])
 
 #Create lg subsets for each inversion from the malawi samples vcf file
 for lg,(contig,temp,left,right,temp2) in inversions.items():
@@ -107,9 +115,10 @@ for tf in treefiles:
 	out = open(tf.replace('.tree','.modified.tree'), 'w')
 	print(data, file = out, end = '')
 """
-#subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','AUTO','-alrt','1000','-B','1000'])
-subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','24', '-v'])
 
+subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','24','-alrt','1000','-B','1000', '-mem', '96G', '-v', '--seqtype', 'DNA'])
+#subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','24', '-v'])
+"""
 ###########################################################
 # 2. Analyze Yellowhead individuals for pedigree analysis #
 ###########################################################
@@ -138,4 +147,4 @@ yellowhead_data = hm[hm.index.str.contains('YH')][hm.columns[hm.columns.str.cont
 #plink --vcf PATH/Example.vcf \ --allow-extra-chr \ --make-bed \ --out PATH/Example
 #plink2 --bfile PATH/Example \ --allow-extra-chr \ --make-king-table \ --out PATH/Example
 
-
+"""

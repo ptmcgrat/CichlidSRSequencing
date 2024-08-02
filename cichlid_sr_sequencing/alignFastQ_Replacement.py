@@ -38,24 +38,24 @@ timer.stop()
 aw_obj = AW(args.Genome, fm_obj)
 
 timer.start('  Parallel Downloading uBams files')
-#aw_obj.downloadReadData('Popen')
+aw_obj.downloadReadData('Popen')
 timer.stop()
 
 
 print('  Aligning reads to create sorted Bam files')
 #aw_obj.alignData()
-#aw_obj.alignData(linked=True)
+aw_obj.alignData(linked=True)
 
 print('  Marking duplicates for bamfiles')
 #aw_obj.markDuplicates()
-#aw_obj.markDuplicates(parallel = True)
+aw_obj.markDuplicates(parallel = True)
 
 timer.start('  Splitting reads based upon their alignment')
-#aw_obj.splitBamfiles()
+aw_obj.splitBamfiles()
 timer.stop()
 
 print('  Calling haplotypes to create gvcf files')
-#aw_obj.createGVCF(parallel = True)
+aw_obj.createGVCF(parallel = True)
 
 processes = []
 for sample in fm_obj.samples:
