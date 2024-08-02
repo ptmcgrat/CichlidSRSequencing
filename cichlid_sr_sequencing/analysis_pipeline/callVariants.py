@@ -293,12 +293,16 @@ class VariantCaller:
         print(f"Task {sample_name} finished at {self.current_time}")
 
     def temp_zip_and_reindex_vcfs(self, interval):
-        print(f"Starting compression for {interval}_output.vcf at {self.current_time}")
-        subprocess.run(['gzip', self.fm_obj.localOutputDir + interval + '_output.vcf'])
-        print(f"Compression for interval {interval}_output.vcf complete at {self.current_time}")
+        if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz').exists():
+            print(f"gzipped all-sites file for interval {interval} already exists. skipping compression")
+        else:
+            print(f"Starting compression for {interval}_output.vcf at {self.current_time}")
+            subprocess.run(['gzip', self.fm_obj.localOutputDir + interval + '_output.vcf'])
+            print(f"Compression for interval {interval}_output.vcf complete at {self.current_time}")
+        
         if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz').exists():
             print(f"{interval}_output.vcf.gz found. Starting indexing of the compressed VCF file at {self.current_time}")
-            subprocess.run(['tabix', self.fm_obj.localOutputDir + interval + '_output.vcf.gz'])
+            subprocess.run(['tabix', '-p', self.fm_obj.localOutputDir + interval + '_output.vcf.gz'])
             print(f"Indexing for {interval}_output.vcf.gz complete at {self.current_time}")
         else:
             print(f"Something went wrong when indexing interval {interval}. Failed at {self.current_time}")
