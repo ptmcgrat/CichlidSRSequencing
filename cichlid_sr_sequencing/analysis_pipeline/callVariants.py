@@ -302,7 +302,7 @@ class VariantCaller:
         
         if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz').exists():
             print(f"{interval}_output.vcf.gz found. Starting indexing of the compressed VCF file at {self.current_time}")
-            subprocess.run(['tabix', '-p', self.fm_obj.localOutputDir + interval + '_output.vcf.gz'])
+            subprocess.run(['tabix', '-p', 'vcf', self.fm_obj.localOutputDir + interval + '_output.vcf.gz'])
             print(f"Indexing for {interval}_output.vcf.gz complete at {self.current_time}")
         else:
             print(f"Something went wrong when indexing interval {interval}. Failed at {self.current_time}")
