@@ -294,10 +294,12 @@ class VariantCaller:
 
     def temp_zip_and_reindex_vcfs(self, interval):
         if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz').exists():
-            print(f"gzipped all-sites file for interval {interval} already exists. skipping compression")
-        else:
+            # print(f"gzipped all-sites file for interval {interval} already exists. skipping compression")
+            print('Unzipping the file')
+            subprocess.run(['gunzip', self.fm_obj.localOutputDir + interval + '_output.vcf.gz'])
+            # rezip with bgzip
             print(f"Starting compression for {interval}_output.vcf at {self.current_time}")
-            subprocess.run(['gzip', self.fm_obj.localOutputDir + interval + '_output.vcf'])
+            subprocess.run(['bgzip', self.fm_obj.localOutputDir + interval + '_output.vcf'])
             print(f"Compression for interval {interval}_output.vcf complete at {self.current_time}")
         
         if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz').exists():
