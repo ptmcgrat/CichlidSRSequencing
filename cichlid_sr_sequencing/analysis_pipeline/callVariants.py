@@ -13,13 +13,15 @@ parser.add_argument('-d', '--download_GVCF_data', help = 'Use this flag if you n
 parser.add_argument('-r', '--regions', help = 'list of linkage groups for which analyses will run', nargs = '*', default = ['All'])
 parser.add_argument('-b', '--download_bams', help = 'Download the BAM files from the cloud on which to call HaplotypeCaller', action = 'store_true')
 parser.add_argument('-H', '--efficient_haplotypecaller', help = 'use this flag to download BAM files and run HaplotypeCaller on samples', action = 'store_true')
-parser.add_argument('-l', '--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
 parser.add_argument('-a', '--alignment_file', help = 'use this flag to define samples based on the reference genome and alignments completed present in the ALignmentDatabase.csv file', action = 'store_true')
+parser.add_argument('-c', '--concat_and_index', help = 'Use this flag to concatenate the vcf files output by GenotypeGVCFs into a master_file.vcf.', action = 'store_true')
 parser.add_argument('--upload', help = 'Use this flag to upload GVCF files from the server to Dropbox', action =  'store_true')
-parser.add_argument('-t', '--temp_zip', help = 'temp arguemnt to zip the all-sites vcf files. They will come zipped already in the future.', action='store_true')
+parser.add_argument('--all_sites', help = 'use this flag if you want to gun GenotypeGVCFs in --include-non-varinat-sites mode', action = 'store_true')
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 4)
+parser.add_argument('--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
+
 args = parser.parse_args()
 
 """
@@ -89,8 +91,7 @@ class VariantCaller:
             duplicate_set_test = set(self.linkage_groups)
             if len(duplicate_set_test) != len(self.linkage_groups):
                 raise Exception('A repeat region has been provided')
-        
-            
+
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
             self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m']
@@ -237,11 +238,14 @@ class VariantCaller:
 
     def RunGenomicsDBImport(self, interval):
         print(f"Processing for interval {interval} started at {self.current_time}")
-        if args.unmapped: # if args.unmapped, use intervals described in the unmapped intervals dir within analysis_pipeline/
-            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt'])
-        else: # otherwise, for local_test and non-local_test, use the intervals found in GT3_intervals. 
+        if args.local_test: # for testing code locally. Keep or remove --overwrite-existing-genomicsdb-workspace as needed. Default is that it's true
             subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt','--overwrite-existing-genomicsdb-workspace'])
-        # subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4']) # this is code used if lgs are passed instaed of intervals. This looks to the all_lg_intervals dir and runs based on the old parallelization methods.
+        elif not args.unmapped: # for running on normal 96 intervals on the servers. Note that --overwrite-existing-genomicsdb-workspace is false, so nothing accidentally gets overwritten on the server. 
+            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt'])
+          # subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + lg + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + lg + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt', '--max-num-intervals-to-import-in-parallel', '4']) # this is code used if lgs are passed instaed of intervals. This looks to the all_lg_intervals dir and runs based on the old parallelization methods.
+        else: # If running on unmapped contigs, use intervals described in the unmapped intervals dir within analysis_pipeline/
+            subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'GenomicsDBImport', '--genomicsdb-workspace-path', self.fm_obj.localDatabasesDir + interval + '_database', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + interval + '.interval_list', '--sample-name-map', os.getcwd() + '/sample_map.txt'])
+          
         print(f"Interval {interval} finished processing at {self.current_time}")
 
     def RunGenotypeGVCFs(self, interval):
@@ -251,72 +255,103 @@ class VariantCaller:
             print(f"VCF file's index for interval {interval} found. Skipping GenotypeGVCFs for this interval")
         else:
             print(f"Processing for interval {interval} started at {self.current_time}")
-            if args.local_test: # update the location of the GenDB if "local testing" on Utaka vs on the mac. As of Oct 13, 2023, gatk4 does not work via a conda install on my M2 mac on Ventura 13.4.1 and it also doesn't work on a fresh conda env on Utaka (gatk 4.0.-.- gets installed when I need at least 4.3.0.0). gatk 4.3.0.0 still works on Utaka in the 'genomics' env
-                local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
-                local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-                local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-                local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-                local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-                subprocess.run(local_command)
+            if args.local_test: # section is for local_testing code
+                if args.all_sites: # This section is for running locally with --include-non-variant-sites true. IMPORTANT: This option is true only in gatk v4.3.0.0 - 24.07.23 NK. This flag is --all-sites on older versions!! Be careful with this option depending on what gatk version you're using!!
+                    local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'true', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                    local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                    local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                    local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                    local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                    subprocess.run(local_command)
+                else: # this section is for running locally in normal mode, i.e. WITHOUT --include-non-variant-sites
+                    local_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                    local_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                    local_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                    local_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                    local_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                    subprocess.run(local_command)
             elif not args.unmapped: # For running the standard 96 intervals (not unmappped and not local_test). gendb path is to the gendb located on the Utaka server. Will need to change if running on Mzebra 
-                # NOTE: UPDATED THE COMMAND TO INCLUDE THE --include-non-variant-sites FLAG WHICH WILL HELP US PERFORM PI CALCULATIONS USING PIXY. This option is true only in gatk v4.3.0.0 - 24.07.23 NK. This flag is --all-sites on older versions!! Be careful with this option depending on what file you're using!!
-                genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'true', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
-                genotypegvcfs_unmapped_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-                genotypegvcfs_unmapped_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-                genotypegvcfs_unmapped_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-                genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-                subprocess.run(genotypegvcfs_unmapped_command)
-            else: # code for running the unmapped contigs
-                genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
-                genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
-                genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
-                genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
-                genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
-                subprocess.run(genotypegvcfs_command)
+                if args.all_sites: # This section is for running the 96 intervals with --include-non-variant-sites true. IMPORTANT: This option is true only in gatk v4.3.0.0 - 24.07.23 NK. This flag is --all-sites on older versions!! Be careful with this option depending on what gatk version you're using!!
+                    genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'true', '--intervals', os.getcwd() + '/GT3_intervals/' + interval + '.interval_list'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                    genotypegvcfs_unmapped_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                    genotypegvcfs_unmapped_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                    genotypegvcfs_unmapped_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                    genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                    subprocess.run(genotypegvcfs_unmapped_command)
+                else: # this section is for running the 96 intervals in normal mode, i.e. WITHOUT --include-non-variant-sites
+                    genotypegvcfs_unmapped_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                    genotypegvcfs_unmapped_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                    genotypegvcfs_unmapped_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                    genotypegvcfs_unmapped_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                    genotypegvcfs_unmapped_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                    subprocess.run(genotypegvcfs_unmapped_command)
+            else: # This section is for running the unmapped contigs.
+                if args.all_sites: # This section is for running unmapped contigs with --include-non-variant-sites true. IMPORTANT: This option is true only in gatk v4.3.0.0 - 24.07.23 NK. This flag is --all-sites on older versions!! Be careful with this option depending on what gatk version you're using!!
+                    genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175', '--include-non-variant-sites', 'true', '--intervals', os.getcwd() + '/unmapped_contig_intervals/' + interval + '.interval_list'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                    genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                    genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                    genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                    genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                    subprocess.run(genotypegvcfs_command)
+                else: # this section is for running unmapped contigs in normal mode, i.e. WITHOUT --include-non-variant-sites
+                    genotypegvcfs_command = ['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G','GenotypeGVCFs', '-R', self.fm_obj.localGenomeFile, '-V', 'gendb://../../../../../../' + self.fm_obj.localDatabasesDir + interval + '_database/', '-O', self.fm_obj.localOutputDir + interval + '_output.vcf.gz', '--heterozygosity', '0.00175'] # seq divergence estimated to be 0.01 - 0.25% in the Malinksy paper so I've set it at 0.00175 as the average of these values 
+                    genotypegvcfs_command += ['-A', 'DepthPerAlleleBySample', '-A', 'Coverage', '-A', 'GenotypeSummaries', '-A', 'TandemRepeat', '-A', 'StrandBiasBySample']
+                    genotypegvcfs_command += ['-A', 'ReadPosRankSumTest', '-A', 'AS_ReadPosRankSumTest', '-A', 'AS_QualByDepth', '-A', 'AS_StrandOddsRatio', '-A', 'AS_MappingQualityRankSumTest']
+                    genotypegvcfs_command += ['-A', 'FisherStrand',  '-A', 'QualByDepth', '-A', 'RMSMappingQuality', '-A', 'DepthPerSampleHC']
+                    genotypegvcfs_command += ['-G', 'StandardAnnotation', '-G', 'AS_StandardAnnotation', '-G', 'StandardHCAnnotation']
+                    subprocess.run(genotypegvcfs_command)
             print(f"Interval {interval} finished processing at {self.current_time}")
 
-    def mp_test_function(self, interval):
-        print(f"Task {interval} started at {self.current_time}")
+    def _merge_vcfs(self):
+        vcfConcatDir = self.fm_obj.localOutputDir + 'vcf_concat_output/'
+        file_num = 0
+        for file in os.listdir(vcfConcatDir):
+            if file.startswith('master_file') and file.endswith('.vcf.gz'): # If any other compressed master_files (but not index files) exist, then they do not get overwritten
+                file_num += 1
 
-        # Simulate some work with sleep
-        time.sleep(interval)
+        if args.local_test: # local testing interval zipping
+            intervals = list(range(1,97))
+            with open('compression_file_list.txt', 'w') as fh:
+                for interval in intervals:
+                    fh.write(f"{self.fm_obj.localOutputDir}{str(interval)}_output.vcf.gz\n")
+            if file_num == 0:
+                print(f"Starting compression of individual VCF files at {self.current_time}")
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz', '--threads', str(self.concurrent_processes)])
+                print(f"master_file.vcf.gz finished concatenating and inxing at {self.current_time}")
+            else:
+                print(f"Another master_file has been found in the vcf_concat_output directory. Writing master_file{file_num}.vcf.gz at {self.current_time}")
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ str(file_num) + '.vcf.gz', '--threads', str(self.concurrent_processes)])
 
-        print(f"Task {interval} finished at {self.current_time}")
+        elif not args.unmapped: # normal 96 interval zipping
+            intervals = list(range(1,97))
+            with open('compression_file_list.txt', 'w') as fh:
+                for interval in intervals:
+                    fh.write(f"{self.fm_obj.localOutputDir}{str(interval)}_output.vcf.gz\n")
+            if file_num == 0:
+                print(f"Starting compression of individual VCF files at {self.current_time}")
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz', '--threads', str(self.concurrent_processes)])
+                print(f"master_file.vcf.gz finished concatenating and inxing at {self.current_time}")
+            else:
+                print(f"Another master_file has been found in the vcf_concat_output directory. Writing master_file{file_num}.vcf.gz at {self.current_time}")
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ str(file_num) + '.vcf.gz', '--threads', str(self.concurrent_processes)])
 
-    def new_test(self, sample_name):
-        print(f"Task {sample_name} started at {self.current_time}")
-
-        # Simulate some work with sleep
-        print(sample_name)
-        time.sleep(random.randint(1,7))
-
-        print(f"Task {sample_name} finished at {self.current_time}")
-
-    def temp_zip_and_reindex_vcfs(self, interval):
-        if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz').exists():
-            # print(f"gzipped all-sites file for interval {interval} already exists. skipping compression")
-            print('Unzipping the file')
-            subprocess.run(['gunzip', self.fm_obj.localOutputDir + interval + '_output.vcf.gz'])
-            # rezip with bgzip
-            print(f"Starting compression for {interval}_output.vcf at {self.current_time}")
-            subprocess.run(['bgzip', self.fm_obj.localOutputDir + interval + '_output.vcf'])
-            print(f"Compression for interval {interval}_output.vcf complete at {self.current_time}")
-        
-        if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz').exists():
-            print(f"{interval}_output.vcf.gz found. Starting indexing of the compressed VCF file at {self.current_time}")
-            subprocess.run(['tabix', '-p', 'vcf', self.fm_obj.localOutputDir + interval + '_output.vcf.gz'])
-            print(f"Indexing for {interval}_output.vcf.gz complete at {self.current_time}")
-        else:
-            print(f"Something went wrong when indexing interval {interval}. Failed at {self.current_time}")
-        # manually delete the old .idx indexes afterwards.
+        else: # unmapped contig vcf file output concatenation and compression
+            self.fasta = Fasta(self.fm_obj.localGenomeFile)
+            self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
+            with open('compression_file_list.txt', 'w') as fh:
+                for contig in self.unmapped_contig:
+                    fh.write(f"{self.fm_obj.localOutputDir}{contig}\n")
+            if file_num == 0:
+                print(f"Starting compression of individual VCF files at {self.current_time}")
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz', '--threads', str(self.concurrent_processes)])
+                print(f"master_file.vcf.gz finished concatenating and inxing at {self.current_time}")
+            else:
+                print(f"Another master_file has been found in the vcf_concat_output directory. Writing master_file{file_num}.vcf.gz at {self.current_time}")
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ file_num + '.vcf.gz', '--threads', str(self.concurrent_processes)])
 
     def multiprocess(self, function, sample_type):
-        """
-        TODO:
-        - find a way to load processes that would take the lonegst time to go first
-        """
+        # TODO: find a way to load processes that would take the lonegst time to go first
         # Author: Lauren Sabo; edits made by NK
-        # the below code will allow multiprocess to be run on a function based on SampleIDs or by LG. Similar code can be added to breakup the run by either projectID, intervals, etc. 
         if sample_type == 'lg':
             inputs = self.linkage_groups
         elif sample_type == 'sampleID':
@@ -324,17 +359,13 @@ class VariantCaller:
         elif sample_type == 'interval':
             intervals = list(range(1,97))
             inputs = list(map(str, intervals))
-            # below code was used to test the new_test() and mp_test_function() functions 
-            # if not args.local_test:
-            #     intervals = list(range(1,97))
-            #     inputs = list(map(str, intervals))
-            # else:
-            #     inputs = [5, 3, 8, 2, 6, 1, 7, 4]
         elif sample_type == 'unmapped':
             # define the unmapped contigs
             self.fasta = Fasta(self.fm_obj.localGenomeFile)
             self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
             inputs = self.unmapped_contigs
+        if args.all_sites: # if running GenotypeGVCFs in all-sites mode, 96 concurrent processes will deplete all availabel memory, so change the max concurrent processes to be 48 instead. 
+            self.concurrent_processes = 48
         concurrent_processes = min(self.concurrent_processes, len(inputs))
 
         try:
@@ -359,82 +390,48 @@ class VariantCaller:
             self.multiprocess(self.RunGenotypeGVCFs, 'interval')
         if args.genotype and args.unmapped:
             self.multiprocess(self.RunGenomicsDBImport, 'unmapped')
-        if args.temp_zip:
-            self.multiprocess(self.temp_zip_and_reindex_vcfs, 'interval')
-        # if args.local_test:
-        #     self.multiprocess(self.mp_test_function, 'interval')
-        # if args.local_test:
-        #     self.multiprocess(self.new_test, 'sampleID')
+        if args.concat_and_index:
+            self._merge_vcfs()
 
 if __name__ == "__main__":
     variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
     variant_caller_obj.run_methods()
-    print('PIPELINE RUN SUCCESSFUL')
+    print('PIPELINE RUN COMPLETE')
 
 
-    """
-    time python callVariants.py Mzebra_GT3 -a -H --concurrent_processes 90 --memory 11 2> error_haplotype_caller_run_240625.txt 1> log_haplotype_caller_run_240625.txt
-    time python callVariants.py Mzebra_GT3 --temp -H --concurrent_processes 11 --memory 11 # for running the 11 samples that were failing GVCF creation for some reason. 
-    NOTE:
-    TEST THE SAMPLE MAP CODE ON UTAKA BY UNCOMMENTING THE pdb.set_trace() IN self._generate_sample_map(). Ensure that all the samples in the cohort are being written into the sample map 
-    time python callVariants.py Mzebra_GT3 --local_test --import_databases
-    time python callVariants.py Mzebra_GT3 --local_test --genotype
-    """
-
-
-# time python callVariants.py Mzebra_GT3 -a --upload --concurrent_processes 84
-# time python callVariants.py Mzebra_GT3 -a -i -g --concurrent_processes 96 -m 10 
-
-# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/G_Aulon_yelhead_Male.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240703.txt 1> log_240703.txt
-# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240703.txt 1> log_240703.txt
-
-
-
-
-# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/combined_MZ4f_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240712.txt 1> log_240712.txt
-# time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 47 2> error_240712.txt 1> log_240712.txt
 """
 time python callVariants.py Mzebra_GT3 -b  -H -a --concurrent_processes 24 -m 40 2> error_sd_rerun_240721.txt 1> log_sd_rerun240721.txt
 time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
-
 time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 96 -m 10
-
 time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --temp_zip 2> error_zip_allsites_vcfs_240802.txt 1> log_zip_allsites_vcfs_240802.txt
 
 
+time python callVariants.py Mzebra_GT3 --local_test --concat_and_index --memory 1 --concurrent_processes 10
 
+"""
 
-time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/C_Copad_virgin_Male.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 30 2> error_240721.txt 1> log_240721.txt
-time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/D_Copad_virgin_Female.hifi_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 30 2> error_240721.txt 1> log_240721.txt
-time /home/ad.gatech.edu/bio-mcgrath-dropbox/bin/Mabs-2.28/mabs-hifiasm.py --pacbio_hifi_reads /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/combined_CV4f_reads.fastq.gz --download_busco_dataset vertebrata_odb10.2021-02-19.tar.gz --threads 30 2> error_240722.txt 1> log_240722.txt
-
-
-
-hs_assemblies
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/hybrid_scaffold_genome/YH7f_ptm_error_corrected_contigs_hs_with_kocher_2f_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/hybrid_scaffold_genome/G_Aulon_yelhead_Male_error_corrected_contigs_hs_with_kocher_1m_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/G_Aulon_yelhead_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/hybrid_scaffold_genome/MZ4f_ptm_error_corrected_contigs_hs_with_MZ-010-f_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/combined_MZ4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/hybrid_scaffold_genome/N_Met_zebra_Female_error_corrected_contigs_hs_with_MZ7.1m_molecules_all_scaffolds.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/hybrid_scaffold_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-
-
-
-anchored_assemblies
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/anchored_genome/YH7f_ptm_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/YH7f/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/YH7f_ptm/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/anchored_genome/kocher_G_Aulon_yelhead_Male_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/G_Aulon_yelhead_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/G_Aulon_yelhead_Male/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/anchored_genome/MZ4f_ptm_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/MZ4f/combined_MZ4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/MZ4f_ptm/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome/kocher_N_Met_zebra_Female_anchored_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/N_Met_zebra_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/N_Met_zebra_Female/inspector/anchored_genome --datatype hifi --thread 8 2> error_240723.txt 1> log_240723.txt
-
-
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/mabs/Mabs_results/The_best_assembly/C_Copad_virgin_Male_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/C_Copad_virgin_Male.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/C_Copad_virgin_Male/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/mabs/Mabs_results/The_best_assembly/D_Copad_virgin_Female_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/kocher_data/D_Copad_virgin_Female.hifi_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/D_Copad_virgin_Female/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
-time ~/Inspector/inspector.py --contig /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/mabs/Mabs_results/The_best_assembly/CV4f_mabs_assembly.fasta --read /home/ad.gatech.edu/bio-mcgrath-dropbox/hudsonalpha/CV4f/combined_CV4f_reads.fastq.gz --outpath /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/inspector/mabs --datatype hifi --thread 30 2> error_240724.txt 1> log_240724.txt
-
-time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 24 -m 10 2> error_all_sites_rerun_240725.txt 1> log_all_sites_rerun_240725.txt
-
-
-
-time /home/ad.gatech.edu/bio-mcgrath-dropbox/Inspector/inspector-correct.py -i /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/inspector/mabs --datatype pacbio-hifi -o /home/ad.gatech.edu/bio-mcgrath-dropbox/KocherAssembly/CV4f/inspector/mabs/error_correction --thread 96
-
+"""
+Old Code & Unused functions:
+    def mp_test_function(self, interval):
+        print(f"Task {interval} started at {self.current_time}")
+        # Simulate some work with sleep
+        time.sleep(interval)
+        print(f"Task {interval} finished at {self.current_time}")
+    def new_test(self, sample_name):
+        print(f"Task {sample_name} started at {self.current_time}")
+        # Simulate some work with sleep
+        print(sample_name)
+        time.sleep(random.randint(1,7))
+        print(f"Task {sample_name} finished at {self.current_time}")
+            below code was used to test the new_test() and mp_test_function() functions in the multiprocess function.
+            if not args.local_test:
+                intervals = list(range(1,97))
+                inputs = list(map(str, intervals))
+            else:
+                inputs = [5, 3, 8, 2, 6, 1, 7, 4]
+        Below code goes in the run_methods() function
+        if args.local_test:
+            self.multiprocess(self.mp_test_function, 'interval')
+        if args.local_test:
+            self.multiprocess(self.new_test, 'sampleID')
 """
