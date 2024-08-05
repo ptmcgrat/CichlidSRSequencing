@@ -304,7 +304,7 @@ class VariantCaller:
 
     def _merge_vcfs(self):
         vcfConcatDir = self.fm_obj.localOutputDir + 'vcf_concat_output/'
-        file_num = 0
+        file_num = 1
         for file in os.listdir(vcfConcatDir):
             if file.startswith('master_file') and file.endswith('.vcf.gz'): # If any other compressed master_files (but not index files) exist, then they do not get overwritten
                 file_num += 1
@@ -314,26 +314,26 @@ class VariantCaller:
             with open('compression_file_list.txt', 'w') as fh:
                 for interval in intervals:
                     fh.write(f"{self.fm_obj.localOutputDir}{str(interval)}_output.vcf.gz\n")
-            if file_num == 0:
+            if file_num == 1:
                 print(f"Starting compression of individual VCF files at {self.current_time}")
                 subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz', '--threads', str(self.concurrent_processes)])
                 print(f"master_file.vcf.gz finished concatenating and inxing at {self.current_time}")
             else:
                 print(f"Another master_file has been found in the vcf_concat_output directory. Writing master_file{file_num}.vcf.gz at {self.current_time}")
-                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ str(file_num) + '.vcf.gz', '--threads', str(self.concurrent_processes)])
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ str(file_num) + '.vcf.gz', '--threads', str(self.concurrent_processes)])
 
         elif not args.unmapped: # normal 96 interval zipping
             intervals = list(range(1,97))
             with open('compression_file_list.txt', 'w') as fh:
                 for interval in intervals:
                     fh.write(f"{self.fm_obj.localOutputDir}{str(interval)}_output.vcf.gz\n")
-            if file_num == 0:
+            if file_num == 1:
                 print(f"Starting compression of individual VCF files at {self.current_time}")
                 subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz', '--threads', str(self.concurrent_processes)])
                 print(f"master_file.vcf.gz finished concatenating and inxing at {self.current_time}")
             else:
                 print(f"Another master_file has been found in the vcf_concat_output directory. Writing master_file{file_num}.vcf.gz at {self.current_time}")
-                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ str(file_num) + '.vcf.gz', '--threads', str(self.concurrent_processes)])
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ str(file_num) + '.vcf.gz', '--threads', str(self.concurrent_processes)])
 
         else: # unmapped contig vcf file output concatenation and compression
             self.fasta = Fasta(self.fm_obj.localGenomeFile)
@@ -341,13 +341,13 @@ class VariantCaller:
             with open('compression_file_list.txt', 'w') as fh:
                 for contig in self.unmapped_contig:
                     fh.write(f"{self.fm_obj.localOutputDir}{contig}\n")
-            if file_num == 0:
+            if file_num == 1:
                 print(f"Starting compression of individual VCF files at {self.current_time}")
-                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz', '--threads', str(self.concurrent_processes)])
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf.gz', '--threads', str(self.concurrent_processes)])
                 print(f"master_file.vcf.gz finished concatenating and inxing at {self.current_time}")
             else:
                 print(f"Another master_file has been found in the vcf_concat_output directory. Writing master_file{file_num}.vcf.gz at {self.current_time}")
-                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '--Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ file_num + '.vcf.gz', '--threads', str(self.concurrent_processes)])
+                subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ file_num + '.vcf.gz', '--threads', str(self.concurrent_processes)])
 
     def multiprocess(self, function, sample_type):
         # TODO: find a way to load processes that would take the lonegst time to go first
@@ -364,8 +364,10 @@ class VariantCaller:
             self.fasta = Fasta(self.fm_obj.localGenomeFile)
             self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
             inputs = self.unmapped_contigs
-        if args.all_sites: # if running GenotypeGVCFs in all-sites mode, 96 concurrent processes will deplete all availabel memory, so change the max concurrent processes to be 48 instead. 
+        if args.all_sites and not args.local_test: # if running GenotypeGVCFs in all-sites mode, 96 concurrent processes will deplete all availabel memory, so change the max concurrent processes to be 48 instead. Makes sure this only applies on server.
             self.concurrent_processes = 48
+        elif args.all_sites and args.local_test:
+            self.concurrent_processes = 5
         concurrent_processes = min(self.concurrent_processes, len(inputs))
 
         try:
@@ -404,6 +406,8 @@ time python callVariants.py Mzebra_GT3 -b  -H -a --concurrent_processes 24 -m 40
 time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
 time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 96 -m 10
 time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --temp_zip 2> error_zip_allsites_vcfs_240802.txt 1> log_zip_allsites_vcfs_240802.txt
+
+time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --concat_and_index 2> error_concat_all_sites_240805.txt  1> log_concat_all_sites_240805.txt
 
 
 time python callVariants.py Mzebra_GT3 --local_test --concat_and_index --memory 1 --concurrent_processes 10
