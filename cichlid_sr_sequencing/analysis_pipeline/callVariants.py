@@ -71,6 +71,7 @@ class VariantCaller:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
             s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
             self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on
+            pdb.set_trace()
 
         # Code block for determining which linkage groups will be processed by the script:
         self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
