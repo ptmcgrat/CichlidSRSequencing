@@ -14,7 +14,6 @@ parser.add_argument('-b', '--download_bams', help = 'Download the BAM files from
 parser.add_argument('-H', '--efficient_haplotypecaller', help = 'use this flag to download BAM files and run HaplotypeCaller on samples', action = 'store_true')
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
-parser.add_argument('-a', '--alignment_file', help = 'use this flag to define samples based on the reference genome and alignments completed present in the ALignmentDatabase.csv file', action = 'store_true')
 parser.add_argument('-s', '--sampleIDs', help = 'Use this flag to customize the sampleIDs that the pipeline will run for', default = ['All'], choices = ['All', 'alignment_file', 'custom', 'v2_column'], nargs = 1)
 parser.add_argument('-c', '--concat_and_index', help = 'Use this flag to concatenate the vcf files output by GenotypeGVCFs into a master_file.vcf.', action = 'store_true')
 parser.add_argument('--Output', help = 'Use this flag to specify that the files for use in the pipleine or that need to be downloaded are located at /Output in Utaka', action = 'store_true')
@@ -25,7 +24,8 @@ parser.add_argument('--local_test', help = 'when this flag is called, variables 
 args = parser.parse_args()
 
 """
-time python callVariants.py Mzebra_GT3 
+time python callVariants.py Mzebra_GT3 -i -g -m 10 -s v2_column --Output --concurrent_processes 96 2> 
+
 """
 
 """
