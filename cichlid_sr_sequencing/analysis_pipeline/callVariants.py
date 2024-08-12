@@ -24,6 +24,7 @@ parser.add_argument('--concurrent_processes', help = 'specify the number of proc
 parser.add_argument('--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 args = parser.parse_args()
 
+# time python callVariants.py Mzebr_GT3 -d -a --Output --concurrent_processes 5 2> error_download_nyrereri_240812.txt 1> log_download_nyrereri_240812.txt
 """
 NOTE: 
 as of 2024 June 5, I can conda install -c bioconda gatk4 into a fresh conda env. The version installed is gatk4-4.0.5.1-0
@@ -70,6 +71,7 @@ class VariantCaller:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
             s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
             self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on
+            pdb.set_trace()
 
 
         # Code block for determining which linkage groups will be processed by the script:
