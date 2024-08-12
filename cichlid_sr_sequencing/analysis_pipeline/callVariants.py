@@ -110,12 +110,14 @@ class VariantCaller:
         with open('sample_map.txt', 'w') as fh:
             for sampleID in sampleIDs:
                 self.fm_obj.createSampleFiles(sampleID)
-                # commenting out below line since BAM and GVCF files are stored at /Output/Bamfiles/Mzebra_UMD2a
-                # fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
-                if not args.local_test:
-                    fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
-                else:
+                if args.local_test:
                     fh.write(sampleID + '\t' + self.fm_obj.localTestGVCFFile + '\n')
+                elif args.Output:
+                    fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
+                else:
+                    fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
+            pdb.set_trace()
+                    
 
     def GVCF_downloader(self, sampleID):
         # Download the GVCF and GVCF.idx files for each sample in self.sampleIDs
