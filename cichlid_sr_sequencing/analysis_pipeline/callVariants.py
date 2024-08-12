@@ -17,11 +17,11 @@ parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocat
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
 parser.add_argument('-a', '--alignment_file', help = 'use this flag to define samples based on the reference genome and alignments completed present in the ALignmentDatabase.csv file', action = 'store_true')
 parser.add_argument('-c', '--concat_and_index', help = 'Use this flag to concatenate the vcf files output by GenotypeGVCFs into a master_file.vcf.', action = 'store_true')
+parser.add_argument('--Output', help = 'Use this flag to specify that the files for use in the pipleine or that need to be downloaded are located at /Output in Utaka', action = 'store_true')
 parser.add_argument('--upload', help = 'Use this flag to upload GVCF files from the server to Dropbox', action =  'store_true')
 parser.add_argument('--all_sites', help = 'use this flag if you want to gun GenotypeGVCFs in --include-non-varinat-sites mode', action = 'store_true')
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 4)
 parser.add_argument('--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
-
 args = parser.parse_args()
 
 """
@@ -118,13 +118,21 @@ class VariantCaller:
     def GVCF_downloader(self, sampleID):
         # Download the GVCF and GVCF.idx files for each sample in self.sampleIDs
         self.fm_obj.createSampleFiles(sampleID)
-        if args.local_test:
+        if args.local_test: # for downloading files locally and testing if the script works 
             if pathlib.Path(self.fm_obj.localTestGVCFFile).exists():
                 print('GCVF file for ' + sampleID + ' exists. Skipping sample...')
             else:
                 print(f"Starting GVCF and GVCF index download for sample {sampleID} at {self.current_time}")
                 self.fm_obj.downloadData(self.fm_obj.localTestGVCFFile)
                 self.fm_obj.downloadData(self.fm_obj.localTestGVCFIndex)
+                print(f"Download of GVCF and GVCF index for sample {sampleID} complete at {self.current_time}")
+        elif args.Outputs:
+            if pathlib.Path(self.fm_obj.StorageGVCFFile).exists():
+                print(print('GCVF file for ' + sampleID + ' exists at /Output. Skipping sample...'))
+            else:
+                print(f"Starting GVCF and GVCF index download for sample {sampleID} at {self.current_time}. Sample is being stored at /Outputs")
+                self.fm_obj.downloadData(self.fm_obj.StorageGVCFFile)
+                self.fm_obj.downloadData(self.fm_obj.StorageGVCFIndex)
                 print(f"Download of GVCF and GVCF index for sample {sampleID} complete at {self.current_time}")
         else:
             if pathlib.Path(self.fm_obj.localGVCFFile).exists():
