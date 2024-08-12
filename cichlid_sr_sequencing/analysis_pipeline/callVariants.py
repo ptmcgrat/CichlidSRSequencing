@@ -6,7 +6,6 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
 parser.add_argument('-e', '--ecogroups', help = 'one or multiple eco group names that will filter the samples on which the pipeline is run', choices = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC', 'Non_Riverine', 'All', 'Lake_Malawi', 'Rock_Sand', 'Sand'], nargs = '*', default = ['All'])
-parser.add_argument('-p', '--projectIDs', help = 'list of projectIDs on which to run the pipeline. Custom IDs can be provided as a csv file containing one sample per line. Save the file as "custom_samples.csv" in the directory containing this script.', nargs = '*', default = ['All'])
 parser.add_argument('-i', '--import_databases', help = 'Call this flag to run GenomicsDBImport on the samples in the database', action = 'store_true')
 parser.add_argument('-g', '--genotype', help = 'Call this flag to run GenotypeGVCFs on the samples in the database', action = 'store_true')
 parser.add_argument('-d', '--download_GVCF_data', help = 'Use this flag if you need to download the GVCF files from Dropbox to include in the VCF analysis', action = 'store_true')
@@ -16,6 +15,7 @@ parser.add_argument('-H', '--efficient_haplotypecaller', help = 'use this flag t
 parser.add_argument('-m', '--memory', help = 'How much memory, in GB, to allocate to each child process', default = [4], nargs = 1)
 parser.add_argument('-u', '--unmapped', help = 'Use this flag to run -i and -g on the unmapped contigs in the genome', action = 'store_true')
 parser.add_argument('-a', '--alignment_file', help = 'use this flag to define samples based on the reference genome and alignments completed present in the ALignmentDatabase.csv file', action = 'store_true')
+parser.add_argument('-s', '--sampleIDs', help = 'Use this flag to customize the sampleIDs that the pipeline will run for', default = ['All'], choices = ['All', 'alignment_file', 'custom', 'v2_column'], nargs = 1)
 parser.add_argument('-c', '--concat_and_index', help = 'Use this flag to concatenate the vcf files output by GenotypeGVCFs into a master_file.vcf.', action = 'store_true')
 parser.add_argument('--Output', help = 'Use this flag to specify that the files for use in the pipleine or that need to be downloaded are located at /Output in Utaka', action = 'store_true')
 parser.add_argument('--upload', help = 'Use this flag to upload GVCF files from the server to Dropbox', action =  'store_true')
@@ -24,7 +24,10 @@ parser.add_argument('--concurrent_processes', help = 'specify the number of proc
 parser.add_argument('--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 args = parser.parse_args()
 
-# time python callVariants.py Mzebra_GT3 -d -a --Output --concurrent_processes 5 2> error_download_nyrereri_240812.txt 1> log_download_nyrereri_240812.txt
+"""
+time python callVariants.py Mzebra_GT3 
+"""
+
 """
 NOTE: 
 as of 2024 June 5, I can conda install -c bioconda gatk4 into a fresh conda env. The version installed is gatk4-4.0.5.1-0
@@ -37,10 +40,10 @@ TODO:
 """
 
 class VariantCaller:
-    def __init__(self, genome, project_ids, linkage_groups, memory, ecogroups, processes):
+    def __init__(self, genome, sampleIDs, linkage_groups, memory, ecogroups, processes):
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.projectIDs = project_ids
+        self.sampleIDs = sampleIDs
         self.memory = memory
         self.ecogroups = ecogroups
         self.concurrent_processes = processes
@@ -57,20 +60,35 @@ class VariantCaller:
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
 
-        if not args.alignment_file:
-            # Code block to set the ecogroups
+        # block for defining sampleIDs if you want specific samples from a SampleDatabase column, using the alignmnetdatabase, or anythign else
+        if self.sampleIDs == ['All']:
             self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
             s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel') # reads in the SampleLevel sheet from SampleDatabase_v2.xlsx
             eg_filtered_df = s_df[s_df['Ecogroup_PTM'].isin(self.ecogroups)] # filter samples that match the ecogroups in the analysis
             self.sampleIDs = eg_filtered_df['SampleID'].to_list()
-
-            for sample in self.sampleIDs:
-                if not s_df['SampleID'].eq(sample).any():
-                    raise Exception(f"{sample} not found in the Sample Database")
-        else:
+        elif self.sampleIDs == ['aligmment_file']:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
             s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
             self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on
+        elif self.sampleIDs == ['custom']:
+            # TODO: allow a file with custom sample names to be used as input for the pipleine. 
+
+            # error checking for sampleIDs in custom file
+            for sample in self.sampleIDs:
+                if not s_df['SampleID'].eq(sample).any():
+                    raise Exception(f"{sample} not found in the Sample Database")
+        elif self.sampleIDs == ['v2_column']:
+            self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2)
+            s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel')
+            while True:
+                column = input('Enter name of column you want to use from SampleDatabase_v2.xlsx: ')
+                if column not in s_df.columns.to_list():
+                    print('Ivalid Column. Check spelling and re-enter a column name')
+                    continue
+                else:
+                    break
+            self.sampleIDs = s_df[s_df[column] == 'Yes'].SampleID.to_list() # basically allows filtering based on columns that use a Yes or No classification per sample. 
+
         # Code block for determining which linkage groups will be processed by the script:
         self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
                              'LG7':'NC_036786.1', 'LG8':'NC_036787.1', 'LG9':'NC_036788.1', 'LG10':'NC_036789.1', 'LG11':'NC_036790.1', 'LG12':'NC_036791.1', 
@@ -97,8 +115,6 @@ class VariantCaller:
             self.memory = [1]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
             self.concurrent_processes = 10
-        # if args.temp: # explicitly defining the failing samples for GVCF creation. 
-        #     self.sampleIDs = ['SAMN08051119', 'SAMEA4032070', 'SAMEA4032033', 'SAMN08051114', 'SAMEA3388874', 'SAMEA4033276', 'MZ_1_m', 'SAMEA4033320', 'SAMN08051113', 'SAMEA4032067', 'SAMEA4032104'] # 11 problematic samples. Unsure why they didn't run for GVCF creation 
         print(f"Number of samples for this pipeline run is {len(self.sampleIDs)}")
 
     def _generate_sample_map(self):
@@ -113,8 +129,6 @@ class VariantCaller:
                     fh.write(sampleID + '\t' + self.fm_obj.StorageGVCFFile + '\n')
                 else:
                     fh.write(sampleID + '\t' + self.fm_obj.localGVCFFile + '\n')
-            pdb.set_trace()
-                    
 
     def GVCF_downloader(self, sampleID):
         # Download the GVCF and GVCF.idx files for each sample in self.sampleIDs
@@ -404,7 +418,7 @@ class VariantCaller:
             self._merge_vcfs()
 
 if __name__ == "__main__":
-    variant_caller_obj = VariantCaller(args.reference_genome, args.projectIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
+    variant_caller_obj = VariantCaller(args.reference_genome, args.sampleIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
     variant_caller_obj.run_methods()
     print('PIPELINE RUN COMPLETE')
 
