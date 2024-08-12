@@ -126,7 +126,7 @@ class VariantCaller:
                 self.fm_obj.downloadData(self.fm_obj.localTestGVCFFile)
                 self.fm_obj.downloadData(self.fm_obj.localTestGVCFIndex)
                 print(f"Download of GVCF and GVCF index for sample {sampleID} complete at {self.current_time}")
-        elif args.Output:
+        elif args.Output: # NOTE: DOES NOT WORK. THE DROPBOX DTRUCTURE MUST BE MIRRORED. SO IF I WANT TO DOWNLOAD INTO /OUTPUTS, IT MUST EXIST IN /OUTPUTS IN DROPBOX. 
             if pathlib.Path(self.fm_obj.StorageGVCFFile).exists():
                 print(print('GCVF file for ' + sampleID + ' exists at /Output. Skipping sample...'))
             else:
@@ -382,7 +382,6 @@ class VariantCaller:
                 pool.map(function, inputs)
         except Exception as e:
             print(f"Error occurred during multiprocessing: {e}")
-        pdb.set_trace()
 
     def run_methods(self):
         self._generate_sample_map()
