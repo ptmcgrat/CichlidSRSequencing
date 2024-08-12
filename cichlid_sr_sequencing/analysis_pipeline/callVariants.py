@@ -118,6 +118,7 @@ class VariantCaller:
     def GVCF_downloader(self, sampleID):
         # Download the GVCF and GVCF.idx files for each sample in self.sampleIDs
         self.fm_obj.createSampleFiles(sampleID)
+        pdb.set_trace()
         if args.local_test: # for downloading files locally and testing if the script works 
             if pathlib.Path(self.fm_obj.localTestGVCFFile).exists():
                 print('GCVF file for ' + sampleID + ' exists. Skipping sample...')
