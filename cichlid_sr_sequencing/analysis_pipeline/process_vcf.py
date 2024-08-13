@@ -31,7 +31,7 @@ class VCFProcessor:
     def __init__(self, genome):
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/phylogenyfigure_master_file.vcf.gz'
+        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/YHPedigree_master_file.vcf.gz'
         self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/'
         intervals = list(range(1,97))
         self.intervals = list(map(str, intervals))
@@ -133,8 +133,8 @@ class VCFProcessor:
 
     def filter_variants(self):
         print('RUNNING VARIANT FILTERING')
-        self.filtered_file = self.fm_obj.localOutputDir + 'vcf_concat_output/phylogenyfigure_filtered_master_file.vcf.gz'
-        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/phylogenyfigure_pass_variants_master_file.vcf.gz'
+        self.filtered_file = self.fm_obj.localOutputDir + 'vcf_concat_output/YHPedigree_filtered_master_file.vcf.gz'
+        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/YHPedigree_pass_variants_master_file.vcf.gz'
         subprocess.run(shlex.split(f"gatk VariantFiltration \
                                     -R {self.fm_obj.localGenomeFile} \
                                     -V {self.master_file} \
