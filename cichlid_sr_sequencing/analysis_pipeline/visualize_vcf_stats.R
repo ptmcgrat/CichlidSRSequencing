@@ -9,11 +9,11 @@ if (!(dir.exists('stats_figures'))){
 }
 out_dir = paste(getwd(), '/stats_figures', sep='')
 
-# for now I will hard_code in that all filenames will have the prefix "612_cohort_stats" since that's the cohort I will run this on the first time I use the script
+# for now I will hard_code in that all filenames will have the prefix "612_phylogenyfigure" since that's the cohort I will run this on the first time I use the script
 # NOTE: need to update script to allow for different prefix names
 
 # stats for mean depth per sample (column)
-ind_depth <- read_delim("cohort_stats.idepth", delim = "\t",
+ind_depth <- read_delim("phylogenyfigure.idepth", delim = "\t",
                         col_names = c("ind", "nsites", "depth"), skip = 1)
 a <- ggplot(ind_depth, aes(depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 a + theme_light()
@@ -24,7 +24,7 @@ print(quantile(ind_depth$depth, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
 
 # stats for depth for each variant (depth in each row)
-var_depth <- read_delim("cohort_stats.ldepth.mean", delim = "\t",
+var_depth <- read_delim("phylogenyfigure.ldepth.mean", delim = "\t",
            col_names = c("chr", "pos", "mean_depth", "var_depth"), skip = 1)
 b <- ggplot(var_depth, aes(mean_depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 b + theme_light() + xlim(0,50)
@@ -35,7 +35,7 @@ print(quantile(var_depth$mean_depth, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
 
 # stats for depth per each depth, not averaged (by row)
-var_site_depth <- read_delim("cohort_stats.ldepth", delim = "\t",
+var_site_depth <- read_delim("phylogenyfigure.ldepth", delim = "\t",
            col_names = c("chr", "pos", "sum_depth", "sumsq_depth"), skip = 1)
 c <- ggplot(var_site_depth, aes(sum_depth)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 c + theme_light() + xlim(0, 25000) # the x_lim may need to increase as more samples are included
@@ -46,21 +46,21 @@ print(quantile(var_site_depth$sum_depth, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
 
 # stats for how much data is missing per sample (column)
-ind_miss  <- read_delim("cohort_stats.imiss", delim = "\t",
+ind_miss  <- read_delim("phylogenyfigure.imiss", delim = "\t",
                         col_names = c("ind", "ndata", "nfiltered", "nmiss", "fmiss"), skip = 1)
 d <- ggplot(ind_miss, aes(fmiss)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 d + theme_light()
 ggsave(path = out_dir, filename = 'missing_data_per_sample.png')
 
 # stats for missing data by variant (row)
-var_miss <- read_delim("cohort_stats.lmiss", delim = "\t",
+var_miss <- read_delim("phylogenyfigure.lmiss", delim = "\t",
             col_names = c("chr", "pos", "nchr", "nfiltered", "nmiss", "fmiss"), skip = 1)
 e <- ggplot(var_miss, aes(fmiss)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 e + theme_light()
 ggsave(path = out_dir, filename = 'missing_data_per_variant.png')
 
 # stats for allele frequency of variants
-var_freq <- read_delim("cohort_stats.frq", delim = "\t",
+var_freq <- read_delim("phylogenyfigure.frq", delim = "\t",
                        col_names = c("chr", "pos", "nalleles", "nchr", "a1", "a2"), skip = 1)
 var_freq$maf <- var_freq %>% select(a1, a2) %>% apply(1, function(z) min(z))
 f <- ggplot(var_freq, aes(maf)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
@@ -72,7 +72,7 @@ print(quantile(var_freq$maf, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
 
 # stats for heterozygosity & inbreeding coefficient
-ind_het <- read_delim("cohort_stats.het", delim = "\t",
+ind_het <- read_delim("phylogenyfigure.het", delim = "\t",
            col_names = c("ind","ho", "he", "nsites", "f"), skip = 1)
 g <- ggplot(ind_het, aes(f)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 g + theme_light()
@@ -83,7 +83,7 @@ print(quantile(ind_het$f, c(.05, .10, .25, .50, .75, .90, .95)))
 sink()
 
 # stats for variant quality (row)
-var_qual <- read_delim("cohort_stats.lqual", delim = "\t",
+var_qual <- read_delim("phylogenyfigure.lqual", delim = "\t",
            col_names = c("chr", "pos", "qual"), skip = 1)
 h <- ggplot(var_qual, aes(qual)) + geom_density(fill = "dodgerblue1", colour = "black", alpha = 0.3)
 h + theme_light() + xlim(0,1000)
