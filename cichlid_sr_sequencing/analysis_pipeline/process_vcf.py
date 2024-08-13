@@ -32,7 +32,6 @@ class VCFProcessor:
         self.genome = genome
         self.fm_obj = FM(self.genome)
         self.master_file = self.fm_obj.localOutputDir + 'phylogenyfigure_master_file.vcf.gz'
-        self.zipped_master_file = self.master_file + '.gz'
         self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/'
         intervals = list(range(1,97))
         self.intervals = list(map(str, intervals))
@@ -116,14 +115,14 @@ class VCFProcessor:
 
     def generate_stats(self):
         print('Generating stats for master_file.vcf...')
-        command1 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --freq2 --max-alleles 2 --out {self.stats_dir}/{args.prefix[0]} ') # allele freq
-        command2 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --depth --out {self.stats_dir}/{args.prefix[0]}') # depth per sample 
-        command3 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --site-mean-depth --out {self.stats_dir}/{args.prefix[0]}') # mean depth per variant site
-        command4 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --site-depth --out {self.stats_dir}/{args.prefix[0]}') # depth at every variant site
-        command5 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --site-quality --out {self.stats_dir}/{args.prefix[0]}') # quality per variant site
-        command6 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --missing-indv --out {self.stats_dir}/{args.prefix[0]}') # fraction of missing data by sample
-        command7 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --missing-site --out {self.stats_dir}/{args.prefix[0]}') # fraction of missing data per variant site
-        command8 = shlex.split(f'vcftools --gzvcf {self.zipped_master_file} --het --out {self.stats_dir}/{args.prefix[0]}') # het & inbreeding coefficient
+        command1 = shlex.split(f'vcftools --gzvcf {self.master_file} --freq2 --max-alleles 2 --out {self.stats_dir}/{args.prefix[0]} ') # allele freq
+        command2 = shlex.split(f'vcftools --gzvcf {self.master_file} --depth --out {self.stats_dir}/{args.prefix[0]}') # depth per sample 
+        command3 = shlex.split(f'vcftools --gzvcf {self.master_file} --site-mean-depth --out {self.stats_dir}/{args.prefix[0]}') # mean depth per variant site
+        command4 = shlex.split(f'vcftools --gzvcf {self.master_file} --site-depth --out {self.stats_dir}/{args.prefix[0]}') # depth at every variant site
+        command5 = shlex.split(f'vcftools --gzvcf {self.master_file} --site-quality --out {self.stats_dir}/{args.prefix[0]}') # quality per variant site
+        command6 = shlex.split(f'vcftools --gzvcf {self.master_file} --missing-indv --out {self.stats_dir}/{args.prefix[0]}') # fraction of missing data by sample
+        command7 = shlex.split(f'vcftools --gzvcf {self.master_file} --missing-site --out {self.stats_dir}/{args.prefix[0]}') # fraction of missing data per variant site
+        command8 = shlex.split(f'vcftools --gzvcf {self.master_file} --het --out {self.stats_dir}/{args.prefix[0]}') # het & inbreeding coefficient
         commands = [command1, command2, command3, command4, command5, command6, command7, command8]
 
         procs = [subprocess.Popen(i) for i in commands]
@@ -138,7 +137,7 @@ class VCFProcessor:
         self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz'
         subprocess.run(shlex.split(f"gatk VariantFiltration \
                                     -R {self.fm_obj.localGenomeFile} \
-                                    -V {self.zipped_master_file} \
+                                    -V {self.master_file} \
                                     -O {self.filtered_file} \
                                     --filter-name 'allele_freq' \
                                     --filter-expression 'AF < 0.05' \
