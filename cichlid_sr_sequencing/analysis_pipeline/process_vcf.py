@@ -133,8 +133,8 @@ class VCFProcessor:
 
     def filter_variants(self):
         print('RUNNING VARIANT FILTERING')
-        self.filtered_file = self.fm_obj.localOutputDir + 'vcf_concat_output/filtered_master_file.vcf.gz'
-        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/pass_variants_master_file.vcf.gz'
+        self.filtered_file = self.fm_obj.localOutputDir + 'vcf_concat_output/phylogenyfigure_filtered_master_file.vcf.gz'
+        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/phylogenyfigure_pass_variants_master_file.vcf.gz'
         subprocess.run(shlex.split(f"gatk VariantFiltration \
                                     -R {self.fm_obj.localGenomeFile} \
                                     -V {self.master_file} \
@@ -146,15 +146,15 @@ class VCFProcessor:
                                     --filter-name 'depth_Qual' \
                                     --filter-expression 'QD < 2.0' \
                                     --filter-name 'max_DP' \
-                                    --filter-expression 'DP > 10000' \
+                                    --filter-expression 'DP > 1800' \
                                     --filter-name 'min_DP' \
-                                    --filter-expression 'DP < 7500' \
+                                    --filter-expression 'DP < 1300' \
                                     --filter-name 'strand_bias' \
                                     --filter-expression 'FS > 40.0' \
                                     --filter-name 'mapping_quality' \
                                     --filter-expression 'MQ < 50.0' \
                                     --filter-name 'no_calls' \
-                                    --filter-expression 'NCC > 113' \
+                                    --filter-expression 'NCC > 18' \
                                     --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
         subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
