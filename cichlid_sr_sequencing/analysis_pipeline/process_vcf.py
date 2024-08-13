@@ -31,15 +31,9 @@ class VCFProcessor:
     def __init__(self, genome):
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/master_file.vcf'
+        self.master_file = self.fm_obj.localOutputDir + 'phylogenyfigure_master_file.vcf.gz'
         self.zipped_master_file = self.master_file + '.gz'
         self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/'
-        # getting rid of linkage_group code since it doesn;t apply to the new interval based processing 2024.07.02
-        # self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
-        #                      'LG7':'NC_036786.1', 'LG8':'NC_036787.1', 'LG9':'NC_036788.1', 'LG10':'NC_036789.1', 'LG11':'NC_036790.1', 'LG12':'NC_036791.1', 
-        #                      'LG13':'NC_036792.1', 'LG14':'NC_036793.1', 'LG15':'NC_036794.1', 'LG16':'NC_036795.1', 'LG17':'NC_036796.1', 'LG18':'NC_036797.1', 
-        #                      'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1', 'mito': 'NC_027944.1'}
-        # self.linkage_groups = list(self.linkage_group_map.values())
         intervals = list(range(1,97))
         self.intervals = list(map(str, intervals))
         self.current_time = datetime.datetime.now()
