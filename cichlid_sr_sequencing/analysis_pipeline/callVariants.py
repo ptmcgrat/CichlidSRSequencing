@@ -24,7 +24,7 @@ parser.add_argument('--local_test', help = 'when this flag is called, variables 
 args = parser.parse_args()
 
 """
-time python callVariants.py Mzebra_GT3 -i -g -m 10 -s v2_column --Output --concurrent_processes 96 2> 
+time python callVariants.py Mzebra_GT3 -i -g -m 10 -s v2_column --Output --concurrent_processes 96 2> error_phylogenyfigure_240812.txt 1> log_phylogenyfigure_240812.txt
 
 """
 

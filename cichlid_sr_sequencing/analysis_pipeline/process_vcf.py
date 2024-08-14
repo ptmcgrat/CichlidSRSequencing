@@ -146,15 +146,15 @@ class VCFProcessor:
                                     --filter-name 'depth_Qual' \
                                     --filter-expression 'QD < 2.0' \
                                     --filter-name 'max_DP' \
-                                    --filter-expression 'DP > 1800' \
+                                    --filter-expression 'DP > 500' \
                                     --filter-name 'min_DP' \
-                                    --filter-expression 'DP < 1300' \
+                                    --filter-expression 'DP < 200' \
                                     --filter-name 'strand_bias' \
                                     --filter-expression 'FS > 40.0' \
                                     --filter-name 'mapping_quality' \
                                     --filter-expression 'MQ < 50.0' \
                                     --filter-name 'no_calls' \
-                                    --filter-expression 'NCC > 18' \
+                                    --filter-expression 'NCC > 12' \
                                     --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
         subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
