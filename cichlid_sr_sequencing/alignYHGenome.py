@@ -109,19 +109,22 @@ LG_MZtoON = {'NC_036780.1':'NC_031965.2', 'NC_036781.1':'NC_031966.2', 'NC_03678
 LG_MZtoYH = {x:x for x in linkageGroups.keys()}
 
 genome_versions = ['kocher_N_Met_zebra_Female','MZ4f_ptm','kocher_H_Aulon_yelhead_Female',
-					'kocher_G_Aulon_yelhead_Male','YH7f_ptm']
+					'kocher_G_Aulon_yelhead_Male','YH7f_ptm','Rhamp_chilingali','O_niloticus_UMD_NMBU','P_nyererei_v2']
 ['O_niloticus_UMD_NMBU','P_nyererei_v2','Rhamp_chilingali']
 fm_objs = {}
 
 for gv in genome_versions:
 	print(gv)
 	fm_objs[gv] = FM(genome_version = gv)
-	fm_objs[gv].downloadData(fm_objs[gv].localHybridScaffoldFile)
-		
+	#fm_objs[gv].downloadData(fm_objs[gv].localHybridScaffoldFile)
+
+fm_objs[gv].downloadData(fm_objs[gv].localGenomesComparisonDir)
+	
+
 for gv in genome_versions:
 	if gv == 'Mzebra_GT3':
 		continue
-	align_genomes('Mzebra_GT3',gv,hs_flag = True)
+	#align_genomes('Mzebra_GT3',gv,hs_flag = True)
 	"""if gv == 'O_niloticus_UMD_NMBU':
 		align_genomes('Mzebra_GT3',gv,LG_MZtoON)
 	elif gv == 'P_nyrerei_v2':
@@ -133,13 +136,16 @@ for gv in genome_versions:
 	"""
 
 for gv in ['kocher_N_Met_zebra_Female','MZ4f_ptm','kocher_H_Aulon_yelhead_Female',
-					'kocher_G_Aulon_yelhead_Male','YH7f_ptm']:
+					'kocher_G_Aulon_yelhead_Male','YH7f_ptm','Rhamp_chilingali','O_niloticus_UMD_NMBU','P_nyererei_v2']:
 
-	a_dt = pd.read_csv(fm_objs[gv].localGenomesComparisonDir + 'Mzebra_GT3'+ '_' + gv + '_whole_genome.hs.csv')
+	if gv in ['Rhamp_chilingali','P_nyererei_v2','O_niloticus_UMD_NMBU']:
+		a_dt = pd.read_csv(fm_objs[gv].localGenomesComparisonDir + 'Mzebra_GT3'+ '_' + gv + '_whole_genome.csv')
+	else:
+		a_dt = pd.read_csv(fm_objs[gv].localGenomesComparisonDir + 'Mzebra_GT3'+ '_' + gv + '_whole_genome.hs.csv')
 	a_dt['GenomeVersion'] = gv
 
 	chr_dt = a_dt.groupby(['R_Name','Q_Name']).sum()['AlignmentLength'].reset_index()
-	chr_dt = chr_dt[chr_dt.AlignmentLength > 1000000]
+	chr_dt = chr_dt[chr_dt.AlignmentLength > 2500000]
 
 	a_dt = pd.merge(left = a_dt,right = chr_dt[['R_Name','Q_Name']], on = ['R_Name','Q_Name'])
 
@@ -159,11 +165,64 @@ with PdfPages(pdb_out) as pdf_pages:
 
 		figu = plt.figure(i)
 		lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position', y = 'Position2', hue = 'Q_Name', units = 'index', estimator = None).set(title = lg)
-		plt.legend(loc = "upper left", bbox_to_anchor=(1, 1))
+		#plt.legend(loc = "upper left", bbox_to_anchor=(1, 1))
 
 		#lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position', y = 'Position2', hue = 'index', hue_norm = (-255,0)).set(title = lg)
 		pdf_pages.savefig(figu)
 		figu.clf()
+
+pdb_out = fm_objs[gv].localGenomesComparisonDir + 'InversionSummary.hs.pdf'
+with PdfPages(pdb_out) as pdf_pages:
+	gv_names = ['MZf_2','MZf_3','YHf_1','YHm_2','YHf_3','RC']
+	for lg,(contig,start1,start2,stop1,stop2) in inversions.items():
+		fig,axes = plt.subplots(3,2, figsize = (6,9))
+		fig.subplots_adjust(hspace=0.6)
+		fig.subplots_adjust(wspace=0.6)
+		fig.suptitle(lg)
+		current_axes = [axes[0,0],axes[1,0],axes[0,1],axes[1,1],axes[2,1],axes[2,0]]
+
+		t_dt = total_dt[(total_dt.R_Name == contig)][['R_Start','R_Stop','Q_Name','NewStart','NewStop','GenomeVersion']]
+		for i,gv in enumerate(['kocher_N_Met_zebra_Female','MZ4f_ptm','kocher_H_Aulon_yelhead_Female','kocher_G_Aulon_yelhead_Male','YH7f_ptm', 'Rhamp_chilingali']):
+			contig_dt = t_dt[t_dt.GenomeVersion == gv][['R_Start','R_Stop','Q_Name']].melt(id_vars = ['Q_Name'], var_name = 'AlnLoc', value_name = 'Position 1 (Mb)', ignore_index = False)
+			contig_dt['Position 2 (Mb)'] = t_dt[t_dt.GenomeVersion == gv][['NewStart','NewStop']].melt(var_name = 'AlnLoc', value_name = 'Position 1 (Mb)', ignore_index = False)['Position 1 (Mb)']
+			contig_dt['Position 1 (Mb)'] = contig_dt['Position 1 (Mb)']/1000000
+			contig_dt['Position 2 (Mb)'] = contig_dt['Position 2 (Mb)']/1000000
+			lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position 1 (Mb)', y = 'Position 2 (Mb)', hue = 'Q_Name', units = 'index', estimator = None, ax = current_axes[i], legend = False, palette = 'Dark2').set(title = gv_names[i])
+			current_axes[i].add_patch(plt.Rectangle((start1/1000000, -10), (stop1-start1)/1000000, 100, edgecolor='grey', fill=True, alpha = 0.3, facecolor = 'grey'))
+			if lg == 'LG11':
+				current_axes[i].add_patch(plt.Rectangle((18425216/1000000, -10), 10000/1000000, 100, edgecolor='black', fill=True, alpha = 0.3, facecolor = 'grey'))
+			if lg == 'LG20':
+				current_axes[i].add_patch(plt.Rectangle((29716509/1000000, -10), 10000/1000000, 100, edgecolor='black', fill=True, alpha = 0.3, facecolor = 'grey'))
+
+			#axes[2,0].set_axis_off()
+		pdf_pages.savefig(fig)
+		fig.clf()
+
+
+pdb_out = fm_objs[gv].localGenomesComparisonDir + 'InversionAncestry.pdf'
+with PdfPages(pdb_out) as pdf_pages:
+	fig,axes = plt.subplots(3,2, figsize = (8.5,11))
+	fig.subplots_adjust(hspace=0.6)
+	fig.subplots_adjust(wspace=0.6)
+	fig.suptitle('Outgroup alignments')
+	current_axes = [axes[0,0],axes[0,1],axes[1,0],axes[1,1],axes[2,0],axes[2,1]]
+	for i,(lg,(contig,start1,start2,stop1,stop2)) in enumerate(inversions.items()):
+		t_dt = total_dt[(total_dt.R_Name == contig)][['R_Start','R_Stop','Q_Name','NewStart','NewStop','GenomeVersion']]
+		short_gv = ['O_niloticus','P_nyererei']
+		palettes = ['Reds_d','Blues_d']
+		for j,gv in enumerate(['O_niloticus_UMD_NMBU','P_nyererei_v2']):
+			contig_dt = t_dt[t_dt.GenomeVersion == gv][['R_Start','R_Stop','Q_Name']].melt(id_vars = ['Q_Name'], var_name = 'AlnLoc', value_name = 'Position 1 (Mb)', ignore_index = False)
+			contig_dt['Position 2 (Mb)'] = t_dt[t_dt.GenomeVersion == gv][['NewStart','NewStop']].melt(var_name = 'AlnLoc', value_name = 'Position 1 (Mb)', ignore_index = False)['Position 1 (Mb)']
+			contig_dt['Position 1 (Mb)'] = contig_dt['Position 1 (Mb)']/1000000
+			contig_dt['Position 2 (Mb)'] = contig_dt['Position 2 (Mb)']/1000000
+			lineplot = sns.lineplot(data = contig_dt.reset_index(), x = 'Position 1 (Mb)', y = 'Position 2 (Mb)', hue = 'Q_Name', units = 'index', estimator = None, ax = current_axes[i], legend = False, palette = palettes[j]).set(title = lg)
+		current_axes[i].add_patch(plt.Rectangle((start1/1000000, -10), (stop1-start1)/1000000, 100, edgecolor='grey', fill=True, alpha = 0.3, facecolor = 'grey'))
+		if lg == 'LG11':
+			current_axes[i].add_patch(plt.Rectangle((18425216/1000000, -10), 10000/1000000, 100, edgecolor='black', fill=True, alpha = 0.3, facecolor = 'grey'))
+		if lg == 'LG20':
+			current_axes[i].add_patch(plt.Rectangle((29716509/1000000, -10), 10000/1000000, 100, edgecolor='black', fill=True, alpha = 0.3, facecolor = 'grey'))
+
+	pdf_pages.savefig(fig)
 
 fm_objs[gv].uploadData(fm_objs[gv].localGenomesComparisonDir)
 

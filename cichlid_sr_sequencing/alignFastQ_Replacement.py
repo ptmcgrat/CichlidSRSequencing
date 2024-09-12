@@ -31,7 +31,7 @@ fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, ecog
 
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
-#fm_obj.downloadData(fm_obj.localGenomeDir)
+fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
 # Create alignment worker object:

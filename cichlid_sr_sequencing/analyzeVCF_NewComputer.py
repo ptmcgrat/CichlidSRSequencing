@@ -41,11 +41,12 @@ def parallel_filter(input_vcf, output_vcf, samples):
 
 # Read and download essential data
 fm_obj = FM(genome_version = 'Mzebra_GT3')
-main_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/gt3_cohort_pass_variants.vcf.gz'
+#main_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/gt3_cohort_pass_variants.vcf.gz'
+main_vcf = fm_obj.localMasterDir + 'Outputs/MasterFile/GT3Cohort/PhylogenyFigure/phylogenyfigure_pass_variants_master_file.vcf.gz'
 #fm_obj.downloadData(main_vcf)
-fm_obj.downloadData(main_vcf + '.tbi')
+#fm_obj.downloadData(main_vcf + '.tbi')
 fm_obj.downloadData(fm_obj.localSampleFile_v2)
-s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
+s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel', index_col = 0)
 
 #pdb.set_trace()
 
@@ -58,14 +59,13 @@ s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
 # 1. Create phylogenies for whole genome and each inversion #
 #############################################################
 # Create vcf file for lab sample data and for lake malawi phylogeny data (defined in Sample Database)
-malawi_samples = s_dt[s_dt.CorePCA == 'Yes'].SampleID.to_list()
-c_dt = s_dt[s_dt.CorePCA == 'Yes']
+malawi_samples = s_dt[(s_dt.PhylogenyFigure == 'Yes')].index.to_list()
+c_dt = s_dt[(s_dt.PhylogenyFigure == 'Yes')]
 malawi_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals.vcf.gz'
 
+#parallel_filter(main_vcf, malawi_vcf, malawi_samples)
+#subprocess.run(['bcftools','index', '-f', malawi_vcf])
 """
-parallel_filter(main_vcf, malawi_vcf, malawi_samples)
-subprocess.run(['bcftools','index', '-f', malawi_vcf])
-
 #Create lg subsets for each inversion from the malawi samples vcf file
 for lg,(contig,temp,left,right,temp2) in inversions.items():
 	region = contig + ':' + str(left) + '-' + str(right)
@@ -74,31 +74,41 @@ for lg,(contig,temp,left,right,temp2) in inversions.items():
 	subprocess.run(['bcftools','index', lg_vcf])
 
 #Create relaxed phylip file from from vcf. Requires vcf2phylip to be installed in your PYTHONPATH
-subprocess.run(['vcf2phylip.py','-i', malawi_vcf, '-m', '150','--output-folder',fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/'])
+subprocess.run(['vcf2phylip.py','-i', malawi_vcf, '-m', '50','--output-folder',fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/'])
 
 for lg,region in inversions.items():
 	lg_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_' + lg + '.vcf.gz'
-	subprocess.run(['vcf2phylip.py','-i',lg_vcf, '-m', '150','--output-folder', fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/'])
+	subprocess.run(['vcf2phylip.py','-i',lg_vcf, '-m', '50','--output-folder', fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/'])
 
 # Convert relaxed phylip file to stockholm using BioPYTHON
-align = AlignIO.read(malawi_vcf.replace('.vcf.gz','.min150.phy'), 'phylip-relaxed')
-AlignIO.write(align,malawi_vcf.replace('.vcf.gz','.min150.stk'),'stockholm')
+align = AlignIO.read(malawi_vcf.replace('.vcf.gz','.min50.phy'), 'phylip-relaxed')
+AlignIO.write(align,malawi_vcf.replace('.vcf.gz','.min50.stk'),'stockholm')
 
 for lg,region in inversions.items():
 	lg_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_' + lg + '.vcf.gz'
-	align = AlignIO.read(lg_vcf.replace('.vcf.gz','.min150.phy'), 'phylip-relaxed')
-	AlignIO.write(align,lg_vcf.replace('.vcf.gz','.min150.stk'),'stockholm')
+	align = AlignIO.read(lg_vcf.replace('.vcf.gz','.min50.phy'), 'phylip-relaxed')
+	AlignIO.write(align,lg_vcf.replace('.vcf.gz','.min50.stk'),'stockholm')
 
 # Run quicktree to create phylogeny file
 treefiles = []
-treefiles.append(malawi_vcf.replace('.vcf.gz','.min150.tree'))
-subprocess.run(['quicktree', malawi_vcf.replace('.vcf.gz','.min150.stk')], stdout = open(malawi_vcf.replace('.vcf.gz','.min150.tree'),'w'))
+iqtree = True
+
 for lg,region in inversions.items():
 	lg_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_' + lg + '.vcf.gz'
-	subprocess.run(['quicktree', lg_vcf.replace('.vcf.gz','.min150.stk')], stdout = open(lg_vcf.replace('.vcf.gz','.min150.tree'),'w'))
-	treefiles.append(lg_vcf.replace('.vcf.gz','.min150.tree'))
 	
+	if iqtree:
+		treefiles.append(lg_vcf.replace('.vcf.gz','.min50.treefile'))
+		subprocess.run(['iqtree2', '-s', lg_vcf.replace('.vcf.gz','.min50.phy'),'-nt','24','-mem','96G','-v','--seqtype', 'DNA','-m','GTR+I+G','-B','1000','-o','SAMN15891801,SAMN15685499','--prefix', lg_vcf.replace('.vcf.gz','.min50')])
+	else:
+		treefiles.append(lg_vcf.replace('.vcf.gz','.min50.tree'))
+		subprocess.run(['quicktree', lg_vcf.replace('.vcf.gz','.min50.stk')], stdout = open(lg_vcf.replace('.vcf.gz','.min50.tree'),'w'))
 
+if iqtree:
+	treefiles.append(malawi_vcf.replace('.vcf.gz','.min50.treefile'))
+	subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min50.phy'),'-nt','24','-mem','96G','-v','--seqtype','DNA','-m','GTR+I+G','-B','1000','-o','SAMN15891801,SAMN15685499','--prefix', malawi_vcf.replace('.vcf.gz','.min50')])
+else:
+	treefiles.append(malawi_vcf.replace('.vcf.gz','.min50.tree'))
+	subprocess.run(['quicktree', malawi_vcf.replace('.vcf.gz','.min50.stk')], stdout = open(malawi_vcf.replace('.vcf.gz','.min50.tree'),'w'))
 
 # Replace the sample ID with names that are more interesting to display on the tree
 
@@ -115,8 +125,64 @@ for tf in treefiles:
 	out = open(tf.replace('.tree','.modified.tree'), 'w')
 	print(data, file = out, end = '')
 """
+import ete3
 
-subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','24','-alrt','1000','-B','1000', '-mem', '96G', '-v', '--seqtype', 'DNA'])
+nst = {}
+nst['Shallow_Benthic'] = ete3.NodeStyle()
+nst['Shallow_Benthic']["bgcolor"] = "LightSalmon"
+nst['Deep_Benthic'] = ete3.NodeStyle()
+nst['Deep_Benthic']["bgcolor"] = "LightSteelBlue"
+nst['Utaka'] = ete3.NodeStyle()
+nst['Utaka']["bgcolor"] = "SeaGreen"
+nst['Mbuna'] = ete3.NodeStyle()
+nst['Mbuna']["bgcolor"] = "MediumOrchid"
+nst['AC'] = ete3.NodeStyle()
+nst['AC']["bgcolor"] = "PaleGreen"
+nst['Diplotaxodon'] = ete3.NodeStyle()
+nst['Diplotaxodon']["bgcolor"] = "Gold"
+nst['Rhamphochromis'] = ete3.NodeStyle()
+nst['Rhamphochromis']["bgcolor"] = "Sienna"
+nst['LakeVictoriaHap'] = ete3.NodeStyle()
+
+treefiles = [malawi_vcf.replace('.vcf.gz','.min50.treefile')]
+for lg,region in inversions.items():
+	lg_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_' + lg + '.vcf.gz'
+	treefiles.append(lg_vcf.replace('.vcf.gz','.min50.treefile'))
+
+for tf in treefiles:
+	tree = ete3.Tree(tf)
+	ts = ete3.TreeStyle()
+	ts.show_branch_support = True
+	ts.scale =  1000 # 120 pixels per branch length unit
+
+	for leaf in tree.get_leaves():
+		eg = s_dt.loc[leaf.name,'Ecogroup_PTM']
+		species = s_dt.loc[leaf.name,'Organism']
+		leaf.name = species.split(' ')[0][0] + '. ' + species.split(' ')[1] 
+		leaf.set_style(nst[eg])
+
+	if 'LG' in tf:
+		ts.title.add_face(ete3.TextFace(tf.split('/')[-1].split('_')[1].split('.')[0], fsize=20), column=0)
+	else:
+		ts.title.add_face(ete3.TextFace('WholeGenome', fsize=20), column=0)
+
+	tree.render(tf.replace('.treefile','.pdf'), tree_style=ts, w=1600)
+
+from pypdf import PdfMerger
+
+pdfs = [x.replace('.treefile','.pdf') for x in treefiles]
+
+merger = PdfMerger()
+
+for pdf in pdfs:
+    merger.append(pdf)
+
+merger.write(fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_AllPhylogenies.pdf')
+merger.close()
+"""
+"""
+
+#subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min50.phy'),'-nt','24','-mem','96G','-v','--seqtype', 'DNA', '--prefix', malawi_vcf.replace('.vcf.gz','.min50')])
 #subprocess.run(['iqtree2', '-s', malawi_vcf.replace('.vcf.gz','.min150.phy'),'-nt','24', '-v'])
 """
 ###########################################################

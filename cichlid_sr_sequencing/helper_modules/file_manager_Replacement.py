@@ -120,7 +120,7 @@ class FileManager():
 			if len(bad_samples) > 0:
 				raise FileNotFoundError('The following samples were not found in sample database: ' + ','.join(bad_samples))
 
-			s_dt = s_dt[s_dt.ProjectID_PTM.isin(projectIDs)]
+			s_dt = s_dt[s_dt.SampleID.isin(sampleIDs)]
 
 		elif ecogroupIDs is not None:
 			bad_ecogroups = []
