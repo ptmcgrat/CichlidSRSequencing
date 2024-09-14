@@ -26,7 +26,7 @@ args = parser.parse_args()
 """
 time python callVariants.py Mzebra_GT3 -i -g -m 10 -s v2_column --Output --concurrent_processes 96 2> error_phylogenyfigure_240812.txt 1> log_phylogenyfigure_240812.txt
 For running on the 498 sample Cohort:
-time python calVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment_file 
+time python callVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment_file 2> error_download_bionano_paper_data.txt 1> log_download_bionano_paper_data.txt
 """
 
 """
@@ -38,6 +38,7 @@ TODO:
 1. Paralellize gatk Haplotypecaller to run much more efficiently
     Be sure to include code that will not overwrite files if they exist 
 2. CODE DOES NOT EXIST ANYMORE TO DOWNLOAD BAM OR GVCF FILES OR ITS BROKEN. NEED TO FIX THIS!!
+    GVCF file downloader has been fixed but I do not know how to download it straight to /Output b/c the directory structure is not mirrored on Dropbox and /Output. i think i need to add an option in FIleManager that allows me to specify that the master dir is /Output instead of /Data 
 """
 
 class VariantCaller:
@@ -49,7 +50,7 @@ class VariantCaller:
         self.ecogroups = ecogroups
         self.concurrent_processes = processes
         self.current_time = datetime.datetime.now()
-        # TODO: need to be able to read a list of the valid ecogroups in the Ecogroup_PTM column and let all samples be captured if 'All' is called as the ecogroup. For now, only the 'LakeMalawi' ecogroups are recognized. 
+        # TODO: need to be able to read a list of the valid ecogroups in the Ecogroup_PTM column and let all samples be captured if 'All' is called as the ecogroup. For now, only the 'LakeMalawi' ecogroups are recognized.
         if self.ecogroups == ['All']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC'] # Note that Patrick added a 'Shallow_Benthic2' ecogroup for some reason aorund May 2024... Unsure what this is. need to talk to him about it 
         elif self.ecogroups == ['Non_Riverine']:
@@ -62,6 +63,7 @@ class VariantCaller:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
 
         # block for defining sampleIDs if you want specific samples from a SampleDatabase column, using the alignmnetdatabase, or anythign else
+        pdb.set_trace()
         if self.sampleIDs == ['All']:
             self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
             s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel') # reads in the SampleLevel sheet from SampleDatabase_v2.xlsx
