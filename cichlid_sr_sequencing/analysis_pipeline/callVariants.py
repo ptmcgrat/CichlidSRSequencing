@@ -30,7 +30,7 @@ time python callVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment
 
 
 
-time python callVariants.py Mzebra_GT3 -i -g -m 10 -s alignment_file
+time python callVariants.py Mzebra_GT3 -i -g -m 10 -c -s alignment_file --concurrent_processes 96 2> error_503_cohort_run.txt 1> log_503_cohort_run.txt
 """
 
 """
@@ -75,8 +75,8 @@ class VariantCaller:
         elif self.sampleIDs == ['alignment_file']:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
             s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
-            self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on genome version. Keep this line to include the P. nyererei samples for variant calling 
-            # self.sampleIDs = s_df[(s_df['GenomeVersion'] == self.genome) & (s_df['Organism'] != 'Pundamilia nyereri')].SampleID.to_list() # Keep this line to get sampleIDs by filtering on genome version AND REMOVING P. NYEREREI SAMPLES.
+            # self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on genome version. Keep this line to include the P. nyererei samples for variant calling 
+            self.sampleIDs = s_df[(s_df['GenomeVersion'] == self.genome) & (s_df['Organism'] != 'Pundamilia nyereri')].SampleID.to_list() # Keep this line to get sampleIDs by filtering on genome version AND REMOVING P. NYEREREI SAMPLES.
         elif self.sampleIDs == ['custom']:
             # TODO: allow a file with custom sample names to be used as input for the pipleine. 
             print('ERROR: CUSTOM SAMPLE FILE NOT YET IMPLEMENTED')
