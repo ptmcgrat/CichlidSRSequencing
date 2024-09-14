@@ -25,7 +25,8 @@ args = parser.parse_args()
 
 """
 time python callVariants.py Mzebra_GT3 -i -g -m 10 -s v2_column --Output --concurrent_processes 96 2> error_phylogenyfigure_240812.txt 1> log_phylogenyfigure_240812.txt
-
+For running on the 498 sample Cohort:
+time python calVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment_file 
 """
 
 """
@@ -48,7 +49,7 @@ class VariantCaller:
         self.ecogroups = ecogroups
         self.concurrent_processes = processes
         self.current_time = datetime.datetime.now()
-        # TODO: need to be able to read a list of the valid ecogroups in the Ecogroup_PTM column and let all samples be captured if 'All' is called as teh ecogroup. For now, only the 'LakeMalawi' ecogroups are recognized. 
+        # TODO: need to be able to read a list of the valid ecogroups in the Ecogroup_PTM column and let all samples be captured if 'All' is called as the ecogroup. For now, only the 'LakeMalawi' ecogroups are recognized. 
         if self.ecogroups == ['All']:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC'] # Note that Patrick added a 'Shallow_Benthic2' ecogroup for some reason aorund May 2024... Unsure what this is. need to talk to him about it 
         elif self.ecogroups == ['Non_Riverine']:
@@ -72,7 +73,8 @@ class VariantCaller:
             self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on
         elif self.sampleIDs == ['custom']:
             # TODO: allow a file with custom sample names to be used as input for the pipleine. 
-
+            print('ERROR: CUSTOM SAMPLE FILE NOT YET IMPLEMENTED')
+            exit
             # error checking for sampleIDs in custom file
             for sample in self.sampleIDs:
                 if not s_df['SampleID'].eq(sample).any():
