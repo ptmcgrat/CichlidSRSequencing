@@ -63,13 +63,12 @@ class VariantCaller:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
 
         # block for defining sampleIDs if you want specific samples from a SampleDatabase column, using the alignmnetdatabase, or anythign else
-        pdb.set_trace()
         if self.sampleIDs == ['All']:
             self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
             s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel') # reads in the SampleLevel sheet from SampleDatabase_v2.xlsx
             eg_filtered_df = s_df[s_df['Ecogroup_PTM'].isin(self.ecogroups)] # filter samples that match the ecogroups in the analysis
             self.sampleIDs = eg_filtered_df['SampleID'].to_list()
-        elif self.sampleIDs == ['aligmment_file']:
+        elif self.sampleIDs == ['alignment_file']:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
             s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
             self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on
@@ -120,7 +119,7 @@ class VariantCaller:
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
             self.concurrent_processes = 10
         print(f"Number of samples for this pipeline run is {len(self.sampleIDs)}")
-
+        pdb.set_trace()
     def _generate_sample_map(self):
         # Verified that 448 sampels are present in self.sampleIDs when running the script in -a mode. 2024.07.03 - NK
         sampleIDs = self.sampleIDs
