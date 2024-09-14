@@ -71,7 +71,9 @@ class VariantCaller:
         elif self.sampleIDs == ['alignment_file']:
             self.fm_obj.downloadData(self.fm_obj.localAlignmentFile) # download the AlignmentDatabase.csv file 
             s_df = pd.read_csv(self.fm_obj.localAlignmentFile)
-            self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on
+            # NOTE: I am filtering out the P_nyererei samples out of the analysts when performing variant calling for the Bionano_paper!!!!!!!!
+            # self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on genome version
+            self.sampleIDs = s_df[(s_df['GenomeVersion'] == self.genome) & (s_df['Organism'] != 'Pundamilia nyereri')].SampleID.to_list() # get sampleIDs by filtering on genome version AND FILTERING OUT P. NYEREREI SAMPLES.
         elif self.sampleIDs == ['custom']:
             # TODO: allow a file with custom sample names to be used as input for the pipleine. 
             print('ERROR: CUSTOM SAMPLE FILE NOT YET IMPLEMENTED')
