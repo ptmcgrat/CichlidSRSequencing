@@ -114,14 +114,13 @@ class VariantCaller:
 
         # pre-defining samples for local testing. Pass in the first 3 LGs only since the interval file has been created for only these.
         if args.local_test:
-            self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m']
+            self.sampleIDs = ['CJ_2204_m', 'CV-006-m', 'LA_3006_m', 'MC-008-m', 'OC-001-m', 'small_file1', 'small_file2', 'small_file3', 'small_file4']
             self.memory = [1]
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
             self.concurrent_processes = 10
         print(f"Number of samples for this pipeline run is {len(self.sampleIDs)}")
 
     def _generate_sample_map(self):
-        # Verified that 448 sampels are present in self.sampleIDs when running the script in -a mode. 2024.07.03 - NK
         sampleIDs = self.sampleIDs
         with open('sample_map.txt', 'w') as fh:
             for sampleID in sampleIDs:
@@ -166,6 +165,7 @@ class VariantCaller:
         self.fm_obj.createSampleFiles(sampleID)
         if args.local_test: # code for testing using small local files. 
             # check to see if the file has already been uploaded to Dropbox. If it does. Skip it
+            subprocess.check_output(['rclone', 'lsf', self.fm_obj.rcloneRemote + self.fm_obj.localBamFile], encoding='utf-8')
             print(f"Checking if {sampleID}'s GVCF file and Index exists on Dropbox...")
             cloud_gvcf_path = self.fm_obj.localTestGVCFFile.replace(self.fm_obj.localMasterDir, self.fm_obj.cloudMasterDir)
             cloud_gvcf_index_path = self.fm_obj.localTestGVCFIndex.replace(self.fm_obj.localMasterDir, self.fm_obj.cloudMasterDir)
@@ -390,7 +390,8 @@ class VariantCaller:
             self.fasta = Fasta(self.fm_obj.localGenomeFile)
             self.unmapped_contigs = [contig for contig in self.fasta.keys() if contig.startswith('NW') or contig == 'NC_027944.1' or contig == 'ptg000146l_obj_unaligned']
             inputs = self.unmapped_contigs
-        if args.all_sites and not args.local_test: # if running GenotypeGVCFs in all-sites mode, 96 concurrent processes will deplete all availabel memory, so change the max concurrent processes to be 48 instead. Makes sure this only applies on server.
+        if args.all_sites and not args.local_test: # if running GenotypeGVCFs in all-sites mode, 96 concurrent processes will deplete all available memory, so change the max concurrent processes to be 48 instead. Makes sure this only applies on server.
+            print('All sites run detected. Limiting the number of concurrent processes to 48 to ensure each process has enough RAM to complete.')
             self.concurrent_processes = 48
         elif args.all_sites and args.local_test:
             self.concurrent_processes = 5
