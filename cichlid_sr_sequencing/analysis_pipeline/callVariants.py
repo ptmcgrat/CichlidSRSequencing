@@ -26,7 +26,7 @@ args = parser.parse_args()
 """
 time python callVariants.py Mzebra_GT3 -i -g -m 10 -s v2_column --Output --concurrent_processes 96 2> error_phylogenyfigure_240812.txt 1> log_phylogenyfigure_240812.txt
 For running on the 498 sample Cohort:
-time python callVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment_file 2> error_download_bionano_paper_data.txt 1> log_download_bionano_paper_data.txt
+time python callVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment_file 2> error_download_bionano_paper_data_240914.txt 1> log_download_bionano_paper_data_240914.txt
 """
 
 """
@@ -119,7 +119,7 @@ class VariantCaller:
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
             self.concurrent_processes = 10
         print(f"Number of samples for this pipeline run is {len(self.sampleIDs)}")
-        pdb.set_trace()
+
     def _generate_sample_map(self):
         # Verified that 448 sampels are present in self.sampleIDs when running the script in -a mode. 2024.07.03 - NK
         sampleIDs = self.sampleIDs
