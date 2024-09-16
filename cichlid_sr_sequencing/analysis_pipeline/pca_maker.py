@@ -16,42 +16,13 @@ parser.add_argument('-l', '--local_test', help = 'call this flag to predefine va
 parser.add_argument('-p', '--plink', help = 'use this flag to generate new eigenvalue/vector files using plink', action='store_true')
 args = parser.parse_args()
 
-
 """
 TODO:
-2024.01.15
-- get rid of some weird MC samples (see slack). Remove 3C9, 2C18, 2B19, 2B10, 2C14, 2B13, 2B17, 2C10, 2C19.
-    - Samples are associated with the 'Cellular profiling of a recently-evolved social behavior' BigBrain paper.
-    - DONE Implemented by changing Ecogroup_PTM to 'Exclude' for these samples
-- figure out how to run mbuna alone
-- generate PCAs for the non-inverted regions of LG9, etc
-    - Also, just include LGs 2, 9, 10_YH, 11, 13, 20. For each of these also include a not inverted part of the chromosomes
-    - DONE: Non inverted parts of all chromosomes have been written into files and these can be accessed in the special_intervals folder within analysis_pipeline
-    - SIDENOTE: I will not change names of these regions. They make sense
-    - Also, I have removed the lg5, lg10 MC insertion regions as these are not interesting 
-- revisit the eco group classifications and confirm they are correct and update any that need to be.
-    - I believe Patrick has extensively completed this work. Use the 'Ecogroup_PTM' column in the SampleDatabase_PTM_Notes.xlsx file (SampleLevel sheet) to get the proper ecogroups.
-- Patrick has hand picked samples to include when subsetting. So the random 3 code will be ignored and a new function will need to be coded in
-    - These new samples will be used to generate the subset eigenvectors. Then the rest of the code should operate similarly 
-    - DONE: Random Sampling code has been commented out and the subset_samples.csv file is now being generated only using the 'CorePCA' column.
-- Include what % variance is explained by each PC and include that information on the axes titles 
-    - Need to see where this info is calculated or if I need to run a flag or new command to get this information.
-- Be sure to include all other notes from the slack messages as well in these updates 
-- UMAP is not working on the server due to an import error. It may be a python v 3.7 issue... look into this and fix it if we want UMAP to work on Utaka. It's been commented out for now.
-
-
-2024.02.03
-Patrick wants some specific things done with pca_maker
-1. The whole genome plot PCs don't seem to be calculated with the subppopulation of samples. This must be updated.
-    temp fix implemented but it will not work for ecogroup analyses smaller than 50 samples.
-2. Include only 5 total MCs in the analysis. Start by keeping the samples Patrick keeps when calculating the PCs
-    Done. Implemented into a new SampleDatabase I'll use to run this cohort.
-3. Redo the sizing of the dots
-    Implemented
-4. Do away with the shapes of dots that differ per projectID. Just keep colors based on ecogroup
-    Implemented
-5. Change MCs to shallow benthic for now haha
-    Implemented
+2024.09.16
+Patrick wants some specific things done with pca_maker for the bionanop_paper analyses
+1. Run the 498 sample cohort normally
+2. include an LG7 inversion region based on the coordinated I found in the Bionano data. I can just go ahead and run this region for all sub-ecogroups
+3. Run the pipeline in a way that uses all "core_PCA" samples to calculate the PCs, then project only the MCxYH F1s on the axes to see if anything separates out in PC space for these small # of samples. 
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -82,16 +53,18 @@ class PCA_Maker:
         pathlib.Path(self.out_dir + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
         self.out_dir = self.out_dir + '/' + file_version + '/' + analysis_ecogroups
         regions_list = [] # regions list will add various linkage group names, or add the names of regions of interest like "Whole" or the various special regions of interest if passed "Exploratory"
+        # predefine one exploratory_regions_list so the variable can be cointinually reused.
+        self.exploratory_regions_list = ['lg2_Mbuna_inversion','lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg7_Inversion', 'lg8_benthic_inversion', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg12_Pelagic_inversion', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region']
         for region in self.linkage_groups:
             if region in self.linkage_group_map.keys():
                 regions_list.append(self.linkage_group_map[region])
             elif region == "All":
                 regions_list.extend(self.vcf_obj.seqnames[0:22])
             elif region == "Exploratory":
-                regions_list.extend(['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region'])
+                regions_list.extend(self.exploratory_regions_list)
             elif region == "Whole":
                 regions_list.append('Whole')
-            elif region in ['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region']:
+            elif region in self.exploratory_regions_list:
                 regions_list.append(region)
             else:
                 raise Exception(region + ' is not a valid option')
@@ -107,11 +80,10 @@ class PCA_Maker:
             if 'Whole' in args.regions:
                 self.linkage_groups.extend(['Whole'])
             if 'Exploratory' in args.regions:
-                self.linkage_groups.extend(['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region'])
+                self.linkage_groups.extend(self.exploratory_regions_list)
 
         # Ensure index file exists
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
-
 
     def _create_sample_filter_files(self):
         self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv' # this file conatins all samples in the ecogroup(s) the pipeline is being run for. Samples are not subset yet in this file
@@ -274,7 +246,7 @@ class PCA_Maker:
         for lg in linkage_group_list:
             if lg == 'Whole':
                 continue
-            elif lg in ['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region']:
+            elif lg in self.exploratory_regions_list:
                 self._create_exploratory_region_eigen_files()
             elif lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # generate the file paths to he split LG dirs within a dir named "PCA"
@@ -313,7 +285,7 @@ class PCA_Maker:
         # changes list to include a split lg11 and lg20 interval. The middle value for LG11 is 18425216 and the middle value for lg20 is 29716509. These values assume the Mzebra_GT3 genome.
         #  also expanded the list to equally split the lg9 inversion into 5 equivalent regions. This will be run alongside the whole lg9 inverted region and the whole of lg9
         
-        inversion_regions = ['lg2_Deep_Benthic_Inversion', 'lg2_non_inverted_region', 'lg9_Whole_RockSand_Inversion', 'lg9a_RockSand_Inversion', 'lg9b_RockSand_Inversion', 'lg9c_RockSand_Inversion', 'lg9d_RockSand_Inversion', 'lg9e_RockSand_Inversion', 'lg9_non_inverted_region', 'lg10_Deep_Benthic_Inversion', 'lg10_non_inverted_region', 'lg11a_Inversion', 'lg11b_Inversion', 'lg11_non_inverted_region', 'lg13_Deep_Benthic_Inversion', 'lg13_non_inverted_region', 'lg20a_RockSand_Inversion', 'lg20b_RockSand_Inversion', 'lg20_non_inverted_region']
+        inversion_regions = self.exploratory_regions_list
         exploratory_regions_list = []
         # if only one or two exploratory regions are passed, below code allows only those select few to be run instead of all of them every time. 
         for region in self.linkage_groups:
