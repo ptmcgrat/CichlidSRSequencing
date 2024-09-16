@@ -31,7 +31,7 @@ class VCFProcessor:
     def __init__(self, genome):
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/CVAnalysis_master_file.vcf.gz'
+        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/498_cohort_master_file.vcf.gz'
         self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/'
         intervals = list(range(1,97))
         self.intervals = list(map(str, intervals))
