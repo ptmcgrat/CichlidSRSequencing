@@ -26,6 +26,8 @@ Patrick wants some specific things done with pca_maker for the bionanop_paper an
 
 time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset 
 time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Lake_Malawi --local_test --sample_subset --plink
+time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset --plink
+CVAnalysis
 """
 # The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
 # These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
@@ -48,13 +50,9 @@ class PCA_Maker:
         self.vcf_obj = VCF(self.in_vcf) # The VCF object is made using the CVF class from cyvcf2. The VCF class takes an input vcf. For the object, this input vcf file is the "input_vcfcfile" which is defined under self.in_vcf
         self.linkage_groups = linkage_groups # the object will now take in linkage groups using args.regions. If default, it will default to the first 22 lgs
         # Create a filepath that includes name of input file and ecogroups on which the analysis is performed. The below code is necessary to make sure the storage of PCAs are within a filepath unique to each analysis and unique for any VCF file passed in
-        file_version = self.in_vcf.split('/')[-1].split('.')[0] # if we run pca_maker on multiple vcf files, this allows us to ensure all plots from a particular file go to its own dir within the self.our_dir defined below
-        analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
-        self.out_dir = output_directory 
+        self.out_dir = output_directory
         if self.out_dir.endswith('/'): # ensure that the file path does not end with a forwardslash(/)
             self.out_dir = self.out_dir[:-1]
-        pathlib.Path(self.out_dir + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
-        self.out_dir = self.out_dir + '/' + file_version + '/' + analysis_ecogroups
 
         regions_list = [] # regions list will add various linkage group names, or add the names of regions of interest like "Whole" or the various special regions of interest if passed "Exploratory"
         # predefine one exploratory_regions_list so the variable can be cointinually reused.
@@ -95,23 +93,14 @@ class PCA_Maker:
         self.subset_samples_csv = self.out_dir + '/subset_samples.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
         self.subset_samples_metadata = self.out_dir + '/subset_samples_with_metadata.csv'
 
-        # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
-        if self.ecogroups == ['All']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
-        elif self.ecogroups == ['Non_Riverine']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
-        elif self.ecogroups == ['Lake_Malawi']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
-        elif self.ecogroups == ['Rock_Sand']:
-            self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-        elif self.ecogroups == ['Sand']:
-            self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
-
-
         self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information. Changed for now to get data from the grant specific file. - 2024.02.04
         self.df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
         self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='SampleID') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
         ####### this code block is used to generate a sample file of ALL samples that are present in a given ecogroup OR from a given column from which you want to run in the analysis. NOTE: IF --sample_subet IS ON, THEN THE CorePCA COLUMN DICTATES WHICH SAMPLES ARE USED TO GENERATE THE 1ST AND 2ND PCs. THE SAMPLES TO BE PROJECT ON TO THOSE PCs ARE DICTATED BY THIS CODE BLOCK.
+        analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
+        file_version = self.in_vcf.split('/')[-1].split('.')[0] # if we run pca_maker on multiple vcf files, this allows us to ensure all plots from a particular file go to its own dir within the self.our_dir defined below
+
+
         if self.ecogroups == ['Custom']: # If samples in non-ecogroup_PTM columns should be run, use the Custom sample flag
             while True:
                 custom_column = input('Enter name of column you want to use for sample_subsetting from SampleDatabase_v2.xlsx: ')
@@ -120,10 +109,26 @@ class PCA_Maker:
                     continue
                 else:
                     break
+            pathlib.Path(self.out_dir + '/' + file_version + '/' + custom_column).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
+            self.out_dir = self.out_dir + '/' + file_version + '/' + custom_column
             ecogroup_df = self.df[self.df[custom_column] == 'Yes']
             ecogroup_df.to_csv(self.all_ecogroup_samples_csv, columns = ['SampleID'], header=False, index=False)
             ecogroup_df.to_csv(self.all_ecogroup_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False)
         else:
+            pathlib.Path(self.out_dir + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
+            self.out_dir = self.out_dir + '/' + file_version + '/' + analysis_ecogroups
+            # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
+            if self.ecogroups == ['All']:
+                self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
+            elif self.ecogroups == ['Non_Riverine']:
+                self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon']
+            elif self.ecogroups == ['Lake_Malawi']:
+                self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'AC']
+            elif self.ecogroups == ['Rock_Sand']:
+                self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic']
+            elif self.ecogroups == ['Sand']:
+                self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Deep_Benthic']
+
             ecogroup_df = self.df[self.df.Ecogroup_PTM.isin(self.ecogroups)]
             ecogroup_df.to_csv(self.all_ecogroup_samples_csv, columns = ['SampleID'], header=False, index=False)
             ecogroup_df.to_csv(self.all_ecogroup_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False)
@@ -471,5 +476,19 @@ time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData
 time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Core_and_SD 2> pca_logs/error_Core_and_SD_240717.txt 1> pca_logs/log_Core_and_SD_240717.txt
 Local_Testing_Code:
 python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p -r All Whole Exploratory -e Core_and_SD --local_test
+
+
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_240917.txt 1> pca_logs/log_lm_240917.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_240917.txt 1> pca_logs/log_rock_sand_240917.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_240917.txt 1> pca_logs/log_sand_240917.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Mbuna 2> pca_logs/error_mbuna_240917.txt 1> pca_logs/log_mbuna_240917.txt
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_mbuna_240917.txt 1> pca_logs/log_mbuna_240917.txt
+hybrid_analysis
+
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_mbuna_240917.txt 1> pca_logs/log_mbuna_240917.txt
+
 
 """
