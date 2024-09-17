@@ -25,7 +25,7 @@ Patrick wants some specific things done with pca_maker for the bionanop_paper an
 3. Run the pipeline in a way that uses all "core_PCA" samples to calculate the PCs, then project only the MCxYH F1s on the axes to see if anything separates out in PC space for these small # of samples. 
 
 time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset 
-time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Lake_Malawi --local_test --sample_subset --plink
+time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Rock_Sand --local_test --sample_subset --plink
 time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset --plink
 CVAnalysis
 """
@@ -88,18 +88,12 @@ class PCA_Maker:
         assert os.path.exists(self.in_vcf + '.tbi') # uses os.path.exists to see if the input file + 'tbi' extension exists. The object will be made using args.input_vcffile and args.input_vcffile will be passed to the script as an absolute file path so the path to the dir is taken care of
 
     def _create_sample_filter_files(self):
-        self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv' # this file conatins all samples in the ecogroup(s) the pipeline is being run for. Samples are not subset yet in this file
-        self.all_ecogroup_samples_metadata = self.out_dir + '/all_samples_in_this_ecogroup_with_metadata.csv'
-        self.subset_samples_csv = self.out_dir + '/subset_samples.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
-        self.subset_samples_metadata = self.out_dir + '/subset_samples_with_metadata.csv'
-
         self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # download fresh SampleDatabase_v2.xlsx so we can read it in and get ecogroup information. Changed for now to get data from the grant specific file. - 2024.02.04
         self.df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel') # generate df from SampleDatabase.csv
         self.df = self.df[self.df['Platform'].isin(['ILLUMINA'])].drop_duplicates(subset='SampleID') # get rid of PacBio Samples and drops duplicates in the SampleID column leaving 612 (or eventually more) samples that we can filter below
         ####### this code block is used to generate a sample file of ALL samples that are present in a given ecogroup OR from a given column from which you want to run in the analysis. NOTE: IF --sample_subet IS ON, THEN THE CorePCA COLUMN DICTATES WHICH SAMPLES ARE USED TO GENERATE THE 1ST AND 2ND PCs. THE SAMPLES TO BE PROJECT ON TO THOSE PCs ARE DICTATED BY THIS CODE BLOCK.
         analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
         file_version = self.in_vcf.split('/')[-1].split('.')[0] # if we run pca_maker on multiple vcf files, this allows us to ensure all plots from a particular file go to its own dir within the self.our_dir defined below
-
 
         if self.ecogroups == ['Custom']: # If samples in non-ecogroup_PTM columns should be run, use the Custom sample flag
             while True:
@@ -109,14 +103,22 @@ class PCA_Maker:
                     continue
                 else:
                     break
-            pathlib.Path(self.out_dir + '/' + file_version + '/' + custom_column).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
             self.out_dir = self.out_dir + '/' + file_version + '/' + custom_column
+            pathlib.Path(self.out_dir).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
+            self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv' # this file conatins all samples in the ecogroup(s) the pipeline is being run for. Samples are not subset yet in this file
+            self.all_ecogroup_samples_metadata = self.out_dir + '/all_samples_in_this_ecogroup_with_metadata.csv'
+            self.subset_samples_csv = self.out_dir + '/subset_samples.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
+            self.subset_samples_metadata = self.out_dir + '/subset_samples_with_metadata.csv'
             ecogroup_df = self.df[self.df[custom_column] == 'Yes']
             ecogroup_df.to_csv(self.all_ecogroup_samples_csv, columns = ['SampleID'], header=False, index=False)
             ecogroup_df.to_csv(self.all_ecogroup_samples_metadata, columns = ['SampleID', 'Ecogroup_PTM', 'Organism'], sep='\t', index=False)
         else:
-            pathlib.Path(self.out_dir + '/' + file_version + '/' + analysis_ecogroups).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
             self.out_dir = self.out_dir + '/' + file_version + '/' + analysis_ecogroups
+            pathlib.Path(self.out_dir).mkdir(parents=True, exist_ok=True) # This generates the outdir if it doesn't exist so later tools don't run into errors making files.
+            self.all_ecogroup_samples_csv = self.out_dir + '/all_samples_in_this_ecogroup.csv' # this file conatins all samples in the ecogroup(s) the pipeline is being run for. Samples are not subset yet in this file
+            self.all_ecogroup_samples_metadata = self.out_dir + '/all_samples_in_this_ecogroup_with_metadata.csv'
+            self.subset_samples_csv = self.out_dir + '/subset_samples.csv' # This will be the name of the output file containing names of samples that have the ecogroups specified.
+            self.subset_samples_metadata = self.out_dir + '/subset_samples_with_metadata.csv'
             # Code block to hard code in the eco group infomation and change the value of the "ecogroups" attribute depending on what the "args.ecogroups" value will be.
             if self.ecogroups == ['All']:
                 self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Deep_Benthic','Rhamphochromis', 'Diplotaxodon', 'Riverine', 'AC']
