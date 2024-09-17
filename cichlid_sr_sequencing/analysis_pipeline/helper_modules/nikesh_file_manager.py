@@ -64,7 +64,7 @@ class FileManager():
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
-		self.localSampleFile_gt3 = self.localReadsDir + 'SampleDatabase_v2_gt3.xlsx'
+		# self.localSampleFile_gt3 = self.localReadsDir + 'SampleDatabase_v2_gt3.xlsx' # should not need this anymore. Changing pca_maker so I use SampleData_v2 only and not a new version. 
 		self.localSampleFile_for_grant = self.localReadsDir + 'SampleDatabase_v2_2024_feb_grant.xlsx'
 		self.localSampleFileKT = self.localReadsDir + 'KT_Metadata.xlsx'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
