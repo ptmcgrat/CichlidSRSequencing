@@ -24,8 +24,8 @@ Patrick wants some specific things done with pca_maker for the bionanop_paper an
 2. include an LG7 inversion region based on the coordinated I found in the Bionano data. I can just go ahead and run this region for all sub-ecogroups
 3. Run the pipeline in a way that uses all "core_PCA" samples to calculate the PCs, then project only the MCxYH F1s on the axes to see if anything separates out in PC space for these small # of samples. 
 
-time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset 
-time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Rock_Sand --local_test --sample_subset --plink
+time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset
+time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Rock_Sand --local_test --sample_subset --plink -r Exploratory
 time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset --plink
 CVAnalysis
 """
@@ -75,7 +75,6 @@ class PCA_Maker:
         duplicate_set_test = set(self.linkage_groups) # test if any linkage groups are passed twice and throws error if True:
         if len(duplicate_set_test) != len(self.linkage_groups):
             raise Exception('A repeat region has been provided')
-
         # reset self.linkage_groups to include only the 3 lgs tested locally  if the --local_test flag is called
         if args.local_test:
             self.linkage_groups = ['NC_036781.1', 'NC_036782.1', 'NC_036788.1']
@@ -95,7 +94,7 @@ class PCA_Maker:
         analysis_ecogroups = '_'.join(str(eg).replace('_', '') for eg in self.ecogroups)
         file_version = self.in_vcf.split('/')[-1].split('.')[0] # if we run pca_maker on multiple vcf files, this allows us to ensure all plots from a particular file go to its own dir within the self.our_dir defined below
 
-        if self.ecogroups == ['Custom']: # If samples in non-ecogroup_PTM columns should be run, use the Custom sample flag
+        if self.ecogroups == ['Custom']: # If samples in non-Ecogroup_PTM columns should be run, use the Custom sample flag
             while True:
                 custom_column = input('Enter name of column you want to use for sample_subsetting from SampleDatabase_v2.xlsx: ')
                 if custom_column not in self.df.columns.to_list():
@@ -375,9 +374,7 @@ class PCA_Maker:
         pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
         color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
         # project_ID_shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'} # removed for now to exclude shapes when generating data for Patrick's grant.
-        sex_shape_map = {'m':'triangle-up', 'f': 'circle', 'unknown': 'square', 'irrelevant': 'square'}
-        bionano_shape_map = {'No': 'circle-open', 'Yes': 'circle'}
-
+        bionano_shape_map = {'No': 'circle-open', 'Yes': 'triangle-up'}
 
         for lg in linkage_group_list:
             print('GENERATING PCA FOR ' + lg)
@@ -403,21 +400,18 @@ class PCA_Maker:
                                     'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
                                 },
                                 color_discrete_map=color_map, symbol_map=bionano_shape_map,
-                                title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism'])
-            # else: # NOTE: if we want to generate a subset PCA uncomment and incorporate below code into the function
-            # fig = px.scatter(df_merged, x='PC1', y='PC2', color='Ecogroup', symbol='ProjectID', color_discrete_map=color_map, symbol_map=shape_map, title=lg, hover_data=['SampleID', 'Ecogroup', 'Organism', 'ProjectID'])
-            larger_size = 7
-            smaller_size = 4
-            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='circle'))
+                                title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism', 'ProjectID_PTM'])
+            larger_size = 9
+            smaller_size = 3
+            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='triangle-up'))
             fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='circle-open'))
             fig.write_html(self.plotly_out + lg + '_PCA.html')
-
 
     def _create_umap(self, linkage_group_list):
         # code to generate and merge the sampledatabase_df and the eigen_df
         self.umap_out = self.out_dir + '/umap_outputs/'
         pathlib.Path(self.umap_out).mkdir(parents=True, exist_ok=True) # build a file path to the umap out dir
-        color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_zBenthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
+        color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_zBenthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Hybrid': 'darkpink'}
         shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'}
         for lg in linkage_group_list:
             print('GENERATING UMAP FOR ' + lg)
@@ -481,16 +475,44 @@ python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p
 
 
 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_240917.txt 1> pca_logs/log_lm_240917.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_240917.txt 1> pca_logs/log_rock_sand_240917.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_240917.txt 1> pca_logs/log_sand_240917.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Mbuna 2> pca_logs/error_mbuna_240917.txt 1> pca_logs/log_mbuna_240917.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_240918.txt 1> pca_logs/log_lm_240918.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_240918.txt 1> pca_logs/log_rock_sand_240918.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_240918.txt 1> pca_logs/log_sand_240918.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Mbuna 2> pca_logs/error_mbuna_240918.txt 1> pca_logs/log_mbuna_240918.txt
 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_mbuna_240917.txt 1> pca_logs/log_mbuna_240917.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_hybrid_analysis_240918.txt 1> pca_logs/log_hybrid_analysis_240918.txt
 hybrid_analysis
 
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_cvanalysis_240918.txt 1> pca_logs/log_cvanalysis_240918.txt
+CVAnalysis
 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_mbuna_240917.txt 1> pca_logs/log_mbuna_240917.txt
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_yhpedigree_240918.txt 1> pca_logs/log_yhpedigree_240918.txt
+YHPedigree
 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# to get the exploratory regions to work 240918
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Lake_Malawi
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Rock_Sand
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Sand
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Mbuna
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Custom
+hybrid_analysis
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Custom
+CVAnalysis
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Custom
+YHPedigree
+
+
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Rhamphochromis Diplotaxodon 2> pca_logs/error_pelagic_240918.txt 1> pca_logs/log_pelagic_240918.txt
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Rerunning analyses with edits from Patrick
+
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_hybrid_analysis_240918.txt 1> pca_logs/log_hybrid_analysis_240918.txt
 
 """
