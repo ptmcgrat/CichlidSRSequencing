@@ -393,7 +393,7 @@ class PCA_Maker:
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
                 plot_title = lg
-            # Below is the old code that will allow shapes per projectID
+            # Do the plotting magic
             fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup_PTM', symbol='BionanoData',
                                 labels = {
                                     'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
