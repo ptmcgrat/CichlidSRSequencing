@@ -77,7 +77,7 @@ class PCA_Maker:
             raise Exception('A repeat region has been provided')
         # reset self.linkage_groups to include only the 3 lgs tested locally  if the --local_test flag is called
         if args.local_test:
-            self.linkage_groups = ['NC_036781.1', 'NC_036782.1', 'NC_036788.1']
+            self.linkage_groups = ['NC_036788.1', 'NC_036781.1', 'NC_036782.1']
             if 'Whole' in args.regions:
                 self.linkage_groups.extend(['Whole'])
             if 'Exploratory' in args.regions:
@@ -370,11 +370,20 @@ class PCA_Maker:
                         subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
 
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
-        self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir
-        pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file path with pathlib.Path
-        color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
-        # project_ID_shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'} # removed for now to exclude shapes when generating data for Patrick's grant.
-        bionano_shape_map = {'No': 'circle-open', 'Yes': 'triangle-up'}
+        """
+        TODO:
+        - make it output some pdf versions too to ensure color isn't changing like crazy 
+        - remove values on axes
+        - remove default background color. make transparent
+        """
+
+        self.plotly_out = self.out_dir + '/interactive_PCA_outputs/' # define outdir for final plotly outputs
+        self.plotly_pdf_out = self.out_dir + '/static_PCA_outputs/' # define PDF output dir
+        pathlib.Path(self.plotly_out).mkdir(parents=True, exist_ok=True) # build the file paths with pathlib.Path
+        pathlib.Path(self.plotly_pdf_out).mkdir(parents=True, exist_ok=True) # build pdf output filepath 
+        # The below color hexcodes match what's in the Malinksy paper, extracted from Illustrator using the PDF of the publication 
+        malinksy_color_map = {'Mbuna': '#A020F0', 'AC': '#A2CD5A', 'Shallow_Benthic': '#FF6347', 'Deep_Benthic': '#4876FF', 'Rhamphochromis': '#8B4513', 'Diplotaxodon': '#FFA54F', 'Utaka': '#006400'}
+        bionano_shape_map = {'No': 'circle', 'Yes': 'x'}
 
         for lg in linkage_group_list:
             print('GENERATING PCA FOR ' + lg)
@@ -384,28 +393,39 @@ class PCA_Maker:
             pc2_variance = (variance_df.loc[1][0] / variance_df.sum())[0]*100
             pc1_variance = round(pc1_variance, 2)
             pc2_variance = round(pc2_variance, 2)
-
             eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection.sscore', sep='\t')
             eigen_df = eigen_df.rename(columns = {'#IID':'SampleID'})
-            
             df_merged = pd.merge(eigen_df, self.df, on=['SampleID'])
+            df_merged['Color'] = df_merged['Ecogroup_PTM'].map(malinksy_color_map)  # Map Ecogroup_PTM to the malinsky_color_map
+            df_merged.loc[df_merged['BionanoData'] == 'Yes', 'Color'] = 'black'  # Override to black for BionanoData 'Yes'
+            df_merged['Size'] = df_merged['BionanoData'].apply(lambda x: 11 if x == 'Yes' else 5)
             if lg.startswith('NC'):
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
                 plot_title = lg
+
             # Do the plotting magic
-            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', color='Ecogroup_PTM', symbol='BionanoData',
-                                labels = {
-                                    'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
-                                    'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
-                                },
-                                color_discrete_map=color_map, symbol_map=bionano_shape_map,
-                                title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism', 'ProjectID_PTM'])
-            larger_size = 9
-            smaller_size = 3
-            fig.update_traces(marker=dict(size=larger_size), selector=dict(marker_symbol='triangle-up'))
-            fig.update_traces(marker=dict(size=smaller_size), selector=dict(marker_symbol='circle-open'))
+            # basically just pass in plotly.express.scatter a dataframe, tell it what the x and y axes are, and labels for the x and y axes. The plot title and hover data for the interactive plot can be overlayed after
+            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG',
+                            labels={
+                                'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
+                                'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
+                            },
+                            # symbol_map=bionano_shape_map, # if you have a shape_map, uncomment and add that here
+                            title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism', 'ProjectID_PTM'])
+
+            # Apply custom colors and marker shapes
+            fig.update_traces(marker=dict(color=df_merged['Color'])) # maps color based on the Color column in df_merged
+            fig.update_traces(marker=dict(symbol=df_merged['BionanoData'].map(bionano_shape_map))) # maps the X's for BionanoData samples 
+            fig.update_traces(marker=dict(size=df_merged['Size'])) # maps the size we want for the points based on the "Size" column.
+
+            # change background and axes
+            # fig.update_layout(dict(plot_bgcolor='rgba(0, 0, 0, 0)')) # sets background to clear
+
+            # write the interacitve and static files
             fig.write_html(self.plotly_out + lg + '_PCA.html')
+            fig.write_image(self.plotly_pdf_out + lg + '_PCA.pdf')
+            
 
     def _create_umap(self, linkage_group_list):
         # code to generate and merge the sampledatabase_df and the eigen_df
@@ -457,9 +477,25 @@ if __name__ == "__main__":
     pca_obj.create_PCA()
     print('PIPELINE RUN SUCCESSFUL')
 
+
+"""
+Legacy Plotly Code in case it's every needed
+Started 2024.09.20
+
+color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
+project_ID_shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'} # removed for now to exclude shapes when generating data for Patrick's grant.
+
+
+"""
+
+
+
+
+
 """
 For local testing:
-python pca_maker.py Mzebra_UMD2a /Users/kmnike/Data/pca_testing --sample_subset --local_test -p -e Rock_Sand
+time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset --plink
+PCAFigure
 
 For running on Utaka:
 NOTE: we are no longer running the "All" & "Non_Riverine" groups
@@ -512,7 +548,27 @@ time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Rerunning analyses with edits from Patrick
 
+# Not working b/c Nyererei are in this analysis and are absent in the 498 cohort vcf file
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_phylogenyfigure_240918.txt 1> pca_logs/log_phylogenyfigure_240918.txt
+PhylogenyFigure
 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_hybrid_analysis_240918.txt 1> pca_logs/log_hybrid_analysis_240918.txt
+# Running
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_pcafigure_240918.txt 1> pca_logs/log_pcafigure_240918.txt
+PCAFigure
 
+# Running with having exluded the mom MC-5G11G-f and adding in kocherMC-female and MC-010-f as proxies. 
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_yhpedigree_240918.txt 1> pca_logs/log_yhpedigree_240918.txt
+YHPedigree
+
+# Running 
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_cvanalysis_240918.txt 1> pca_logs/log_cvanalysis_240918.txt
+CVAnalysis
+
+# reran with the updated figure parameters
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Mbuna
+
+
+1. all same sized circles, fill normal samples, make bionano samples black
+2. all same sized circles, fill normal samples, make bionano samples black x's 
+3. all same sized circles, fill normal samples, make bionano samples colored x's 
 """
