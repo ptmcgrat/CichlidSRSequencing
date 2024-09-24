@@ -401,7 +401,7 @@ class PCA_Maker:
             df_merged['Color'] = df_merged['Ecogroup_PTM'].map(malinksy_color_map)  # Map Ecogroup_PTM to the malinsky_color_map
             df_merged.loc[df_merged['BionanoData'] == 'Yes', 'Color'] = 'black'  # Override to black for BionanoData 'Yes'
             df_merged['Size'] = df_merged['BionanoData'].apply(lambda x: 4 if x == 'Yes' else 3)
-            df_merged['Opacity'] = df_merged['BionanoData'].apply(lambda x: 0.4 if x == 'Yes' else 0.9)
+            df_merged['Opacity'] = df_merged['BionanoData'].apply(lambda x: 0.6 if x == 'Yes' else 1.0)
             if lg.startswith('NC'):
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
