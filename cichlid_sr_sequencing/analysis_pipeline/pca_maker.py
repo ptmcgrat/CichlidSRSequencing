@@ -157,7 +157,9 @@ class PCA_Maker:
         in_vcf_samples_df = pd.DataFrame(in_vcf_samples)
         unmatched_samples = ecogroup_df[~ecogroup_df['SampleID'].isin(in_vcf_samples_df['SampleID'])]
         if unmatched_samples.shape[0] != 0: # if all samples in ecogroup_df match those in in_vcf, then the row length should be 0. If the value is different, raise an exception
-            raise Exception(f"Some samples in ecogroup_df are not in the input vcf file. See samples in {unmatched_samples}")
+            unmatched_samples.to_csv('unmatched_samples.csv', index=False)
+            raise Exception(f"{unmatched_samples.shape[0]} samples in ecogroup_df are not in the input vcf file. See samples in unmatched_samples.csv.")
+            
 
     def _create_ecogroup_specific_vcf(self):
         # path to the vcf file containing samples only in the ecogroups needed for the analysis
@@ -398,7 +400,8 @@ class PCA_Maker:
             df_merged = pd.merge(eigen_df, self.df, on=['SampleID'])
             df_merged['Color'] = df_merged['Ecogroup_PTM'].map(malinksy_color_map)  # Map Ecogroup_PTM to the malinsky_color_map
             df_merged.loc[df_merged['BionanoData'] == 'Yes', 'Color'] = 'black'  # Override to black for BionanoData 'Yes'
-            df_merged['Size'] = df_merged['BionanoData'].apply(lambda x: 11 if x == 'Yes' else 5)
+            df_merged['Size'] = df_merged['BionanoData'].apply(lambda x: 6 if x == 'Yes' else 3)
+            df_merged['Opacity'] = df_merged['BionanoData'].apply(lambda x: 0.5 if x == 'Yes' else 0.9)
             if lg.startswith('NC'):
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
             else:
@@ -406,7 +409,7 @@ class PCA_Maker:
 
             # Do the plotting magic
             # basically just pass in plotly.express.scatter a dataframe, tell it what the x and y axes are, and labels for the x and y axes. The plot title and hover data for the interactive plot can be overlayed after
-            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG',
+            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', width = 330, height = 330,
                             labels={
                                 'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
                                 'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
@@ -416,16 +419,18 @@ class PCA_Maker:
 
             # Apply custom colors and marker shapes
             fig.update_traces(marker=dict(color=df_merged['Color'])) # maps color based on the Color column in df_merged
-            fig.update_traces(marker=dict(symbol=df_merged['BionanoData'].map(bionano_shape_map))) # maps the X's for BionanoData samples 
+            fig.update_traces(marker=dict(symbol=df_merged['BionanoData'].map(bionano_shape_map))) # maps the X's for BionanoData samples
+            fig.update_traces(marker=dict(line_width=0))
             fig.update_traces(marker=dict(size=df_merged['Size'])) # maps the size we want for the points based on the "Size" column.
+            fig.update_traces(marker=dict(opacity=df_merged['Opacity']))
 
             # change background and axes
             # fig.update_layout(dict(plot_bgcolor='rgba(0, 0, 0, 0)')) # sets background to clear
-
+            fig.update_layout(margin=dict(l=20, r=20, t=30, b=20))
+            # pdb.set_trace()
             # write the interacitve and static files
             fig.write_html(self.plotly_out + lg + '_PCA.html')
             fig.write_image(self.plotly_pdf_out + lg + '_PCA.pdf')
-            
 
     def _create_umap(self, linkage_group_list):
         # code to generate and merge the sampledatabase_df and the eigen_df
@@ -479,18 +484,18 @@ if __name__ == "__main__":
 
 
 """
-Legacy Plotly Code in case it's every needed
+Legacy Plotly Code in case it's ever needed
 Started 2024.09.20
 
 color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
 project_ID_shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'} # removed for now to exclude shapes when generating data for Patrick's grant.
 
+# if you need to select a specific symbol and adjust an attribute do it like this:
+fig.update_traces(marker=dict(width=1), selector=dict(symbol='x')) 
+# the marker=dict() will allow you to edit settings of marker level attributes. The sleector=dict(symbol='') tells plotly which symbol you want the settings on the right to ghet applied to. 
 
 """
-
-
-
-
+##############################################################################################################################################################################################################################################
 
 """
 For local testing:
@@ -567,8 +572,25 @@ CVAnalysis
 # reran with the updated figure parameters
 time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Mbuna
 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Regeneerating figures with updated colors and sizes:
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Lake_Malawi 
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Rock_Sand 
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Sand
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Mbuna
 
-1. all same sized circles, fill normal samples, make bionano samples black
-2. all same sized circles, fill normal samples, make bionano samples black x's 
-3. all same sized circles, fill normal samples, make bionano samples colored x's 
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Custom
+hybrid_analysis
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Custom
+CVAnalysis
+
+time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Custom
+YHPedigree
+
+
+
+
+
+
 """
