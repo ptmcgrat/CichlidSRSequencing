@@ -29,7 +29,6 @@ For running on the 498 sample Cohort:
 time python callVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment_file 2> error_download_bionano_paper_data_240914.txt 1> log_download_bionano_paper_data_240914.txt
 
 
-
 time python callVariants.py Mzebra_GT3 -i -g -m 10 -c -s alignment_file --concurrent_processes 96 2> error_503_cohort_run.txt 1> log_503_cohort_run.txt
 """
 

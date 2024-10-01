@@ -92,6 +92,7 @@ else:
 
 command = ['gatk', 'FastqToSam', '--FASTQ', fixed_fq1, '--FASTQ2', fixed_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', args.SampleName, '--LIBRARY_NAME', args.LibraryName, '--PLATFORM', args.Platform]
+# gatk FastqToSam --FASTQ <fq1> --FASTQ2 <fq2> --READ_GROUP_NAME <RUNID> --TMP_DIR <Temp_dir> --OUTPUT <temp_bam_file> --SAMPLE_NAME <sample_name> --LIBRARY_NAME <library_name> --PLATFORM <platform>
 print('Done Fixing the fastqs. Staring UBAM conversion')
 output1 = subprocess.run(command, capture_output = True)
 if output1.returncode != 0:

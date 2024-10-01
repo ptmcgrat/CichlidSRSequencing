@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser(usage = 'This script will reorder the nucleotid
 parser.add_argument('--genome', help = 'name of the reference to reorganize', default='Mzebra_UMD2a')
 parser.add_argument('-o', '--output_dir', help = 'absolute filepath to an output directory', nargs=1)
 parser.add_argument('-r', '--regions', help = 'list of linakge groups where script will operate. All linkage groups will be output into the same directory', nargs = '*', default = ['All'])
-parser.add_argument('-f', '--file_name', help = 'name of the output reorganized genoem file.', default='Mzebra_GT1.fna')
+parser.add_argument('-f', '--file_name', help = 'name of the output reorganized genome file.', default='Mzebra_GT1.fna')
 parser.add_argument('-w', '--write_unmapped_contigs', help = 'flag that will write in the unmapped contigs if called', action='store_true', default=False)
 args = parser.parse_args()
 

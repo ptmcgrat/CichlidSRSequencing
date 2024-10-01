@@ -1,0 +1,68 @@
+LG1
+reorder count: 10
+new contigs placed: 8
+LG2
+reorder count: 6
+new contigs placed: 4
+LG3
+reorder count: 9
+new contigs placed: 5
+LG4
+reorder count: 10
+new contigs placed: 6
+LG5
+reorder count: 7
+new contigs placed: 4
+LG6
+reorder count: 6
+new contigs placed: 3
+LG7
+reorder count: 8
+new contigs placed: 9
+LG8
+reorder count: 7
+new contigs placed: 8
+LG9
+reorder count: 12
+new contigs placed: 13
+LG10
+reorder count: 8
+new contigs placed: 2
+LG11
+reorder count: 8
+new contigs placed: 10
+LG12
+reorder count: 4
+new contigs placed: 5
+LG13
+reorder count: 7
+new contigs placed: 2
+LG14
+reorder count: 5
+new contigs placed: 4
+LG15
+reorder count: 13
+new contigs placed: 9
+LG16
+reorder count: 3
+new contigs placed: 2
+LG17
+reorder count: 12
+new contigs placed: 7
+LG18
+reorder count: 10
+new contigs placed: 7
+LG19
+reorder count: 9
+new contigs placed: 6
+LG20
+reorder count: 9
+new contigs placed: 12
+LG21
+reorder count: 4
+new contigs placed: 2
+LG22
+reorder count: 11
+new contigs placed: 5
+Total Reordered Contigs: 178
+Total Added  Unmapped Contigs: 133

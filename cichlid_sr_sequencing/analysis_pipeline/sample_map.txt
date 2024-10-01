@@ -3,3 +3,7 @@ CV-006-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/
 LA_3006_m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/LA_3006_m/LA_3006_m_0.0001_subset.g.vcf.gz
 MC-008-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/MC-008-m/MC-008-m_0.0001_subset.g.vcf.gz
 OC-001-m	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/OC-001-m/OC-001-m_0.0001_subset.g.vcf.gz
+small_file1	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/small_file1/small_file1_0.0001_subset.g.vcf.gz
+small_file2	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/small_file2/small_file2_0.0001_subset.g.vcf.gz
+small_file3	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/small_file3/small_file3_0.0001_subset.g.vcf.gz
+small_file4	/Users/kmnike/Data/CichlidSequencingData/Bamfiles/nikesh_local_testing/small_file4/small_file4_0.0001_subset.g.vcf.gz

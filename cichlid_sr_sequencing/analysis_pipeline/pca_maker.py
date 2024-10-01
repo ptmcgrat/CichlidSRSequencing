@@ -386,6 +386,7 @@ class PCA_Maker:
         # The below color hexcodes match what's in the Malinksy paper, extracted from Illustrator using the PDF of the publication 
         malinksy_color_map = {'Mbuna': '#A020F0', 'AC': '#A2CD5A', 'Shallow_Benthic': '#FF6347', 'Deep_Benthic': '#4876FF', 'Rhamphochromis': '#8B4513', 'Diplotaxodon': '#FFA54F', 'Utaka': '#006400'}
         bionano_shape_map = {'No': 'circle', 'Yes': 'x'}
+        # try to get "x-thin" working while maintaining its line width and other attributes
 
         for lg in linkage_group_list:
             print('GENERATING PCA FOR ' + lg)
@@ -494,6 +495,8 @@ project_ID_shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diam
 fig.update_traces(marker=dict(width=1), selector=dict(symbol='x')) 
 # the marker=dict() will allow you to edit settings of marker level attributes. The sleector=dict(symbol='') tells plotly which symbol you want the settings on the right to ghet applied to. 
 
+
+Update code to output full HTMLs but keep small PDFs to maintain spacing.
 """
 ##############################################################################################################################################################################################################################################
 
