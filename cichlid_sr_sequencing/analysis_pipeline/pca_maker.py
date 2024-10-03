@@ -349,7 +349,7 @@ class PCA_Maker:
                 if not pathlib.Path(self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_ecogroup.vcf.gz').exists(): # NOTE: error checking... revisit later
                     print('ERROR: THE FILE ' + lg + '.VCF.GZ DOES NOT EXIST. MUST RUN _SPLIT_VCF_TO_LG TO CREATE IT...')
                     raise Exception
-                else: # do all the plink pca magic here assuming you're going one linkage group at a time... figure out parallelization as I code this referencing the previous function. Parallelization may not be possible because plink likes to execute immediately and doesn't listen to the Popen constructor. It all executres before Popen.communicate() is called.
+                else: # do all the plink pca magic here assuming you're going one linkage group at a time... figure out parallelization as I code this referencing the previous function. Parallelization may not be possible because plink likes to execute immediately and doesn't listen to the Popen constructor. It all executes before Popen.communicate() is called.
                     pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
                     
                     subprocess.run(['plink2', '--vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--allow-extra-chr']) # whole vcf file pfile generation for a given lg
@@ -401,7 +401,8 @@ class PCA_Maker:
             df_merged = pd.merge(eigen_df, self.df, on=['SampleID'])
             df_merged['Color'] = df_merged['Ecogroup_PTM'].map(malinksy_color_map)  # Map Ecogroup_PTM to the malinsky_color_map
             df_merged.loc[df_merged['BionanoData'] == 'Yes', 'Color'] = 'black'  # Override to black for BionanoData 'Yes'
-            df_merged['Size'] = df_merged['BionanoData'].apply(lambda x: 4 if x == 'Yes' else 3)
+            df_merged['PDF_Size'] = df_merged['BionanoData'].apply(lambda x: 4 if x == 'Yes' else 3)
+            df_merged['HTML_Size'] = df_merged['BionanoData'].apply(lambda x: 7 if x == 'Yes' else 5)
             df_merged['Opacity'] = df_merged['BionanoData'].apply(lambda x: 0.6 if x == 'Yes' else 0.9)
             if lg.startswith('NC'):
                 plot_title = list(self.linkage_group_map.keys())[list(self.linkage_group_map.values()).index(lg)]
@@ -410,7 +411,7 @@ class PCA_Maker:
 
             # Do the plotting magic
             # basically just pass in plotly.express.scatter a dataframe, tell it what the x and y axes are, and labels for the x and y axes. The plot title and hover data for the interactive plot can be overlayed after
-            fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', width = 330, height = 330,
+            pdf_fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG', width = 330, height = 330,
                             labels={
                                 'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
                                 'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
@@ -419,19 +420,35 @@ class PCA_Maker:
                             title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism', 'ProjectID_PTM'])
 
             # Apply custom colors and marker shapes
-            fig.update_traces(marker=dict(color=df_merged['Color'])) # maps color based on the Color column in df_merged
-            fig.update_traces(marker=dict(symbol=df_merged['BionanoData'].map(bionano_shape_map))) # maps the X's for BionanoData samples
-            fig.update_traces(marker=dict(line_width=0))
-            fig.update_traces(marker=dict(size=df_merged['Size'])) # maps the size we want for the points based on the "Size" column.
-            fig.update_traces(marker=dict(opacity=df_merged['Opacity']))
+            pdf_fig.update_traces(marker=dict(color=df_merged['Color'])) # maps color based on the Color column in df_merged
+            pdf_fig.update_traces(marker=dict(symbol=df_merged['BionanoData'].map(bionano_shape_map))) # maps the X's for BionanoData samples
+            pdf_fig.update_traces(marker=dict(line_width=0))
+            pdf_fig.update_traces(marker=dict(size=df_merged['PDF_Size'])) # maps the size we want for the points based on the "Size" column.
+            pdf_fig.update_traces(marker=dict(opacity=df_merged['Opacity']))
+            pdf_fig.update_layout(margin=dict(l=20, r=20, t=30, b=20))
+            
+            # write the interacitve and static files (adjusted for publication)
+            pdf_fig.write_image(self.plotly_pdf_out + lg + '_PCA.pdf')
 
-            # change background and axes
-            # fig.update_layout(dict(plot_bgcolor='rgba(0, 0, 0, 0)')) # sets background to clear
-            fig.update_layout(margin=dict(l=20, r=20, t=30, b=20))
-            # pdb.set_trace()
-            # write the interacitve and static files
-            fig.write_html(self.plotly_out + lg + '_PCA.html')
-            fig.write_image(self.plotly_pdf_out + lg + '_PCA.pdf')
+            # Generate HTML figures with default sizes
+            html_fig = px.scatter(df_merged, x='PC1_AVG', y='PC2_AVG',
+                            labels={
+                                'PC1_AVG': 'PC1 ' + str(pc1_variance) + '%',
+                                'PC2_AVG': 'PC2 ' + str(pc2_variance) + '%'
+                            },
+                            # symbol_map=bionano_shape_map, # if you have a shape_map, uncomment and add that here
+                            title=plot_title, hover_data=['SampleID', 'Ecogroup_PTM', 'Organism', 'ProjectID_PTM'])
+
+            # Apply custom colors and marker shapes
+            html_fig.update_traces(marker=dict(color=df_merged['Color'])) # maps color based on the Color column in df_merged
+            html_fig.update_traces(marker=dict(symbol=df_merged['BionanoData'].map(bionano_shape_map))) # maps the X's for BionanoData samples
+            html_fig.update_traces(marker=dict(line_width=0)) # make the white outline width 0
+            html_fig.update_traces(marker=dict(size=df_merged['HTML_Size'])) # maps the size we want for the points based on the "Size" column.
+            html_fig.update_traces(marker=dict(opacity=df_merged['Opacity']))
+
+            # write the interacitve files (full_sized)
+            html_fig.write_html(self.plotly_out + lg + '_PCA.html')
+
 
     def _create_umap(self, linkage_group_list):
         # code to generate and merge the sampledatabase_df and the eigen_df
