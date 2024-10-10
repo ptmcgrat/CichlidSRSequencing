@@ -326,24 +326,27 @@ class PCA_Maker:
         for lg in linkage_group_list:
             if lg == 'Whole':
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
-                subprocess.run(['plink2', '--vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--allow-extra-chr']) # whole vcf file pfile generation. Use the variants_filtered_ecogroup_samples.recode.vcf.gz file as the "whole" file.
-                subprocess.run(['plink2', '--vcf', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--allow-extra-chr']) # subset sample vcf file pfile generation. The subset file is the af_filtered_subset_samples.vcf.gz in self.out_dir
-                subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--allow-extra-chr'])
+                subprocess.run(['plink2', '--vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_generated_step_1', '--allow-extra-chr']) # whole vcf file pfile generation. Use the variants_filtered_ecogroup_samples.recode.vcf.gz file as the "whole" file.
+                subprocess.run(['plink2', '--vcf', self.out_dir + '/af_filtered_subset_samples.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_generated_step_1', '--allow-extra-chr']) # subset sample vcf file pfile generation. The subset file is the af_filtered_subset_samples.vcf.gz in self.out_dir
+                subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_generated_step_1', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected_generated_step_2', '--allow-extra-chr'])
                 if int(subprocess.check_output(f"bcftools query -l {self.out_dir + '/af_filtered_subset_samples.vcf.gz'} | wc -l", shell=True, encoding='utf-8').strip()) >= 50: # NOTE: Since for "Whole", the subset samples are pulled from af_filtered_subset_samples.vcf.gz, this file must be queried to see if it contains less than 50 samples
-                        # Since for the whole genome linkage pruning is needed, the code will be adjusted:
+                    # For running the whole genome, LD pruning is indeed needed
+                    # Run linkage pruning only to generate the prune.in file using indep-pairwise 50 5 0.1
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_generated_step_1', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1'])
+                    # use the variants in the pfiles from subset samples generated in step 1 and load in the prune.in varinats only and run pca. Generates the .account and .allele files needed for step4
+                                    
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_generated_step_1', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--max-alleles', '2', '--extract', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1.prune.in'])
+                    # modify the .acounts file to eliminate 0 count alleles:
+                    acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount', sep='\t')
+                    no_extremes_df = acounts_df[(acounts_df['ALT_CTS'] != 0) & (acounts_df['ALT_CTS'] != max(acounts_df['OBS_CT']))]
+                    no_extremes_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount', sep='\t', index=False)
 
-                        subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1', '--max-alleles', '2']) # This code works properly to generate an eigenvec file with the right number of samples. As long as the number of samples in the ecogroup is >50, there shouldn't be an issue.
-                        # modify the .acounts file to eliminate 0 count alleles:
-                        acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', sep='\t')
-                        no_extremes_df = acounts_df[(acounts_df['ALT_CTS'] != 0) & (acounts_df['ALT_CTS'] != max(acounts_df['OBS_CT']))]
-                        no_extremes_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', sep='\t', index=False)
-
-                        # genenrate the .sscore file with eigenvectors for each samples after projection on to the PC space from the subset PCA
-                        subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
-                else: # code for mbuna and samples with <50 samples. Ignore for now.
-                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1', '--max-alleles', '2', '--bad-ld']) 
-                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr']) # this is where things are going wrong. Before, "Whole" was always running this faulty code that's generating .eigenvec files with a number of samples equal to the whole ecogroup and not the subset This needs to  be fixed, else Mbuna and other small dataset groups will not run right.
-                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
+                    # genenrate the .sscore file with eigenvectors for each samples after projection on to the PC space from the subset PCA
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected_generated_step_2', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection_yes_ld', '--allow-extra-chr'])
+                # else: # code for mbuna and samples with <50 samples. Ignore for now.
+                #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1', '--max-alleles', '2', '--bad-ld']) 
+                #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr']) # this is where things are going wrong. Before, "Whole" was always running this faulty code that's generating .eigenvec files with a number of samples equal to the whole ecogroup and not the subset This needs to  be fixed, else Mbuna and other small dataset groups will not run right.
+                #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
 
             else: #lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
@@ -351,42 +354,40 @@ class PCA_Maker:
                     print('ERROR: THE FILE ' + lg + '.VCF.GZ DOES NOT EXIST. MUST RUN _SPLIT_VCF_TO_LG TO CREATE IT...')
                     raise Exception
                 else: # do all the plink pca magic here assuming you're going one linkage group at a time... figure out parallelization as I code this referencing the previous function. Parallelization may not be possible because plink likes to execute immediately and doesn't listen to the Popen constructor. It all executes before Popen.communicate() is called.
-                    pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
+                    pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True) # make the path to a PCA directory in self.out_dir if it doesn't exist yet
 
-                    subprocess.run(['plink2', '--vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--allow-extra-chr']) # whole vcf file pfile generation for a given lg
-                    subprocess.run(['plink2', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--allow-extra-chr']) # subset sample vcf file pfile generation for a given lg
-                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--allow-extra-chr'])
+                    # regardless of whether the region will be linkage pruned or not, the first 3 steps are the same.
+                    subprocess.run(['plink2', '--vcf', self.out_dir + '/variants_filtered_ecogroup_samples.recode.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_generated_step_1', '--allow-extra-chr']) # whole vcf file pfile generation for a given lg
+                    subprocess.run(['plink2', '--vcf', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_generated_step_1', '--allow-extra-chr']) # subset sample vcf file pfile generation for a given lg
+                    subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_generated_step_1', '--set-missing-var-ids', '@:#', '--make-pgen', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected_generated_step_2', '--allow-extra-chr'])
                     # If number of samples in the analysis is > 50: run code as normal
                     if int(subprocess.check_output(f"bcftools query -l {self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset.vcf.gz '} | wc -l", shell=True, encoding='utf-8').strip()) >= 50:
+                        # Run the NO LD case, which is when regions in the exploratory regions list (that include ethe inversions) are run
                         if lg in self.exploratory_regions_list: # if lf is in an inverted region, we should not be doing linkage pruning
-                            print('Running an inversion region. Linkage pruning will not be performed')
-                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca_no_pruning', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--max-alleles', '2'])
-                            # modify the .acounts file to eliminate 0 count alleles:
-                            acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca_no_pruning.acount', sep='\t')
+                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_generated_step_1', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--max-alleles', '2'])
+                            # modify the .acounts file to eliminate 0 count alleles for the NO LD case:
+                            acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3.acount', sep='\t')
                             no_extremes_df = acounts_df[(acounts_df['ALT_CTS'] != 0) & (acounts_df['ALT_CTS'] != max(acounts_df['OBS_CT']))]
-                            no_extremes_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca_no_pruning.acount', sep='\t', index=False)
-
-                        else: # if the lg is a normal whole chromosome, run linkage pruning 
-                            print('Running a whole linkage group. Linkage pruning will be performed.')
-                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_ld_pruning', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1'])
-                            # plink2 --pfile testing_subset --out no_pca_options_step3_test --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1
-
-                            # now run the pca using the variants that passed LD pruning
-                            print('Running PCA using only variants that passed linkage pruning')
-                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_lg_pruning_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--max-alleles', '2', '--extract', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_ld_pruning.prune.in'])
-                            # plink2 --pfile testing_subset --freq counts --pca allele-wts --out testing_step3_prinein_subset_pca --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2 --extract no_pca_options_step3_test.prune.in
+                            no_extremes_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3.acount', sep='\t', index=False)
+                            # Generate the .sscore matrix by projecting the variants in the whole_corrected pfiles from step 2 on to the PCs generated by the subset samples 
+                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected_generated_step_2', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection_no_ld', '--allow-extra-chr'])
+                        else: # if the lg is a standard chromosome, run the YES LD case
+                            # Run linkage pruning only to generate the prune.in file using indep-pairwise 50 5 0.1 
+                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_generated_step_1', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1'])
+                            # use the variants in the pfiles from subset samples generated in step 1 and load in the prune.in varinats only and run pca. Generates the .account and .allele files needed for step4
+                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_generated_step_1', '--freq', 'counts', '--pca', 'allele-wts', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--max-alleles', '2', '--extract', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1.prune.in'])
 
                             # modify the .acounts file to eliminate 0 count alleles:
-                            acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + 'subset_lg_pruning_pca.acount', sep='\t')
+                            acounts_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount', sep='\t')
                             no_extremes_df = acounts_df[(acounts_df['ALT_CTS'] != 0) & (acounts_df['ALT_CTS'] != max(acounts_df['OBS_CT']))]
-                            no_extremes_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + 'subset_lg_pruning_pca.acount', sep='\t', index=False)
+                            no_extremes_df.to_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount', sep='\t', index=False)
 
-                            # genenrate the .sscore file with eigenvectors for each samples after projection on to the PC space from the subset PCA
-                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + 'subset_lg_pruning_pca.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + 'subset_lg_pruning_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
-                    else: # code for mbuna and samples with <50 samples. Ignore for now.
-                        subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1', '--max-alleles', '2', '--bad-ld'])
-                        subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr'])
-                        subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
+                            # Generate the .sscore matrix by projecting the variants in the whole_corrected pfiles from step 2 on to the PCs generated by the subset samples 
+                            subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected_generated_step_2', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection_yes_ld', '--allow-extra-chr'])
+                    # else: # code for mbuna and samples with <50 samples. Ignore for now.
+                    #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1', '--max-alleles', '2', '--bad-ld'])
+                    #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr'])
+                    #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
 
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
         """
@@ -521,11 +522,11 @@ if __name__ == "__main__":
 Code used to test the new commands for PCA
 Ok so generally here's how it works rn:
 1. pfiles are generated for the subset and the whole cohort vcf files 
-plink2 --vcf /Users/kmnike/Data/pca_testing/local_testing_498_master_file/PCAFigure/variants_filtered_ecogroup_samples.recode.vcf.gz --out testing_whole --allow-extra-chr
-plink2 --vcf /Users/kmnike/Data/pca_testing/local_testing_498_master_file/PCAFigure/PCA/testing/NC_036781.1_sample_subset.vcf.gz --out testing_subset --allow-extra-chr
+plink2 --vcf /Users/kmnike/Data/pca_testing/local_testing_498_master_file/PCAFigure/variants_filtered_ecogroup_samples.recode.vcf.gz --out test_whole_generated_step_1 --allow-extra-chr
+plink2 --vcf lg_sample_subset.vcf.gz --out test_subset_generated_step_1 --allow-extra-chr
 
 2. some missing IDs are corrected in the whole file  No read changes are made by the whole_corrected suite of pfiles is made
-plink2 --pfile testing_whole --set-missing-var-ids @:# --make-pgen --out testing_whole_corrected --allow-extra-chr
+plink2 --pfile test_whole_generated_step_1 --set-missing-var-ids @:# --make-pgen --out test_whole_corrected_generated_step_2 --allow-extra-chr
 
 
 3. The subset sampels are used to generate a PCA. This is where the issue is rn  I need to start testing here 
@@ -534,13 +535,23 @@ plink2 --pfile testing_whole --set-missing-var-ids @:# --make-pgen --out testing
         - Independent linkeg groups 
     - The indep-pairwise pruned samples should not be called if we are running PCA on the variants within inverted regions
         - I also think that linkage pruning should not be done if the inversion seems to be fixed (lg13 lg20)
-plink2 --pfile testing_subset --freq counts --pca allele-wts --out testing_step3_subset_pca --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1 --max-alleles 2
-plink2 --pfile testing_subset --out no_pca_options_step3_test --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1
 
-plink2 --pfile testing_subset --freq counts --pca allele-wts --out testing_step3_prinein_subset_pca --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2 --extract no_pca_options_step3_test.prune.in
+######## If No LD will be done (like for inverted regions) here's the one command used:
+#### below is the original pca calling code. This was adjusted to get the below line of code that's run when no ld pruning is needed
+plink2 --pfile _subset --freq counts --pca allele-wts --out _sample_subset_pca --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1 --max-alleles 2
+####
+plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_generation_no_ld_pruning_generated_step_3 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2
+
+######## If LD pruning is needed, here's the 2 sommands used
+plink2 --pfile test_subset_generated_step_1 --out test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1 --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1
+plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2 --extract test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1.prune.in
 
 4. The samples in the whole_corrected are projected on to the PCs created from the subset sampels
-plink2 --pfile testing_whole_corrected --read-freq testing_step3_prinein_subset_pca.acount --score testing_step3_prinein_subset_pca.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection --allow-extra-chr
+####### If running NOT LD pruned (inverted regions):
+plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.acount --score test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_no_ld --allow-extra-chr
+
+####### If running LD pruned (whole genome, individual chromosomes):
+plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount --score test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_yes_ld --allow-extra-chr
 
 
 
@@ -550,10 +561,27 @@ For all inverted regions:
 For all whole genome and individual LGs:
     - The LD pruning based on 50 5 0.1 will be performed and used.
 
-
-
 Ok so here's what I need to test:
     - The whole PCA can be the start point. I need to run the plink commands on this file but use the prune.in variants only.
+
+Sumamry of commands:
+STEP1: BOTH SCENARIOS
+plink2 --vcf /Users/kmnike/Data/pca_testing/local_testing_498_master_file/PCAFigure/variants_filtered_ecogroup_samples.recode.vcf.gz --out test_whole_generated_step_1 --allow-extra-chr
+plink2 --vcf lg_sample_subset.vcf.gz --out test_subset_generated_step_1 --allow-extra-chr
+
+STEP2: BOTH SCENARIOS
+plink2 --pfile test_whole_generated_step_1 --set-missing-var-ids @:# --make-pgen --out test_whole_corrected_generated_step_2 --allow-extra-chr
+
+STEP3: NO LD (EXPLORATORY REGIONS ONLY)
+plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_generation_no_ld_pruning_generated_step_3 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2
+STEP3: YES LD (INDIVIDUAL CHROMOSOMES AND WHOLE GENOME)
+plink2 --pfile test_subset_generated_step_1 --out test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1 --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1
+plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2 --extract test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1.prune.in
+
+STEP4: NO LD (EXPLORATORY REGIONS ONLY)
+plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.acount --score test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_no_ld --allow-extra-chr
+STEP4: YES LD (INDIVIDUAL CHROMOSOMES AND WHOLE GENOME)
+plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount --score test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_yes_ld --allow-extra-chr
 
 
 
