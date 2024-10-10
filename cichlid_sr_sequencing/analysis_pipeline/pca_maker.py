@@ -410,7 +410,7 @@ class PCA_Maker:
             print('GENERATING PCA FOR ' + lg)
             # calculate percent variance explained by pc1 and 2. Round to 2 decimals
             if lg in self.exploratory_regions_list: # NO LD case
-                variance_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3', header=None)
+                variance_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3.eigenval', header=None)
             else: # YES LD case
                 variance_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenval', header=None)
             pc1_variance = (variance_df.loc[0][0] / variance_df.sum())[0]*100
