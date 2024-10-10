@@ -409,12 +409,18 @@ class PCA_Maker:
         for lg in linkage_group_list:
             print('GENERATING PCA FOR ' + lg)
             # calculate percent variance explained by pc1 and 2. Round to 2 decimals
-            variance_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenval', header=None)
+            if lg in self.exploratory_regions_list: # NO LD case
+                variance_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_generation_no_ld_pruning_generated_step_3', header=None)
+            else: # YES LD case
+                variance_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenval', header=None)
             pc1_variance = (variance_df.loc[0][0] / variance_df.sum())[0]*100
             pc2_variance = (variance_df.loc[1][0] / variance_df.sum())[0]*100
             pc1_variance = round(pc1_variance, 2)
             pc2_variance = round(pc2_variance, 2)
-            eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection.sscore', sep='\t')
+            if lg in self.exploratory_regions_list: # NO LD case
+                eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection_no_ld.sscore', sep='\t')
+            else: # YES LD case
+                eigen_df = pd.read_csv(self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection_yes_ld.sscore', sep='\t')
             eigen_df = eigen_df.rename(columns = {'#IID':'SampleID'})
             df_merged = pd.merge(eigen_df, self.df, on=['SampleID'])
             df_merged['Color'] = df_merged['Ecogroup_PTM'].map(malinksy_color_map)  # Map Ecogroup_PTM to the malinsky_color_map
