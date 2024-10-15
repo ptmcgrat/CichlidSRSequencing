@@ -2,26 +2,10 @@ import pdb, multiprocessing, subprocess, argparse, os
 from helper_modules.nikesh_file_manager import FileManager as FM
 
 """
-# for testing the commands needed to get a read depth value:
-
+# Commands used in this script:
 minimap2 -a -x map-hifi /Output/Genomes/Mzebra_GT3a/Mzebra_GT3a.fasta test.fastq.gz -t 16 -K 150G > test.sam
 samtools sort test.sam -o sorted_test.bam -m 10G -@16
 samtools coverage sorted_test.bam | awk 'NR > 1 { total_depth+=$7; total_length+=$3-$2+1 } END { print total_depth/NR "X" }'
-
-alignment takes in 2 parameters and an output:
-- ref
-- fastq
-- sam_out
-
-
-sam_to_bam takes in 1 parameter and an output 
-- sam
-- sorted_output_bam
-
-calculate_depth takes in 1 parameter and an output 
-- sorted_output_bam
-- depth.txt
-
 """
 
 parser = argparse.ArgumentParser()
@@ -36,7 +20,7 @@ read_ref_dict = {'/Output/Reads/M_Met_zebra_Male.hifi_reads.fastq.gz': '/Output/
                '/Output/Reads/H_Aulon_yelhead_Female.hifi_reads.fastq.gz': '/Output/Genomes/YH_GT1.2/kocher_YH_female_mabs_error_corrected_hs_with_YH15.fasta',
                '/Output/Reads/m84053_231214_031015_s1.hifi_reads.bc2029.fastq.gz': '/Output/Genomes/YH_GT1.3/YH7f_ptm_error_corrected_contigs_hs_with_kocher_2f_molecules_all_scaffolds.fasta'}
 genome_names = ['Mzebra_GT3', 'MZ_GT3.2', 'MZ_GT3.3', 'YH_GT1.1', 'YH_GT1.2', 'YH_GT1.3']
-# mkdir Mzebra_GT3 MZ_GT3.2 MZ_GT3.3 YH_GT1.1 YH_GT1.2 YH_GT1.3
+
 
 out_dir = '/Output/Depth'
 if args.local_test:
