@@ -1,12 +1,11 @@
-import argparse, os, math, pysam
-from helper_modules.file_manager_Replacement import FileManager as FM
-from helper_modules.alignment_worker_Replacement import AlignmentWorker as AW
+import argparse, os, math, pysam, pdb, subprocess, sys, datetime
+
+from helper_modules.file_manager import FileManager as FM
+from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
 
 import pandas as pd
-
-
-import argparse, os, pdb, subprocess, sys, datetime
+import argparse, os, 
 from collections import defaultdict
 from multiprocessing import cpu_count
 

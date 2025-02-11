@@ -4,10 +4,9 @@ import subprocess, pdb, os, allel, sys
 from helper_modules.file_manager_Replacement import FileManager as FM
 from Bio import AlignIO
 import matplotlib.pyplot as plt
+import scipy.spatial
 
-#inversions = {'LG2':('NC_036781.1',19743639,20311160,43254805,43658853),'LG9':('NC_036788.1',14453796,15649299,32255605,33496468),'LG10':('NC_036789.1',11674905,11855817,29898615,29898615),
-#				'LG11a':('NC_036790.1',8302039,8309764,18425216,18425216),'LG11b':('NC_036790.1',18425216,18425216,30371888,30459686),'LG13':('NC_036792.1',2249541,2453698,23046928,23131968),
-#				'LG20a':('NC_036799.1',19614379,19689710,29716509,29673642),'LG20b':('NC_036799.1',29716509,29673642,32872827,33764042)}
+# Dictionary for the location of each inversion
 inversions = {'LG2':('NC_036781.1',19743639,20311160,43254805,43658853),'LG9':('NC_036788.1',14453796,15649299,32255605,33496468),'LG10':('NC_036789.1',11674905,11855817,29898615,29898615),
 				'LG11':('NC_036790.1',8302039,8309764,30371888,30459686),'LG13':('NC_036792.1',2249541,2453698,23046928,23131968),
 				'LG20a':('NC_036799.1',19614379,19689710,29716509,29673642),'LG20b':('NC_036799.1',29716509,29673642,32872827,33764042)}
@@ -43,45 +42,33 @@ def parallel_filter(input_vcf, output_vcf, samples):
 	subprocess.run(['bcftools','index', output_vcf])
 
 
-# Read and download essential data
+# Object to keep track of filenames and download/upload data from lab Dropbox
 fm_obj = FM(genome_version = 'Mzebra_GT3')
+
+# Download master vcf file
 main_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/gt3_cohort_pass_variants.vcf.gz'
-#fm_obj.downloadData(main_vcf)
+fm_obj.downloadData(main_vcf)
 fm_obj.downloadData(main_vcf + '.tbi')
+
+# Download and read in database for each sample (e.g. Ecogroup information)
 fm_obj.downloadData(fm_obj.localSampleFile_v2)
 s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
 
-
-#############################################################
-# 1. Create phylogenies for whole genome and each inversion #
-#############################################################
-# Create vcf file for lab sample data and for lake malawi phylogeny data (defined in Sample Database)
-#malawi_samples = s_dt[s_dt.CorePCA == 'Yes'].SampleID.to_list()
-
-geno_dict = {'Normal':0, 'Heterozygous': 0.5, 'Inverted': 1, 'Unknown':0}
-
+# Filter vcf file for lab sample data and for lake malawi phylogeny data (defined in Sample Database)
+malawi_samples = s_dt[s_dt.CorePCA == 'Yes'].SampleID.to_list()
 s_dt = s_dt[(s_dt.PCAFigure == 'Yes') & (s_dt.BionanoData == 'No')]
 
-"""
-s_dt.replace({'LG2':geno_dict,'LG9':geno_dict,'LG10':geno_dict,'LG11':geno_dict,'LG13':geno_dict,'LG20a':geno_dict,'LG20b':geno_dict}, inplace = True)
-data = s_dt.groupby('Ecogroup_PTM')[['LG2','LG9','LG10','LG11','LG13','LG20a','LG20b']].mean()
-data = data.reindex(['Rhamphochromis','Diplotaxodon','Utaka','Shallow_Benthic','Deep_Benthic','Mbuna','AC'])
-sns.heatmap(data, cmap = 'Reds')
-plt.show()
-#pdb.set_trace()
-"""
 malawi_samples = s_dt.SampleID.to_list()
-#c_dt = s_dt[s_dt.PCAFigure == 'Yes']
 
 malawi_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals.vcf.gz'
 
 print('Filtering main vcf')
-#parallel_filter(main_vcf, malawi_vcf, malawi_samples)
-#subprocess.run(['bcftools','index', '-f', malawi_vcf])
+parallel_filter(main_vcf, malawi_vcf, malawi_samples)
+subprocess.run(['bcftools','index', '-f', malawi_vcf])
 
 print('Creating vcfs for inversions')
-#Create lg subsets for each inversion from the malawi samples vcf file
 
+#Create vcf files for each each inversion from the malawi samples vcf file
 for lg,(contig,temp,left,right,temp2) in inversions.items():
 	region = contig + ':' + str(left) + '-' + str(right)
 	lg_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_' + lg + '.vcf.gz'
@@ -89,20 +76,17 @@ for lg,(contig,temp,left,right,temp2) in inversions.items():
 	subprocess.run(['bcftools','index', lg_vcf])
 
 
-import scipy.spatial
-
+# Use scikit allel to calculate dxy comparing all samples. Store it in a pandas dataframe.
+# Do this for the whole genome as well as the indepednent inversions
 out_dt = pd.DataFrame(columns = ['Ecogroup1','Ecogroup2','Sample1','Sample2','Inversion','Distance'])
-
 print('Calculating genetic distance for each inversion')
 for lg,(contig,temp,left,right,temp2) in inversions.items():
 	print('lg = ' + lg)
 	lg_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_' + lg + '.vcf.gz'
-	
 	size = right-left+1
 
 	vcf_obj = allel.read_vcf(lg_vcf)
 	
-
 	test = allel.GenotypeArray(vcf_obj['calldata/GT'])
 	out = allel.pairwise_distance(test.to_n_alt(), metric='cityblock')
 	sq = scipy.spatial.distance.squareform(out)
@@ -123,14 +107,11 @@ for lg,(contig,temp,left,right,temp2) in inversions.items():
 			out_dt.loc[len(out_dt)] = [ecogroup_i,ecogroup_j,sam_i,sam_j,lg,sq[i,j]/size]
 
 print('Calculating genetic distance for total genome')
-
 vcf_obj = allel.read_vcf(malawi_vcf)
 test = allel.GenotypeArray(vcf_obj['calldata/GT'])
 out = allel.pairwise_distance(test.to_n_alt(), metric='cityblock')
 sq = scipy.spatial.distance.squareform(out)
 size = 950000000
-
-
 for i in range(len(sq)):
 	for j in range(len(sq)):
 		sam_i = vcf_obj['samples'][i]
@@ -148,11 +129,7 @@ for i in range(len(sq)):
 			pdb.set_trace()
 		out_dt.loc[len(out_dt)] = [ecogroup_i,ecogroup_j,sam_i,sam_j,'WholeGenome',sq[i,j]/size]
 
-try:
-	out_dt
-except:
-	out_dt = pd.read_csv('AllData.csv', index_col = 0)
-	out_dt = out_dt[(out_dt.Sample1 != 'SAMEA4032048') & (out_dt.Sample2 != 'SAMEA4032048')]
+# Create figures analyzing the sample comparisons based on inversion genotype and ecogroup
 print('Calculating genetic distance for each inversion')
 
 LG11_inv = s_dt[(s_dt.LG11 == 'Inverted') & (s_dt.Ecogroup_PTM != 'Diplotaxodon')]['SampleID'].to_list()
