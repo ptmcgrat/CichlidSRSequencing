@@ -49,12 +49,15 @@ class FileManager():
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
 		if self.genome_version == 'Mzebra_UMD2a':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+			self.localHybridScaffoldFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
+
 		elif self.genome_version == 'Mzebra_GT1':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT1_v1.fna'
 		elif self.genome_version == 'Mzebra_HybridScaffold':
 			self.localGenomeFile = self.localGenomeDir + 'HYBRID_SCAFFOLD.fasta'
 		elif self.genome_version == 'Mzebra_GT3':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'kocher_M_Met_zerba_male_error_corrected_mabs_genome_hs_with_MZ9_molecules_all_scaffolds.fasta'
 		elif self.genome_version == 'kocher_N_Met_zebra_Female':
 			self.localGenomeFile = self.localGenomeDir + 'kocher_N_Met_zebra_Female_anchored_assembly.fasta.gz'
 			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'N_Met_zebra_Female_error_corrected_contigs_hs_with_MZ7.1m_molecules_all_scaffolds.fasta'
@@ -70,6 +73,16 @@ class FileManager():
 		elif self.genome_version == 'YH7f_ptm':
 			self.localGenomeFile = self.localGenomeDir + 'YH7f_ptm_anchored_assembly.fasta.gz'
 			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/' + 'YH7f_ptm_error_corrected_contigs_hs_with_kocher_2f_molecules_all_scaffolds.fasta'
+		elif self.genome_version == 'CV4f_ptm':
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/CV4f_hs_with_kocher_CV_female_molecules.fasta'
+		elif self.genome_version == 'kocher_C_Copad_virgin_Male':
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/kocher_C_Copad_virgin_Male_contigs_hs_with_CV9f_molecules.fasta'
+		elif self.genome_version == 'kocher_D_Copad_virgin_Female':
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/kocher_D_Copad_virgin_Female_contigs_hs_with_kocher_CV_male_molecules.fasta'
+		elif self.genome_version == 'kocher_E_Mchenga_conof_Male':
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules.fasta'
+		elif self.genome_version == 'kocher_F_Mchenga_conof_Female':
+			self.localHybridScaffoldFile = self.localGenomeDir + 'hybrid_scaffold_genome/F_Mchenga_conof_Female_contigs_hs_with_MC10f_molecules.fasta'
 		elif self.genome_version == 'P_nyererei_v2':
 			self.localGenomeFile = self.localGenomeDir + 'PunNye_v2_hyrbid_scaffold/PunNye_v2_hybrid_scaffold_genome.fasta'
 		elif self.genome_version == 'O_niloticus_UMD_NMBU':

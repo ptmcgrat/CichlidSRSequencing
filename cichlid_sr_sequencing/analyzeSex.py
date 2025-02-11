@@ -57,7 +57,7 @@ fm_obj.downloadData(fm_obj.localSampleFile_v2)
 s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
 
 # Create vcf file for lab sample data and for lake malawi phylogeny data (defined in Sample Database)
-yh_samples = s_dt[(s_dt.YHPedigree == 'Yes')].SampleID.to_list()
+yh_samples = s_dt[(s_dt.YHPedigree == 'Yes') & (s_dt.Organism == 'Aulonocara Nhkata Yellow Head')].SampleID.to_list()
 cv_samples = s_dt[(s_dt.CVAnalysis == 'Yes')].SampleID.to_list()
 yh_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/YHPedigreeFiltered.vcf.gz'
 cv_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/CVAnalysisFiltered.vcf.gz'
@@ -88,6 +88,68 @@ dt['Contig'] = [linkageGroups[x] for x in vcf_obj['variants/CHROM'][::window][:-
 dt['Pos'] = vcf_obj['variants/POS'][::window][:-1]
 dt['Fst'] = fst[2]
 dt['Het'] = het_dif_avg[::window][:-1]
+
+lengths = dt.groupby('Contig')['Pos'].max().to_dict()
+lg_order = list(linkageGroups.values())
+total_lengths = {}
+for i,lg in enumerate(lg_order):
+	total_length = 0
+	for j in range(i):
+		total_length += lengths[lg_order[j]]
+	total_lengths[lg] = total_length
+
+dt['Offset'] = dt.Pos + dt.Contig.map(total_lengths)
+dt = dt.sort_values('Offset')
+dt_grouped = dt.groupby(('Contig'), sort=False)
+
+fig = plt.figure(figsize=(14, 8)) # Set the figure size
+ax = fig.add_subplot(111)
+colors = ['black','grey']
+x_labels = []
+x_labels_pos = []
+for num, (name, group) in enumerate(dt_grouped):
+	print(num)
+	print(name)
+	group.plot(kind='scatter', x='Offset', y='Fst',color=colors[num % len(colors)], s = 3, ax=ax)
+	x_labels.append(name.replace('LG',''))
+	x_labels_pos.append((group['Offset'].iloc[-1] - (group['Offset'].iloc[-1] - group['Offset'].iloc[0])/2))
+ax.set_xticks(x_labels_pos)
+ax.set_xticklabels(x_labels)
+
+# set axis limits
+ax.set_xlim([0, dt.Offset.max()])
+#ax.set_ylim([0, 3.5])
+
+# x axis label
+ax.set_xlabel('Chromosome')
+
+# show the graph
+plt.savefig('Fst_YH_Manhattan.pdf')
+
+plt.show()
+fig = plt.figure(figsize=(14, 8)) # Set the figure size
+ax = fig.add_subplot(111)
+colors = ['black','grey']
+x_labels = []
+x_labels_pos = []
+for num, (name, group) in enumerate(dt_grouped):
+    group.plot(kind='scatter', x='Offset', y='Het',color=colors[num % len(colors)], s = 3, ax=ax)
+    x_labels.append(name.replace('LG',''))
+    x_labels_pos.append((group['Offset'].iloc[-1] - (group['Offset'].iloc[-1] - group['Offset'].iloc[0])/2))
+ax.set_xticks(x_labels_pos)
+ax.set_xticklabels(x_labels)
+
+# set axis limits
+ax.set_xlim([0, dt.Offset.max()])
+#ax.set_ylim([0, 3.5])
+
+# x axis label
+ax.set_xlabel('Chromosome')
+
+# show the graph
+plt.savefig('Fst_YH_Het.pdf')
+
+plt.show()
 
 fig,axes = plt.subplots(2,2, figsize = (11,8.5))
 sns.lineplot(dt, x = 'Pos', y = 'Fst', hue = 'Contig', ax = axes[0,0], legend = False)
@@ -122,6 +184,51 @@ dt['Pos'] = vcf_obj['variants/POS'][::window][:-1]
 dt['Fst'] = fst[2]
 dt['Het'] = het_dif_avg[::window][:-1]
 
+dt['Offset'] = dt.Pos + dt.Contig.map(total_lengths)
+dt_grouped = dt.groupby(('Contig'))
+
+fig = plt.figure(figsize=(14, 8)) # Set the figure size
+ax = fig.add_subplot(111)
+colors = ['darkred','darkgreen','darkblue', 'gold']
+x_labels = []
+x_labels_pos = []
+for num, (name, group) in enumerate(dt_grouped):
+    group.plot(kind='scatter', x='Offset', y='Fst',color=colors[num % len(colors)], ax=ax)
+    x_labels.append(name.replace('LG',''))
+    x_labels_pos.append((group['Offset'].iloc[-1] - (group['Offset'].iloc[-1] - group['Offset'].iloc[0])/2))
+ax.set_xticks(x_labels_pos)
+ax.set_xticklabels(x_labels)
+
+# set axis limits
+ax.set_xlim([0, dt.Offset.max()])
+#ax.set_ylim([0, 3.5])
+
+# x axis label
+ax.set_xlabel('Chromosome')
+
+# show the graph
+plt.show()
+fig = plt.figure(figsize=(14, 8)) # Set the figure size
+ax = fig.add_subplot(111)
+colors = ['darkred','darkgreen','darkblue', 'gold']
+x_labels = []
+x_labels_pos = []
+for num, (name, group) in enumerate(dt_grouped):
+    group.plot(kind='scatter', x='Offset', y='Het',color=colors[num % len(colors)], ax=ax)
+    x_labels.append(name.replace('LG',''))
+    x_labels_pos.append((group['Offset'].iloc[-1] - (group['Offset'].iloc[-1] - group['Offset'].iloc[0])/2))
+ax.set_xticks(x_labels_pos)
+ax.set_xticklabels(x_labels)
+
+# set axis limits
+ax.set_xlim([0, dt.Offset.max()])
+#ax.set_ylim([0, 3.5])
+
+# x axis label
+ax.set_xlabel('Chromosome')
+
+# show the graph
+plt.show()
 
 sns.lineplot(dt, x = 'Pos', y = 'Fst', hue = 'Contig', ax = axes[1,0], legend = False)
 sns.lineplot(dt[dt.Contig == 'LG10'], x = 'Pos', y = 'Fst', linewidth = 2.5, color = 'black',ax = axes[1,0], legend = False)

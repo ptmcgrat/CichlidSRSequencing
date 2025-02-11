@@ -1,12 +1,15 @@
 import pandas as pd
 import seaborn as sns 
-import subprocess, pdb, os, allel
+import subprocess, pdb, os, allel, sys
 from helper_modules.file_manager_Replacement import FileManager as FM
 from Bio import AlignIO
 import matplotlib.pyplot as plt
 
+#inversions = {'LG2':('NC_036781.1',19743639,20311160,43254805,43658853),'LG9':('NC_036788.1',14453796,15649299,32255605,33496468),'LG10':('NC_036789.1',11674905,11855817,29898615,29898615),
+#				'LG11a':('NC_036790.1',8302039,8309764,18425216,18425216),'LG11b':('NC_036790.1',18425216,18425216,30371888,30459686),'LG13':('NC_036792.1',2249541,2453698,23046928,23131968),
+#				'LG20a':('NC_036799.1',19614379,19689710,29716509,29673642),'LG20b':('NC_036799.1',29716509,29673642,32872827,33764042)}
 inversions = {'LG2':('NC_036781.1',19743639,20311160,43254805,43658853),'LG9':('NC_036788.1',14453796,15649299,32255605,33496468),'LG10':('NC_036789.1',11674905,11855817,29898615,29898615),
-				'LG11a':('NC_036790.1',8302039,8309764,18425216,18425216),'LG11b':('NC_036790.1',18425216,18425216,30371888,30459686),'LG13':('NC_036792.1',2249541,2453698,23046928,23131968),
+				'LG11':('NC_036790.1',8302039,8309764,30371888,30459686),'LG13':('NC_036792.1',2249541,2453698,23046928,23131968),
 				'LG20a':('NC_036799.1',19614379,19689710,29716509,29673642),'LG20b':('NC_036799.1',29716509,29673642,32872827,33764042)}
 
 
@@ -48,23 +51,37 @@ fm_obj.downloadData(main_vcf + '.tbi')
 fm_obj.downloadData(fm_obj.localSampleFile_v2)
 s_dt = pd.read_excel(fm_obj.localSampleFile_v2, sheet_name = 'SampleLevel')
 
+
 #############################################################
 # 1. Create phylogenies for whole genome and each inversion #
 #############################################################
 # Create vcf file for lab sample data and for lake malawi phylogeny data (defined in Sample Database)
 #malawi_samples = s_dt[s_dt.CorePCA == 'Yes'].SampleID.to_list()
 
+geno_dict = {'Normal':0, 'Heterozygous': 0.5, 'Inverted': 1, 'Unknown':0}
+
 s_dt = s_dt[(s_dt.PCAFigure == 'Yes') & (s_dt.BionanoData == 'No')]
+
+"""
+s_dt.replace({'LG2':geno_dict,'LG9':geno_dict,'LG10':geno_dict,'LG11':geno_dict,'LG13':geno_dict,'LG20a':geno_dict,'LG20b':geno_dict}, inplace = True)
+data = s_dt.groupby('Ecogroup_PTM')[['LG2','LG9','LG10','LG11','LG13','LG20a','LG20b']].mean()
+data = data.reindex(['Rhamphochromis','Diplotaxodon','Utaka','Shallow_Benthic','Deep_Benthic','Mbuna','AC'])
+sns.heatmap(data, cmap = 'Reds')
+plt.show()
+#pdb.set_trace()
+"""
 malawi_samples = s_dt.SampleID.to_list()
 #c_dt = s_dt[s_dt.PCAFigure == 'Yes']
+
 malawi_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals.vcf.gz'
-"""
+
 print('Filtering main vcf')
-parallel_filter(main_vcf, malawi_vcf, malawi_samples)
-subprocess.run(['bcftools','index', '-f', malawi_vcf])
+#parallel_filter(main_vcf, malawi_vcf, malawi_samples)
+#subprocess.run(['bcftools','index', '-f', malawi_vcf])
 
 print('Creating vcfs for inversions')
 #Create lg subsets for each inversion from the malawi samples vcf file
+
 for lg,(contig,temp,left,right,temp2) in inversions.items():
 	region = contig + ':' + str(left) + '-' + str(right)
 	lg_vcf = fm_obj.localMasterDir + 'Outputs/FilteredFiles/Mzebra_GT3/FilteredFilesGT3Cohort/MalawiIndividuals_' + lg + '.vcf.gz'
@@ -73,6 +90,7 @@ for lg,(contig,temp,left,right,temp2) in inversions.items():
 
 
 import scipy.spatial
+
 out_dt = pd.DataFrame(columns = ['Ecogroup1','Ecogroup2','Sample1','Sample2','Inversion','Distance'])
 
 print('Calculating genetic distance for each inversion')
@@ -121,13 +139,15 @@ for i in range(len(sq)):
 			continue
 		if i == j:
 			continue
+		if s_dt[s_dt.SampleID == sam_i]['Organism'].values[0] == s_dt[s_dt.SampleID == sam_j]['Organism'].values[0]:
+			continue
 		try:
 			ecogroup_i = s_dt[s_dt.SampleID == sam_i]['Ecogroup_PTM'].values[0]
 			ecogroup_j = s_dt[s_dt.SampleID == sam_j]['Ecogroup_PTM'].values[0]
 		except:
 			pdb.set_trace()
 		out_dt.loc[len(out_dt)] = [ecogroup_i,ecogroup_j,sam_i,sam_j,'WholeGenome',sq[i,j]/size]
-"""
+
 try:
 	out_dt
 except:
@@ -137,7 +157,7 @@ print('Calculating genetic distance for each inversion')
 
 LG11_inv = s_dt[(s_dt.LG11 == 'Inverted') & (s_dt.Ecogroup_PTM != 'Diplotaxodon')]['SampleID'].to_list()
 LG11_noninv = s_dt[(s_dt.LG11 == 'Normal') & (s_dt.Ecogroup_PTM.isin(['Shallow_Benthic','Deep_Benthic','Utaka']))]['SampleID'].to_list()
-LG11_CV = s_dt[(s_dt.LG11 == 'NormalCV')]['SampleID'].to_list()
+#LG11_CV = s_dt[(s_dt.LG11 == 'NormalCV')]['SampleID'].to_list()
 LG11_exclude = s_dt[(s_dt.LG11 == 'Heterozygous')]['SampleID'].to_list()
 
 LG9_inv = s_dt[(s_dt.LG9 == 'Inverted') & (s_dt.Ecogroup_PTM.isin(['Shallow_Benthic','Deep_Benthic','Utaka']))]['SampleID'].to_list()
@@ -148,12 +168,16 @@ LG20_Rhamph = s_dt[s_dt.LG11 == 'Inverted']['SampleID'].to_list()
 out_dt['LG11Type1'] = out_dt['Ecogroup1']
 out_dt.loc[out_dt.Sample1.isin(LG11_inv),'LG11Type1'] = 'LG11Inv'
 out_dt.loc[out_dt.Sample1.isin(LG11_noninv),'LG11Type1'] = 'LG11NonInv'
-out_dt.loc[out_dt.Sample1.isin(LG11_CV),'LG11Type1'] = 'LG11CVInv'
+out_dt.loc[out_dt.Sample1.isin(LG11_exclude),'LG11Type1'] = 'LG11Het'
+
+#out_dt.loc[out_dt.Sample1.isin(LG11_CV),'LG11Type1'] = 'LG11CVInv'
 
 out_dt['LG11Type2'] = out_dt['Ecogroup2']
 out_dt.loc[out_dt.Sample2.isin(LG11_inv),'LG11Type2'] = 'LG11Inv'
 out_dt.loc[out_dt.Sample2.isin(LG11_noninv),'LG11Type2'] = 'LG11NonInv'
-out_dt.loc[out_dt.Sample2.isin(LG11_CV),'LG11Type2'] = 'LG11CVInv'
+out_dt.loc[out_dt.Sample2.isin(LG11_exclude),'LG11Type2'] = 'LG11Het'
+
+#out_dt.loc[out_dt.Sample2.isin(LG11_CV),'LG11Type2'] = 'LG11CVInv'
 
 out_dt['LG9Type1'] = out_dt['Ecogroup1']
 out_dt.loc[out_dt.Sample1.isin(LG9_inv),'LG9Type1'] = 'BenthicInv'
@@ -165,7 +189,34 @@ out_dt.loc[out_dt.Sample2.isin(LG9_het),'LG9Type2'] = 'BenthicHet'
 
 out_dt.to_csv('AllData.csv')
 
+out_dt.loc[out_dt.Ecogroup1.isin(['Shallow_Benthic','Deep_Benthic','Utaka']),'Ecogroup1'] = 'Benthic/Utaka'
 out_dt.loc[out_dt.Ecogroup2.isin(['Shallow_Benthic','Deep_Benthic','Utaka']),'Ecogroup2'] = 'Benthic/Utaka'
+
+pdb.set_trace()
+
+fig,axes = plt.subplots(5,1, figsize = (8.5,11))
+fig.subplots_adjust(hspace=0.8)
+fig.subplots_adjust(wspace=0.6)
+
+malinksy_color_map = {'Mbuna': '#A020F0', 'AC': '#A2CD5A', 'LG11Inv': '#FF6347', 'BenthicInv': '#FF6347','LG11NonInv': 'grey','Benthic/Utaka': '#FF6347', 'Rhamphochromis': '#8B4513', 'Diplotaxodon': '#FFA54F'}
+
+sns.histplot(out_dt[(out_dt.Ecogroup1 == 'Benthic/Utaka')&(out_dt.Inversion == 'WholeGenome')], x = 'Distance', hue = 'Ecogroup2', stat = 'proportion', common_norm = False, ax = axes[0], binrange = (0,.002), legend = False, bins = 100, palette = malinksy_color_map)
+axes[0].set_title('Benthic_WholeGenome')
+sns.histplot(out_dt[(out_dt.LG9Type1 == 'BenthicInv')&(out_dt.Inversion == 'LG9')&(out_dt.LG9Type2 != 'BenthicHet') & (out_dt.LG9Type2 != 'Shallow_Benthic')], x = 'Distance', hue = 'LG9Type2', stat = 'proportion', common_norm = False, ax = axes[1], binrange = (0,.002), legend = False, bins = 100,palette = malinksy_color_map)
+axes[1].set_title('BenthicInverted_LG9')
+sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11Inv')&(out_dt.Inversion == 'LG11')&(out_dt.LG11Type2 != 'LG11Het')], x = 'Distance', hue = 'LG11Type2', stat = 'proportion', common_norm = False, ax = axes[2], binrange = (0,.002), legend = True, bins = 100,palette = malinksy_color_map)
+axes[2].set_title('LG11Inverted_Inv11a')
+#sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11Inv')&(out_dt.Inversion == 'LG11b')], x = 'Distance', hue = 'LG11Type2', stat = 'proportion', common_norm = False, ax = axes[2], binrange = (0,.002), legend = False, bins = 100)
+#axes[2].set_title('LG11Inverted_Inv11b')
+sns.histplot(out_dt[(out_dt.Ecogroup1 == 'Benthic/Utaka')&(out_dt.Inversion == 'LG20a')], x = 'Distance', hue = 'Ecogroup2', stat = 'proportion', common_norm = False, ax = axes[3], binrange = (0,.002), legend = False, bins = 100,palette = malinksy_color_map)
+axes[3].set_title('Benthic_Inv20a')
+sns.histplot(out_dt[(out_dt.Ecogroup1 == 'Benthic/Utaka')&(out_dt.Inversion == 'LG20b')], x = 'Distance', hue = 'Ecogroup2', stat = 'proportion', common_norm = False, ax = axes[4], binrange = (0,.002), legend = False, bins = 100,palette = malinksy_color_map)
+axes[4].set_title('Benthic_Inv20b')
+plt.savefig('ForPaper.pdf')
+
+plt.show()
+
+sys.exit()
 
 fig,axes = plt.subplots(3,1, figsize = (11,8.5))
 fig.subplots_adjust(hspace=0.6)
@@ -273,9 +324,9 @@ sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11NonInv')&(out_dt.Inversion == 'LG1
 axes[0].set_title('LG11Ancestral_Inv11a')
 sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11NonInv')&(out_dt.Inversion == 'LG11b')], x = 'Distance', hue = 'LG11Type2', stat = 'proportion', common_norm = False, ax = axes[1], binrange = (0,.002), legend = True, bins = 100)
 axes[1].set_title('LG11Ancestral_Inv11b')
-sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11CVInv')&(out_dt.Inversion == 'LG11a')], x = 'Distance', hue = 'LG11Type2', stat = 'proportion', common_norm = False, ax = axes[2], binrange = (0,.002), legend = True, bins = 100)
+#sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11CVInv')&(out_dt.Inversion == 'LG11a')], x = 'Distance', hue = 'LG11Type2', stat = 'proportion', common_norm = False, ax = axes[2], binrange = (0,.002), legend = True, bins = 100)
 axes[2].set_title('LG11CV_Inv11a')
-sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11CVInv')&(out_dt.Inversion == 'LG11b')], x = 'Distance', hue = 'LG11Type2', stat = 'proportion', common_norm = False, ax = axes[3], binrange = (0,.002), legend = True, bins = 100)
+#sns.histplot(out_dt[(out_dt.LG11Type1 == 'LG11CVInv')&(out_dt.Inversion == 'LG11b')], x = 'Distance', hue = 'LG11Type2', stat = 'proportion', common_norm = False, ax = axes[3], binrange = (0,.002), legend = True, bins = 100)
 axes[3].set_title('LG11CV_Inv11b')
 plt.savefig('Benthic_Inversion11_2nd.pdf')
 plt.show()

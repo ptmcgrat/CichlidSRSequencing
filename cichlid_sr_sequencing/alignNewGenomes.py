@@ -42,6 +42,7 @@ def align_genomes_contigbycontig(genome_version1,genome_version2,contig_mapping)
 			pdf_pages.savefig(figu)
 
 def align_genomes(genome_version1,genome_version2, hs_flag = False):
+	print('Align + ' + genome_version1 + ':' + genome_version2)
 	fm_obj_1 = FM(genome_version = genome_version1)
 	fm_obj_2 = FM(genome_version = genome_version2)
 
@@ -110,32 +111,26 @@ LG_MZtoON = {'NC_036780.1':'NC_031965.2', 'NC_036781.1':'NC_031966.2', 'NC_03678
 
 LG_MZtoYH = {x:x for x in linkageGroups.keys()}
 
-genome_versions = ['kocher_N_Met_zebra_Female','MZ4f_ptm','kocher_H_Aulon_yelhead_Female',
-					'kocher_G_Aulon_yelhead_Male','YH7f_ptm','Rhamp_chilingali','O_niloticus_UMD_NMBU','P_nyererei_v2']
-['O_niloticus_UMD_NMBU','P_nyererei_v2','Rhamp_chilingali']
+genome_versions = {'MZ1':'Mzebra_GT3','MZ2':'kocher_N_Met_zebra_Female','MZ3':'MZ4f_ptm','YH1':'kocher_H_Aulon_yelhead_Female',
+					'YH2':'kocher_G_Aulon_yelhead_Male','YH3':'YH7f_ptm','CV1':'CV4f_ptm','CV2':'kocher_C_Copad_virgin_Male',
+					'CV3':'kocher_D_Copad_virgin_Female', 'MC1':'kocher_E_Mchenga_conof_Male', 'MC2':'kocher_F_Mchenga_conof_Female'}
 fm_objs = {}
 
-for gv in genome_versions:
+for gv in genome_versions.values():
 	print(gv)
 	fm_objs[gv] = FM(genome_version = gv)
-	#fm_objs[gv].downloadData(fm_objs[gv].localHybridScaffoldFile)
+	fm_objs[gv].downloadData(fm_objs[gv].localHybridScaffoldFile)
 
 fm_objs[gv].downloadData(fm_objs[gv].localGenomesComparisonDir)
 	
 
-for gv in genome_versions:
-	if gv == 'Mzebra_GT3':
-		continue
-	#align_genomes('Mzebra_GT3',gv,hs_flag = True)
-	"""if gv == 'O_niloticus_UMD_NMBU':
-		align_genomes('Mzebra_GT3',gv,LG_MZtoON)
-	elif gv == 'P_nyrerei_v2':
-		align_genomes('Mzebra_GT3',gv,LG_MZtoPN)
-	elif gv == 'Rhamp_chilingali':
-		align_genomes('Mzebra_GT3',gv,LG_MZtoRC)
-	else:
-		align_genomes('Mzebra_GT3',gv,LG_MZtoYH)
-	"""
+for gv in genome_versions.values():
+	align_genomes('Mzebra_GT3',gv, hs_flag = True)
+
+fm_objs[gv].uploadData(fm_objs[gv].localGenomesComparisonDir)
+
+
+"""
 
 for gv in ['kocher_N_Met_zebra_Female','MZ4f_ptm','kocher_H_Aulon_yelhead_Female',
 					'kocher_G_Aulon_yelhead_Male','YH7f_ptm','Rhamp_chilingali','O_niloticus_UMD_NMBU','P_nyererei_v2']:
@@ -241,7 +236,7 @@ fm_objs[gv].uploadData(fm_objs[gv].localGenomesComparisonDir)
 #(genomes) ➜  kocher_G_Aulon_yelhead_Male blastn -db ../Mzebra_GT3/Mzebra_GT3.fasta -query YH_G_Inv2_R.fa -outfmt 6 | more                      
 #NC_036781.1:5110060-5125938     NC_036781.1     99.309  6079    38      4       6170    12247   19787402        19793477        0.0     10990
 #NC_036781.1:5110060-5125938     NC_036781.1     99.531  4904    23      0       7344    12247   20018261        20023164        0.0     8929
-
+"""
 # For 9
 
 
