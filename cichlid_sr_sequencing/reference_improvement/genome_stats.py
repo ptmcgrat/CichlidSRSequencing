@@ -24,9 +24,9 @@ Num Ns
 # genome = fm.localGenomeFile
 # pyfaidx_obj = Fasta(genome)
 
-pyfaidx_obj = Fasta('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/reference_improvement/Mzebra_GT3a.fasta') # replace the filepath with the path to each dgenies genome when u run the script 
+pyfaidx_obj = Fasta('/Users/kmnike/CichlidSRSequencing/cichlid_sr_sequencing/reference_improvement/Mzebra_GT3c.fasta') # replace the filepath with the path to each dgenies genome when u run the script 
 
-with open('/Users/kmnike/Desktop/Mzebra_GT3a_stats.csv', 'w') as fh: 
+with open('/Users/kmnike/Desktop/Mzebra_GT3c_stats.csv', 'w') as fh: 
     fh.write('Contig_Name,Contig_Length,Num_Ns,%N_Content,%Repetitive_DNA\n')
     for contig in pyfaidx_obj.keys():
         print(f'writing stats for {contig}')
