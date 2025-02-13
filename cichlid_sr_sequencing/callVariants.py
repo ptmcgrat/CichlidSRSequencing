@@ -1,7 +1,7 @@
 import argparse, pdb, os, subprocess, datetime, time, multiprocessing, pathlib, random
 import pandas as pd
 from pyfaidx import Fasta
-from helper_modules.nikesh_file_manager import FileManager as FM
+from helper_modules.file_manager import FileManager as FM
 
 parser = argparse.ArgumentParser(usage='This pipeline will take in a set of unaligned bam files generated from Illumina sequencing reads, and call variants using GATK HaplotypeCaller')
 parser.add_argument('reference_genome', help = 'full file path to the reference genome that reads will be aligned to for varaint calling')
@@ -22,27 +22,6 @@ parser.add_argument('--all_sites', help = 'use this flag if you want to gun Geno
 parser.add_argument('--concurrent_processes', help = 'specify the number of processes to start concurrently', type = int, default = 4)
 parser.add_argument('--local_test', help = 'when this flag is called, variables will be preset to test the code locally', action = 'store_true')
 args = parser.parse_args()
-
-"""
-time python callVariants.py Mzebra_GT3 -i -g -m 10 -s v2_column --Output --concurrent_processes 96 2> error_phylogenyfigure_240812.txt 1> log_phylogenyfigure_240812.txt
-For running on the 498 sample Cohort:
-time python callVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment_file 2> error_download_bionano_paper_data_240914.txt 1> log_download_bionano_paper_data_240914.txt
-
-
-time python callVariants.py Mzebra_GT3 -i -g -m 10 -c -s alignment_file --concurrent_processes 96 2> error_503_cohort_run.txt 1> log_503_cohort_run.txt
-"""
-
-"""
-NOTE: 
-as of 2024 June 5, I can conda install -c bioconda gatk4 into a fresh conda env. The version installed is gatk4-4.0.5.1-0
-The GATK 4.5.0.0 binary I have seems to require a new version of Java... maybe Java runtime 17 according to one post I read here: https://gatk.broadinstitute.org/hc/en-us/community/posts/17535513525915-Annotation-for-variant-calling
-I have gatk working in an env called 'gatk' for now.
-TODO:
-1. Paralellize gatk Haplotypecaller to run much more efficiently
-    Be sure to include code that will not overwrite files if they exist 
-2. CODE DOES NOT EXIST ANYMORE TO DOWNLOAD BAM OR GVCF FILES OR ITS BROKEN. NEED TO FIX THIS!!
-    GVCF file downloader has been fixed but I do not know how to download it straight to /Output b/c the directory structure is not mirrored on Dropbox and /Output. i think i need to add an option in FIleManager that allows me to specify that the master dir is /Output instead of /Data 
-"""
 
 class VariantCaller:
     def __init__(self, genome, sampleIDs, linkage_groups, memory, ecogroups, processes):
@@ -211,9 +190,6 @@ class VariantCaller:
                 print(f"GVCF Inxex upload for {sampleID} complete at {self.current_time}")
 
     def EfficientHaplotypeCaller(self, sample):
-        """
-        NOTE: IMPLEMENT A FILE CHECKER TO MAKE SURE EXISTING FILES DO NOT GET DELETED. INCLUDE CODE FOR UPLOADING GVCF FILES AND INDICIES AS WELL 
-        """
         print(f"Processing for sample {sample} started at {self.current_time}")
         # to use multiprocess, this function will sequenctially need to perform BAM/BAI download, GVCF generation, and then deleting the BAM/BAI files
         if args.local_test:
@@ -232,11 +208,6 @@ class VariantCaller:
             else:
                 print('Generating GCVF file for ' + sample + '...')
                 subprocess.run(['gatk', '--java-options', '-Xmx' + str(self.memory[0]) + 'G', 'HaplotypeCaller', '--emit-ref-confidence', 'GVCF', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localTestBamFile, '-O', self.fm_obj.localTestGVCFFile])
-
-            # commenting out bam removal code while GCVF code isn't yet working
-            # print('Removing BAM file for ' + saple + '...')
-            # os.remove(self.fm_obj.localTestBamFile)
-            # os.remove(self.fm_obj.localTestBamIndex)
         else:
             self.fm_obj.createSampleFiles(sample) # create the file structure for the sample
             if pathlib.Path(self.fm_obj.localGVCFIndex).exists(): # If the index for that file exists, then the GVCF file is fine and Haplotypecaller does not need to be rerun 
@@ -279,7 +250,6 @@ class VariantCaller:
         print(f"Interval {interval} finished processing at {self.current_time}")
 
     def RunGenotypeGVCFs(self, interval):
-        # You can ignore this function for now, but I implemented the parallelization code into it
         # check if a vcf index file already exists for the intervalk you're working on  if it does, skip it and move to another interval
         if pathlib.Path(self.fm_obj.localOutputDir + interval + '_output.vcf.gz.idx').exists():
             print(f"VCF file's index for interval {interval} found. Skipping GenotypeGVCFs for this interval")
@@ -380,7 +350,6 @@ class VariantCaller:
                 subprocess.run(['bcftools', 'concat', '-f', os.getcwd() + '/compression_file_list.txt', '-Wtbi', '-O', 'z', '-o', self.fm_obj.localOutputDir + 'vcf_concat_output/master_file'+ file_num + '.vcf.gz', '--threads', str(self.concurrent_processes)])
 
     def multiprocess(self, function, sample_type):
-        # TODO: find a way to load processes that would take the lonegst time to go first
         # Author: Lauren Sabo; edits made by NK
         if sample_type == 'lg':
             inputs = self.linkage_groups
@@ -429,43 +398,3 @@ if __name__ == "__main__":
     variant_caller_obj = VariantCaller(args.reference_genome, args.sampleIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
     variant_caller_obj.run_methods()
     print('PIPELINE RUN COMPLETE')
-
-
-"""
-time python callVariants.py Mzebra_GT3 -b  -H -a --concurrent_processes 24 -m 40 2> error_sd_rerun_240721.txt 1> log_sd_rerun240721.txt
-time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
-time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 96 -m 10
-time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --temp_zip 2> error_zip_allsites_vcfs_240802.txt 1> log_zip_allsites_vcfs_240802.txt
-
-time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --concat_and_index 2> error_concat_all_sites_240805.txt  1> log_concat_all_sites_240805.txt
-
-
-time python callVariants.py Mzebra_GT3 --local_test --concat_and_index --memory 1 --concurrent_processes 10
-
-"""
-
-"""
-Old Code & Unused functions:
-    def mp_test_function(self, interval):
-        print(f"Task {interval} started at {self.current_time}")
-        # Simulate some work with sleep
-        time.sleep(interval)
-        print(f"Task {interval} finished at {self.current_time}")
-    def new_test(self, sample_name):
-        print(f"Task {sample_name} started at {self.current_time}")
-        # Simulate some work with sleep
-        print(sample_name)
-        time.sleep(random.randint(1,7))
-        print(f"Task {sample_name} finished at {self.current_time}")
-            below code was used to test the new_test() and mp_test_function() functions in the multiprocess function.
-            if not args.local_test:
-                intervals = list(range(1,97))
-                inputs = list(map(str, intervals))
-            else:
-                inputs = [5, 3, 8, 2, 6, 1, 7, 4]
-        Below code goes in the run_methods() function
-        if args.local_test:
-            self.multiprocess(self.mp_test_function, 'interval')
-        if args.local_test:
-            self.multiprocess(self.new_test, 'sampleID')
-"""

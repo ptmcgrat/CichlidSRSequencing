@@ -1,6 +1,6 @@
 import argparse, pdb, os, subprocess, pathlib
 import pandas as pd # sometimes pandas will need to be conda remove'd and pip uninstall'd to install python >=3.7 to get this script to work. pip install pandas again afterwards.
-from helper_modules.nikesh_file_manager import FileManager as FM
+from helper_modules.file_manager import FileManager as FM
 from cyvcf2 import VCF
 import plotly.express as px # Do not conda install plotly . Use this: pip install plotly==5.11.0
 import plotly.graph_objs as go # Do not conda install plotly . Use this: pip install plotly==5.11.0
@@ -16,22 +16,6 @@ parser.add_argument('-l', '--local_test', help = 'call this flag to predefine va
 parser.add_argument('-p', '--plink', help = 'use this flag to generate new eigenvalue/vector files using plink', action='store_true')
 args = parser.parse_args()
 
-"""
-TODO:
-2024.09.16
-Patrick wants some specific things done with pca_maker for the bionanop_paper analyses
-1. Run the 498 sample cohort normally
-2. include an LG7 inversion region based on the coordinated I found in the Bionano data. I can just go ahead and run this region for all sub-ecogroups
-3. Run the pipeline in a way that uses all "core_PCA" samples to calculate the PCs, then project only the MCxYH F1s on the axes to see if anything separates out in PC space for these small # of samples. 
-
-time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset
-time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Rock_Sand --local_test --sample_subset --plink -r Exploratory
-time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset --plink
-CVAnalysis
-"""
-# The class PCA_Maker will create objects that will take in a variety of inputs (generally determined by what input parametrs are being passed into the script).
-# These objects will have many attributes which will serve to help build directory structure, define valid inputs, etc.
-# There will be many fucntions defined within the class besides the __init__ function which give objects of the class their attributes.
 class PCA_Maker:
     def __init__(self, genome, ecogroups, linkage_groups, output_directory): # The PCA_Maker class will create an object (self) which will then take in (currently) 4 pieces of information (input file out dir, sample_database excel sheet, ecogroup names)
         # self.attr indicates that the object made with PCA_Maker will have the attribute named "attr"
@@ -283,12 +267,9 @@ class PCA_Maker:
                             proc2.communicate()
 
     def _create_exploratory_region_eigen_files(self):
-        # changes list to include a split lg11 and lg20 interval. The middle value for LG11 is 18425216 and the middle value for lg20 is 29716509. These values assume the Mzebra_GT3 genome.
-        #  also expanded the list to equally split the lg9 inversion into 5 equivalent regions. This will be run alongside the whole lg9 inverted region and the whole of lg9
-        
         inversion_regions = self.exploratory_regions_list
         exploratory_regions_list = []
-        # if only one or two exploratory regions are passed, below code allows only those select few to be run instead of all of them every time. 
+        # if only one or two exploratory regions are passed, below code allows only those select few to be run instead of all of them every time.
         for region in self.linkage_groups:
             if region in inversion_regions:
                 exploratory_regions_list.append(region)
@@ -346,10 +327,6 @@ class PCA_Maker:
                 else: # if less than 50 samples in the analysis cohort
                     print('Less than 50 samples have been detected in teh analysis. The pipeline has not been coded to deal with this alongside the linkage pruning stuff')
                     raise Exception
-                # else: # code for mbuna and samples with <50 samples. Ignore for now.
-                #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1', '--max-alleles', '2', '--bad-ld']) 
-                #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr']) # this is where things are going wrong. Before, "Whole" was always running this faulty code that's generating .eigenvec files with a number of samples equal to the whole ecogroup and not the subset This needs to  be fixed, else Mbuna and other small dataset groups will not run right.
-                #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
 
             else: #lg in self.linkage_group_map.values():
                 pathlib.Path(self.out_dir + '/PCA/' + lg + '/').mkdir(parents=True, exist_ok=True)
@@ -391,10 +368,6 @@ class PCA_Maker:
                     else: # if less than 50 samples in the analysis cohort
                         print('Less than 50 samples have been detected in teh analysis. The pipeline has not been coded to deal with this alongside the linkage pruning stuff')
                         raise Exception
-                    # else: # code for mbuna and samples with <50 samples. Ignore for now.
-                    #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_subset', '--freq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr', '--set-missing-var-ids', '@:#', '--indep-pairwise', '50', '5', '0.1', '--max-alleles', '2', '--bad-ld'])
-                    #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--pca', 'allele-wts', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca', '--allow-extra-chr'])
-                    #     subprocess.run(['plink2', '--pfile', self.out_dir + '/PCA/' + lg + '/' + lg + '_whole_corrected', '--read-freq', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.afreq', '--score', self.out_dir + '/PCA/' + lg + '/' + lg + '_sample_subset_pca.eigenvec.allele', '2', '5', 'header-read', 'no-mean-imputation', 'variance-standardize', '--score-col-nums', '6-15', '--out', self.out_dir + '/PCA/' + lg + '/' + lg + '_new_projection', '--allow-extra-chr'])
 
     def _create_interactive_pca(self, linkage_group_list): # uses plotly to generate interactive PCA html outputs
         """
@@ -530,185 +503,3 @@ if __name__ == "__main__":
     pca_obj = PCA_Maker(args.genome, args.ecogroups, args.regions, args.output_dir)
     pca_obj.create_PCA()
     print('PIPELINE RUN SUCCESSFUL')
-
-"""
-Code used to test the new commands for PCA
-Ok so generally here's how it works rn:
-1. pfiles are generated for the subset and the whole cohort vcf files 
-plink2 --vcf /Users/kmnike/Data/pca_testing/local_testing_498_master_file/PCAFigure/variants_filtered_ecogroup_samples.recode.vcf.gz --out test_whole_generated_step_1 --allow-extra-chr
-plink2 --vcf lg_sample_subset.vcf.gz --out test_subset_generated_step_1 --allow-extra-chr
-
-2. some missing IDs are corrected in the whole file  No read changes are made by the whole_corrected suite of pfiles is made
-plink2 --pfile test_whole_generated_step_1 --set-missing-var-ids @:# --make-pgen --out test_whole_corrected_generated_step_2 --allow-extra-chr
-
-
-3. The subset sampels are used to generate a PCA. This is where the issue is rn  I need to start testing here 
-    - The indep-pairside only needs to be called and applied in the following scenarios:
-        - The whole genome PCA is done
-        - Independent linkeg groups 
-    - The indep-pairwise pruned samples should not be called if we are running PCA on the variants within inverted regions
-        - I also think that linkage pruning should not be done if the inversion seems to be fixed (lg13 lg20)
-
-######## If No LD will be done (like for inverted regions) here's the one command used:
-#### below is the original pca calling code. This was adjusted to get the below line of code that's run when no ld pruning is needed
-plink2 --pfile _subset --freq counts --pca allele-wts --out _sample_subset_pca --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1 --max-alleles 2
-####
-plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_generation_no_ld_pruning_generated_step_3 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2
-
-######## If LD pruning is needed, here's the 2 sommands used
-plink2 --pfile test_subset_generated_step_1 --out test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1 --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1
-plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2 --extract test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1.prune.in
-
-4. The samples in the whole_corrected are projected on to the PCs created from the subset sampels
-####### If running NOT LD pruned (inverted regions):
-plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.acount --score test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_no_ld --allow-extra-chr
-
-####### If running LD pruned (whole genome, individual chromosomes):
-plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount --score test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_yes_ld --allow-extra-chr
-
-
-
-So here's the summary of what PCA analyses that need to be run:
-For all inverted regions:
-    - The LD pruning of variants will not be performed.
-For all whole genome and individual LGs:
-    - The LD pruning based on 50 5 0.1 will be performed and used.
-
-Ok so here's what I need to test:
-    - The whole PCA can be the start point. I need to run the plink commands on this file but use the prune.in variants only.
-
-Sumamry of commands:
-STEP1: BOTH SCENARIOS
-plink2 --vcf /Users/kmnike/Data/pca_testing/local_testing_498_master_file/PCAFigure/variants_filtered_ecogroup_samples.recode.vcf.gz --out test_whole_generated_step_1 --allow-extra-chr
-plink2 --vcf lg_sample_subset.vcf.gz --out test_subset_generated_step_1 --allow-extra-chr
-
-STEP2: BOTH SCENARIOS
-plink2 --pfile test_whole_generated_step_1 --set-missing-var-ids @:# --make-pgen --out test_whole_corrected_generated_step_2 --allow-extra-chr
-
-STEP3: NO LD (EXPLORATORY REGIONS ONLY)
-plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_generation_no_ld_pruning_generated_step_3 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2
-STEP3: YES LD (INDIVIDUAL CHROMOSOMES AND WHOLE GENOME)
-plink2 --pfile test_subset_generated_step_1 --out test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1 --allow-extra-chr --set-missing-var-ids @:# --indep-pairwise 50 5 0.1
-plink2 --pfile test_subset_generated_step_1 --freq counts --pca allele-wts --out test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2 --allow-extra-chr --set-missing-var-ids @:# --max-alleles 2 --extract test_subset_no_pca_generation_yes_ld_pruning_generated_step_3.1.prune.in
-
-STEP4: NO LD (EXPLORATORY REGIONS ONLY)
-plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.acount --score test_subset_yes_pca_generation_no_ld_pruning_generated_step_3.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_no_ld --allow-extra-chr
-STEP4: YES LD (INDIVIDUAL CHROMOSOMES AND WHOLE GENOME)
-plink2 --pfile test_whole_corrected_generated_step_2 --read-freq test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.acount --score test_subset_yes_pca_geration_yes_ld_pruning_generated_step_3.2.eigenvec.allele 2 5 header-read no-mean-imputation variance-standardize --score-col-nums 6-15 --out test_new_projection_yes_ld --allow-extra-chr
-
-
-
-"""
-
-
-
-"""
-Legacy Plotly Code in case it's ever needed
-Started 2024.09.20
-
-color_map = {'Mbuna': 'purple', 'AC': 'limegreen', 'Shallow_Benthic': 'red', 'Deep_Benthic': 'blue', 'Rhamphochromis': 'brown', 'Diplotaxodon': 'orange', 'Utaka': 'darkgreen', 'Riverine': 'pink'}
-project_ID_shape_map = {'MalinskyData': 'square', 'Streelman_McGrathData': 'diamond', 'BrainDiversity_s1': 'star', 'MC_males': 'circle', 'MC_females': 'circle-open'} # removed for now to exclude shapes when generating data for Patrick's grant.
-
-# if you need to select a specific symbol and adjust an attribute do it like this:
-fig.update_traces(marker=dict(width=1), selector=dict(symbol='x')) 
-# the marker=dict() will allow you to edit settings of marker level attributes. The sleector=dict(symbol='') tells plotly which symbol you want the settings on the right to ghet applied to. 
-
-
-Update code to output full HTMLs but keep small PDFs to maintain spacing.
-"""
-##############################################################################################################################################################################################################################################
-
-"""
-For local testing:
-time python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing -e Custom --local_test --sample_subset --plink
-PCAFigure
-
-For running on Utaka:
-NOTE: we are no longer running the "All" & "Non_Riverine" groups
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_240713.txt 1> pca_logs/log_lm_24713.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_240713.txt 1> pca_logs/log_rock_sand_240713.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_240713.txt 1> pca_logs/log_sand_240713.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Mbuna 2> pca_logs/error_mbuna_240713.txt 1> pca_logs/log_mbuna_240713.txt
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -p -r All Whole Exploratory -e Core_and_SD 2> pca_logs/error_Core_and_SD_240717.txt 1> pca_logs/log_Core_and_SD_240717.txt
-Local_Testing_Code:
-python pca_maker.py Mzebra_GT3 /Users/kmnike/Data/pca_testing --sample_subset -p -r All Whole Exploratory -e Core_and_SD --local_test
-
-
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Lake_Malawi 2> pca_logs/error_lm_240918.txt 1> pca_logs/log_lm_240918.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Rock_Sand 2> pca_logs/error_rock_sand_240918.txt 1> pca_logs/log_rock_sand_240918.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Sand 2> pca_logs/error_sand_240918.txt 1> pca_logs/log_sand_240918.txt
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Mbuna 2> pca_logs/error_mbuna_240918.txt 1> pca_logs/log_mbuna_240918.txt
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_hybrid_analysis_240918.txt 1> pca_logs/log_hybrid_analysis_240918.txt
-hybrid_analysis
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_cvanalysis_240918.txt 1> pca_logs/log_cvanalysis_240918.txt
-CVAnalysis
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_yhpedigree_240918.txt 1> pca_logs/log_yhpedigree_240918.txt
-YHPedigree
-
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# to get the exploratory regions to work 240918
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Lake_Malawi
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Rock_Sand
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Sand
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Mbuna
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Custom
-hybrid_analysis
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Custom
-CVAnalysis
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r Exploratory -e Custom
-YHPedigree
-
-
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Rhamphochromis Diplotaxodon 2> pca_logs/error_pelagic_240918.txt 1> pca_logs/log_pelagic_240918.txt
-
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Rerunning analyses with edits from Patrick
-
-# Not working b/c Nyererei are in this analysis and are absent in the 498 cohort vcf file
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_phylogenyfigure_240918.txt 1> pca_logs/log_phylogenyfigure_240918.txt
-PhylogenyFigure
-
-# Running
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_pcafigure_240918.txt 1> pca_logs/log_pcafigure_240918.txt
-PCAFigure
-
-# Running with having exluded the mom MC-5G11G-f and adding in kocherMC-female and MC-010-f as proxies. 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_yhpedigree_240918.txt 1> pca_logs/log_yhpedigree_240918.txt
-YHPedigree
-
-# Running 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset --plink -r All Whole Exploratory -e Custom 2> pca_logs/error_cvanalysis_240918.txt 1> pca_logs/log_cvanalysis_240918.txt
-CVAnalysis
-
-# reran with the updated figure parameters
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Mbuna
-
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-Regeneerating figures with updated colors and sizes:
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Lake_Malawi 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Rock_Sand 
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Sand
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Mbuna
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Custom
-hybrid_analysis
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Custom
-CVAnalysis
-
-time python pca_maker.py Mzebra_GT3 /Data/mcgrath-lab/Data/CichlidSequencingData/Outputs/pca_outputs --sample_subset -r All Whole Exploratory -e Custom
-YHPedigree
-
-"""
-
-
