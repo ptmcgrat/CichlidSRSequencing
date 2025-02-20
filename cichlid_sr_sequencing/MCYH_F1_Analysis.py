@@ -46,7 +46,7 @@ for ps,num in discoveryChimeras['YH_005_m'].items():
 	length = ps[4] - ps[1]
 	if length > 80 and length < 200 and ps[6] == '' and ps[7] == 'del':
 		nums = [discoveryChimeras[x][ps] for x in parents]
-		if sum(nums[5:]) == 0 and math.prod(nums[:4]) > 0:
+		if sum(nums[5:]) == 0 and sum(nums[:4]) == 0:
 			print('NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + refObj['NC_036789.1'][ps[1] - 400:ps[1]] + '[' + refObj['NC_036789.1'][ps[1]:ps[4]] + ']' + refObj['NC_036789.1'][ps[4]:ps[4]+400])
 
 
