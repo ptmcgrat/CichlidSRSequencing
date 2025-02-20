@@ -269,7 +269,7 @@ class ChimericCaller():
         #tPolys.genotypePolys(genotypeBamObjs)
         #tPolys.create_VCFfile(self.outvcffile)
 
-    def identifyLargeInsertions(self, discordant_bamfiles, binsize = 500, overlap = 250, min_reads):
+    def identifyLargeInsertions(self, discordant_bamfiles, binsize = 500, overlap = 250, min_reads=1):
         # Identify large insertions
         
         for i,bam_file in enumerate(discordant_bamfiles):
@@ -403,7 +403,7 @@ class ChimericCaller():
             return position[1][0]*25000000 + position[1][1]
 
 
-    def collect_reads(transposon, q_bam_file, or_bam_file):
+def collect_reads(transposon, q_bam_file, or_bam_file):
     all_reads = []
     
     reads = q_bam_file.fetch(transposon[0], transposon[1] - 250, transposon[1])
