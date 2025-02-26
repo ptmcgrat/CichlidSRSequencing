@@ -20,6 +20,9 @@ class ChimericRead():
         if chi_cigarstring.count('S') != 1 or chi_cigarstring.count('M') != 1 or chi_cigarstring.count('I') != 0:
             raise TypeError('ChimericRead Warning: read chimeric cigar too complicated ' + str(chi_cigarstring) + ' ' + read.qual)
 
+        if read.rname != int(SA_tag[0]):
+            raise TypeError('ChimericRead Error: both alignments must be on same chromosome')
+
         first = {} # Used to keep track of info for the left alignment
         secondary = {} # Used to keep track of the info for the right alignment
 
