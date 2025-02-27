@@ -3,7 +3,7 @@ from helper_modules.nikesh_file_manager import FileManager as FM
 import subprocess
 from multiprocessing import Process
 
-parser = argparse.ArgumentParser(usage = 'Once VCF files per chromopsome have been generated, this script will combine the VCFs per LG into one file then optionally perfform compression, filtering, etc.')
+parser = argparse.ArgumentParser(usage = 'Once VCF files per chromosomes have been generated, this script will combine the VCFs per LG into one file then optionally perfform compression, filtering, etc.')
 parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
 parser.add_argument('-m', '--merge', help = 'this flag will merge the VCF outputs into a master file', action = 'store_true')
 parser.add_argument('-c', '--compress_and_index', help = 'call this flag to compress and index the output vcf file using bgzip, then tabix', action = 'store_true')
@@ -25,13 +25,14 @@ Ideally it will incorporate the rclone uploading as well.
 - I believe a final pass_variant file indexing step is needed. 
 
 time python process_vcf.py -m -c -v
+time python process_vcf.py Mzebra_GT3 -p hyplotype_analysis -v 2> error_stats_250227.txt 1> log_stats_250227.txt
 """
 
 class VCFProcessor:
     def __init__(self, genome):
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/498_cohort_master_file.vcf.gz'
+        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/haplotype_analysis_master_file.vcf.gz'
         self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/'
         intervals = list(range(1,97))
         self.intervals = list(map(str, intervals))
