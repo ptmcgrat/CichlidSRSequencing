@@ -44,6 +44,12 @@ TODO:
     GVCF file downloader has been fixed but I do not know how to download it straight to /Output b/c the directory structure is not mirrored on Dropbox and /Output. i think i need to add an option in FIleManager that allows me to specify that the master dir is /Output instead of /Data 
 """
 
+"""
+A run from 2025.02.27
+MC-5B6B-f,YH_005_m,MCYHF1_010_m,MCYHF1_011_m,MCYHF1_012_m,MCYHF1_013_m,MCYHF1_014_f,MCYHF1_015_f,MCYHF1_016_f,MCYHF1_017_f
+time python callVariants.py Mzebra_GT3 -s custom -i -g --concurrent_processes 48 -m 16 -c 2> error_250227.txt 1> log_250227.txt 
+"""
+
 class VariantCaller:
     def __init__(self, genome, sampleIDs, linkage_groups, memory, ecogroups, processes):
         self.genome = genome
@@ -77,9 +83,10 @@ class VariantCaller:
             # self.sampleIDs = s_df[s_df['GenomeVersion'] == self.genome].SampleID.to_list() # get sampleIDs by filtering on genome version. Keep this line to include the P. nyererei samples for variant calling 
             self.sampleIDs = s_df[(s_df['GenomeVersion'] == self.genome) & (s_df['Organism'] != 'Pundamilia nyereri')].SampleID.to_list() # Keep this line to get sampleIDs by filtering on genome version AND REMOVING P. NYEREREI SAMPLES.
         elif self.sampleIDs == ['custom']:
-            # TODO: allow a file with custom sample names to be used as input for the pipleine. 
-            print('ERROR: CUSTOM SAMPLE FILE NOT YET IMPLEMENTED')
-            exit
+            self.fm_obj.downloadData(self.fm_obj.localSampleFile_v2) # downloads the most up-to-date SampleDatabase_v2.xlsx file
+            s_df = pd.read_excel(self.fm_obj.localSampleFile_v2, sheet_name='SampleLevel') # reads in the SampleLevel sheet from SampleDatabase_v2.xlsx
+            custom_samples = input('Enter the custom samples you want to run as a comma separated list without quotation marks or spaces: ')
+            self.sampleIDs = custom_samples.split(',')
             # error checking for sampleIDs in custom file
             for sample in self.sampleIDs:
                 if not s_df['SampleID'].eq(sample).any():
