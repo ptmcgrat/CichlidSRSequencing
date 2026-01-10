@@ -61,10 +61,8 @@ new contigs placed: 12
 LG21
 reorder count: 4
 new contigs placed: 2
-LG23
+LG22
 reorder count: 11
 new contigs placed: 5
 Total Reordered Contigs: 178
-Total Added Unmapped Contigs: 133
-Total Reordered DNA 120455133.0
-Total Unmapped Added to Linkage Groups 64390335.0
+Total Added  Unmapped Contigs: 133

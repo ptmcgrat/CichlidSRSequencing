@@ -13,6 +13,8 @@ args = parser.parse_args()
 
 """
 Script was used on 24.02.12 to calculate how many contigs of UMD2a were reordered and how many unmapped contigs were placed into the the GT1, then GT2 genomes  
+original link to the UMD2a_remap_v1 google sheet:
+https://docs.google.com/spreadsheets/d/e/2PACX-1vRLiFIHXSXrljCLzO58qCwqcvdU3sw-lNAA8P_riJcCS14mSQRcNjZMRnsW3eKrAJcZENUbpEJoiakH/pub?output=xlsx
 """
 
 class CountStuff:
@@ -22,7 +24,7 @@ class CountStuff:
         self.linkage_group_map = {'LG1': 'NC_036780.1', 'LG2':'NC_036781.1', 'LG3':'NC_036782.1', 'LG4':'NC_036783.1', 'LG5':'NC_036784.1', 'LG6':'NC_036785.1', 
                              'LG7':'NC_036786.1', 'LG8':'NC_036787.1', 'LG9':'NC_036788.1', 'LG10':'NC_036789.1', 'LG11':'NC_036790.1', 'LG12':'NC_036791.1', 
                              'LG13':'NC_036792.1', 'LG14':'NC_036793.1', 'LG15':'NC_036794.1', 'LG16':'NC_036795.1', 'LG17':'NC_036796.1', 'LG18':'NC_036797.1', 
-                             'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG22':'NC_036801.1'}
+                             'LG19':'NC_036798.1', 'LG20':'NC_036799.1', 'LG21':'NC_036800.1', 'LG23':'NC_036801.1'}
         self.genome = self.fm_obj.localGenomeFile
         if not pathlib.Path(output_directory).exists():
             pathlib.Path(output_directory).mkdir(parents=True, exist_ok=True)
@@ -47,14 +49,17 @@ class CountStuff:
         self.df = pd.read_excel(url, sheet_name = linkage_group)
         remapping_instructions = []
         for index, rows in self.df.iterrows():
-            remapping_instructions.append([rows.contig_name, rows.Start, rows.Stop, rows.Direction])
+            if str(rows.contig_name).startswith("NC") or str(rows.contig_name).startswith("NW") or str(rows.contig_name).startswith("Gap"):
+                remapping_instructions.append([rows.contig_name, rows.Start, rows.Stop, rows.Direction])
         return(remapping_instructions)
-    
+
 
     def _make_stats(self):
         with open('stats.txt', 'w') as fh:
             reorder_running_total = 0
             new_contig_running_total = 0
+            total_reordered_DNA = 0
+            total_inserted_DNA = 0
             for lg in self.linkage_groups:
                 print('working on ' + lg)
                 fh.write(lg + '\n')
@@ -65,16 +70,37 @@ class CountStuff:
                     if region[3] != 'Normal' and region[3] != 'Gap':
                         reorder_counter += 1
                         reorder_running_total += 1
+                        total_reordered_DNA += (region[2] - region[1] + 1)
                     if region[0] != self.linkage_group_map[lg] and region[0] != 'Gap':
                         new_contig_placed += 1
                         new_contig_running_total += 1
+                        total_inserted_DNA += (region[2] - region[1] + 1)
                 fh.write('reorder count: ' + str(reorder_counter) + '\n')
                 fh.write('new contigs placed: ' + str(new_contig_placed) + '\n')
             fh.write('Total Reordered Contigs: ' + str(reorder_running_total) + '\n')
-            fh.write('Total Added  Unmapped Contigs: ' + str(new_contig_running_total) + '\n')
+            fh.write('Total Added Unmapped Contigs: ' + str(new_contig_running_total) + '\n')
+            fh.write('Total Reordered DNA ' + str(total_reordered_DNA) + '\n')
+            fh.write('Total Unmapped Added to Linkage Groups ' + str(total_inserted_DNA) + '\n')
+    """
+    def _count_reorganized_DNA(self):
+        with open('stats.txt', 'a') as fh:
+            total_reordered_DNA = 0
+            total_inserted_DNA = 0
+            for lg in self.linkage_groups:
+                linkage_group_instructions = self.make_remap_instructions(lg)
+                print('Counting reordered DNA for lg' + lg)
+                for region in linkage_group_instructions:
+                    if region[3] != 'Normal' and region[3] != 'Gap':
+                        total_reordered_DNA += (region[2] - region[1] + 1)
+                    if region[0] != self.linkage_group_map[lg] and region[0] != 'Gap':
+                        total_inserted_DNA += (region[2] - region[1] + 1)
+            fh.write('Total Reordered DNA ' + str(total_reordered_DNA) + '\n')
+            fh.write('Total Unmapped Added to Linkage Groups ' + str(total_inserted_DNA) + '\n')
+    """
 
     def run_methods(self):
         self._make_stats()
+
 
 remap_obj = CountStuff(args.genome, args.output_dir[0], args.regions, args.file_name)
 remap_obj.run_methods()

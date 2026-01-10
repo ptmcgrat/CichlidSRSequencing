@@ -133,7 +133,6 @@ class ReorderGenome:
             # This leaves 1538 contigs unused. Since the 130 unmapped ones were placed into the existing 22 LGs, the new total number of contigs in Mzebra_GT1 will be 22 + 1538 remaining unused contigs = 1560 total contigs. 
             # This was verified using pyfaidx
 
-
     def run_methods(self):
         self._rearrange_genome()
         if args.write_unmapped_contigs:
@@ -172,3 +171,9 @@ build an index using samtools faidx <GT.fa>
 build dictionary using gatk CreateSequenceDictionary -R <GT.fa>
 Be sure to remove the genome files from the git directory before pushing anything or I'll crash the repo!
 """
+
+
+
+
+
+
