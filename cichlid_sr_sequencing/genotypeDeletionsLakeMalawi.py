@@ -41,9 +41,9 @@ for sample in samples:
 		if ps[1] > 24870500 and ps[4] < 24872500 and ps[7] == 'del':
 			print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
 
-		if ps[1] > 24986100 and ps[4] < 24987000 and ps[7] == 'del'
+		if ps[1] > 24986100 and ps[4] < 24987000 and ps[7] == 'del':
 			print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
 
-		if ps[1] > 24997000 and ps[4] < 24998200 and ps[7] == 'del'
+		if ps[1] > 24997000 and ps[4] < 24998200 and ps[7] == 'del':
 			print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
 
