@@ -105,7 +105,7 @@ class FileManager():
 
 		# Identify already run samples
 		filter_set = set(self.a_dt.SampleID)
-		already_run_samples = [for x in set(self.s_dt.SampleID) if x in filter_set]
+		already_run_samples = [x for x in set(self.s_dt.SampleID) if x in filter_set]
 		samples = [for x in set(self.s_dt.SampleID) if x not in filter_set]
 		
 		if not rerun:
