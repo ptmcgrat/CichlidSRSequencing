@@ -17,7 +17,7 @@ parser.add_argument('-r', '--Rerun', action = 'store_true', help = 'Default beha
 args = parser.parse_args()
 
 # Create FileManager object to keep track of filenames
-fm_obj = fm_obj.setGenome(args.Genome)
+fm_obj.setGenome(args.Genome)
 
 # Create timer object to keep track of time
 timer = Timer()
