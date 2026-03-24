@@ -127,7 +127,7 @@ class FileManager():
 	def createSampleFiles(self, sampleID):
 		self.s_dt = self.s_dt[self.s_dt.SampleID == sampleID]
 
-		self.localRawBamFiles = [self.localReadsDir + x + for x in self.s_dt.FileLocations.to_list()]
+		self.localRawBamFiles = [self.localReadsDir + x for x in self.s_dt.FileLocations.to_list()]
 
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
