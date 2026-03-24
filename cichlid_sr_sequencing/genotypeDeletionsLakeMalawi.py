@@ -17,6 +17,7 @@ fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
 for sample in samples:
+	organism = fm_obj.sample_dt[fm_obj.sample_dt.SampleID == sample].Species.values[0]
 	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localChimericBamFile)
 	pysam.index(fm_obj.localChimericBamFile)
@@ -39,11 +40,11 @@ for sample in samples:
 			discoveryChimeras[newRead.data] += 1
 	for ps,num in discoveryChimeras.items():
 		if ps[1] > 24870500 and ps[4] < 24872500 and ps[7] == 'del':
-			print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
+			print(sample + '\t' + organism + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
 
 		if ps[1] > 24986100 and ps[4] < 24987000 and ps[7] == 'del':
-			print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
+			print(sample + '\t' + organism + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
 
 		if ps[1] > 24997000 and ps[4] < 24998200 and ps[7] == 'del':
-			print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
+			print(sample + '\t' + organism + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
 

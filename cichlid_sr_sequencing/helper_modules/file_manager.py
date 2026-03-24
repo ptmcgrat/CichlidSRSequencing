@@ -60,6 +60,7 @@ class FileManager():
 		self.g_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		worksheet = spreadsheet.worksheet('SampleDatabase') # Access a specific sheet tab
 		s_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		self.sample_dt = s_dt
 		worksheet = spreadsheet.worksheet('DNAReads') # Access a specific sheet tab
 		d_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		self.s_dt = pd.merge(s_dt,d_dt, on = 'SampleID')
