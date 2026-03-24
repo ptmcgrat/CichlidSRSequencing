@@ -20,7 +20,7 @@ for sample in samples:
 	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localChimericBamFile)
 	pysam.index(fm_obj.localChimericBamFile)
-	discoveryChimeras = {}	
+	discoveryChimeras = defaultdict(int)	
 	bam_obj = pysam.AlignmentFile(fm_obj.localChimericBamFile)
 	for read in bam_obj.fetch(LG10_inversion[0],LG10_inversion[2],LG10_inversion[3]):
 		if not read.is_secondary and read.mapq > minMapQ:
