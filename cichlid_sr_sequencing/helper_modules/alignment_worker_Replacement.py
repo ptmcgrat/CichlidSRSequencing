@@ -1,7 +1,7 @@
 import subprocess, os, pdb, psutil, shutil
 import pysam
 import pandas as pd
-from helper_modules.file_manager_Replacement import FileManager as FM
+from helper_modules.file_manager import FileManager as FM
 from helper_modules.Timer import Timer
 from multiprocessing import cpu_count
 
