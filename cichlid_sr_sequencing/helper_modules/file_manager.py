@@ -64,8 +64,8 @@ class FileManager():
 		d_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		self.s_dt = pd.merge(s_dt,d_dt, on = 'SampleID')
 		worksheet = spreadsheet.worksheet('AlignmentDatabase') # Access a specific sheet tab
-		a_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
-		self.a_dt = pd.merge(a_dt,d_dt, on = 'SampleID')
+		self.a_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		#self.a_dt = pd.merge(a_dt,d_dt, on = 'SampleID')
 
 	def _createGenomeFiles(self):
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
