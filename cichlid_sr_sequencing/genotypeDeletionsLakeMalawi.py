@@ -17,7 +17,10 @@ fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
 for sample in samples:
-	organism = fm_obj.sample_dt[fm_obj.sample_dt.SampleID == sample].Species.values[0]
+	try:
+		organism = fm_obj.sample_dt[fm_obj.sample_dt.SampleID == sample].Species.values[0]
+	except IndexError:
+		print('Not in sample database: ' + sample)
 	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localChimericBamFile)
 	pysam.index(fm_obj.localChimericBamFile)
