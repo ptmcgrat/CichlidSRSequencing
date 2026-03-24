@@ -38,4 +38,4 @@ for sample in samples:
 				continue
 			discoveryChimeras[newRead.data] += 1
 	for ps,num in discoveryChimeras.items():
-		print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + + '\t' + ps[7] + '\t' + str(num))
+		print(sample + '\t' + 'NC_036789.1\t' + str(ps[1]) + '\t' + str(ps[4]) + '\t' + ps[7] + '\t' + str(num))
