@@ -18,8 +18,7 @@ class AlignmentWorker():
 			# Create sample file manager (need to keep them all in memory for parallelization)
 			self.fileManagers[sampleID] = FM(genome, sampleID)
 
-			sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
-
+			#sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
 			self.uBam_files[sampleID] = self.fileManagers[sampleID].localRawBamFiles
 			sizes[sampleID] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sampleID]])
 
