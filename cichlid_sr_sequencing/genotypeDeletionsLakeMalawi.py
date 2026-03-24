@@ -21,6 +21,7 @@ for sample in samples:
 		organism = fm_obj.sample_dt[fm_obj.sample_dt.SampleID == sample].Species.values[0]
 	except IndexError:
 		print('Not in sample database: ' + sample)
+		organism = ''
 	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localChimericBamFile)
 	pysam.index(fm_obj.localChimericBamFile)
