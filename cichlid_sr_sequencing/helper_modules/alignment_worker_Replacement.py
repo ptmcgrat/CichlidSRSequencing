@@ -16,12 +16,12 @@ class AlignmentWorker():
 		sizes = {}
 		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
-			self.fileManagers[sample] = FM(genome, sampleID)
+			self.fileManagers[sampleID] = FM(genome, sampleID)
 
-			sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sample]
+			sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
 
-			self.uBam_files[sample] = self.fileManagers[sample].localRawBamFiles
-			sizes[sample] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sample]])
+			self.uBam_files[sampleID] = self.fileManagers[sampleID].localRawBamFiles
+			sizes[sampleID] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sampleID]])
 
 
 		# Make sure there is enough room
@@ -114,7 +114,6 @@ class AlignmentWorker():
 		for p in processes:
 			p.communicate()
 
-
 	def delete_read_data(self):
 		subprocess.run(['rm', '-f'] + self.downloaded_files)
 
@@ -167,29 +166,20 @@ class AlignmentWorker():
 				#subprocess.run(['rm','-f'] + ind_files)
 			
 			timer.stop()
-			
-	def markDuplicates(self, parallel = False):
+
+	def markDuplicates(self):
 		commands = {}
 		del_files = []
 		for sample in self.samples:
 			fm_obj = self.fileManagers[sample]
 
 			command = ['gatk', 'MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localSampleTempDir, '--CREATE_INDEX']
-			#command = ['gatk', 'MarkDuplicatesSpark', '--create-output-bam-index',  '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--tmp-dir', self.fm_obj.localSampleTempDir]
-			
-			#command2 = ['gatk', 'SortSam', '-I', unsorted_file, '-O', self.fm_obj.localBamFile, '-S', 'coordinate', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--CREATE_INDEX']
 			commands[sample] = command
-			if not parallel:
-				self.monitorProcesses({strain:command}, 'MarkDuplicates_' + sample, 1)
-				#self.monitorProcess(command2,'SortBam_' + sample)
-				#subprocess.run(['rm', '-f', self.fm_obj.localTempSortedBamFile])
-			else:
-				del_files.append(fm_obj.localTempSortedBamFile)
+			del_files.append(fm_obj.localTempSortedBamFile)
 
-		if parallel:
-			self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)),48)
-			#for del_file in del_files:
-			#	subprocess.run(['rm','-f',del_file])
+		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)),48)
+		#for del_file in del_files:
+		#	subprocess.run(['rm','-f',del_file])
 
 	def splitBamfiles(self):
 		for sample in self.samples:
