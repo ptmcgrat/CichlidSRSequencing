@@ -9,25 +9,22 @@ class AlignmentWorker():
 	def __init__(self, genome, fm_obj):
 		self.fm_obj = fm_obj
 		self.genome = genome
-		self.s_dt = fm_obj.s_dt
 
 		self.fileManagers = {}
-		
 		self.uBam_files = {}
 
 		sizes = {}
-		for sample in fm_obj.samples:
+		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
-			self.fileManagers[sample] = FM(genome)
-			self.fileManagers[sample].createSampleFiles(sample)
+			self.fileManagers[sample] = FM(genome, sampleID)
 
 			sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sample]
 
-			self.uBam_files[sample] = [self.fileManagers[sample].localReadsDir + x for x in sub_dt.FileLocations]
+			self.uBam_files[sample] = self.fileManagers[sample].localRawBamFiles
 			sizes[sample] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sample]])
 
 
-		# Make sure there is enough
+		# Make sure there is enough room
 		total_sample_size = sum(sizes.values())
 		free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
 		if 3*total_sample_size > free_memory:
@@ -106,28 +103,22 @@ class AlignmentWorker():
 		timer.stop()
 
 
-	def downloadReadData(self, approach = 'Normal'):
+	def downloadReadData(self):
 		processes = []
 		# Loop through all of the runs for a sample
 		for sample in self.samples:
 			fm_obj = self.fileManagers[sample]
 			for uBam_file in self.uBam_files[sample]:
-				if approach == 'Normal':
-					fm_obj.downloadData(uBam_file)
-				elif approach == 'Popen':
-					processes.append(fm_obj.downloadData(uBam_file, parallel = True))
-				elif approach == 'rclone_more_threads':
-					fm_obj.downloadData(uBam_file, rclone = True)
-
-		if approach == 'Popen':
-			for p in processes:
-				p.communicate()
+				processes.append(fm_obj.downloadData(uBam_file, parallel = True))
+				
+		for p in processes:
+			p.communicate()
 
 
 	def delete_read_data(self):
 		subprocess.run(['rm', '-f'] + self.downloaded_files)
 
-	def alignData(self, linked = False):
+	def alignData(self):
 		# Loop through all of the runs for a sample
 		timer = Timer()
 		for sample in self.samples:
@@ -138,60 +129,29 @@ class AlignmentWorker():
 				print(sample + ' already run')
 				continue
 
-			if linked:
-				timer.start('  Aligning reads to create sorted Bam files')
+			timer.start('  Aligning reads to create sorted Bam files')
 
 			for i,uBam_file in enumerate(self.uBam_files[sample]):
 
 				# Create temporary outputfile
 				t_bam = fm_obj.localSampleTempDir + sample + '.' + str(i) + '.sorted.bam'
 
-				if linked:
-					command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
-					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, '/dev/stdin']
-					command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
-					command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-					command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-					command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
+				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
+				command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
+				command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, '/dev/stdin']
+				command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
+				command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
+				command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
+				command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
 
-					error_file = open(fm_obj.localSampleTempDir + 'Alignment_errors.txt', 'w')
-					p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = error_file)
-					p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = error_file)
-					p1.stdout.close()
-					p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file, stdout = subprocess.DEVNULL)
-					p2.stdout.close()
-					output = p3.communicate()
+				error_file = open(fm_obj.localSampleTempDir + 'Alignment_errors.txt', 'w')
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = error_file)
+				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = error_file)
+				p1.stdout.close()
+				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file, stdout = subprocess.DEVNULL)
+				p2.stdout.close()
+				output = p3.communicate()
 
-				else:
-					# Align unmapped bam file following best practices
-					# https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently
-					# Align fastq files and sort them
-					# First command coverts unmapped bam to fastq file, clipping out illumina adapter sequence by setting quality score to #
-					# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-					command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', fm_obj.localSampleTempDir + 'testing.fq', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
-					command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
-					self.monitorProcesses({sample:command1}, 'SamToFastq_' + sample + '_' + str(i),1)
-					#subprocess.run(command1)
-
-					# Second command aligns fastq data to reference
-					command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-o', fm_obj.localSampleTempDir + 'testing.sam', '-p', fm_obj.localGenomeFile, fm_obj.localSampleTempDir + 'testing.fq']
-					#print(command2)
-					self.monitorProcesses({sample:command2}, 'BWA_' + sample + '_' + str(i),1)
-					#subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.fq'])
-
-
-					# Final command reads read group information to aligned bam file and sorts it
-					# Figure out how to keep hard clipping
-					
-
-					# Debugging - useful for ensuring command is working properly, saving intermediate files instead of piping into each other
-					command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', fm_obj.localSampleTempDir + 'testing.sam']
-					command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
-					command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
-					command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
-					self.monitorProcesses({sample:command3}, 'SortMergeBam_' + sample + '_' + str(i), 1)
-					#subprocess.run(['rm', '-f', fm_obj.localSampleTempDir + 'testing.sam'])
 
 				# Remove unmapped reads
 				#subprocess.run(['rm', '-f', uBam_file])
@@ -206,8 +166,8 @@ class AlignmentWorker():
 				output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localSampleTempDir] + inputs + ['-O', sorted_bam], stderr = open(fm_obj.localSampleTempDir + 'MergeSamFiles_errors.txt', 'w'), stdout = subprocess.DEVNULL)
 				#subprocess.run(['rm','-f'] + ind_files)
 			
-			if linked:
-				timer.stop()
+			timer.stop()
+			
 	def markDuplicates(self, parallel = False):
 		commands = {}
 		del_files = []

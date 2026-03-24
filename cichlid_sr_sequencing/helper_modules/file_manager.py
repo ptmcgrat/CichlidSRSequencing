@@ -1,13 +1,12 @@
-import os, subprocess, pdb, random, datetime, platform
+import platform, os, pdb, gspread, subprocess
 import pandas as pd
-#import numpy as np
-from xml.etree import ElementTree as ET
-from multiprocessing import cpu_count
-#from pysam import VariantFile
-from collections import defaultdict
+
+from gspread_dataframe import get_as_dataframe
+from google.oauth2.service_account import Credentials
+
 
 class FileManager():
-	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:/', masterDir = 'COS/BioSci/BioSci-McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = None, sampleID = None, rcloneRemote = 'ptm_dropbox:/', masterDir = 'COS/BioSci/BioSci-McGrath/Apps/CichlidSequencingData/'):
 
 		self.genome_version = genome_version
 
@@ -26,20 +25,45 @@ class FileManager():
 
 		"""
 		self._createMasterDirs()
-		
+		self._readDatabases()
+		if genome_version is not None:
+			self.setGenome(genome_version)
+			if sampleID is not None:
+				self.createSampleFiles(sampleID)
 
 	def _createMasterDirs(self):
 
 		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
-		self.localPileupDir = self.localMasterDir + '/Pileups/'	+ self.genome_version 	
-	
 		self.localReadsDir = self.localMasterDir + 'Reads/'		
 		self.localSeqCoreDataDir = self.localMasterDir + 'SeqCoreData/'
 		self.localBamfilesDir = self.localMasterDir + 'Bamfiles/'
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
-		self.localPolymorphismsDir = self.localMasterDir + 'Polymorphisms/'	
 		self.localTempDir = self.localMasterDir + 'Temp/'
+		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
+		
+		self.localCredentialFile = self.localMasterDir + 'cichlidsrsequencing_api_creds.json'
 
+	def _readDatabases(self):
+		g_ID = '1NmgB_TWoO01Qz2ufvECuZFkxXayhUsyu8wQGStVB_8k'
+		self.downloadData(self.localCredentialFile)
+
+		scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+		credentials = Credentials.from_service_account_file(self.localCredentialFile, scopes=scopes)
+		gc = gspread.authorize(credentials)
+
+		spreadsheet = gc.open_by_key(g_ID) # Or use open('Spreadsheet Name')
+		
+		worksheet = spreadsheet.worksheet('GenomeDatabase') # Access a specific sheet tab
+		self.g_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		worksheet = spreadsheet.worksheet('SampleDatabase') # Access a specific sheet tab
+		s_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		worksheet = spreadsheet.worksheet('DNAReads') # Access a specific sheet tab
+		d_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		self.s_dt = pd.merge(s_dt,d_dt, on = 'SampleID')
+		worksheet = spreadsheet.worksheet('AlignmentDatabase') # Access a specific sheet tab
+		self.a_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+
+	def _createGenomeFiles(self):
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
 		self.localGenomeDir = self.localGenomesDir + self.genome_version + '/'
 		if self.genome_version == 'Mzebra_UMD2a':
@@ -50,89 +74,60 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta'
 		else:
 			raise FileNotFoundError(self.genome_version + ' not an option')
-		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 
-		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
-		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
-
-		self.localErrorsDir = self.localMasterDir + 'Errors/'
-
-	def setSamples(self, projectIDs = None, sampleIDs = None, ecogroupIDs = None):
-
-		self.downloadData(self.localSampleFile_v2)
-		s_dt = pd.read_excel(self.localSampleFile_v2, sheet_name = 'SampleLevel')
+	def returnOptions(self, datatype):
+		if datatype == 'Genomes':
+			return self.g_dt.GenomeID.to_list()
+		if datatype == 'Samples':
+			return self.s_dt.SampleID.unique().tolist()
+		if datatype == 'Species':
+			return self.s_dt.Species.unique().tolist()
+		if datatype == 'ProjectIDs':
+			return self.s_dt.ProjectID.unique().tolist()
+			
+	def setGenome(self, genome_version):
+		self.genome_version = genome_version
+		self._createGenomeFiles()
+		
+	def setSamples(self, projectIDs, sampleIDs, species, rerun):
 
 		if projectIDs is not None:
-			bad_projects = []
-			for projectID in projectIDs:
-				if projectID not in set(s_dt.ProjectID_PTM):
-					bad_projects.append(projectID)
-			if len(bad_projects) > 0:
-				raise FileNotFoundError('The following projects were not found in sample database: ' + ','.join(bad_projects))
+			self.s_dt = self.s_dt[self.s_dt.ProjectID.isin(projectIDs)]
 
-			s_dt = s_dt[s_dt.ProjectID_PTM.isin(projectIDs)]
+		if sampleIDs is not None:
+			self.s_dt = self.s_dt[self.s_dt.SampleID.isin(sampleIDs)]
 
-		elif sampleIDs is not None:
-			bad_samples = []
-			for sample in sampleIDs:
-				if sample not in list(s_dt.SampleID):
-					bad_samples.append(sample)
+		if species is not None:
+			self.s_dt = self.s_dt[self.s_dt.Ecogroup_PTM.isin(ecogroupIDs)]
 
-			if len(bad_samples) > 0:
-				raise FileNotFoundError('The following samples were not found in sample database: ' + ','.join(bad_samples))
+		# Filter alignment database for requested genome version
+		self.a_dt = self.a_dt[(self.a_dt.GenomeVersion == self.genome_version)]
 
-			s_dt = s_dt[s_dt.SampleID.isin(sampleIDs)]
-
-		elif ecogroupIDs is not None:
-			bad_ecogroups = []
-			for ecogroup in ecogroupIDs:
-				if ecogroup not in set(s_dt.Ecogroup_PTM):
-					bad_ecogroups.add(ecogroup)
-
-			if len(bad_ecogroups) > 0:
-				raise FileNotFoundError('Ecogroup ' + ecogroup + ' does not exist. Options are: ' + ','.join(set(s_dt.Ecogroup_PTM)))
-
-			s_dt = s_dt[s_dt.Ecogroup_PTM.isin(ecogroupIDs)]
-
-		else: 
-			s_dt = s_dt
-
-		# Download master alignment database to keep track of samples that have been aligned
-		self.downloadData(self.localAlignmentFile)
-		a_dt = pd.read_csv(self.localAlignmentFile)
-		a_dt = a_dt[(a_dt.GenomeVersion == self.genome_version)]
-
-		self.samples = set()
-		already_run_samples = []
-		for sample in set(s_dt.SampleID):
-			if sample in set(a_dt.SampleID):
-				already_run_samples.append(sample)
-			else:
-				self.samples.add(sample)
-
-		if len(already_run_samples) > 0:
-			print('The following samples have already been aligned to the genome and will not be rerun:')
-			print(','.join(sorted(already_run_samples)))
+		# Identify already run samples
+		filter_set = set(self.a_dt.SampleID)
+		already_run_samples = [for x in set(self.s_dt.SampleID) if x in filter_set]
+		samples = [for x in set(self.s_dt.SampleID) if x not in filter_set]
+		
+		if not rerun:
+			if len(already_run_samples) > 0:
+				print('The following samples have already been aligned to the genome and will not be rerun:')
+				print(','.join(sorted(already_run_samples)))
+			self.samples = samples
+		else:
+			if len(already_run_samples) > 0:
+				print('The following samples have already been aligned to the genome and will be overwritten:')
+				print(','.join(sorted(already_run_samples)))
+			self.samples = already_run_samples + samples
 
 		print('The following samples will be run:')
 		print(','.join(sorted(self.samples)))
 
-		self.downloadData(self.localSampleFile)
-		s_dt = pd.read_csv(self.localSampleFile)
-
-		self.s_dt = s_dt[s_dt.SampleID.isin(self.samples)]
-
+		self.s_dt = self.s_dt[self.s_dt.SampleID.isin(self.samples)]
 
 	def createSampleFiles(self, sampleID):
-		if not os.path.isfile(self.localSampleFile):
-			print('DownloadingSampleFile')
-			self.downloadData(self.localSampleFile)
+		self.s_dt = self.s_dt[self.s_dt.SampleID == sampleID]
 
-		dt = pd.read_csv(self.localSampleFile)
-		s_dt = dt[dt.SampleID == sampleID]
-		projectID = s_dt.ProjectID.iloc[0]
-
-		self.localRawBamFiles = [self.localReadsDir + projectID + '/' + x +'.unmapped_marked_adapters.bam' for x in s_dt.RunID.to_list()]
+		self.localRawBamFiles = [self.localReadsDir + x + for x in self.s_dt.FileLocations.to_list()]
 
 		self.sampleID = sampleID
 		self.localSampleBamDir = self.localBamRefDir + sampleID + '/'
@@ -166,16 +161,6 @@ class FileManager():
 
 	def createAnalysisIDFiles(self, analysisID):
 		self.localAnalysisFile = self.localAnalysisDir + analysisID + '.csv'
-
-	def returnGenomeVersions(self):
-		return self.returnCloudDirs(self.localGenomesDir)
-
-	def returnSamples(self):
-		if not os.path.isfile(self.localSampleFile):
-			print('DownloadingSampleFile')
-			self.downloadData(self.localSampleFile)
-		dt = pd.read_csv(self.localSampleFile)
-		return set(dt.SampleID)
 
 	def downloadData(self, local_data, tarred = False, tarred_subdirs = False, parallel = False, rclone=False):
 
