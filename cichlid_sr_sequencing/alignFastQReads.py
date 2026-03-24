@@ -1,7 +1,7 @@
 import argparse, pdb
 from helper_modules.file_manager import FileManager as FM
 
-from helper_modules.alignment_worker_Replacement import AlignmentWorker as AW
+from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
 
 fm_obj = FM()
