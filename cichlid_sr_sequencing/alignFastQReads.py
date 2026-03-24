@@ -42,11 +42,11 @@ timer.start('  Aligning Reads to created sorted Bamfiles')
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
-aw_obj.markDuplicates()
+#aw_obj.markDuplicates()
 timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')
-aw_obj.splitBamfiles()
+#aw_obj.splitBamfiles()
 timer.stop()
 
 print('  Calling haplotypes to create gvcf files')
@@ -54,7 +54,7 @@ aw_obj.createGVCF(parallel = True)
 
 processes = []
 for sample in fm_obj.samples:
-	fm_obj = FimeManager(args.Genome, sample)
+	fm_obj = FileManager(args.Genome, sample)
 	fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 	stats = aw_obj.calculateStats(sample)

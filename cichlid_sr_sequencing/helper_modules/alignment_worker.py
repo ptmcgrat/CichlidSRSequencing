@@ -183,7 +183,7 @@ class AlignmentWorker():
 	def splitBamfiles(self):
 		for sample in self.samples:
 			fm_obj = self.fileManagers[sample]
-			print('  Splitting sample ' + sample)
+			#print('  Splitting sample ' + sample)
 			# Get contigs
 			try:
 				bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
