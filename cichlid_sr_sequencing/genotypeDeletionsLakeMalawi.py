@@ -17,7 +17,7 @@ fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
 for sample in samples:
-	fm_obj.createSampleFiles(samples)
+	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localChimericBamFile)
 	pysam.index(fm_obj.localChimericBamFile)
 	discoveryChimeras = {}	
