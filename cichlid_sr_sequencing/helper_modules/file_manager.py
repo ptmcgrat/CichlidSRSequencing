@@ -42,7 +42,8 @@ class FileManager():
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		
 		self.localCredentialFile = self.localMasterDir + 'cichlidsrsequencing_api_creds.json'
-
+		self.localProcessesFile = self.localTempDir + 'ProcessInfo.csv'
+		
 	def _readDatabases(self):
 		g_ID = '1NmgB_TWoO01Qz2ufvECuZFkxXayhUsyu8wQGStVB_8k'
 		self.downloadData(self.localCredentialFile)

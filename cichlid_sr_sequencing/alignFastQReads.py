@@ -27,22 +27,23 @@ fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, spec
 
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
-fm_obj.downloadData(fm_obj.localGenomeDir)
+#fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj)
 
 timer.start('  Parallel Downloading uBams files')
-aw_obj.downloadReadData()
+#aw_obj.downloadReadData()
 timer.stop()
 
-print('  Aligning reads to create sorted Bam files')
-aw_obj.alignData()
+timer.start('  Aligning Reads to created sorted Bamfiles')
+#aw_obj.alignData()
+timer.stop()
 
-print('  Marking duplicates for bamfiles')
-#aw_obj.markDuplicates()
+timer.start('  Marking duplicates for bamfiles')
 aw_obj.markDuplicates()
+timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')
 aw_obj.splitBamfiles()
@@ -53,7 +54,7 @@ aw_obj.createGVCF(parallel = True)
 
 processes = []
 for sample in fm_obj.samples:
-	fm_obj.createSampleFiles(sample)
+	fm_obj = FimeManager(args.Genome, sample)
 	fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 	stats = aw_obj.calculateStats(sample)
@@ -63,7 +64,7 @@ for sample in fm_obj.samples:
 	coverage = stats['all'] * read_length / reference_size
 	pdb.set_trace()
 
-	sample_data = {'SampleID':sample, 'Organism':s_dt[s_dt['SampleID'] == sample].Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
+	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 
 			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
 
