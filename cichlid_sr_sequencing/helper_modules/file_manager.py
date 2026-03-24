@@ -43,7 +43,9 @@ class FileManager():
 		
 		self.localCredentialFile = self.localMasterDir + 'cichlidsrsequencing_api_creds.json'
 		self.localProcessesFile = self.localTempDir + 'ProcessInfo.csv'
-		
+		self.localErrorsDir = self.localMasterDir + 'Errors/'
+		os.makedirs(self.localErrorsDir, exist_ok = True)
+
 	def _readDatabases(self):
 		g_ID = '1NmgB_TWoO01Qz2ufvECuZFkxXayhUsyu8wQGStVB_8k'
 		self.downloadData(self.localCredentialFile)
@@ -62,7 +64,8 @@ class FileManager():
 		d_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		self.s_dt = pd.merge(s_dt,d_dt, on = 'SampleID')
 		worksheet = spreadsheet.worksheet('AlignmentDatabase') # Access a specific sheet tab
-		self.a_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		a_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		self.a_dt = pd.merge(a_dt,d_dt, on = 'SampleID')
 
 	def _createGenomeFiles(self):
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
