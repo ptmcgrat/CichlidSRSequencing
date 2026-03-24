@@ -38,11 +38,11 @@ aw_obj.downloadReadData()
 timer.stop()
 
 print('  Aligning reads to create sorted Bam files')
-aw_obj.alignData(linked=True)
+aw_obj.alignData()
 
 print('  Marking duplicates for bamfiles')
 #aw_obj.markDuplicates()
-aw_obj.markDuplicates(parallel = True)
+aw_obj.markDuplicates()
 
 timer.start('  Splitting reads based upon their alignment')
 aw_obj.splitBamfiles()
@@ -57,11 +57,11 @@ for sample in fm_obj.samples:
 	fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 	stats = aw_obj.calculateStats(sample)
-
 	s_dt = fm_obj.s_dt
 	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 	coverage = stats['all'] * read_length / reference_size
+	pdb.set_trace()
 
 	sample_data = {'SampleID':sample, 'Organism':s_dt[s_dt['SampleID'] == sample].Organism.values[0], 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 'ProjectID':s_dt[s_dt['SampleID'] == sample]['ProjectID'].values[0], 
 			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
