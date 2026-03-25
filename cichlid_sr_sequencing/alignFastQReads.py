@@ -72,19 +72,17 @@ for sample in fm_obj.samples:
 	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
-	pdb.set_trace()
 
 	if sample in fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == args.Genome].SampleID:
 		fm_obj.a_dt.loc[len(fm_obj.a_dt)] = sample_data
-
+	else:
+		for key, value in sample_data.items():
+			fm_obj.a_dt.loc[(fm_obj.a_dt.GenomeVersion == args.Genome) & (fm_obj.a_dt.SampleID == sample), key] = value
+		pdb.set_trace()
 	# Upload data and delete
 	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 	#subprocess.run(['rm','-rf', fm_obj.localTempDir])
-	fm_obj.downloadData(fm_obj.localAlignmentFile)
-	a_dt = pd.read_csv(fm_obj.localAlignmentFile)
-	a_dt = pd.concat([a_dt, pd.DataFrame.from_records([sample_data])])
-	a_dt.to_csv(fm_obj.localAlignmentFile, index = False)
-	fm_obj.uploadData(fm_obj.localAlignmentFile)
+	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
 	timer.stop()
 	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	print()

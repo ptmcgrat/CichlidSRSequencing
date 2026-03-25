@@ -2,6 +2,8 @@ import platform, os, pdb, gspread, subprocess
 import pandas as pd
 
 from gspread_dataframe import get_as_dataframe
+from gspread_dataframe import set_with_dataframe
+
 from google.oauth2.service_account import Credentials
 
 
@@ -67,6 +69,19 @@ class FileManager():
 		worksheet = spreadsheet.worksheet('AlignmentDatabase') # Access a specific sheet tab
 		self.a_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		#self.a_dt = pd.merge(a_dt,d_dt, on = 'SampleID')
+
+	def _setDatabase(self, worksheet, dt):
+		g_ID = '1NmgB_TWoO01Qz2ufvECuZFkxXayhUsyu8wQGStVB_8k'
+		self.downloadData(self.localCredentialFile)
+
+		scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+		credentials = Credentials.from_service_account_file(self.localCredentialFile, scopes=scopes)
+		gc = gspread.authorize(credentials)
+
+		spreadsheet = gc.open_by_key(g_ID) # Or use open('Spreadsheet Name')
+
+		set_with_dataframe(spreadsheet(worksheet), dt) # df is your DataFrame
+
 
 	def _createGenomeFiles(self):
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
