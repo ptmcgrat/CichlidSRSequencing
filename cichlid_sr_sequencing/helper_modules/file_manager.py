@@ -80,7 +80,7 @@ class FileManager():
 
 		spreadsheet = gc.open_by_key(g_ID) # Or use open('Spreadsheet Name')
 
-		set_with_dataframe(spreadsheet(worksheet), dt) # df is your DataFrame
+		set_with_dataframe(spreadsheet.worksheet(worksheet), dt) # df is your DataFrame
 
 
 	def _createGenomeFiles(self):
