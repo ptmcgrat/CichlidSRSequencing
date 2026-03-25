@@ -162,7 +162,7 @@ class AlignmentWorker():
 				for ind_file in ind_files:
 					inputs = inputs + ['-I', ind_file]
 				output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localSampleTempDir] + inputs + ['-O', sorted_bam], stderr = open(fm_obj.localSampleTempDir + 'MergeSamFiles_errors.txt', 'w'), stdout = subprocess.DEVNULL)
-				#subprocess.run(['rm','-f'] + ind_files)
+				subprocess.run(['rm','-f'] + ind_files)
 			
 			timer.stop()
 
@@ -177,8 +177,8 @@ class AlignmentWorker():
 			del_files.append(fm_obj.localTempSortedBamFile)
 
 		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)),48)
-		#for del_file in del_files:
-		#	subprocess.run(['rm','-f',del_file])
+		for del_file in del_files:
+			subprocess.run(['rm','-f',del_file])
 
 	def splitBamfiles(self):
 		for sample in self.samples:
