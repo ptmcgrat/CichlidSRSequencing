@@ -1,4 +1,4 @@
-import argparse, pdb
+import argparse, pdb, pysam, subprocess
 from helper_modules.file_manager import FileManager as FM
 
 from helper_modules.alignment_worker import AlignmentWorker as AW
