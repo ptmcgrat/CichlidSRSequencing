@@ -35,4 +35,4 @@ for sample in samples:
 			if read.pos > insertion[0] and read.pos < insertion[1]:
 				hits[i]+=1
 
-	print(sample + '\t' + organism + '\t' + str(hist[0]) + '\t' + str(hist[1]) + '\t' + str(hist[2]))
+	print(sample + '\t' + organism + '\t' + str(hits[0]) + '\t' + str(hits[1]) + '\t' + str(hits[2]))
