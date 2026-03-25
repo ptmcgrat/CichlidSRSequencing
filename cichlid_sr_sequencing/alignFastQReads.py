@@ -82,7 +82,7 @@ for sample in fm_obj.samples:
 		pdb.set_trace()
 	# Upload data and delete
 	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-	subprocess.run(['rm','-rf', fm_obj.localTempDir])
+	subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
 	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
 	#print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	#print()
