@@ -28,7 +28,7 @@ for sample in samples:
 	fm_obj.downloadData(fm_obj.localDiscordantBamFile)
 	pysam.index(fm_obj.localDiscordantBamFile)
 	discoveryChimeras = defaultdict(int)	
-	bam_obj = pysam.AlignmentFile(fm_obj.localDiscordantFile)
+	bam_obj = pysam.AlignmentFile(fm_obj.localDiscordantBamFile)
 	hits = defaultdict(int)
 	for read in bam_obj.fetch(LG10_inversion[0],LG10_inversion[2],LG10_inversion[3]):
 		for i,insertion in enumerate(insertions):
