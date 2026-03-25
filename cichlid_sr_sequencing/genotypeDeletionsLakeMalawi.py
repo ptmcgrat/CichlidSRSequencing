@@ -13,6 +13,10 @@ mcs = ['MC-1G2G-f','MC-1O7O-f','MC-1R6R-f','MC-2B4B-f','MC-2G8G-f','MC-2P4P-f','
 
 minMapQ = 30
 
+fm_obj = FM('Mzebra_GT3','YH_005_m')
+print(fm_obj.localSampleBamDir)
+pdb.set_trace()
+fm_obj.downloadData(fm_obj.localSampleBamDir)
 fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 

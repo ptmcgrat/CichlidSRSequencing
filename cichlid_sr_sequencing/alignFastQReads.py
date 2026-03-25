@@ -1,4 +1,4 @@
-import argparse, pdb, pysam, subprocess
+import argparse, pdb, pysam, subprocess, os
 from helper_modules.file_manager import FileManager as FM
 
 from helper_modules.alignment_worker import AlignmentWorker as AW
@@ -62,8 +62,7 @@ for sample in fm_obj.samples:
 	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 	coverage = stats['all'] * read_length / reference_size
-	pdb.set_trace()
-
+	stats = {k:v/stats['all'] if k!= 'all' else v for k,v in stats.items()}
 	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 
 			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
@@ -73,6 +72,10 @@ for sample in fm_obj.samples:
 	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
+	pdb.set_trace()
+
+	if sample in fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == args.Genome].SampleID:
+		fm_obj.a_dt.loc[len(fm_obj.a_dt)] = sample_data
 
 	# Upload data and delete
 	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
