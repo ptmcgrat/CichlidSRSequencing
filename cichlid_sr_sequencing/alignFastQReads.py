@@ -84,6 +84,6 @@ for sample in fm_obj.samples:
 	#subprocess.run(['rm','-rf', fm_obj.localTempDir])
 	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
 	timer.stop()
-	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
-	print()
+	#print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
+	#print()
 
