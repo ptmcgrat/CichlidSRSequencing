@@ -49,8 +49,9 @@ timer.start('  Splitting reads based upon their alignment')
 #aw_obj.splitBamfiles()
 timer.stop()
 
-print('  Calling haplotypes to create gvcf files')
+timer.start('  Calling haplotypes to create gvcf files')
 #aw_obj.createGVCF(parallel = True)
+timer.stop()
 
 processes = []
 for sample in fm_obj.samples:
@@ -72,7 +73,7 @@ for sample in fm_obj.samples:
 	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
-
+	pdb.set_trace()
 	if sample not in fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == args.Genome].SampleID:
 		fm_obj.a_dt.loc[len(fm_obj.a_dt)] = sample_data
 	else:
@@ -83,7 +84,6 @@ for sample in fm_obj.samples:
 	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 	#subprocess.run(['rm','-rf', fm_obj.localTempDir])
 	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
-	timer.stop()
 	#print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	#print()
 
