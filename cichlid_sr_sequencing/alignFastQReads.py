@@ -73,7 +73,7 @@ for sample in fm_obj.samples:
 	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
 
-	if sample in fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == args.Genome].SampleID:
+	if sample not in fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == args.Genome].SampleID:
 		fm_obj.a_dt.loc[len(fm_obj.a_dt)] = sample_data
 	else:
 		for key, value in sample_data.items():
