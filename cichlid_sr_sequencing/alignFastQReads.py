@@ -50,12 +50,12 @@ timer.start('  Splitting reads based upon their alignment')
 timer.stop()
 
 print('  Calling haplotypes to create gvcf files')
-aw_obj.createGVCF(parallel = True)
+#aw_obj.createGVCF(parallel = True)
 
 processes = []
 for sample in fm_obj.samples:
-	fm_obj = FileManager(args.Genome, sample)
-	fm_obj.uploadData(fm_obj.localSampleBamDir)
+	fm_obj = FM(args.Genome, sample)
+	#fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 	stats = aw_obj.calculateStats(sample)
 	s_dt = fm_obj.s_dt
