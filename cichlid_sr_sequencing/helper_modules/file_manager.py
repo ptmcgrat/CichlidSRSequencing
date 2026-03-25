@@ -118,7 +118,7 @@ class FileManager():
 			self.s_dt = self.s_dt[self.s_dt.SampleID.isin(sampleIDs)]
 
 		if species is not None:
-			self.s_dt = self.s_dt[self.s_dt.Ecogroup_PTM.isin(ecogroupIDs)]
+			self.s_dt = self.s_dt[self.s_dt.Species.isin(species)]
 
 		# Filter alignment database for requested genome version
 		self.a_dt = self.a_dt[(self.a_dt.GenomeVersion == self.genome_version)]
