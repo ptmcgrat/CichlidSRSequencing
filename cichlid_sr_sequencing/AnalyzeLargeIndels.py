@@ -21,4 +21,5 @@ for sample in male_yhs:
 			if not aln.is_proper_pair:
 				out = [str(insertion), sample, aln.reference_name, aln.reference_start, aln.reference_end, aln.next_reference_name, aln.next_reference_start, aln.template_length]
 				out_dt.loc[len(out_dt)] = out
-	pdb.set_trace()
+
+out_dt.to_csv('InsertionReadsInYHMales.csv')
