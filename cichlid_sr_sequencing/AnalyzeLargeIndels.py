@@ -14,13 +14,13 @@ out_dt = pd.DataFrame(columns = ['InsertionLocation','AlnChrom','AlnStart','AlnE
 
 for sample in male_yhs:
 	fm_obj.createSampleFiles(sample)
-		fm_obj.downloadData(fm_obj.localDiscordantBamFile)
-		pysam.index(fm_obj.localDiscordantBamFile)
-		bam_obj = pysam.AlignmentFile(fm_obj.localDiscordantBamFile)
+	fm_obj.downloadData(fm_obj.localDiscordantBamFile)
+	pysam.index(fm_obj.localDiscordantBamFile)
+	bam_obj = pysam.AlignmentFile(fm_obj.localDiscordantBamFile)
 
-		for insertion in insertions:
-			for aln in aln_obj.fetch('NC_036789.1',insertion - 2000,insertion+2000):
-				if not aln.is_proper_pair:
-					out = [str(insertion), aln.reference_name, aln.reference_start, aln.reference_end, aln.next_reference_name, aln.next_reference_start, aln.template_length]
-					out_dt.loc[len(dt)] = out
-		pdb.set_trace()
+	for insertion in insertions:
+		for aln in aln_obj.fetch('NC_036789.1',insertion - 2000,insertion+2000):
+			if not aln.is_proper_pair:
+				out = [str(insertion), aln.reference_name, aln.reference_start, aln.reference_end, aln.next_reference_name, aln.next_reference_start, aln.template_length]
+				out_dt.loc[len(dt)] = out
+	pdb.set_trace()
