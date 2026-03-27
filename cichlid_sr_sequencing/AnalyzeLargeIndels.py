@@ -8,8 +8,6 @@ fm_obj = FM(genome_version = 'Mzebra_GT3')
 insertions = [24869679,24918628,24921178,24921394]
 male_yhs = ['YH_011_m','YH_008_m','YH_1_m','YH_005_m','YH_003_m','YH_025','YH_026','YH_027','YH_028','YH_029','YH_030','YH_037','YH_038','YH_039','YH_040','YH_041','YH_042','YH_046','YH_047','YH_048','YH_049','YH_050','YH_051','YH_052','YH_053','YH_054','YH_068','YH_069','YH_070','YH_012_m','YH_014_m','Kocher_YH1m','YH_015_m']
 
-dis_bamfile = '/Users/pmcgrath7/Temp/CichlidSequencingData/Bamfiles/Mzebra_GT3/' + myh + '/' + myh + '.discordant.bam'
-aln_obj = pysam.AlignmentFile('/Users/pmcgrath7/Temp/CichlidSequencingData/Bamfiles/Mzebra_GT3/YH_005_m/YH_005_m.discordant.bam')
 out_dt = pd.DataFrame(columns = ['InsertionLocation','AlnChrom','AlnStart','AlnEnd','PairChrom','PairStart','TemplateLength'])
 
 for sample in male_yhs:
