@@ -12,6 +12,7 @@ print(fm_obj.localSampleBamDir)
 
 fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
+out_dt = pd.DataFrame(columns = ['InsertionLocation','Organism','Sample','AlnChrom','AlnStart','AlnEnd','PairChrom','PairStart','TemplateLength','Duplicate'])
 
 for sample in samples:
 	try:
@@ -19,7 +20,6 @@ for sample in samples:
 	except IndexError:
 		organism = 'UnknownSpecies'
 
-	out_dt = pd.DataFrame(columns = ['InsertionLocation','Organism','Sample','AlnChrom','AlnStart','AlnEnd','PairChrom','PairStart','TemplateLength','Duplicate'])
 
 	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localDiscordantBamFile)
