@@ -20,5 +20,5 @@ for sample in male_yhs:
 		for aln in bam_obj.fetch('NC_036789.1',insertion - 2000,insertion+2000):
 			if not aln.is_proper_pair:
 				out = [str(insertion), sample, aln.reference_name, aln.reference_start, aln.reference_end, aln.next_reference_name, aln.next_reference_start, aln.template_length]
-				out_dt.loc[len(dt)] = out
+				out_dt.loc[len(out_dt)] = out
 	pdb.set_trace()
