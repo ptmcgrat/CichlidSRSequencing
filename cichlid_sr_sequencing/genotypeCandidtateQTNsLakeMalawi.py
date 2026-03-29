@@ -100,7 +100,6 @@ for sample in samples:
 		else:
 			print('Error')
 	out_dt[sample] = out_data
-	pdb.set_trace()
 
 	subprocess.run(['rm','-rf',fm_obj.localSampleBamDir])
 out_dt.to_csv('candidateQTNs_LakeMalawiGenotypes.csv')
