@@ -32,7 +32,7 @@ def genotype_normal(bam_obj, position, mtype):
 	       	elif mtype == 'INSERTION':
 	       		alts = sum(['-' == x for x in bases])
 
-	       return str(refs) + ',' + str(alts)
+	       	return str(refs) + ',' + str(alts)
 
 def genotype_longdeletion(bam_obj):
 	deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
