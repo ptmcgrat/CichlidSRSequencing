@@ -216,7 +216,7 @@ class AlignmentWorker():
 					subprocess.run(['rm', bam_file])
 
 
-	def createGVCF(self, parallel = False):
+	def createGVCF(self, parallel = True):
 
 		commands = {}
 		for sample in self.samples:
