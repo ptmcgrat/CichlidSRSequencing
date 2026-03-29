@@ -71,6 +71,8 @@ for sample in samples:
 	print(sample + '\t' + organism)
 	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localSampleBamDir)
+	bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
+	bam_obj_dis = pysam.AlignmentFile(fm_obj.localDiscordantBamFile)
 
 	dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
 	dt['Type'] = dt.Info.str.split('TYPE=').str[1].str.split(',').str[0]
