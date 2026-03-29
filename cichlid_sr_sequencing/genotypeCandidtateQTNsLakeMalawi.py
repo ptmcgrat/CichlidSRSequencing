@@ -59,6 +59,7 @@ def genotype_longdeletion(bam_obj):
 				long_templates += 1
 	return '0,' + str(long_templates+ deletion_dict[deletion[1]])
 
+deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
 fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
@@ -67,6 +68,7 @@ for sample in samples:
 		organism = fm_obj.sample_dt[fm_obj.sample_dt.SampleID == sample].Species.values[0]
 	except IndexError:
 		organism = 'UnknownSpecies'
+	print(sample + '\t' + organism)
 	fm_obj.createSampleFiles(sample)
 	fm_obj.downloadData(fm_obj.localSampleBamDir)
 
@@ -96,5 +98,6 @@ for sample in samples:
 		else:
 			print('Error')
 	out_dt[sample] = out_data
+	subprocess.run(['rm','-rf',fm_obj.localSampleBamDir])
 	pdb.set_trace()
 out_dt.to_csv('candidateQTNs_LakeMalawiGenotypes.csv')
