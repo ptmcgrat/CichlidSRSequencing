@@ -1,4 +1,4 @@
-import pysam, pdb, math
+import pysam, pdb, math, subprocess
 
 from collections import defaultdict
 import pandas as pd
@@ -100,6 +100,7 @@ for sample in samples:
 		else:
 			print('Error')
 	out_dt[sample] = out_data
-	subprocess.run(['rm','-rf',fm_obj.localSampleBamDir])
 	pdb.set_trace()
+
+	subprocess.run(['rm','-rf',fm_obj.localSampleBamDir])
 out_dt.to_csv('candidateQTNs_LakeMalawiGenotypes.csv')
