@@ -92,4 +92,3 @@ for sample in fm_obj.samples:
 	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
 	#print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	#print()
-	pdb.set_trace()
