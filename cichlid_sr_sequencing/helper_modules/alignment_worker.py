@@ -106,7 +106,8 @@ class AlignmentWorker():
 		processes = []
 		# Loop through all of the runs for a sample
 		for sample in self.samples:
-			fm_obj = self.fm_obj.createSampleFiles(sample)
+			fm_obj = self.fm_obj
+			fm_obj.createSampleFiles(sample)
 			for uBam_file in self.uBam_files[sample]:
 				processes.append(fm_obj.downloadData(uBam_file, parallel = True))
 				
