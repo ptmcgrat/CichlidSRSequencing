@@ -45,7 +45,7 @@ else:
 		print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 	for i in range(3):
-		output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
+		output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '.aspera/connect/etc/aspera_tokenauth_id_rsa', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 		if output.returncode == 0:
 			break
 		elif i == 2:
