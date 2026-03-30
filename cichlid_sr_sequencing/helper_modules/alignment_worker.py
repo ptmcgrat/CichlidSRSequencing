@@ -10,16 +10,16 @@ class AlignmentWorker():
 		self.fm_obj = fm_obj
 		self.genome = genome
 
-		self.fileManagers = {}
 		self.uBam_files = {}
 
 		sizes = {}
+
 		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
-			self.fileManagers[sampleID] = FM(genome, sampleID)
+			self.fm_obj.createSampleFiles()
 
 			#sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
-			self.uBam_files[sampleID] = self.fileManagers[sampleID].localRawBamFiles
+			self.uBam_files[sampleID] = self.fm_obj.localRawBamFiles
 			sizes[sampleID] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sampleID]])
 
 
@@ -36,7 +36,7 @@ class AlignmentWorker():
 		
 		timer = Timer()
 		
-		fm_obj = self.fileManagers[self.samples[i]]
+		fm_obj = self.fm_obj.createSampleFiles(self.samples[i])
 
 		resource_fp = open(resource_file, 'w')
 		error_fp= open(error_file, 'w')
@@ -78,7 +78,7 @@ class AlignmentWorker():
 		error_files = []
 		processes = []
 		for strain,command in command_dict.items():
-			fm_obj = self.fileManagers[strain]
+			fm_obj = fm_objs[strain]
 			error_file = open(fm_obj.localErrorsDir + base_text + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
 
@@ -106,7 +106,7 @@ class AlignmentWorker():
 		processes = []
 		# Loop through all of the runs for a sample
 		for sample in self.samples:
-			fm_obj = self.fileManagers[sample]
+			fm_obj = self.fm_obj.createSampleFiles(sample)
 			for uBam_file in self.uBam_files[sample]:
 				processes.append(fm_obj.downloadData(uBam_file, parallel = True))
 				
@@ -120,7 +120,7 @@ class AlignmentWorker():
 		# Loop through all of the runs for a sample
 		timer = Timer()
 		for sample in self.samples:
-			fm_obj = self.fileManagers[sample]
+			fm_obj = self.fm_obj.createSampleFiles(sample)
 
 			sorted_bam = fm_obj.localTempSortedBamFile
 			if os.path.isfile(sorted_bam):
@@ -170,7 +170,7 @@ class AlignmentWorker():
 		commands = {}
 		del_files = []
 		for sample in self.samples:
-			fm_obj = self.fileManagers[sample]
+			fm_obj = self.fm_obj.createSampleFiles(sample)
 
 			command = ['gatk', 'MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localSampleTempDir, '--CREATE_INDEX']
 			commands[sample] = command
@@ -182,7 +182,7 @@ class AlignmentWorker():
 
 	def splitBamfiles(self):
 		for sample in self.samples:
-			fm_obj = self.fileManagers[sample]
+			fm_obj = self.fm_obj.createSampleFiles(sample)
 			#print('  Splitting sample ' + sample)
 			# Get contigs
 			try:
@@ -220,7 +220,7 @@ class AlignmentWorker():
 
 		commands = {}
 		for sample in self.samples:
-			fm_obj = self.fileManagers[sample]
+			fm_obj = self.fm_obj.createSampleFiles(sample)
 			
 			command = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
 			commands[sample] = command
@@ -234,8 +234,8 @@ class AlignmentWorker():
 
 	def calculateStats(self, sample):
 		stats = {}
-		self.fileManager = self.fileManagers[sample]
-		for filename in [self.fileManager.localBamFile, self.fileManager.localUnmappedBamFile, self.fileManager.localDiscordantBamFile, self.fileManager.localInversionBamFile, self.fileManager.localDuplicationBamFile, self.fileManager.localClippedBamFile, self.fileManager.localChimericBamFile]:
+		fm_obj = self.fm_obj.createSampleFiles(sample)
+		for filename in [fm_obj.localBamFile, fm_obj.localUnmappedBamFile, fm_obj.localDiscordantBamFile, fm_obj.localInversionBamFile, fm_obj.localDuplicationBamFile, fm_obj.localClippedBamFile, fm_obj.localChimericBamFile]:
 			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		return stats
