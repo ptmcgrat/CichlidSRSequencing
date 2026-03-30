@@ -60,10 +60,10 @@ for sample in fm_obj.samples:
 	if not os.path.exists(fm_obj.localGVCFFile):
 		print(sample + ' did not complete. You need to rerun.')
 		continue
-	fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 	stats = aw_obj.calculateStats(sample)
 	s_dt = fm_obj.s_dt
+	pdb.set_trace()
 	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 	coverage = stats['all'] * read_length / reference_size
@@ -84,6 +84,8 @@ for sample in fm_obj.samples:
 			fm_obj.a_dt.loc[(fm_obj.a_dt.GenomeVersion == args.Genome) & (fm_obj.a_dt.SampleID == sample), key] = value
 		pdb.set_trace()
 	# Upload data and delete
+	fm_obj.uploadData(fm_obj.localSampleBamDir)
+
 	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 	#subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
 	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
