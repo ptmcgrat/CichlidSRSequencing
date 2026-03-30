@@ -27,36 +27,41 @@ fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, spec
 
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
-fm_obj.downloadData(fm_obj.localGenomeDir)
+#fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj)
 
 timer.start('  Parallel Downloading uBams files')
-aw_obj.downloadReadData()
+#aw_obj.downloadReadData()
 timer.stop()
 
 timer.start('  Aligning Reads to created sorted Bamfiles')
-aw_obj.alignData()
+#aw_obj.alignData()
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
-aw_obj.markDuplicates()
+#aw_obj.markDuplicates()
 timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')
-aw_obj.splitBamfiles()
+#aw_obj.splitBamfiles()
 timer.stop()
 
 timer.start('  Calling haplotypes to create gvcf files')
-aw_obj.createGVCF(parallel = True)
+#aw_obj.createGVCF(parallel = True)
 timer.stop()
 
 processes = []
+fm_obj = FM(args.Genome)
+
 for sample in fm_obj.samples:
-	fm_obj = FM(args.Genome, sample)
-	#fm_obj.uploadData(fm_obj.localSampleBamDir)
+	fm_obj.createSampleFiles(sample)
+	if not os.path.exists(fm_obj.localGVCFFile):
+		print(sample + ' did not complete. You need to rerun.')
+		continue
+	fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 	stats = aw_obj.calculateStats(sample)
 	s_dt = fm_obj.s_dt
@@ -73,7 +78,6 @@ for sample in fm_obj.samples:
 	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
 	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
-	pdb.set_trace()
 	if sample not in fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == args.Genome].SampleID.to_list():
 		fm_obj.a_dt.loc[len(fm_obj.a_dt)] = sample_data
 	else:
@@ -81,9 +85,9 @@ for sample in fm_obj.samples:
 			fm_obj.a_dt.loc[(fm_obj.a_dt.GenomeVersion == args.Genome) & (fm_obj.a_dt.SampleID == sample), key] = value
 		pdb.set_trace()
 	# Upload data and delete
-	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-	subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
+	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+	#subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
 	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
-	#print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
+	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	#print()
-
+	pdb.set_trace()
