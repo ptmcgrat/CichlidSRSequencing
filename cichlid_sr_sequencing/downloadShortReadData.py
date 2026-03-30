@@ -17,7 +17,6 @@ args = parser.parse_args()
 
 # Download and open master sample database file and read it in
 fm_obj = FM()
-sample_dt = fm_obj.s_dt
 
 # Download and open run info file that contains new data to include
 fm_obj.downloadData(fm_obj.localReadDownloadDir + args.Run_Info_File)
@@ -62,14 +61,15 @@ for index, row in new_dt.iterrows():
 		continue
 
 	# Make sure we this run hasn't already been added to the sample database
-	if run_id in set(sample_dt['RunID']):
+	if run_id in set(self.dna_dt['RunID']):
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
 	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
 	if run_id in existing_bamfiles:
 		print('Warning on ' + row.RunID + ': Run data on cloud but not in Sample Database. Adding...', file = sys.stderr)
-		row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
+		row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
+		pdb.set_trace()
 		sample_dt = sample_dt.append(row)
 		sample_dt.to_csv(master_sample_data, index = False)
 		fm_obj.uploadData(master_sample_data)
@@ -115,13 +115,13 @@ for index, row in new_dt.iterrows():
 
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
-	
+
 	if args.Local:
 		command += ['--Local']
 	pdb.set_trace()
 
 	processes.append(subprocess.Popen(command))
-	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
+	row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 	if 'FileLocations' in row:
 		rows.append(row.drop(labels = ['FileLocations']))
 	else:
@@ -133,7 +133,11 @@ for index, row in new_dt.iterrows():
 		# Check to see if process was successful
 		for i, p in enumerate(processes):
 			if p.returncode == 0:
+				pdb.set_trace()
+				self.dna_dt = self.dna_dt.append(rows[i].drop(labels = ['Organism']))
+				fm_obj._setDatabase('DNAReads', self.dna_dt)
 				sample_dt = sample_dt.append(rows[i])
+				self.sample_dt.loc
 
 		sample_dt.to_csv(master_sample_data, index = False)
 		fm_obj.uploadData(master_sample_data)
