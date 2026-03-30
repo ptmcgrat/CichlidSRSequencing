@@ -118,7 +118,6 @@ for index, row in new_dt.iterrows():
 
 	if args.Local:
 		command += ['--Local']
-	pdb.set_trace()
 
 	processes.append(subprocess.Popen(command))
 	row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
