@@ -54,6 +54,8 @@ timer.start('  Calling haplotypes to create gvcf files')
 timer.stop()
 
 processes = []
+fm_obj = FM(args.Genome)
+fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, rerun = args.Rerun)
 
 for sample in fm_obj.samples:
 	fm_obj.createSampleFiles(sample)
@@ -63,7 +65,6 @@ for sample in fm_obj.samples:
 
 	stats = aw_obj.calculateStats(sample)
 	s_dt = fm_obj.s_dt
-	pdb.set_trace()
 	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 	coverage = stats['all'] * read_length / reference_size
