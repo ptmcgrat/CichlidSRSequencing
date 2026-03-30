@@ -17,9 +17,7 @@ args = parser.parse_args()
 
 # Download and open master sample database file and read it in
 fm_obj = FM()
-master_sample_data = fm_obj.localSampleFile
-fm_obj.downloadData(master_sample_data)
-sample_dt = pd.read_csv(master_sample_data)
+sample_dt = fm_obj.s_dt
 
 # Download and open run info file that contains new data to include
 fm_obj.downloadData(fm_obj.localReadDownloadDir + args.Run_Info_File)
@@ -60,7 +58,7 @@ for index, row in new_dt.iterrows():
 
 	# Make sure we are analyzing paired end reads
 	if layout != 'PAIRED' and layout != 'SINGLE':
-		print('Error on ' + row.RunID + ': Can only handle single paired end data. Library layout is: ' + layout, file = sys.stderr)
+		print('Error on ' + row.RunID + ': Can only handle single/paired end data. Library layout is: ' + layout, file = sys.stderr)
 		continue
 
 	# Make sure we this run hasn't already been added to the sample database
@@ -114,20 +112,20 @@ for index, row in new_dt.iterrows():
 		fq1 = ftps[0]
 		fq2 = ftps[1]
 
+
 	# Asynchronously download fastq files (up to 12 at a time)
-	command = [str(x) for x in ['python3', 'unit_scripts/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
+	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
 
 	if args.Local:
 		command += ['--Local']
 
 	processes.append(subprocess.Popen(command))
-
+	pdb.set_trace()
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 	if 'FileLocations' in row:
 		rows.append(row.drop(labels = ['FileLocations']))
 	else:
 		rows.append(row)
-
 	if len(processes) == 4:
 		print('  Waiting for processes to complete')
 		for p in processes:
