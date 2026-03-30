@@ -115,12 +115,12 @@ for index, row in new_dt.iterrows():
 
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
-
+	
 	if args.Local:
 		command += ['--Local']
+	pdb.set_trace()
 
 	processes.append(subprocess.Popen(command))
-	pdb.set_trace()
 	row.File = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 	if 'FileLocations' in row:
 		rows.append(row.drop(labels = ['FileLocations']))
