@@ -63,6 +63,8 @@ deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
 fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
+out_dt = pd.DataFrame(index = dt.Position)
+
 for sample in samples:
 	try:
 		organism = fm_obj.sample_dt[fm_obj.sample_dt.SampleID == sample].Species.values[0]
@@ -76,7 +78,6 @@ for sample in samples:
 
 	dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
 	dt['Type'] = dt.Info.str.split('TYPE=').str[1].str.split(',').str[0]
-	out_dt = pd.DataFrame(index = dt.Position)
 	b_dt = pd.read_csv('LargeInsertionsPairedHits.csv', index_col = 0)
 	out_data = []
 	for i,row in dt.iterrows():
@@ -102,4 +103,4 @@ for sample in samples:
 	out_dt[sample] = out_data
 
 	subprocess.run(['rm','-rf',fm_obj.localSampleBamDir])
-out_dt.to_csv('candidateQTNs_LakeMalawiGenotypes.csv')
+	out_dt.to_csv('candidateQTNs_LakeMalawiGenotypes.csv')
