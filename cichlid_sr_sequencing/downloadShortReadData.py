@@ -44,7 +44,7 @@ remapper = {'Run':'RunID', 'BioSample':'SampleID','AvgSpotLen':'ReadLength','Bas
 if args.Local:
 	remapper['FileLocations'] = 'FileLocations'
 new_dt = new_dt.rename(columns = remapper)[remapper.values()]
-new_dt['File'] = ''
+new_dt['FileLocations'] = ''
 
 
 # Loop through runs and download data and convert to uBam
