@@ -61,11 +61,11 @@ class FileManager():
 		worksheet = spreadsheet.worksheet('GenomeDatabase') # Access a specific sheet tab
 		self.g_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		worksheet = spreadsheet.worksheet('SampleDatabase') # Access a specific sheet tab
-		self.orig_s_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		s_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		self.sample_dt = s_dt
 		worksheet = spreadsheet.worksheet('DNAReads') # Access a specific sheet tab
-		self.d_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
-		self.s_dt = pd.merge(orig_s_dt,self.d_dt, on = 'SampleID')
+		self.dna_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
+		self.s_dt = pd.merge(orig_s_dt,self.dna_dt, on = 'SampleID')
 		worksheet = spreadsheet.worksheet('AlignmentDatabase') # Access a specific sheet tab
 		self.a_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		#self.a_dt = pd.merge(a_dt,d_dt, on = 'SampleID')
