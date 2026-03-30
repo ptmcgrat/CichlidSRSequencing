@@ -54,8 +54,8 @@ timer.start('  Calling haplotypes to create gvcf files')
 timer.stop()
 
 processes = []
-fm_obj = FM(args.Genome)
-fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, rerun = args.Rerun)
+#fm_obj = FM(args.Genome)
+#fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, rerun = args.Rerun)
 
 for sample in fm_obj.samples:
 	fm_obj.createSampleFiles(sample)
@@ -90,6 +90,6 @@ for sample in fm_obj.samples:
 	#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
 	#subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
 	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
-	print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
+	#print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
 	#print()
 	pdb.set_trace()

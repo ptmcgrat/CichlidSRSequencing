@@ -145,7 +145,7 @@ class FileManager():
 		self.s_dt = self.s_dt[self.s_dt.SampleID.isin(self.samples)]
 
 	def createSampleFiles(self, sampleID):
-		self.s_dt = self.s_dt[self.s_dt.SampleID == sampleID]
+		#self.s_dt = self.s_dt[self.s_dt.SampleID == sampleID]
 
 		self.localRawBamFiles = [self.localReadsDir + x for x in self.s_dt.FileLocations.to_list()]
 
