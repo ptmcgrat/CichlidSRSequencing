@@ -10,11 +10,9 @@ parser.add_argument('Run_Info_File', type = str, help = 'File containing informa
 args = parser.parse_args()
 
 fm_obj = FM()
-master_sample_data = fm_obj.localSampleFile
-fm_obj.downloadData(master_sample_data)
 
 new_dt = pd.read_csv(args.Run_Info_File)
-sample_dt = pd.read_csv(master_sample_data)
+sample_dt = fm_obj.s_dt
 
 if len(set(new_dt.Run)) != len(new_dt):
 	raise Exception('Each line of Run_Info_File should have unique Run data')
@@ -63,6 +61,7 @@ for index, row in new_dt.iterrows():
 	row.ReadGroup = rg
 	row.Files = fqs
 	sample_dt = sample_dt.append(row)
+	pdb.set_trace()
 
 	if len(processes) == 12:
 		print('Waiting for processes to complete')

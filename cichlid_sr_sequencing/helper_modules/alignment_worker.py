@@ -15,6 +15,7 @@ class AlignmentWorker():
 		sizes = {}
 
 		for sampleID in fm_obj.samples:
+			print(sampleID)
 			# Create sample file manager (need to keep them all in memory for parallelization)
 			self.fm_obj.createSampleFiles(sampleID)
 
