@@ -61,7 +61,7 @@ for index, row in new_dt.iterrows():
 		continue
 
 	# Make sure we this run hasn't already been added to the sample database
-	if run_id in set(self.dna_dt['RunID']):
+	if run_id in set(fm_obj.dna_dt['RunID']):
 		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
