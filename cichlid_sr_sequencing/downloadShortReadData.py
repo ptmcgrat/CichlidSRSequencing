@@ -125,21 +125,20 @@ for index, row in new_dt.iterrows():
 	#	rows.append(row.drop(labels = ['FileLocations']))
 	#else:
 	rows.append(row)
-	if len(processes) == 4:
+	if len(processes) == 6:
 		print('  Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
 		# Check to see if process was successful
 		for i, p in enumerate(processes):
 			if p.returncode == 0:
-				pdb.set_trace()
-				self.dna_dt = self.dna_dt.append(rows[i].drop(labels = ['Organism']))
-				fm_obj._setDatabase('DNAReads', self.dna_dt)
-				sample_dt = sample_dt.append(rows[i])
-				self.sample_dt.loc
+				fm_obj.dna_dt = fm_obj.dna_dt.append(rows[i].drop(labels = ['Organism']))
+				sample_row = {'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':''}
+				fm_obj.sample_dt = fm_obj.sample_dt.append(sample_row)
 
-		sample_dt.to_csv(master_sample_data, index = False)
-		fm_obj.uploadData(master_sample_data)
+		fm_obj._setDatabase('DNAReads', fm_obj.dna_dt)
+		fm_obj._setDatabase('SampleDatabase', fm_obj.sample_dt)
+
 		print('Database uploaded')
 		processes = []
 		rows = []
@@ -151,10 +150,13 @@ if len(processes) != 0:
 		# Check to see if process was successful
 	for i, p in enumerate(processes):
 		if p.returncode == 0:	
-			sample_dt = sample_dt.append(rows[i])
+			fm_obj.dna_dt = fm_obj.dna_dt.append(rows[i].drop(labels = ['Organism']))
+			sample_row = {'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':''}
+			fm_obj.sample_dt = fm_obj.sample_dt.append(sample_row)
 
-	sample_dt.to_csv(master_sample_data, index = False)
-	fm_obj.uploadData(master_sample_data)
+	fm_obj._setDatabase('DNAReads', fm_obj.dna_dt)
+	fm_obj._setDatabase('SampleDatabase', fm_obj.sample_dt)
+
 	print('Database uploaded')
 	processes = []
 	rows = []
