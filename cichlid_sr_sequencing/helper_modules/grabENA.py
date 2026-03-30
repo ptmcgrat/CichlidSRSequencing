@@ -41,6 +41,7 @@ else:
 		if output.returncode == 0:
 			break
 		elif i == 2:
+			pdb.set_trace()
 			sys.exit()
 		print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
@@ -49,6 +50,7 @@ else:
 		if output.returncode == 0:
 			break
 		elif i == 2:
+			pdb.set_trace()
 			sys.exit()
 		print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
