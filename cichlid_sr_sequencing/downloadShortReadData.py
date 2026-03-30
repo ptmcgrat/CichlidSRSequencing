@@ -122,10 +122,10 @@ for index, row in new_dt.iterrows():
 
 	processes.append(subprocess.Popen(command))
 	row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
-	if 'FileLocations' in row:
-		rows.append(row.drop(labels = ['FileLocations']))
-	else:
-		rows.append(row)
+	#if 'FileLocations' in row:
+	#	rows.append(row.drop(labels = ['FileLocations']))
+	#else:
+	rows.append(row)
 	if len(processes) == 4:
 		print('  Waiting for processes to complete')
 		for p in processes:
