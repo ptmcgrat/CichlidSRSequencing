@@ -37,7 +37,7 @@ else:
 	#target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
 	print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 	for i in range(3):
-		output = subprocess.run(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
+		output = subprocess.run(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '.aspera/connect/etc/aspera_tokenauth_id_rsa', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 		if output.returncode == 0:
 			break
 		elif i == 2:
