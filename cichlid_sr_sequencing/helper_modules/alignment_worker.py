@@ -120,7 +120,8 @@ class AlignmentWorker():
 		# Loop through all of the runs for a sample
 		timer = Timer()
 		for sample in self.samples:
-			fm_obj = self.fm_obj.createSampleFiles(sample)
+			fm_obj = self.fm_obj
+			fm_obj.createSampleFiles(sample)
 
 			sorted_bam = fm_obj.localTempSortedBamFile
 			if os.path.isfile(sorted_bam):
@@ -170,7 +171,8 @@ class AlignmentWorker():
 		commands = {}
 		del_files = []
 		for sample in self.samples:
-			fm_obj = self.fm_obj.createSampleFiles(sample)
+			fm_obj = self.fm_obj
+			fm_obj.createSampleFiles(sample)
 
 			command = ['gatk', 'MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localSampleTempDir, '--CREATE_INDEX']
 			commands[sample] = command
@@ -182,7 +184,8 @@ class AlignmentWorker():
 
 	def splitBamfiles(self):
 		for sample in self.samples:
-			fm_obj = self.fm_obj.createSampleFiles(sample)
+			fm_obj = self.fm_obj
+			fm_obj.createSampleFiles(sample)
 			#print('  Splitting sample ' + sample)
 			# Get contigs
 			try:
@@ -234,7 +237,8 @@ class AlignmentWorker():
 
 	def calculateStats(self, sample):
 		stats = {}
-		fm_obj = self.fm_obj.createSampleFiles(sample)
+		self.fm_obj.createSampleFiles(sample)
+		fm_obj = self.fm_obj
 		for filename in [fm_obj.localBamFile, fm_obj.localUnmappedBamFile, fm_obj.localDiscordantBamFile, fm_obj.localInversionBamFile, fm_obj.localDuplicationBamFile, fm_obj.localClippedBamFile, fm_obj.localChimericBamFile]:
 			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
