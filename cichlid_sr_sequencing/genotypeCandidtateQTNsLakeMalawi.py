@@ -63,6 +63,9 @@ deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
 fm_obj = FM(genome_version = 'Mzebra_GT3')
 samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
+dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
+dt['Type'] = dt.Info.str.split('TYPE=').str[1].str.split(',').str[0]
+b_dt = pd.read_csv('LargeInsertionsPairedHits.csv', index_col = 0)
 out_dt = pd.DataFrame(index = dt.Position)
 
 for sample in samples:
@@ -76,9 +79,6 @@ for sample in samples:
 	bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
 	bam_obj_dis = pysam.AlignmentFile(fm_obj.localDiscordantBamFile)
 
-	dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
-	dt['Type'] = dt.Info.str.split('TYPE=').str[1].str.split(',').str[0]
-	b_dt = pd.read_csv('LargeInsertionsPairedHits.csv', index_col = 0)
 	out_data = []
 	for i,row in dt.iterrows():
 		position = row['Position']
