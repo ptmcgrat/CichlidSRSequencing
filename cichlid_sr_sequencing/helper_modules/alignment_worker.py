@@ -16,7 +16,7 @@ class AlignmentWorker():
 
 		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
-			self.fm_obj.createSampleFiles()
+			self.fm_obj.createSampleFiles(sampleID)
 
 			#sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
 			self.uBam_files[sampleID] = self.fm_obj.localRawBamFiles
