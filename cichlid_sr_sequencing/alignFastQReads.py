@@ -54,7 +54,6 @@ timer.start('  Calling haplotypes to create gvcf files')
 timer.stop()
 
 processes = []
-fm_obj = FM(args.Genome)
 
 for sample in fm_obj.samples:
 	fm_obj.createSampleFiles(sample)
