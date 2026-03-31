@@ -42,11 +42,11 @@ timer.start('  Aligning Reads to created sorted Bamfiles')
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
-aw_obj.markDuplicates()
+#aw_obj.markDuplicates()
 timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')
-aw_obj.splitBamfiles()
+#aw_obj.splitBamfiles()
 timer.stop()
 
 timer.start('  Calling haplotypes to create gvcf files')
