@@ -4,7 +4,7 @@ import datetime
 
 for genome_version in ['Mzebra_GT3','Mconophoros_GT1']:
 	fm_obj = FM(genome_version = 'Mzebra_GT3')
-	fm_obj.setSamples()
+	fm_obj.setSamples(None,None,None,False)
 	aw_obj = AW(genome_version, fm_obj, check_size = False)
 	samples = fm_obj.returnCloudDirs(fm_obj.localBamRefDir)
 
