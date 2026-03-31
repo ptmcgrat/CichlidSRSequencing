@@ -8,6 +8,9 @@ from multiprocessing import cpu_count
 class AlignmentWorker():
 	def __init__(self, genome, fm_obj):
 		self.fm_obj = fm_obj
+		self.fm_obj.readSampleDatabase()
+		self.fm_obj.readAlignmentDatabase()
+		
 		self.genome = genome
 
 		self.uBam_files = {}
