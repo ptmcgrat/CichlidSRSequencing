@@ -252,7 +252,7 @@ class AlignmentWorker():
 			
 			if not os.path.exists(fm_obj.localGVCFFile):
 				print(sample + ' did not complete. You need to rerun.')
-				continue
+				
 
 			if upload:
 				fm_obj.uploadData(fm_obj.localSampleBamDir)
