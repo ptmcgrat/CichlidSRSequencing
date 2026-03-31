@@ -90,7 +90,7 @@ class FileManager():
 		self.sample_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		worksheet = spreadsheet.worksheet('DNAReadsDatabase') # Access a specific sheet tab
 		self.reads_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
-		self.merged_dt = pd.merge(s_dt,self.dna_dt, on = 'SampleID')
+		self.merged_dt = pd.merge(self.sample_dt,self.reads_dt, on = 'SampleID')
 
 	def addDNAReadRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','ProjectID.1','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
