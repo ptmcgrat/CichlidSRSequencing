@@ -265,7 +265,8 @@ class AlignmentWorker():
 			reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 			coverage = stats['all'] * read_length / reference_size
 			stats = {k:v/stats['all'] if k!= 'all' else v for k,v in stats.items()}
-			sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 
+			
+			sample_data = {'SampleID':sample, 'GenomeVersion': fm_obj.genome_version, 'RunIDs':',,'.join(list(fm_obj.reads_dt[fm_obj.reads_dt['SampleID'] == sample].RunID)), 
 			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
 
