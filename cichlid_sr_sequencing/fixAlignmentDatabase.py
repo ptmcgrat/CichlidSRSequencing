@@ -1,6 +1,6 @@
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.alignment_worker import AlignmentWorker as AW
-import datetime
+import datetime, pdb
 
 for genome_version in ['Mzebra_GT3','Mconophoros_GT1']:
 	fm_obj = FM(genome_version = 'Mzebra_GT3')
