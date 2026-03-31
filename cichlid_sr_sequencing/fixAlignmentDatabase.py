@@ -10,9 +10,8 @@ for genome_version in ['Mzebra_GT3','Mconophoros_GT1']:
 	for sample in samples:
 		print(sample + ', ' + str(datetime.datetime.now()))
 		fm_obj.createSampleFiles(sample)
-		pdb.set_trace()
 		fm_obj.downloadData(fm_obj.localSampleBamDir)
-		aw_obj.uploadAndUpdateDatabase(upload = False)
+		aw_obj.uploadAndUpdateDatabase(upload = False, sample_override = sample)
 
 		if sample not in fm_obj.sample_dt.SampleID.to_list():
 			print('Adding ' + sample + ' to SampleDatbase')

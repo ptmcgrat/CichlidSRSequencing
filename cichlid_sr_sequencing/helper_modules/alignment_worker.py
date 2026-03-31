@@ -16,6 +16,7 @@ class AlignmentWorker():
 		self.uBam_files = {}
 
 		sizes = {}
+
 		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
 			self.fm_obj.createSampleFiles(sampleID)
@@ -242,7 +243,9 @@ class AlignmentWorker():
 		if parallel:
 			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', 48)
 
-	def uploadAndUpdateDatabase(self, upload = True):
+	def uploadAndUpdateDatabase(self, upload = True, sample_override):
+		if sample_override:
+			self.samples = sample_override
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
