@@ -94,7 +94,7 @@ class FileManager():
 
 	def addDNAReadRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
-		assert not (self.reads_dt == pd.Series(row_dict)).all(axis=1).any()
+		assert row_dict['RunID'] not in self.reads_dt.RunID.to_list()
 		self.reads_dt = self.reads_dt.append(pd.Series(row_dict), ignore_index = True)
 
 	def addSampleRow(self, row_dict):
