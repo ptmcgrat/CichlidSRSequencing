@@ -7,7 +7,6 @@ for genome_version in ['Mzebra_GT3','Mconophoros_GT1']:
 	fm_obj.setSamples(None,None,None,False)
 	aw_obj = AW(genome_version, fm_obj, check_size = False)
 	samples = fm_obj.returnCloudDirs(fm_obj.localBamRefDir)
-	pdb.set_trace()
 	for sample in samples:
 		print(sample + ', ' + str(datetime.datetime.now()))
 		fm_obj.createSampleFiles(sample)
