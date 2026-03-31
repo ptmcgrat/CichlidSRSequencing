@@ -61,7 +61,8 @@ def genotype_longdeletion(bam_obj):
 
 deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
 fm_obj = FM(genome_version = 'Mzebra_GT3')
-samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
+samples = fm_obj.returnCloudDirs(fm_obj.localBamRefDir)
+#samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
 dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
 dt['Type'] = dt.Info.str.split('TYPE=').str[1].str.split(',').str[0]
@@ -101,6 +102,6 @@ for sample in samples:
 		else:
 			print('Error')
 	out_dt[sample] = out_data
-
+	out_dt = out_dt.copy()
 	subprocess.run(['rm','-rf',fm_obj.localSampleBamDir])
 	out_dt.to_csv('candidateQTNs_LakeMalawiGenotypes.csv')
