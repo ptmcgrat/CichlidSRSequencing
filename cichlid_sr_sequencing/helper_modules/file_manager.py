@@ -93,7 +93,7 @@ class FileManager():
 		self.merged_dt = pd.merge(s_dt,self.dna_dt, on = 'SampleID')
 
 	def addDNAReadRow(self, row_dict):
-		assert set(row_dict.keys) = set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','ProjectID.1','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
+		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','ProjectID.1','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
 
 	def setSampleDatabase(self):
 		for i in range(3)
