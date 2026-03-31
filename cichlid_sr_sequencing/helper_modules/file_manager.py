@@ -83,7 +83,7 @@ class FileManager():
 				spreadsheet = gc.open_by_key(g_ID) # Or use open('Spreadsheet Name')
 				set_with_dataframe(spreadsheet.worksheet(worksheet), dt) # df is your DataFrame
 				i = 3
-			except as e:
+			except Exception as e:
 				print('Gspread exception: ' + e)
 
 	def _createGenomeFiles(self):
