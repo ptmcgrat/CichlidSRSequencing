@@ -261,7 +261,7 @@ class AlignmentWorker():
 				output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 				stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		
-			read_length = self.merged_dt[self.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
+			read_length = fm_obj.merged_dt[fm_obj.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 			reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
 			coverage = stats['all'] * read_length / reference_size
 			stats = {k:v/stats['all'] if k!= 'all' else v for k,v in stats.items()}
