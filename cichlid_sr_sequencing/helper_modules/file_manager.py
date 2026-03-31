@@ -96,7 +96,7 @@ class FileManager():
 		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','ProjectID.1','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
 
 	def setSampleDatabase(self):
-		for i in range(3)
+		for i in range(3):
 			try:
 				spreadsheet = self.gc.open_by_key(self.s_ID) # Or use open('Spreadsheet Name')
 				set_with_dataframe(spreadsheet.worksheet('SampleDatabase'), self.sample_dt) # df is your DataFrame
@@ -116,7 +116,7 @@ class FileManager():
 	def setAlignmentDatabase(self):
 		assert self.genome_version
 
-		for i in range(3)
+		for i in range(3):
 			try:
 				spreadsheet = self.gc.open_by_key(self.a_ID) # Or use open('Spreadsheet Name')
 				set_with_dataframe(spreadsheet.worksheet(self.genome_version), self.alignment_dt) # df is your DataFrame
