@@ -94,7 +94,7 @@ class FileManager():
 
 	def addDNAReadRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','ProjectID.1','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
-
+		pdb.set_trace()
 	def setSampleDatabase(self):
 		for i in range(3):
 			try:
