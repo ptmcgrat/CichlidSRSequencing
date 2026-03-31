@@ -78,7 +78,7 @@ class AlignmentWorker():
 		error_files = []
 		processes = []
 		for strain,command in command_dict.items():
-			fm_obj = fm_objs[strain]
+			fm_obj = self.fm_obj.createSampleFiles(strain)
 			error_file = open(fm_obj.localErrorsDir + base_text + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
 

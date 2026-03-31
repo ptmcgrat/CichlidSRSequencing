@@ -27,18 +27,18 @@ fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, spec
 
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
-fm_obj.downloadData(fm_obj.localGenomeDir)
+#fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj)
 
 timer.start('  Parallel Downloading uBams files')
-aw_obj.downloadReadData()
+#aw_obj.downloadReadData()
 timer.stop()
 
 timer.start('  Aligning Reads to created sorted Bamfiles')
-aw_obj.alignData()
+#aw_obj.alignData()
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
