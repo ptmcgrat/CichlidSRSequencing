@@ -22,7 +22,6 @@ class AlignmentWorker():
 			self.uBam_files[sampleID] = self.fm_obj.localRawBamFiles
 			sizes[sampleID] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sampleID]])
 
-
 		# Make sure there is enough room
 		total_sample_size = sum(sizes.values())
 		free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
@@ -238,14 +237,42 @@ class AlignmentWorker():
 		if parallel:
 			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', 48)
 
+	def uploadAndUpdateDatabase(self):
+		for sample in self.samples:
+			fm_obj = self.fm_obj
+			fm_obj.createSampleFiles(sample)
+			
+			if not os.path.exists(fm_obj.localGVCFFile):
+				print(sample + ' did not complete. You need to rerun.')
+				continue
 
-	def calculateStats(self, sample):
-		stats = {}
-		fm_obj = self.fm_obj
-		fm_obj.createSampleFiles(sample)
+			fm_obj.uploadData(fm_obj.localSampleBamDir)
 
-		for filename in [fm_obj.localBamFile, fm_obj.localUnmappedBamFile, fm_obj.localDiscordantBamFile, fm_obj.localInversionBamFile, fm_obj.localDuplicationBamFile, fm_obj.localClippedBamFile, fm_obj.localChimericBamFile]:
-			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
-			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
-		return stats
+			# Calcultate stats
+			stats = {}
+			
+			for filename in [fm_obj.localBamFile, fm_obj.localUnmappedBamFile, fm_obj.localDiscordantBamFile, fm_obj.localInversionBamFile, fm_obj.localDuplicationBamFile, fm_obj.localClippedBamFile, fm_obj.localChimericBamFile]:
+				output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
+				stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
+		
+			read_length = self.merged_dt[self.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
+			reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
+			coverage = stats['all'] * read_length / reference_size
+			stats = {k:v/stats['all'] if k!= 'all' else v for k,v in stats.items()}
+			sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 
+			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
+			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
+
+			output = subprocess.run(['conda', 'list'], capture_output = True)
+			sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
+			sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
+			sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
+			sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
+	
+			fm_obj.addAlignmentRow(sample_data)
+			fm_obj.setAlignmentDatabase()
+
+			subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+			subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
+		
 

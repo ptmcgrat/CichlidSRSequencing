@@ -50,45 +50,10 @@ timer.start('  Splitting reads based upon their alignment')
 timer.stop()
 
 timer.start('  Calling haplotypes to create gvcf files')
-aw_obj.createGVCF(parallel = True)
+#aw_obj.createGVCF(parallel = True)
 timer.stop()
 
-processes = []
-#fm_obj = FM(args.Genome)
-#fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, rerun = args.Rerun)
+timer.start('  Uploading and updating database')
+aw_obj.uploadAndUpdateDatabase()
+timer.stop()
 
-for sample in fm_obj.samples:
-	fm_obj.createSampleFiles(sample)
-	if not os.path.exists(fm_obj.localGVCFFile):
-		print(sample + ' did not complete. You need to rerun.')
-		continue
-
-	stats = aw_obj.calculateStats(sample)
-	s_dt = fm_obj.s_dt
-	read_length = s_dt[s_dt['SampleID'] == sample]['ReadLength'].values[0]/2
-	reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
-	coverage = stats['all'] * read_length / reference_size
-	stats = {k:v/stats['all'] if k!= 'all' else v for k,v in stats.items()}
-	sample_data = {'SampleID':sample, 'GenomeVersion': args.Genome, 'RunIDs':',,'.join(list(s_dt[s_dt['SampleID'] == sample].RunID)), 
-			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
-			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
-
-	output = subprocess.run(['conda', 'list'], capture_output = True)
-	sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
-	sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
-	sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
-	sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
-	if sample not in fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == args.Genome].SampleID.to_list():
-		fm_obj.a_dt.loc[len(fm_obj.a_dt)] = sample_data
-	else:
-		for key, value in sample_data.items():
-			fm_obj.a_dt.loc[(fm_obj.a_dt.GenomeVersion == args.Genome) & (fm_obj.a_dt.SampleID == sample), key] = value
-		pdb.set_trace()
-	# Upload data and delete
-	fm_obj.uploadData(fm_obj.localSampleBamDir)
-
-	subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-	subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
-	fm_obj._setDatabase('AlignmentDatabase', fm_obj.a_dt)
-	#print(' Finished with sample ' + sample + ': ' + str(datetime.datetime.now()))
-	#print()
