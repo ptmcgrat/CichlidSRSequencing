@@ -139,7 +139,7 @@ for index, row in new_dt.iterrows():
 		print('Database uploaded')
 		processes = []
 		rows = []
-	pdb.set_trace()
+		pdb.set_trace()
 if len(processes) != 0:
 	print('  Waiting for processes to complete')
 	for p in processes:
