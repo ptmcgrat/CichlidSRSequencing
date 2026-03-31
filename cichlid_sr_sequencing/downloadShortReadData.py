@@ -114,6 +114,7 @@ for index, row in new_dt.iterrows():
 	if args.Local:
 		command += ['--Local']
 
+	processes.append(subprocess.Popen(['ls']))
 	#processes.append(subprocess.Popen(command))
 	row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 	#if 'FileLocations' in row:
