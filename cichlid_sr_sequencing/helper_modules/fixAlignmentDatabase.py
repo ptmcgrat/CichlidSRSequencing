@@ -1,5 +1,6 @@
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.alignment_worker import AlignmentWorker as AW
+import datetime
 
 for genome_version in ['Mzebra_GT3','Mconophoros_GT1']:
 	fm_obj = FM(genome_version = 'Mzebra_GT3')
@@ -7,6 +8,7 @@ for genome_version in ['Mzebra_GT3','Mconophoros_GT1']:
 	samples = fm_obj.returnCloudDirs(fm_obj.localBamRefDir)
 
 	for sample in samples:
+		print(samples + ', ' + str(datetime.datetime.now()))
 		fm_obj.createSampleFiles(sample)
 		fm_obj.downloadData(fm_obj.localSampleBamDir)
 		aw_obj.uploadAndUpdateDatabase(upload = False)
