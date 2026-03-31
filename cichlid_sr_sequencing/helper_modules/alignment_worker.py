@@ -226,7 +226,8 @@ class AlignmentWorker():
 
 		commands = {}
 		for sample in self.samples:
-			fm_obj = self.fm_obj.createSampleFiles(sample)
+			fm_obj = self.fm_obj
+			fm_obj.createSampleFiles(sample)
 			
 			command = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
 			commands[sample] = command
@@ -240,8 +241,9 @@ class AlignmentWorker():
 
 	def calculateStats(self, sample):
 		stats = {}
-		self.fm_obj.createSampleFiles(sample)
 		fm_obj = self.fm_obj
+		fm_obj.createSampleFiles(sample)
+
 		for filename in [fm_obj.localBamFile, fm_obj.localUnmappedBamFile, fm_obj.localDiscordantBamFile, fm_obj.localInversionBamFile, fm_obj.localDuplicationBamFile, fm_obj.localClippedBamFile, fm_obj.localChimericBamFile]:
 			output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 			stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
