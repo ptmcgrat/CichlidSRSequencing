@@ -86,6 +86,7 @@ class FileManager():
 				i = 3
 			except Exception as e:
 				print('Gspread exception: ' + e)
+				i+=1
 
 	def _createGenomeFiles(self):
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
