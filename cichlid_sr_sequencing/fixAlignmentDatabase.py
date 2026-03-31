@@ -2,7 +2,7 @@ from helper_modules.file_manager import FileManager as FM
 from helper_modules.alignment_worker import AlignmentWorker as AW
 import datetime, pdb
 
-for genome_version in ['Mzebra_GT3','Mconophoros_GT1']:
+for genome_version in ['Mconophoros_GT1']:
 	fm_obj = FM(genome_version = 'Mzebra_GT3')
 	fm_obj.setSamples(None,None,None,False)
 	aw_obj = AW(genome_version, fm_obj, check_size = False)
