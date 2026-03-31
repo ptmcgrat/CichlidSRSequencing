@@ -36,7 +36,8 @@ class AlignmentWorker():
 		
 		timer = Timer()
 		
-		fm_obj = self.fm_obj.createSampleFiles(self.samples[i])
+		fm_obj = self.fm_obj
+		fm_obj.createSampleFiles(self.samples[i])
 
 		resource_fp = open(resource_file, 'w')
 		error_fp= open(error_file, 'w')
@@ -78,7 +79,8 @@ class AlignmentWorker():
 		error_files = []
 		processes = []
 		for strain,command in command_dict.items():
-			fm_obj = self.fm_obj.createSampleFiles(strain)
+			fm_obj = self.fm_obj
+			fm_obj.createSampleFiles(strain)
 			error_file = open(fm_obj.localErrorsDir + base_text + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
 
