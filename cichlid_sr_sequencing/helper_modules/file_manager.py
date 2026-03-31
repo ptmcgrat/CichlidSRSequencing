@@ -75,7 +75,7 @@ class FileManager():
 		self.g_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 	
 	def setGenomeDatabase(self):
-		for i in range(3)
+		for i in range(3):
 			try:
 				spreadsheet = self.gc.open_by_key(self.s_ID) # Or use open('Spreadsheet Name')
 				set_with_dataframe(spreadsheet.worksheet('GenomeDatabase'), self.g_dt) # df is your DataFrame
@@ -91,6 +91,9 @@ class FileManager():
 		worksheet = spreadsheet.worksheet('DNAReadsDatabase') # Access a specific sheet tab
 		self.reads_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		self.merged_dt = pd.merge(s_dt,self.dna_dt, on = 'SampleID')
+
+	def addDNAReadRow(self, row_dict):
+		assert set(row_dict.keys) = set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','ProjectID.1','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
 
 	def setSampleDatabase(self):
 		for i in range(3)
