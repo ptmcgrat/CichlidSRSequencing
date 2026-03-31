@@ -154,11 +154,14 @@ class FileManager():
 		if projectIDs is not None:
 			temp_dt = self.merged_dt[self.merged_dt.ProjectID.isin(projectIDs)]
 
-		if sampleIDs is not None:
+		elif sampleIDs is not None:
 			temp_dt = self.merged_dt[self.merged_dt.SampleID.isin(sampleIDs)]
 
-		if species is not None:
+		elif species is not None:
 			temp_dt = self.merged_dt[self.merged_dt.Species.isin(species)]
+
+		else:
+			temp_dt = self.merged_dt
 
 		# Filter alignment database for requested genome version
 		a_dt = self.alignment_dt[(self.alignment_dt.GenomeVersion == self.genome_version)]
