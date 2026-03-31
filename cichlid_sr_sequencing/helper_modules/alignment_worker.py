@@ -243,7 +243,7 @@ class AlignmentWorker():
 		if parallel:
 			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', 48)
 
-	def uploadAndUpdateDatabase(self, upload = True, sample_override):
+	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
 		if sample_override:
 			self.samples = sample_override
 		for sample in self.samples:
