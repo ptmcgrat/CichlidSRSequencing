@@ -245,7 +245,7 @@ class AlignmentWorker():
 
 	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
 		if sample_override:
-			self.samples = sample_override
+			self.samples = [sample_override]
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
