@@ -76,12 +76,15 @@ class FileManager():
 
 		scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 		credentials = Credentials.from_service_account_file(self.localCredentialFile, scopes=scopes)
-		gc = gspread.authorize(credentials)
-
-		spreadsheet = gc.open_by_key(g_ID) # Or use open('Spreadsheet Name')
-
-		set_with_dataframe(spreadsheet.worksheet(worksheet), dt) # df is your DataFrame
-
+		
+		while i < 3:
+			try:
+				gc = gspread.authorize(credentials)
+				spreadsheet = gc.open_by_key(g_ID) # Or use open('Spreadsheet Name')
+				set_with_dataframe(spreadsheet.worksheet(worksheet), dt) # df is your DataFrame
+				i = 3
+			except as e:
+				print('Gspread exception: ' + e)
 
 	def _createGenomeFiles(self):
 		self.localBamRefDir = self.localBamfilesDir + self.genome_version + '/'
@@ -121,10 +124,10 @@ class FileManager():
 			self.s_dt = self.s_dt[self.s_dt.Species.isin(species)]
 
 		# Filter alignment database for requested genome version
-		self.a_dt = self.a_dt[(self.a_dt.GenomeVersion == self.genome_version)]
+		a_dt = self.a_dt[(self.a_dt.GenomeVersion == self.genome_version)]
 
 		# Identify already run samples
-		filter_set = set(self.a_dt.SampleID)
+		filter_set = set(a_dt.SampleID)
 		already_run_samples = [x for x in set(self.s_dt.SampleID) if x in filter_set]
 		samples = [x for x in set(self.s_dt.SampleID) if x not in filter_set]
 		
