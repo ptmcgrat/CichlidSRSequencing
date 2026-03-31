@@ -6,7 +6,7 @@ from helper_modules.Timer import Timer
 from multiprocessing import cpu_count
 
 class AlignmentWorker():
-	def __init__(self, genome, fm_obj):
+	def __init__(self, genome, fm_obj, check_size = True):
 		self.fm_obj = fm_obj
 		self.fm_obj.readSampleDatabase()
 		self.fm_obj.readAlignmentDatabase()
@@ -16,23 +16,25 @@ class AlignmentWorker():
 		self.uBam_files = {}
 
 		sizes = {}
-
 		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
 			self.fm_obj.createSampleFiles(sampleID)
 
 			#sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
 			self.uBam_files[sampleID] = self.fm_obj.localRawBamFiles
-			sizes[sampleID] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sampleID]])
+			if check_size:
+				sizes[sampleID] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sampleID]])
 
-		# Make sure there is enough room
-		total_sample_size = sum(sizes.values())
-		free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
-		if 3*total_sample_size > free_memory:
-			raise Exception('Need more space to run this analysis')
-
-		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
-		print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
+		if check_size:
+			# Make sure there is enough room
+			total_sample_size = sum(sizes.values())
+			free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
+			if 3*total_sample_size > free_memory:
+				raise Exception('Need more space to run this analysis')
+			self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
+			print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
+		else:
+			self.samples = fm_obj.samples
 
 	def monitorProcess(self,command,base_text,resource_file,error_file):
 		
@@ -240,7 +242,7 @@ class AlignmentWorker():
 		if parallel:
 			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', 48)
 
-	def uploadAndUpdateDatabase(self):
+	def uploadAndUpdateDatabase(self, upload = True):
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
@@ -249,7 +251,8 @@ class AlignmentWorker():
 				print(sample + ' did not complete. You need to rerun.')
 				continue
 
-			fm_obj.uploadData(fm_obj.localSampleBamDir)
+			if upload:
+				fm_obj.uploadData(fm_obj.localSampleBamDir)
 
 			# Calcultate stats
 			stats = {}
