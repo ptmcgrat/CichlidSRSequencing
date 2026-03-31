@@ -93,8 +93,15 @@ class FileManager():
 		self.merged_dt = pd.merge(self.sample_dt,self.reads_dt, on = 'SampleID')
 
 	def addDNAReadRow(self, row_dict):
-		pdb.set_trace()
-		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','ProjectID.1','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
+		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
+		assert not (self.reads_dt == pd.Series(row_dict)).all(axis=1).any()
+		self.reads_dt = self.reads_dt.append(pd.Series(row_dict), ignore_index = True)
+
+	def addSampleRow(self, row_dict):
+		assert set(row_dict.keys()) == set(['SampleID','Sex','Species','DoB','BroodID','Parents','Ecogroup','LabReared','Inversion10'])
+		assert row_dict['SampleID'] not in self.sample_dt.SampleID.to_list()
+		self.sample_dt = self.sample_dt.append(pd.Series(row_dict), ignore_index = True)
+
 	def setSampleDatabase(self):
 		for i in range(3):
 			try:

@@ -129,12 +129,9 @@ for index, row in new_dt.iterrows():
 		for i, p in enumerate(processes):
 			if p.returncode == 0:
 				fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
-				fm_obj.dna_dt = fm_obj.dna_dt.append(rows[i].drop(labels = ['Organism']))
-				sample_row = {'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':''}
-				fm_obj.sample_dt = fm_obj.sample_dt.append(pd.Series(sample_row), ignore_index = True)
+				fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
 
-		fm_obj._setDatabase('DNAReads', fm_obj.dna_dt)
-		fm_obj._setDatabase('SampleDatabase', fm_obj.sample_dt)
+		fm_obj.setSampleDatabase()
 
 		print('Database uploaded')
 		processes = []
