@@ -77,6 +77,7 @@ class FileManager():
 		scopes = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 		credentials = Credentials.from_service_account_file(self.localCredentialFile, scopes=scopes)
 		
+		i = 0
 		while i < 3:
 			try:
 				gc = gspread.authorize(credentials)
