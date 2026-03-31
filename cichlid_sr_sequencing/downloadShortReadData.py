@@ -121,7 +121,7 @@ for index, row in new_dt.iterrows():
 	#	rows.append(row.drop(labels = ['FileLocations']))
 	#else:
 	rows.append(row)
-	if len(processes) == 6:
+	if len(processes) == 1:
 		print('  Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
