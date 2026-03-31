@@ -17,7 +17,7 @@ args = parser.parse_args()
 
 # Download and open master sample database file and read it in
 fm_obj = FM()
-
+fm_obj.readSampleDatabase()
 # Download and open run info file that contains new data to include
 fm_obj.downloadData(fm_obj.localReadDownloadDir + args.Run_Info_File)
 new_dt = pd.read_csv(fm_obj.localReadDownloadDir + args.Run_Info_File)
