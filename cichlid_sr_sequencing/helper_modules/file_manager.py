@@ -134,7 +134,7 @@ class FileManager():
 				set_with_dataframe(spreadsheet.worksheet(self.genome_version), self.alignment_dt) # df is your DataFrame
 				return True
 			except Exception as e:
-				print('Gspread exception: ' + e)
+				print('Gspread exception: ' + str(e))
 		return False
 
 
