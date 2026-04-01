@@ -8,6 +8,9 @@ for genome_version in ['Mconophoros_GT1']:
 	aw_obj = AW(genome_version, fm_obj, check_size = False)
 	samples = fm_obj.returnCloudDirs(fm_obj.localBamRefDir)
 	for sample in samples:
+		if sample in fm_obj.alignment_dt[(fm_obj.alignment_dt.GenomeVersion == genome_version)].SampleID.to_list():
+			print(sample + ' already run. Skipping...')
+			continue
 		print(sample + ', ' + str(datetime.datetime.now()))
 		fm_obj.createSampleFiles(sample)
 		fm_obj.downloadData(fm_obj.localSampleBamDir)
