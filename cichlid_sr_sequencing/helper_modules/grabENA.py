@@ -69,7 +69,9 @@ if args.LibraryLayout == 'PAIRED':
 
 	with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
 		for r1,r2 in zip(f1,f2):
-			if r1.sequence == '' or r2.sequence == '':
+			if r1.name == '' or r2.name == '' or r1.sequence == '' or r2.sequence == '' or r1.quality == '' or r2.quality == '':
+				continue
+			elif r1.name is None or r2.name is None or r1.sequence is None or r2.sequence is None or r1.quality is None or r2.quality is None:
 				continue
 			else:
 				outfq1.write('@' + r1.name + ' 1:N:0:2\n' + r1.sequence + '\n+\n' + r1.quality + '\n')
