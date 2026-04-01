@@ -110,7 +110,7 @@ for index, row in new_dt.iterrows():
 
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
-
+	print(command)
 	if args.Local:
 		command += ['--Local']
 
