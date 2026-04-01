@@ -33,9 +33,10 @@ if args.Local:
 	if args.LibraryLayout == 'PAIRED':
 		fm_obj.downloadData(args.fq2)
 else:
-
+	break
 	#target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
 	print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
+	pdb.set_trace()
 	for i in range(3):
 		output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/anaconda3/envs/CichlidSRSequencing/etc/asperaweb_id_dsa.openssh', args.ENA_fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 		if output.returncode == 0:
@@ -72,7 +73,7 @@ if args.LibraryLayout == 'PAIRED':
 			if r1.name == '' or r2.name == '' or r1.quality == '' or r2.quality == '' or r1.sequence == '' or r2.sequence == '':
 				print(args.RunID + ' Bad read. Skipping')
 				continue
-			elif r1.name is None or r2.name is None or r1.quality is None or r2.quality is r1.sequence is None or r2.sequence is None:
+			elif r1.name is None or r2.name is None or r1.quality is None or r2.quality is None or r1.sequence is None or r2.sequence is None:
 				print(args.RunID + ' Bad read. Skipping')
 				continue
 			else:
