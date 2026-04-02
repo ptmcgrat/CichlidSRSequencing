@@ -161,7 +161,7 @@ class AlignmentWorker():
 
 
 				# Remove unmapped reads
-				#subprocess.run(['rm', '-f', uBam_file])
+				subprocess.run(['rm', '-f', uBam_file])
 				
 			if i == 0:
 				subprocess.run(['mv', t_bam, sorted_bam])
@@ -186,7 +186,7 @@ class AlignmentWorker():
 			commands[sample] = command
 			del_files.append(fm_obj.localTempSortedBamFile)
 
-		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)),48)
+		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), 24)
 		for del_file in del_files:
 			subprocess.run(['rm','-f',del_file])
 
@@ -286,7 +286,7 @@ class AlignmentWorker():
 			fm_obj.addAlignmentRow(sample_data)
 			fm_obj.setAlignmentDatabase()
 
-			subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-			subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
+			#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+			#subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
 		
 
