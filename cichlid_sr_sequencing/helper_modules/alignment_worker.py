@@ -33,6 +33,7 @@ class AlignmentWorker():
 			total_sample_size = sum(sizes.values())
 			free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
 			if 3*total_sample_size > free_memory:
+				print('Total_sample_size: ' + str(3*total_sample_size) + ', Free memory: ' + str(free_memory))
 				raise Exception('Need more space to run this analysis')
 			self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
 			print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
