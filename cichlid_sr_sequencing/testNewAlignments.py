@@ -15,9 +15,9 @@ for uBam_file in fm_obj.localRawBamFiles:
 	timer.start('Create fastq files')
 	command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', uBam_file.replace('.bam','.fastq'), '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 	command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
-	subprocess.run(command1, capture_output = True)
+	output = subprocess.run(command1, capture_output = True)
 	timer.stop()
-
+	pdb.set_trace()
 	timer.start('Do it the old way')
 	command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 	command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
