@@ -7,11 +7,11 @@ from multiprocessing import cpu_count
 
 fm_obj = FM('Mzebra_GT3')
 #fm_obj.downloadData(fm_obj.localGenomeDir)
-subprocess.run(['bwa-mem2','index', fm_obj.localGenomeFile])
-fm_obj.createSampleFiles('MCYHBC1-619-1')
+#subprocess.run(['bwa-mem2','index', fm_obj.localGenomeFile])
+fm_obj.createSampleFiles('MCYHF1_010_m')
 timer = Timer()
 for uBam_file in fm_obj.localRawBamFiles:
-	#fm_obj.downloadData(uBam_file)
+	fm_obj.downloadData(uBam_file)
 
 	timer.start('Create fastq files')
 	command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', uBam_file.replace('.bam','.fastq'), '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
