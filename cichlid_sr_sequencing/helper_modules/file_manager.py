@@ -66,8 +66,8 @@ class FileManager():
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 
-		os.makedirs(self.localSampleBamDir, exist_ok = True)
-		os.makedirs(self.localSampleTempDir, exist_ok = True)	
+		#os.makedirs(self.localSampleBamDir, exist_ok = True)
+		#os.makedirs(self.localSampleTempDir, exist_ok = True)	
 
 	def readGenomeDatabase(self):
 		spreadsheet = self.gc.open_by_key(self.s_ID) # Or use open('Spreadsheet Name')
@@ -110,7 +110,7 @@ class FileManager():
 				set_with_dataframe(spreadsheet.worksheet('DNAReadsDatabase'), self.reads_dt) # df is your DataFrame
 				return True
 			except Exception as e:
-				print('Gspread exception: ' + e)
+				print('Gspread exception: ' + str(e))
 		return False
 
 	def readAlignmentDatabase(self):
@@ -241,6 +241,8 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'GCF_000238955.4_M_zebra_UMD2a_genomic.fna'
 		elif self.genome_version == 'Mzebra_GT3':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
+		elif self.genome_version == 'Mzebra_GT3_NCBI':
+			self.localGenomeFile = self.localGenomeDir + 'GCF_041146795.1_Mzebra_GT3a_genomic.fna'
 		elif self.genome_version == 'Mconophoros_GT1':
 			self.localGenomeFile = self.localGenomeDir + 'anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta'
 		else:
