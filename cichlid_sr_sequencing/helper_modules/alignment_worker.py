@@ -133,6 +133,7 @@ class AlignmentWorker():
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
+			os.makedirs(fm_obj.localSampleTempDir, exist_ok = True)
 
 			sorted_bam = fm_obj.localTempSortedBamFile
 			if os.path.isfile(sorted_bam):
