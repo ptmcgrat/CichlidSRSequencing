@@ -100,7 +100,7 @@ class FileManager():
 	def addSampleRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','Sex','Species','DoB','BroodID','Parents','Ecogroup','LabReared','Inversion10'])
 		assert row_dict['SampleID'] not in self.sample_dt.SampleID.to_list()
-		self.sample_dt = self.sample_dt.append(pd.Series(row_dict), ignore_index = True)
+		self.sample_dt = pd.concat([self.sample_dt,pd.DataFrame([row_dict])], ignore_index = True)
 
 	def setSampleDatabase(self):
 		for i in range(3):
@@ -123,7 +123,7 @@ class FileManager():
 	def addAlignmentRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','GenomeVersion','RunIDs','Coverage','TotalReads','UnmappedReads','DiscordantReads','InversionReads','DuplicationReads','ClippedReads','ChimericReads','bwa_version','gatk_version','pysam_version','BamSize'])
 		assert row_dict['SampleID'] not in self.alignment_dt.SampleID.to_list()
-		self.alignment_dt = self.alignment_dt.append(pd.Series(row_dict), ignore_index = True)
+		self.alignment_dt = pd.concat([self.alignment_dt,pd.DataFrame([row_dict])], ignore_index = True)
 
 	def setAlignmentDatabase(self):
 		assert self.genome_version
