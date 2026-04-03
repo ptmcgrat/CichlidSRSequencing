@@ -12,7 +12,7 @@ fm_obj.createSampleFiles('SAMEA117806073')
 timer = Timer()
 for uBam_file in fm_obj.localRawBamFiles:
 	fm_obj.downloadData(uBam_file)
-
+	"""
 	timer.start('Create fastq files')
 	command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', uBam_file.replace('.bam','.fastq'), '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 	command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
@@ -43,9 +43,9 @@ for uBam_file in fm_obj.localRawBamFiles:
 	command1 = ['bwa-mem2', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mem2_fq.sam']
 	output2 = subprocess.run(command1, capture_output = True)
 	timer.stop()
-
+	"""
 	timer.start('Just minimap2')
-	command1 = ['minimap2', '-x','sr', '-t', str(cpu_count()), fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mmap2_fq.sam']
+	command1 = ['minimap2', '-x','sr', '-a', '-t', str(cpu_count()), fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mmap2_fq.sam']
 	output3 = subprocess.run(command1, capture_output = True)
 	timer.stop()
 	pdb.set_trace()
