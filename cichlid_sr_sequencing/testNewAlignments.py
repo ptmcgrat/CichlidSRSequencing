@@ -2,6 +2,7 @@ from helper_modules.file_manager import FileManager as FM
 import datetime, pdb, subprocess
 import pandas as pd
 from helper_modules.Timer import Timer
+from multiprocessing import cpu_count
 
 
 fm_obj = FM('Mzebra_GT3')
