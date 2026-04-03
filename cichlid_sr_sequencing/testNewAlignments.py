@@ -8,7 +8,7 @@ from multiprocessing import cpu_count
 fm_obj = FM('Mzebra_GT3')
 #fm_obj.downloadData(fm_obj.localGenomeDir)
 #subprocess.run(['bwa-mem2','index', fm_obj.localGenomeFile])
-fm_obj.createSampleFiles('MCYHF1_010_m')
+fm_obj.createSampleFiles('SAMEA117806073')
 timer = Timer()
 for uBam_file in fm_obj.localRawBamFiles:
 	fm_obj.downloadData(uBam_file)
