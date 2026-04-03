@@ -6,18 +6,17 @@ from multiprocessing import cpu_count
 
 
 fm_obj = FM('Mzebra_GT3')
-fm_obj.downloadData(fm_obj.localGenomeDir)
+#fm_obj.downloadData(fm_obj.localGenomeDir)
 fm_obj.createSampleFiles('MCYHBC1-619-1')
 timer = Timer()
 for uBam_file in fm_obj.localRawBamFiles:
-	fm_obj.downloadData(uBam_file)
+	#fm_obj.downloadData(uBam_file)
 
 	timer.start('Create fastq files')
 	command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', uBam_file.replace('.bam','.fastq'), '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 	command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
 	output = subprocess.run(command1, capture_output = True)
 	timer.stop()
-	pdb.set_trace()
 	timer.start('Do it the old way')
 	command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 	command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
@@ -39,13 +38,17 @@ for uBam_file in fm_obj.localRawBamFiles:
 	command1 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mem_fq.sam']
 	subprocess.run(command1, capture_output = True)
 	timer.stop()
+	pdb.set_trace()
 	timer.start('Just mem2')
 	command1 = ['bwa', 'mem2', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mem2_fq.sam']
 	subprocess.run(command1, capture_output = True)
 	timer.stop()
+	pdb.set_trace()
+
 	timer.start('Just minimap2')
 	command1 = ['minimap2', '-x','sr', '-t', str(cpu_count()), '-M', fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mmap2_fq.sam']
 	subprocess.run(command1, capture_output = True)
 	timer.stop()
+	pdb.set_trace()
 
 
