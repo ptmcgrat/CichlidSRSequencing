@@ -292,7 +292,7 @@ class AlignmentWorker():
 			fm_obj.addAlignmentRow(sample_data)
 			fm_obj.setAlignmentDatabase()
 
-			#subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-			#subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
+			subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
+			subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
 		
 
