@@ -6,7 +6,7 @@ from helper_modules.Timer import Timer
 
 fm_obj = FM('Mzebra_GT3')
 fm_obj.downloadData(fm_obj.localGenomeDir)
-fm_obj.createSampleFiles('MCYHBC1-809-1')
+fm_obj.createSampleFiles('MCYHBC1-619-1')
 timer = Timer()
 for uBam_file in fm_obj.localRawBamFiles:
 	fm_obj.downloadData(uBam_file)
