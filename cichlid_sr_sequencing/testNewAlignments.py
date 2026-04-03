@@ -39,12 +39,12 @@ for uBam_file in fm_obj.localRawBamFiles:
 	output1 = subprocess.run(command1, capture_output = True)
 	timer.stop()
 	timer.start('Just mem2')
-	command1 = ['bwa', 'mem2', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mem2_fq.sam']
+	command1 = ['bwa-mem2', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mem2_fq.sam']
 	output2 = subprocess.run(command1, capture_output = True)
 	timer.stop()
 
 	timer.start('Just minimap2')
-	command1 = ['minimap2', '-x','sr', '-t', str(cpu_count()), '-M', fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mmap2_fq.sam']
+	command1 = ['minimap2', '-x','sr', '-t', str(cpu_count()), fm_obj.localGenomeFile, uBam_file.replace('.bam','.fastq'), '-o','mmap2_fq.sam']
 	output3 = subprocess.run(command1, capture_output = True)
 	timer.stop()
 	pdb.set_trace()
