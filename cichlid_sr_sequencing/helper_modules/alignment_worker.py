@@ -102,7 +102,8 @@ class AlignmentWorker():
 
 		for p in processes:
 			p.communicate()
-
+			if p.returncode != 0:
+				print('  Failure of command' + p.args)
 		resource_fp.close()
 		dt = pd.read_csv(self.fm_obj.localProcessesFile)
 		mean = dt.mean()
@@ -234,20 +235,35 @@ class AlignmentWorker():
 					subprocess.run(['rm', bam_file])
 
 
-	def createGVCF(self, parallel = True):
-
+	def createGVCF(self, split = False):
+		fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
+		chromosomes = fasta_obj.references
 		commands = {}
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
-			
-			command = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
-			commands[sample] = command
+			if split:
+				processes = []
+				vcfs = []
+				for chrom in chromosomes:
+					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
+					command = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
+					processes.append(subprocess.Popen(command))
+					vcfs.append(contig_vcf)
+				for p1 in processes:
+					p1.communicate()
+				command = ['gatk','CombineGVCFs','-R', fm_obj.localGenomeFile]
+				for chrom in chromosomes:
+					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
+					command += ['-V', contig_vcf]
+					command += ['-O', fm_obj.localGVCFFile]
+					subprocess.run(command)
+				for vcf_file in vcfs:
+					subprocess.run(['rm', vcf_file])
 
-			if not parallel:
-				self.monitorProcess(command, 'HaplotypeCaller_' + sample)
-
-		if parallel:
+			else:
+				commands[strain] = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
+		if not split:
 			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', 48)
 
 	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):

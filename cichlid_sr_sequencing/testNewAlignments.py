@@ -6,6 +6,7 @@ from multiprocessing import cpu_count
 
 
 fm_obj = FM('Mzebra_GT3')
+pdb.set_trace()
 #fm_obj.downloadData(fm_obj.localGenomeDir)
 #subprocess.run(['bwa-mem2','index', fm_obj.localGenomeFile])
 fm_obj.createSampleFiles('SAMEA117806073')
