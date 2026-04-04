@@ -196,7 +196,7 @@ class AlignmentWorker():
 		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), 8)
 		for del_file in del_files:
 			pass
-			#subprocess.run(['rm','-f',del_file])
+			subprocess.run(['rm','-f',del_file])
 
 	def splitBamfiles(self):
 		for sample in self.samples:
