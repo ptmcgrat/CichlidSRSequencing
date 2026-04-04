@@ -188,11 +188,11 @@ class AlignmentWorker():
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
 
-			command = ['gatk', 'MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localSampleTempDir, '--CREATE_INDEX']
+			command = ['gatk', '--java-options', '-Xmx2g','MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localSampleTempDir, '--SORTING_COLLECTION_SIZE_RATIO', '.2','--CREATE_INDEX']
 			commands[sample] = command
 			del_files.append(fm_obj.localTempSortedBamFile)
 
-		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), 24)
+		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), 8)
 		for del_file in del_files:
 			subprocess.run(['rm','-f',del_file])
 
