@@ -235,7 +235,7 @@ class AlignmentWorker():
 					subprocess.run(['rm', bam_file])
 
 
-	def createGVCF(self, split = False):
+	def createGVCF(self, split = True):
 		fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
 		chromosomes = fasta_obj.references
 		commands = {}
