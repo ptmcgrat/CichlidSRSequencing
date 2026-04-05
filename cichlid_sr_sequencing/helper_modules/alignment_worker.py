@@ -24,6 +24,7 @@ class AlignmentWorker():
 			#sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
 			self.uBam_files[sampleID] = self.fm_obj.localRawBamFiles
 			if check_size:
+				pdb.set_trace()
 				try:
 					sizes[sampleID] = sum([fm_obj.returnFileSize(x) for x in self.uBam_files[sampleID]])
 				except ValueError:
