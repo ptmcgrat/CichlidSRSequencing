@@ -265,7 +265,7 @@ class AlignmentWorker():
 				for chrom in chromosomes:
 					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
 					command = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
-					processes.append(subprocess.Popen(command,, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
+					processes.append(subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
 					vcfs.append(contig_vcf)
 				for p1 in processes:
 					p1.communicate()
