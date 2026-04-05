@@ -103,7 +103,7 @@ class AlignmentWorker():
 		for p in processes:
 			p.communicate()
 			if p.returncode != 0:
-				print('  Failure of command' + p.args)
+				print('  Failure of command' + str(p.args))
 		resource_fp.close()
 		dt = pd.read_csv(self.fm_obj.localProcessesFile)
 		mean = dt.mean()
