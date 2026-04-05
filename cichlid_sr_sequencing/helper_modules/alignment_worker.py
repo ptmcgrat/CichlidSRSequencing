@@ -91,6 +91,21 @@ class AlignmentWorker():
 			fm_obj.createSampleFiles(strain)
 			error_file = open(fm_obj.localErrorsDir + base_text + '_' + strain + '_errors.txt', 'w')
 			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
+			if len(processes == num_parallel):
+
+				print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
+				while processes[0].poll() is None:
+					try:
+						print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
+					except ZombieProcess:
+						break
+					resource_fp.flush()
+
+				for p in processes:
+					p.communicate()
+					if p.returncode != 0:
+						print('  Failure of command' + str(p.args))
+				processes = []
 
 		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
 		while processes[0].poll() is None:
@@ -104,6 +119,8 @@ class AlignmentWorker():
 			p.communicate()
 			if p.returncode != 0:
 				print('  Failure of command' + str(p.args))
+		processes = []
+
 		resource_fp.close()
 		dt = pd.read_csv(self.fm_obj.localProcessesFile)
 		mean = dt.mean()
