@@ -273,8 +273,8 @@ class AlignmentWorker():
 				for chrom in chromosomes:
 					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
 					command += ['-V', contig_vcf]
-					command += ['-O', fm_obj.localGVCFFile]
-					subprocess.run(command)
+				command += ['-O', fm_obj.localGVCFFile]
+				subprocess.run(command)
 				for vcf_file in vcfs:
 					subprocess.run(['rm', vcf_file])
 
