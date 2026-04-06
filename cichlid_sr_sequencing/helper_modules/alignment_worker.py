@@ -15,6 +15,7 @@ class AlignmentWorker():
 
 		self.uBam_files = {}
 
+		self.max_processes = int(psutil.virtual_memory().available/4000000000)
 		sizes = {}
 
 		for sampleID in fm_obj.samples:
@@ -78,57 +79,40 @@ class AlignmentWorker():
 	def monitorProcesses(self, command_dict, base_text, num_parallel):
 		timer = Timer()
 		timer.start('    ' + base_text)
-		resource_fp = open(self.fm_obj.localProcessesFile,'w')
 
-		proc = psutil.Process(pid = os.getpid())
-
-		print('cpu,threads,memory', file = resource_fp)
-
-		error_files = []
-		processes = []
-		for strain,command in command_dict.items():
+		error_files = {}
+		processes = {}
+		current_samples = []
+		error_samples = []
+		for sample,command in command_dict.items():
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(strain)
-			error_file = open(fm_obj.localErrorsDir + base_text + '_' + strain + '_errors.txt', 'w')
-			processes.append(subprocess.Popen(command, stderr = error_file, stdout = subprocess.DEVNULL))
-			if len(processes) == num_parallel:
+			error_files[sample] = fm_obj.localErrorsDir + base_text + '_' + sample + '_errors.txt'
+			error_fp = open(error_files[sample], 'w')
+			processes[sample] = subprocess.Popen(command, stderr = error_fp, stdout = subprocess.DEVNULL)
+			current_samples.append(sample)
+			if len(current_samples) == num_parallel:
 
-				print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
-				while processes[0].poll() is None:
-					try:
-						print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
-					except ZombieProcess:
-						break
-					resource_fp.flush()
-
-				for p in processes:
+				for sample, p in processes.items():
 					p.communicate()
 					if p.returncode != 0:
-						print('  Failure of command' + str(p.args))
-				processes = []
+						print('  Failure of command for sample: ' + sample)
+						error_samples.append(sample)
+					else:
+						subprocess.run(['rm',error_files[sample]])
 
-		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
-		while processes[0].poll() is None:
-			try:
-				print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
-			except ZombieProcess:
-				break
-			resource_fp.flush()
+				current_samples = []
 
-		for p in processes:
+		for sample, p in processes.items():
 			p.communicate()
 			if p.returncode != 0:
-				print('  Failure of command' + str(p.args))
-		processes = []
+				print('  Failure of command for sample: ' + sample)
+				error_samples.append(sample)
+			else:
+				subprocess.run(['rm',error_files[sample]])
 
-		resource_fp.close()
-		dt = pd.read_csv(self.fm_obj.localProcessesFile)
-		mean = dt.mean()
-		max_usage = dt.max()
-		#print(' CPU_avg,max: ' + str(round(mean.cpu,1)) + ',' + str(round(max_usage.cpu,1)) + ' RAM_avg,max: ' + str(round(mean.memory,1)) + ',' + str(round(max_usage.memory,1)) + ' Threads: ' + str(mean.threads) + ' ')
-		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads), end = '')
 		timer.stop()
-
+		return error_samples
 
 	def downloadReadData(self):
 		processes = []
@@ -159,7 +143,7 @@ class AlignmentWorker():
 				print(sample + ' already run')
 				continue
 
-			timer.start('  Aligning reads to create sorted Bam files')
+			timer.start('  Aligning reads to create sorted Bam files for: ' + sample)
 
 			for i,uBam_file in enumerate(self.uBam_files[sample]):
 
@@ -201,19 +185,19 @@ class AlignmentWorker():
 
 	def markDuplicates(self):
 		commands = {}
-		del_files = []
+		del_files = {}
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
 
 			command = ['gatk', '--java-options', '-Xmx2g','MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localSampleTempDir, '--SORTING_COLLECTION_SIZE_RATIO', '.2','--CREATE_INDEX']
 			commands[sample] = command
-			del_files.append(fm_obj.localTempSortedBamFile)
+			del_files[sample] = fm_obj.localTempSortedBamFile
 
-		self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), 8)
-		for del_file in del_files:
-			pass
-			subprocess.run(['rm','-f',del_file])
+		bad_samples = self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), self.max_processes)
+		for sample in self.samples:
+			if sample not in bad_samples:
+				subprocess.run(['rm','-f',del_files[sample]])
 
 	def splitBamfiles(self):
 		for sample in self.samples:
@@ -252,10 +236,13 @@ class AlignmentWorker():
 					subprocess.run(['rm', bam_file])
 
 
-	def createGVCF(self, split = True):
+	def createGVCF(self):
 		fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
 		chromosomes = fasta_obj.references
 		commands = {}
+		if len(samples) < 20:
+			split = True
+		
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
@@ -264,24 +251,24 @@ class AlignmentWorker():
 				vcfs = []
 				for chrom in chromosomes:
 					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
-					command = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
+					command = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
 					processes.append(subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
 					vcfs.append(contig_vcf)
 				for p1 in processes:
 					p1.communicate()
-				command = ['gatk','CombineGVCFs','-R', fm_obj.localGenomeFile]
+				command = ['gatk','GatherVcfs']
 				for chrom in chromosomes:
 					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
-					command += ['-V', contig_vcf]
+					command += ['-I', contig_vcf]
 				command += ['-O', fm_obj.localGVCFFile]
-				subprocess.run(command)
+				output = subprocess.run(command, capture_output = True)
 				for vcf_file in vcfs:
 					subprocess.run(['rm', vcf_file])
 
 			else:
-				commands[strain] = ['gatk', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
+				commands[strain] = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
 		if not split:
-			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', 48)
+			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', self.max_processes)
 
 	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
 		if sample_override:
@@ -318,7 +305,7 @@ class AlignmentWorker():
 			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
 
 			output = subprocess.run(['conda', 'list'], capture_output = True)
-			sample_data['bwa_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('bwa')][0]
+			sample_data['minimap2_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('minimap2')][0]
 			sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 			sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
 			sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
