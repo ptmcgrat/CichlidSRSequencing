@@ -170,7 +170,7 @@ class AlignmentWorker():
 				p2.stdout.close()
 				output = p3.communicate()
 				if output.returncode != 0:
-
+					pass
 					# Remove unmapped reads
 					#subprocess.run(['rm', '-f', uBam_file])
 				else:
