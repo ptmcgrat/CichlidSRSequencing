@@ -100,7 +100,7 @@ if output1.returncode != 0:
 	sys.exit()
 
 # Mark illumina adapters
-if args.Platform == 'ILLUMINA':
+if args.Platform == 'ILLUMINA' or 'ELEMENT' in args.Platform:
 	print('  Marking Illumina adapters')
 	command = ['gatk', 'MarkIlluminaAdapters', '-I', temp_bam_file, '-O', args.OutputBam, '-M', args.OutputBam + '.metrics.txt', '--TMP_DIR', args.Temp_directory]
 	output2 = subprocess.run(command, capture_output = True)
@@ -116,8 +116,10 @@ fm_obj.uploadData(args.OutputBam)
 fm_obj.uploadData(args.OutputBam + '.metrics.txt')
 print('  Finished for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 
+"""
 # Remove files that were created
 if args.LibraryLayout == 'PAIRED':
 	subprocess.run(['rm', local_fq1, local_fq2, fixed_fq1, fixed_fq2, temp_bam_file, args.OutputBam, args.OutputBam + '.metrics.txt'])
 else:
 	subprocess.run(['rm', local_fq1, fixed_fq1, temp_bam_file, args.OutputBam, args.OutputBam + '.metrics.txt'])
+"""

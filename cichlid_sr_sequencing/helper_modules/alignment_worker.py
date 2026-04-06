@@ -169,11 +169,13 @@ class AlignmentWorker():
 				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file_Merge, stdout = subprocess.DEVNULL)
 				p2.stdout.close()
 				output = p3.communicate()
+				if output.returncode != 0:
 
+					# Remove unmapped reads
+					#subprocess.run(['rm', '-f', uBam_file])
+				else:
+					pdb.set_trace()
 
-				# Remove unmapped reads
-				subprocess.run(['rm', '-f', uBam_file])
-				
 			if i == 0:
 				subprocess.run(['mv', t_bam, sorted_bam])
 			else:
