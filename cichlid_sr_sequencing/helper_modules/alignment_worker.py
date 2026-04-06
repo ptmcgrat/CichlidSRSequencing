@@ -240,7 +240,7 @@ class AlignmentWorker():
 		fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
 		chromosomes = fasta_obj.references
 		commands = {}
-		if len(samples) < 20:
+		if len(self.samples) < 20:
 			split = True
 		
 		for sample in self.samples:
