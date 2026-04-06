@@ -153,7 +153,7 @@ class AlignmentWorker():
 				command1 = ['gatk', 'SamToFastq', '-I', uBam_file, '--FASTQ', '/dev/stdout', '--CLIPPING_ATTRIBUTE', 'XT', '--CLIPPING_ACTION', '2']
 				command1 += ['--INTERLEAVE', 'true', '--NON_PF', 'true', '--TMP_DIR', fm_obj.localSampleTempDir]
 				#command2 = ['bwa', 'mem', '-t', str(cpu_count()), '-M', '-p', fm_obj.localGenomeFile, '/dev/stdin']
-				command2 = ['minimap2', '-x','sr', '-a', '-t', str(cpu_count()), fm_obj.localGenomeFile, '-']
+				command2 = ['minimap2', '-x','sr', '-a', '-t', str(cpu_count()), fm_obj.localGenomeFile.replace('.fna','.mmi'), '-']
 				command3 = ['gatk', 'MergeBamAlignment', '-R', fm_obj.localGenomeFile, '--UNMAPPED_BAM', uBam_file, '--ALIGNED_BAM', '/dev/stdin']
 				command3 += ['-O', t_bam, '--ADD_MATE_CIGAR', 'true', '--CLIP_ADAPTERS', 'false', '--CLIP_OVERLAPPING_READS', 'true']
 				command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
@@ -168,7 +168,6 @@ class AlignmentWorker():
 				p1.stdout.close()
 				#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file_Merge, stdout = subprocess.DEVNULL)
 				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file_Merge)
-
 				p2.stdout.close()
 				output = p3.communicate()
 				pdb.set_trace()
