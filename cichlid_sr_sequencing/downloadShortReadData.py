@@ -114,9 +114,10 @@ for index, row in new_dt.iterrows():
 	if args.Local:
 		command += ['--Local']
 
-	#processes.append(subprocess.Popen(['ls']))
-	processes.append(subprocess.Popen(command))
+	processes.append(subprocess.Popen(['ls']))
+	#processes.append(subprocess.Popen(command))
 	row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
+	row.Size = fm_obj.returnFileSize(fm_obj.localReadsDir + ubam)
 	#if 'FileLocations' in row:
 	#	rows.append(row.drop(labels = ['FileLocations']))
 	#else:
@@ -129,7 +130,10 @@ for index, row in new_dt.iterrows():
 		for i, p in enumerate(processes):
 			if p.returncode == 0:
 				fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
-				fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
+				try:
+					fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
+				except AssertionError:
+					print(rows[i].SampleID + ' already in the database.')
 
 		fm_obj.setSampleDatabase()
 
@@ -145,8 +149,10 @@ if len(processes) != 0:
 	for i, p in enumerate(processes):
 		if p.returncode == 0:	
 			fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
-			fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
-
+			try:
+				fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
+			except AssertionError:
+				print(rows[i].SampleID + ' already in the database.')
 	fm_obj.setSampleDatabase()
 
 	print('Database uploaded')

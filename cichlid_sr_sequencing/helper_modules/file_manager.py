@@ -95,7 +95,7 @@ class FileManager():
 	def addDNAReadRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
 		assert row_dict['RunID'] not in self.reads_dt.RunID.to_list()
-		self.reads_dt = self.reads_dt.append(pd.Series(row_dict), ignore_index = True)
+		self.reads_dt = pd.concat([self.reads_dt,pd.DataFrame([row_dict])], ignore_index = True)
 
 	def addSampleRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','Sex','Species','DoB','BroodID','Parents','Ecogroup','LabReared','Inversion10'])
@@ -245,6 +245,7 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
 		elif self.genome_version == 'Mzebra_GT3_NCBI':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_041146795.1_Mzebra_GT3a_genomic.fna'
+			self.localMinimapGenomeFile = self.localGenomeDir + 'GCF_041146795.1_Mzebra_GT3a_genomic.mmi'
 		elif self.genome_version == 'Mconophoros_GT1':
 			self.localGenomeFile = self.localGenomeDir + 'anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta'
 		else:
