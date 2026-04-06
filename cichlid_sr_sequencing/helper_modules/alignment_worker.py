@@ -159,11 +159,14 @@ class AlignmentWorker():
 				command3 += ['--INCLUDE_SECONDARY_ALIGNMENTS', 'true', '--MAX_INSERTIONS_OR_DELETIONS', '-1', '--PRIMARY_ALIGNMENT_STRATEGY', 'MostDistant']
 				command3 += ['--ATTRIBUTES_TO_RETAIN', 'XS', '--TMP_DIR', fm_obj.localSampleTempDir]
 
-				error_file = open(fm_obj.localSampleTempDir + 'Alignment_errors.txt', 'w')
-				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = error_file)
-				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = error_file)
+				error_file_StF = open(fm_obj.localSampleTempDir + 'Alignment_errors_StF.txt', 'w')
+				error_file_MM = open(fm_obj.localSampleTempDir + 'Alignment_errors_MM.txt', 'w')
+				error_file_Merge = open(fm_obj.localSampleTempDir + 'Alignment_errors_Merge.txt', 'w')
+
+				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = error_file_StF)
+				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = error_file_MM)
 				p1.stdout.close()
-				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file, stdout = subprocess.DEVNULL)
+				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file_Merge, stdout = subprocess.DEVNULL)
 				p2.stdout.close()
 				output = p3.communicate()
 

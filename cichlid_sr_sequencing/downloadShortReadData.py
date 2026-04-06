@@ -44,7 +44,7 @@ remapper = {'Run':'RunID', 'BioSample':'SampleID','AvgSpotLen':'ReadLength','Bas
 if args.Local:
 	remapper['FileLocations'] = 'FileLocations'
 new_dt = new_dt.rename(columns = remapper)[remapper.values()]
-new_dt['FileLocations'] = ''
+#new_dt['FileLocations'] = ''
 
 
 # Loop through runs and download data and convert to uBam
@@ -79,8 +79,8 @@ for index, row in new_dt.iterrows():
 		if layout == 'PAIRED':
 			fq1,fq2 = row['FileLocations'].split(',,')
 			if fq1[0] != '/':
-				fq1 = fm_obj.localMasterDir + fq1
-				fq2 = fm_obj.localMasterDir + fq2
+				fq1 = fm_obj.localReadDownloadDir + fq1
+				fq2 = fm_obj.localReadDownloadDir + fq2
 		else:
 			fq1 = row['FileLocations']
 			fq2 = row['FileLocations']
