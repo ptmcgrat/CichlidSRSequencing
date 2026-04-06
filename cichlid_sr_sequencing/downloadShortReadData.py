@@ -79,8 +79,8 @@ for index, row in new_dt.iterrows():
 		if layout == 'PAIRED':
 			fq1,fq2 = row['FileLocations'].split(',,')
 			if fq1[0] != '/':
-				fq1 = fm_obj.localReadDownloadDir + fq1
-				fq2 = fm_obj.localReadDownloadDir + fq2
+				fq1 = fm_obj.localSeqCoreDataDir + fq1
+				fq2 = fm_obj.localSeqCoreDataDir + fq2
 		else:
 			fq1 = row['FileLocations']
 			fq2 = row['FileLocations']
