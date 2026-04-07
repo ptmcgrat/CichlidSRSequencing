@@ -166,8 +166,7 @@ class AlignmentWorker():
 				p1 = subprocess.Popen(command1, stdout=subprocess.PIPE, stderr = error_file_StF)
 				p2 = subprocess.Popen(command2, stdin = p1.stdout, stdout = subprocess.PIPE, stderr = error_file_MM)
 				p1.stdout.close()
-				#p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file_Merge, stdout = subprocess.DEVNULL)
-				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file_Merge)
+				p3 = subprocess.Popen(command3, stdin = p2.stdout, stderr = error_file_Merge, stdout = subprocess.DEVNULL)
 				p2.stdout.close()
 				output = p3.communicate()
 				if p3.returncode != 0:
