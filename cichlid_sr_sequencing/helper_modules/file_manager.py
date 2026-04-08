@@ -121,7 +121,7 @@ class FileManager():
 		self.alignment_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 
 	def addAlignmentRow(self, row_dict):
-		assert set(row_dict.keys()) == set(['SampleID','GenomeVersion','RunIDs','Coverage','TotalReads','UnmappedReads','DiscordantReads','InversionReads','DuplicationReads','ClippedReads','ChimericReads','bwa_version','gatk_version','pysam_version','BamSize'])
+		assert set(row_dict.keys()) == set(['SampleID','GenomeVersion','RunIDs','Coverage','TotalReads','UnmappedReads','DiscordantReads','InversionReads','DuplicationReads','ClippedReads','ChimericReads','minimap2_version','gatk_version','pysam_version','BamSize'])
 		assert row_dict['SampleID'] not in self.alignment_dt.SampleID.to_list()
 		self.alignment_dt = pd.concat([self.alignment_dt,pd.DataFrame([row_dict])], ignore_index = True)
 
