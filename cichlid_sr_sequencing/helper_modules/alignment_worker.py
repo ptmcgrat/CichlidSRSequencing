@@ -86,7 +86,7 @@ class AlignmentWorker():
 		error_samples = []
 		for sample,command in command_dict.items():
 			fm_obj = self.fm_obj
-			fm_obj.createSampleFiles(strain)
+			fm_obj.createSampleFiles(sample)
 			error_files[sample] = fm_obj.localErrorsDir + base_text + '_' + sample + '_errors.txt'
 			error_fp = open(error_files[sample], 'w')
 			processes[sample] = subprocess.Popen(command, stderr = error_fp, stdout = subprocess.DEVNULL)
