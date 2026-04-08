@@ -33,6 +33,7 @@ class AlignmentWorker():
 			# Make sure there is enough room
 			total_sample_size = sum(sizes.values())
 			free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
+			pdb.set_trace()
 			if 3*total_sample_size > free_memory:
 				print('Total_sample_size: ' + str(3*total_sample_size) + ', Free memory: ' + str(free_memory))
 				raise Exception('Need more space to run this analysis')
