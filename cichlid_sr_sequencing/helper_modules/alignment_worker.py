@@ -251,6 +251,8 @@ class AlignmentWorker():
 		commands = {}
 		if len(self.samples) < 20:
 			split = True
+		else:
+			split = False
 		
 		for sample in self.samples:
 			fm_obj = self.fm_obj
