@@ -8,11 +8,16 @@ from helper_modules.file_manager import FileManager as FM
 #import matplotlib.pyplot as plt
 #import seaborn as sns
 #from functools import reduce
+
 class GenotypeBC:
     def __init__(self, cross_name, parents_vcf):
-        self.parents_vcf = parents_vcf #vcf file containing high coverage sequencing of all grandparents and or parents
-        self.cross_name = cross_name
-        os.makedirs(self.cross_name, exist_ok=True)  
+        self.fm_obj = FM()
+        self.master_directory = self.fm_obj.localMasterDir + '2026_Nikesh/'
+        os.makedirs(self.master_directory, exist_ok = True)
+
+        #self.parents_vcf = parents_vcf #vcf file containing high coverage sequencing of all grandparents and or parents
+        #self.cross_name = cross_name
+        #os.makedirs(self.cross_name, exist_ok=True)  
         self.broods = ['MCYH-BC1-24-01-10-1','MCYH-BC1-24-03-17-1','MCYH-BC1-24-03-11-1','MCYH-BC1-24-04-22-1','MCYH-BC1-24-03-27-1']
         self.yh_sire = 'YH_008_m'
         self.mothers = ['MC-3R6R-f','MC-3R6R-f','MC-1G2G-f','MC-1G2G-f', 'MC-5G11G']
@@ -21,7 +26,34 @@ class GenotypeBC:
         # This function assumes that all parents and backcross samples have been 
         # sequenced and aligned to the Mconophoros_GT3 reference
 
+        fm_obj = self.fm_obj
+        fm_obj.setGenome('Mconophoros_GT1') # BCs aligned to MC 
+        print('Downloading reference data')
+        fm_obj.downloadData(fm_obj.localGenomeDir)
+
+        print('Downloading YH sire data')
+        fm_obj.createSampleFiles(self.yh_sire) # Start with the YH father
+        fm_obj.downloadData(fm_obj.localSampleBamDir)
+        
+        print('Identifying small variants from YH sire')
+        father_vcf = self.master_directory + self.yh_sire + '.vcf'
+        command = ['gatk','GenotypeGVCFs','-R',fm_obj.localGenomeFile]
+        command += ['-V',fm_obj.localGVCFFile,'-O', father_vcf]
+        subprocess.run(command)
         pdb.set_trace()
+        print('Identifying variants from YH sire in MC moms')
+        command = ['gatk','GenotypeGVCFs','-R',fm_obj.localGenomeFile]
+        for sample in self.mothers:
+            fm_obj.createSampleFiles(sample) # Start with the YH father
+            fm_obj.downloadData(fm_obj.localSampleBamDir)
+            command += ['-V',fm_obj.localGVCFFile]
+        command+= ['-O', self.master_directory + 'YH_father_MC_mothers.vcf']
+        command += ['-L', self.master_directory + self.yh_sire + '.vcf']
+        command += ['--alleles', self.master_directory + self.yh_sire + '.vcf']
+        command += ['--force-call-filtered-alleles', '--include-non-variant-sites']
+
+        pdb.set_trace()
+
 
 
     def identifyYHSNVs(self, f1_father, f1_mother, depth_cutoff = 12):
