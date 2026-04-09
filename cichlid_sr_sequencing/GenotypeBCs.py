@@ -1,5 +1,5 @@
 from helper_modules.file_manager import FileManager as FM
-
+import os, subprocess, pdb
 
 #import allel, pdb, os
 #import pandas as pd
@@ -8,7 +8,7 @@ from helper_modules.file_manager import FileManager as FM
 #import matplotlib.pyplot as plt
 #import seaborn as sns
 #from functools import reduce
-
+ 
 class GenotypeBC:
     def __init__(self, cross_name, parents_vcf):
         self.fm_obj = FM()
