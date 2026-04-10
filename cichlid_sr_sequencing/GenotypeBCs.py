@@ -1,5 +1,6 @@
 from helper_modules.file_manager import FileManager as FM
 import os, subprocess, pdb
+from multiprocessing import cpu_count
 
 #import allel, pdb, os
 #import pandas as pd
@@ -12,16 +13,28 @@ import os, subprocess, pdb
 class GenotypeBC:
     def __init__(self, cross_name, parents_vcf):
         self.fm_obj = FM()
+        self.fm_obj.setGenome('Mconophoros_GT1')
         self.master_directory = self.fm_obj.localMasterDir + '2026_Nikesh/'
         os.makedirs(self.master_directory, exist_ok = True)
-
         #self.parents_vcf = parents_vcf #vcf file containing high coverage sequencing of all grandparents and or parents
         #self.cross_name = cross_name
         #os.makedirs(self.cross_name, exist_ok=True)  
         self.broods = ['MCYH-BC1-24-01-10-1','MCYH-BC1-24-03-17-1','MCYH-BC1-24-03-11-1','MCYH-BC1-24-04-22-1','MCYH-BC1-24-03-27-1']
         self.yh_sire = 'YH_008_m'
-        self.mothers = ['MC-3R6R-f','MC-3R6R-f','MC-1G2G-f','MC-1G2G-f', 'MC-5G11G']
+        self.mothers = ['MC-1R6R-f', 'MC-3R6R-f','MC-1G2G-f']
+        self.f1_dads = ['MCYHF1-002','MCYHF1-003']
+        #, 'MC-5G11G-f']
 
+    def createSampleList(self):
+        self.fm_obj.readSampleDatabase()
+        with open(self.master_directory + '/BC_Pileup_Samples.txt', 'w') as f:
+            all_samples = [self.yh_sire] + self.mothers + self.f1_dads
+            all_samples += self.fm_obj.sample_dt[self.fm_obj.sample_dt.Species == 'YHxMC x MC BC'].SampleID.tolist()
+            for sample in all_samples:
+                self.fm_obj.createSampleFiles(sample)
+                self.fm_obj.downloadData(self.fm_obj.localBamFile)
+                print(self.fm_obj.localBamFile, file = f)
+            
     def createMasterVCF(self):
         # This function assumes that all parents and backcross samples have been 
         # sequenced and aligned to the Mconophoros_GT3 reference
@@ -36,25 +49,24 @@ class GenotypeBC:
         fm_obj.downloadData(fm_obj.localSampleBamDir)
         
         print('Identifying small variants from YH sire')
-        father_vcf = self.master_directory + self.yh_sire + '.vcf'
+        father_vcf = self.master_directory + 'YH_Father.vcf.gz'
         command = ['gatk','GenotypeGVCFs','-R',fm_obj.localGenomeFile]
         command += ['-V',fm_obj.localGVCFFile,'-O', father_vcf]
         subprocess.run(command)
-        pdb.set_trace()
         print('Identifying variants from YH sire in MC moms')
-        command = ['gatk','GenotypeGVCFs','-R',fm_obj.localGenomeFile]
-        for sample in self.mothers:
+        command1 = ['bcftools','mpileup','-R',father_vcf,'-f',fm_obj.localGenomeFile]
+        command1 += ['-a','AD,DP']
+        for sample in [self.mothers[0]]:
             fm_obj.createSampleFiles(sample) # Start with the YH father
-            fm_obj.downloadData(fm_obj.localSampleBamDir)
-            command += ['-V',fm_obj.localGVCFFile]
-        command+= ['-O', self.master_directory + 'YH_father_MC_mothers.vcf']
-        command += ['-L', self.master_directory + self.yh_sire + '.vcf']
-        command += ['--alleles', self.master_directory + self.yh_sire + '.vcf']
-        command += ['--force-call-filtered-alleles', '--include-non-variant-sites']
-
-        pdb.set_trace()
-
-
+            #fm_obj.downloadData(fm_obj.localSampleBamDir)
+            command1 += [fm_obj.localBamFile]
+        command2 = ['bcftools', 'call', '-m', '-A', '--ploidy','2']
+        command2 += ['-o','YH_father_MC_mothers.vcf','-O','z']
+        p1 = subprocess.Popen(command1, stdout = subprocess.PIPE)
+        p2 = subprocess.Popen(command2, stdin = p1.stdin)
+        p2.communicate()
+        subprocess.run(['bcftools', 'mpileup', '-f', self.fm_obj.localGenomeFile, '-R', father_vcf, '-b', self.master_directory + 'BC_Pileup_Samples.txt', '-a', 'AD', '-Q', '0', '-o', self.master_directory + 'BC_Pileup.vcf.gz', '-Oz', '--threads', str(cpu_count())])
+        #bcftools mpileup -f <M_conophoros_refernece_fasta> -R <bed_file> -b <samples_file> -a AD -Q 0 -o <out_path> -Oz --threads <number_cores>
 
     def identifyYHSNVs(self, f1_father, f1_mother, depth_cutoff = 12):
         try:
@@ -268,7 +280,9 @@ class GenotypeBC:
         return out_obs, out_chromosomes, out_positions
 
 gt_bc = GenotypeBC('YHMC_BCCross1','YH_new_parents.vcf.gz')
+gt_bc.createSampleList()
 gt_bc.createMasterVCF()
+pdb.set_trace()
 #gt_bc.identifyYHSNVs('YH_008_m', 'MC-1R6R-f')
 
 #gt_bc.identifyHaplotypesInBCs('YH_MC_F1s_variant_pileup.vcf')

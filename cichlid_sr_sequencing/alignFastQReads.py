@@ -28,7 +28,7 @@ fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, spec
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
 #fm_obj.uploadData(fm_obj.localGenomeDir)
-#fm_obj.downloadData(fm_obj.localGenomeDir)
+fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
 # Create alignment worker object:
@@ -43,18 +43,18 @@ timer.start('  Aligning Reads to created sorted Bamfiles')
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
-#aw_obj.markDuplicates()
+aw_obj.markDuplicates()
 timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')
-#aw_obj.splitBamfiles()
+aw_obj.splitBamfiles()
 timer.stop()
 
 timer.start('  Calling haplotypes to create gvcf files')
-aw_obj.createGVCF()
+#aw_obj.createGVCF()
 timer.stop()
 
 timer.start('  Uploading and updating database')
-aw_obj.uploadAndUpdateDatabase()
+#aw_obj.uploadAndUpdateDatabase()
 timer.stop()
 

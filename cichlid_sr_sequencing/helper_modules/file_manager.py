@@ -33,7 +33,7 @@ class FileManager():
 			if genome_version is None:
 				raise Exception('Cant set sampleID without setting genome version')
 			self.createSampleFiles(sampleID)
-
+		
 	def setGenome(self, genome_version):
 		self.genome_version = genome_version
 		try:
