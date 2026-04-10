@@ -62,7 +62,6 @@ def genotype_longdeletion(bam_obj):
 deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
 fm_obj = FM(genome_version = 'Mzebra_GT3_NCBI')
 samples = os.listdir(fm_obj.localBamRefDir)
-pdb.set_trace()
 #samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
 dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
