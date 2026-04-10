@@ -108,9 +108,7 @@ class AlignmentWorker():
 			if p.returncode != 0:
 				print('  Failure of command for sample: ' + sample)
 				error_samples.append(sample)
-			else:
-				subprocess.run(['rm',error_files[sample]])
-
+			
 		timer.stop()
 		return error_samples
 
