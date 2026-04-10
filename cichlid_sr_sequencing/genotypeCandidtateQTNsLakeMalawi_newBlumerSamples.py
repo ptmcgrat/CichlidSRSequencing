@@ -7,7 +7,7 @@ from helper_modules.file_manager import FileManager as FM
 from helper_modules.ChimericData import ChimericRead
 
 def genotype_normal(bam_obj, position, mtype):
-	for puc in bam_obj.pileup('NC_036789.1', position - 3, position + 3):
+	for puc in bam_obj.pileup('NC_135176.1', position - 3, position + 3):
 	    # Check if the current column is the exact target position (important when fetching larger regions)
 	    if puc.pos == position - 1:
 	        
@@ -38,12 +38,12 @@ def genotype_longdeletion(bam_obj):
 	deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
 	deletion_dict = defaultdict(int)
 	long_templates = 0
-	for aln in bam_obj.fetch('NC_036789.1',deletion[0] - 2500, deletion[0] + 2500):
+	for aln in bam_obj.fetch('NC_135176.1',deletion[0] - 2500, deletion[0] + 2500):
 		try:
 			SA = aln.get_tag('SA')
 			out = [aln.reference_name, aln.reference_start, aln.cigarstring, aln.template_length, SA]
 			#print(out)
-			if SA.split(',')[0]!='NC_036789.1':
+			if SA.split(',')[0]!='NC_135176.1':
 				continue
 
 			aln.set_tag('SA',SA.replace(SA.split(',')[0], '9'))
@@ -80,7 +80,6 @@ for sample in samples:
 	#fm_obj.downloadData(fm_obj.localSampleBamDir)
 	bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
 	bam_obj_dis = pysam.AlignmentFile(fm_obj.localDiscordantBamFile)
-	pdb.set_trace()
 	out_data = []
 	for i,row in dt.iterrows():
 		position = row['Position']
@@ -93,7 +92,7 @@ for sample in samples:
 
 		elif position in b_dt.InsertionLocation.values:
 			hits = 0
-			for aln in bam_obj_dis.fetch('NC_036789.1',position - 2000,position+2000):
+			for aln in bam_obj_dis.fetch('NC_135176.1',position - 2000,position+2000):
 				if not aln.is_proper_pair and position - aln.reference_start <= 700 and aln.reference_start - position <= 600:
 					paired_pos = 10000*int(aln.next_reference_start/10000)
 					paired_chr = aln.next_reference_name
