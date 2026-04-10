@@ -21,9 +21,9 @@ class GenotypeBC:
         #os.makedirs(self.cross_name, exist_ok=True)  
         self.broods = ['MCYH-BC1-24-01-10-1','MCYH-BC1-24-03-17-1','MCYH-BC1-24-03-11-1','MCYH-BC1-24-04-22-1','MCYH-BC1-24-03-27-1']
         self.yh_sire = 'YH_008_m'
-        self.mothers = ['MC-1R6R-f', 'MC-3R6R-f','MC-1G2G-f']
+        self.mothers = ['MC-1R6R-f', 'MC-3R6R-f','MC-1G2G-f','MC-5G11G-f']
         self.f1_dads = ['MCYHF1-002','MCYHF1-003']
-        #, 'MC-5G11G-f']
+
 
     def createSampleList(self):
         self.fm_obj.readSampleDatabase()
@@ -32,9 +32,12 @@ class GenotypeBC:
             all_samples += self.fm_obj.sample_dt[self.fm_obj.sample_dt.Species == 'YHxMC x MC BC'].SampleID.tolist()
             for sample in all_samples:
                 self.fm_obj.createSampleFiles(sample)
-                self.fm_obj.downloadData(self.fm_obj.localBamFile)
+                try:
+                    self.fm_obj.downloadData(self.fm_obj.localBamFile)
+                except:
+                    print('cant find file ' + self.fm_obj.localBamFile)
                 print(self.fm_obj.localBamFile, file = f)
-            
+
     def createMasterVCF(self):
         # This function assumes that all parents and backcross samples have been 
         # sequenced and aligned to the Mconophoros_GT3 reference
@@ -56,7 +59,8 @@ class GenotypeBC:
         print('Identifying variants from YH sire in MC moms')
         command1 = ['bcftools','mpileup','-R',father_vcf,'-f',fm_obj.localGenomeFile]
         command1 += ['-a','AD,DP']
-        for sample in [self.mothers[0]]:
+        
+        for sample in [self.yh_sire] + self.mothers:
             fm_obj.createSampleFiles(sample) # Start with the YH father
             #fm_obj.downloadData(fm_obj.localSampleBamDir)
             command1 += [fm_obj.localBamFile]
@@ -280,7 +284,7 @@ class GenotypeBC:
         return out_obs, out_chromosomes, out_positions
 
 gt_bc = GenotypeBC('YHMC_BCCross1','YH_new_parents.vcf.gz')
-gt_bc.createSampleList()
+#gt_bc.createSampleList()
 gt_bc.createMasterVCF()
 pdb.set_trace()
 #gt_bc.identifyYHSNVs('YH_008_m', 'MC-1R6R-f')
