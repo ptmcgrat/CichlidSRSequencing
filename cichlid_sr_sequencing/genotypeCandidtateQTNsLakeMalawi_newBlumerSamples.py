@@ -80,7 +80,7 @@ for sample in samples:
 	#fm_obj.downloadData(fm_obj.localSampleBamDir)
 	bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
 	bam_obj_dis = pysam.AlignmentFile(fm_obj.localDiscordantBamFile)
-
+	pdb.set_trace()
 	out_data = []
 	for i,row in dt.iterrows():
 		position = row['Position']
