@@ -1,4 +1,4 @@
-import pysam, pdb, math, subprocess
+import pysam, pdb, math, subprocess, os
 
 from collections import defaultdict
 import pandas as pd
