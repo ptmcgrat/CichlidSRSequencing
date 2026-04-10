@@ -61,6 +61,7 @@ def genotype_longdeletion(bam_obj):
 
 deletion = (24870603,(9, 24870601, 'r', 9, 24872359, 'l', '', 'del'))
 fm_obj = FM(genome_version = 'Mzebra_GT3_NCBI')
+fm_obj.readSampleDatabase()
 samples = os.listdir(fm_obj.localBamRefDir)
 #samples = fm_obj.a_dt[fm_obj.a_dt.GenomeVersion == 'Mzebra_GT3'].SampleID.to_list()
 
