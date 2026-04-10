@@ -32,10 +32,7 @@ class GenotypeBC:
             all_samples += self.fm_obj.sample_dt[self.fm_obj.sample_dt.Species == 'YHxMC x MC BC'].SampleID.tolist()
             for sample in all_samples:
                 self.fm_obj.createSampleFiles(sample)
-                try:
-                    self.fm_obj.downloadData(self.fm_obj.localBamFile)
-                except:
-                    print('cant find file ' + self.fm_obj.localBamFile)
+                self.fm_obj.downloadData(self.fm_obj.localBamfilesDir)
                 print(self.fm_obj.localBamFile, file = f)
 
     def createMasterVCF(self):
@@ -55,7 +52,7 @@ class GenotypeBC:
         father_vcf = self.master_directory + 'YH_Father.vcf.gz'
         command = ['gatk','GenotypeGVCFs','-R',fm_obj.localGenomeFile]
         command += ['-V',fm_obj.localGVCFFile,'-O', father_vcf]
-        subprocess.run(command)
+        #subprocess.run(command)
         print('Identifying variants from YH sire in MC moms')
         command1 = ['bcftools','mpileup','-R',father_vcf,'-f',fm_obj.localGenomeFile]
         command1 += ['-a','AD,DP']
@@ -284,7 +281,7 @@ class GenotypeBC:
         return out_obs, out_chromosomes, out_positions
 
 gt_bc = GenotypeBC('YHMC_BCCross1','YH_new_parents.vcf.gz')
-#gt_bc.createSampleList()
+gt_bc.createSampleList()
 gt_bc.createMasterVCF()
 pdb.set_trace()
 #gt_bc.identifyYHSNVs('YH_008_m', 'MC-1R6R-f')
