@@ -17,7 +17,7 @@ fm_obj = FM('Mzebra_GT3_NCBI')
 fm_obj.readSampleDatabase()
 fm_obj.downloadData(fm_obj.localGenomeFile)
 fasta_new = pysam.FastaFile(fm_obj.localGenomeFile)
-
+mapping = {k:v for k,v in zip(fasta_old.references[:-2],fasta_new.references[:-1])}
 pdb.set_trace()
 
 #order = ['YH_fam1_males', 'YH_fam2_males','YH_parental_males','DeepBenthicHets','YH_fam1_females','YH_fam2_females','YH_parental_females','DeepBenthicInverted','MC_males', 'MC_females','LabCVs_male','LabCVs_female','DeepBenthicNormal','ShallowBenthics','Utaka','Mbuna','ACs','Diplotaxodon','Rhamphochromis']
