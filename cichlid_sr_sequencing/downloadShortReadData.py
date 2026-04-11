@@ -116,7 +116,7 @@ for index, row in new_dt.iterrows():
 
 	processes.append(subprocess.Popen(['ls']))
 	#processes.append(subprocess.Popen(command))
-	row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
+	row.loc['FileLocations'] = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 	#if 'FileLocations' in row:
 	#	rows.append(row.drop(labels = ['FileLocations']))
 	#else:
@@ -149,7 +149,6 @@ if len(processes) != 0:
 	for i, p in enumerate(processes):
 		if p.returncode == 0:	
 			rows[i].loc['FileSize'] = os.path.getsize(fm_obj.localReadsDir + rows[i].FileLocations)
-				
 			fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
 			try:
 				fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
