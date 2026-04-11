@@ -114,8 +114,8 @@ for index, row in new_dt.iterrows():
 	if args.Local:
 		command += ['--Local']
 
-	processes.append(subprocess.Popen(['ls']))
-	#processes.append(subprocess.Popen(command))
+	#processes.append(subprocess.Popen(['ls']))
+	processes.append(subprocess.Popen(command))
 	row.loc['FileLocations'] = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 	#if 'FileLocations' in row:
 	#	rows.append(row.drop(labels = ['FileLocations']))
