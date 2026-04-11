@@ -31,8 +31,9 @@ class GenotypeBC:
             all_samples = [self.yh_sire] + self.mothers + self.f1_dads
             all_samples += self.fm_obj.sample_dt[self.fm_obj.sample_dt.Species == 'YHxMC x MC BC'].SampleID.tolist()
             for sample in all_samples:
+                print('Downloading sample: ' + sample)
                 self.fm_obj.createSampleFiles(sample)
-                self.fm_obj.downloadData(self.fm_obj.localBamfilesDir)
+                self.fm_obj.downloadData(self.fm_obj.localSampleBamDir)
                 print(self.fm_obj.localBamFile, file = f)
 
     def createMasterVCF(self):
