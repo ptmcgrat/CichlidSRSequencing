@@ -39,11 +39,11 @@ timer.start('  Parallel Downloading uBams files')
 timer.stop()
 
 timer.start('  Aligning Reads to created sorted Bamfiles')
-aw_obj.alignData()
+#aw_obj.alignData()
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
-#aw_obj.markDuplicates()
+aw_obj.markDuplicates()
 timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')
