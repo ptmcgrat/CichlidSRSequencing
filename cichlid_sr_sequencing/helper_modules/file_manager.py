@@ -33,7 +33,7 @@ class FileManager():
 			if genome_version is None:
 				raise Exception('Cant set sampleID without setting genome version')
 			self.createSampleFiles(sampleID)
-		
+
 	def setGenome(self, genome_version):
 		self.genome_version = genome_version
 		try:
@@ -93,7 +93,7 @@ class FileManager():
 		self.merged_dt = pd.merge(self.sample_dt,self.reads_dt, on = 'SampleID')
 
 	def addDNAReadRow(self, row_dict):
-		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations'])
+		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations','FileSize'])
 		assert row_dict['RunID'] not in self.reads_dt.RunID.to_list()
 		self.reads_dt = pd.concat([self.reads_dt,pd.DataFrame([row_dict])], ignore_index = True)
 

@@ -62,8 +62,9 @@ class GenotypeBC:
             fm_obj.createSampleFiles(sample) # Start with the YH father
             #fm_obj.downloadData(fm_obj.localSampleBamDir)
             command1 += [fm_obj.localBamFile]
-        command2 = ['bcftools', 'call', '-m', '-A', '--ploidy','2']
-        command2 += ['-o','YH_father_MC_mothers.vcf','-O','z']
+        command2 = ['bcftools', 'call','-c','-o','YH_father_MC_mothers.vcf.gz','-O','z','-']
+        print(command1)
+        print(command2)
         p1 = subprocess.Popen(command1, stdout = subprocess.PIPE)
         p2 = subprocess.Popen(command2, stdin = p1.stdin)
         p2.communicate()
@@ -282,7 +283,7 @@ class GenotypeBC:
         return out_obs, out_chromosomes, out_positions
 
 gt_bc = GenotypeBC('YHMC_BCCross1','YH_new_parents.vcf.gz')
-gt_bc.createSampleList()
+#gt_bc.createSampleList()
 gt_bc.createMasterVCF()
 pdb.set_trace()
 #gt_bc.identifyYHSNVs('YH_008_m', 'MC-1R6R-f')
