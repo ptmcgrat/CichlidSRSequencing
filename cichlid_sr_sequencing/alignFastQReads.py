@@ -24,7 +24,7 @@ fm_obj.setGenome(args.Genome)
 timer = Timer()
 
 # This command identifies all the samples that will need to be run based upon user input and stores in self.samples and self.s_dt
-fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, rerun = args.Rerun)
+fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, ecogroups = args.Ecogroups, rerun = args.Rerun)
 
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
