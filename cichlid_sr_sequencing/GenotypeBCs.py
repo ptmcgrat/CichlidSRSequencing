@@ -62,12 +62,14 @@ class GenotypeBC:
             fm_obj.createSampleFiles(sample) # Start with the YH father
             #fm_obj.downloadData(fm_obj.localSampleBamDir)
             command1 += [fm_obj.localBamFile]
-        command2 = ['bcftools', 'call','-c','-o','YH_father_MC_mothers.vcf.gz','-O','z','-']
+        command2 = ['bcftools', 'call','-c','-o', self.master_directory + 'YH_father_MC_mothers.vcf.gz','-O','z','-']
         print(command1)
         print(command2)
-        p1 = subprocess.Popen(command1, stdout = subprocess.PIPE)
-        p2 = subprocess.Popen(command2, stdin = p1.stdin)
-        p2.communicate()
+        #p1 = subprocess.Popen(command1, stdout = subprocess.PIPE)
+        #p2 = subprocess.Popen(command2, stdin = p1.stdin)
+        #p2.communicate()
+        print('Pileing up variants from BCs')
+
         subprocess.run(['bcftools', 'mpileup', '-f', self.fm_obj.localGenomeFile, '-R', father_vcf, '-b', self.master_directory + 'BC_Pileup_Samples.txt', '-a', 'AD', '-Q', '0', '-o', self.master_directory + 'BC_Pileup.vcf.gz', '-Oz', '--threads', str(cpu_count())])
         #bcftools mpileup -f <M_conophoros_refernece_fasta> -R <bed_file> -b <samples_file> -a AD -Q 0 -o <out_path> -Oz --threads <number_cores>
 

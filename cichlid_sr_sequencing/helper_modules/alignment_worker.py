@@ -93,21 +93,21 @@ class AlignmentWorker():
 			current_samples.append(sample)
 			if len(current_samples) == num_parallel:
 
-				for sample, p in processes.items():
+				for sample2, p in processes.items():
 					p.communicate()
 					if p.returncode != 0:
 						print('  Failure of command for sample: ' + sample)
-						error_samples.append(sample)
+						error_samples.append(sample2)
 					else:
-						subprocess.run(['rm',error_files[sample]])
+						subprocess.run(['rm',error_files[sample2]])
 
 				current_samples = []
 
-		for sample, p in processes.items():
+		for sample2, p in processes.items():
 			p.communicate()
 			if p.returncode != 0:
 				print('  Failure of command for sample: ' + sample)
-				error_samples.append(sample)
+				error_samples.append(sample2)
 			
 		timer.stop()
 		return error_samples
@@ -282,6 +282,7 @@ class AlignmentWorker():
 	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
 		if sample_override:
 			self.samples = [sample_override]
+		processes = []
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
@@ -291,9 +292,17 @@ class AlignmentWorker():
 				continue
 
 			if upload:
-				fm_obj.uploadData(fm_obj.localSampleBamDir)
+				processes.append(fm_obj.uploadData(fm_obj.localSampleBamDir, parallel = True))
+		
+		for p in processes:
+			p.communicate
 
+		for sample in self.samples:
 			# Calcultate stats
+			if not os.path.exists(fm_obj.localGVCFFile):
+				#print(sample + ' did not complete. You need to rerun.')
+				continue
+
 			stats = {}
 			
 			for filename in [fm_obj.localBamFile, fm_obj.localUnmappedBamFile, fm_obj.localDiscordantBamFile, fm_obj.localInversionBamFile, fm_obj.localDuplicationBamFile, fm_obj.localClippedBamFile, fm_obj.localChimericBamFile]:
