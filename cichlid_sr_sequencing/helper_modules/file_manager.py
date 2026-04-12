@@ -162,7 +162,7 @@ class FileManager():
 		if species is not None:
 			temp_dt = temp_dt[temp_dt.Species.isin(species)]
 		if ecogroups is not None:
-			temp_dt = temp_dt[temp_dt.Species.isin(species)]
+			temp_dt = temp_dt[temp_dt.Ecogroup.isin(ecogroups)]
 		
 		# Filter alignment database for requested genome version
 		a_dt = self.alignment_dt[(self.alignment_dt.GenomeVersion == self.genome_version)]
