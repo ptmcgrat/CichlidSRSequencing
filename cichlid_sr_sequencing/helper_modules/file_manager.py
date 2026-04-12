@@ -141,7 +141,7 @@ class FileManager():
 		return False
 
 
-	def setSamples(self, projectIDs, sampleIDs, species, rerun):
+	def setSamples(self, projectIDs, sampleIDs, species, ecogroups, rerun):
 		assert self.genome_version
 
 		try:
@@ -154,20 +154,16 @@ class FileManager():
 		except AttributeError:
 			self.readAlignmentDatabase()
 
+		temp_dt = self.merged_dt
 		if projectIDs is not None:
-			temp_dt = self.merged_dt[self.merged_dt.ProjectID.isin(projectIDs)]
-
+			temp_dt = temp_dt[temp_dt.ProjectID.isin(projectIDs)]
 		if sampleIDs is not None:
-			temp_dt = self.merged_dt[self.merged_dt.SampleID.isin(sampleIDs)]
-
+			temp_dt = temp_dt[temp_dt.SampleID.isin(sampleIDs)]
 		if species is not None:
-			temp_dt = self.merged_dt[self.merged_dt.Species.isin(species)]
-
-		try:
-			temp_dt
-		except:
-			temp_dt = self.merged_dt
-
+			temp_dt = temp_dt[temp_dt.Species.isin(species)]
+		if ecogroups is not None:
+			temp_dt = temp_dt[temp_dt.Species.isin(species)]
+		
 		# Filter alignment database for requested genome version
 		a_dt = self.alignment_dt[(self.alignment_dt.GenomeVersion == self.genome_version)]
 
@@ -215,6 +211,13 @@ class FileManager():
 			except AttributeError:
 				self.readSampleDatabase()
 				return self.merged_dt.ProjectID.unique().tolist()
+		if datatype == 'Ecogroupss':
+			try:
+				return self.merged_dt.Ecogroup.unique().tolist()
+			except AttributeError:
+				self.readSampleDatabase()
+				return self.merged_dt.Ecogroup.unique().tolist()
+
 
 	def _authenticateGS(self):
 		self.downloadData(self.localCredentialFile)
@@ -290,7 +293,7 @@ class FileManager():
 				output = subprocess.run(['tar', '-xvf', local_data + d, '-C', local_data, '--strip-components', '1'], capture_output = True, encoding = 'utf-8')
 				os.remove(local_data + d)
 
-	def uploadData(self, local_data, tarred = False, upload_async = False):
+	def uploadData(self, local_data, tarred = False, parallel = False):
 
 		relative_name = local_data.rstrip('/').split('/')[-1]
 		local_path = local_data.split(relative_name)[0]
@@ -305,23 +308,25 @@ class FileManager():
 			relative_name += '.tar'
 
 		if os.path.isdir(local_path + relative_name):
-			if upload_async:
-				subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name])
+			if parallel:
+				process = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name])
+				return process
 			else:
 				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
 			#subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path + relative_name], check = True)
 
 		elif os.path.isfile(local_path + relative_name):
 			#print(['rclone', 'copy', local_path + relative_name, cloud_path])
-			if upload_async:
-				subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path])
+			if process:
+				process = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path])
+				return process
 			else:
 				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path], capture_output = True, encoding = 'utf-8')
 				output = subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path], check = True, capture_output = True, encoding = 'utf-8')
 		else:
 			raise Exception(local_data + ' does not exist for upload')
 
-		if not upload_async:
+		if not parallel:
 			if output.returncode != 0:
 				if '.DS_Store' not in output.stderr:
 					raise Exception('Error in uploading file: ' + output.stderr)

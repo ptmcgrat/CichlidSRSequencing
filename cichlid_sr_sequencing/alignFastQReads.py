@@ -13,6 +13,7 @@ parser.add_argument('-n', '--NumberParallel', type = int, default = 48, help = '
 parser.add_argument('-s', '--SampleIDs', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Samples'), help = 'Restrict analysis to the listed sampleIDs')
 parser.add_argument('-c', '--Species', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Species'), help = 'Restrict analysis to the following species: ' + ','.join(fm_obj.returnOptions('Species')))
 parser.add_argument('-p', '--ProjectIDs', nargs = '+', metavar = '', choices = fm_obj.returnOptions('ProjectIDs'), help = 'Restrict analysis to a specific ProjectIDs: ' + ','.join(fm_obj.returnOptions('ProjectIDs')))
+parser.add_argument('-e', '--Ecogroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Ecogroups'), help = 'Restrict analysis to a specific ProjectIDs: ' + ','.join(fm_obj.returnOptions('ProjectIDs')))
 parser.add_argument('-r', '--Rerun', action = 'store_true', help = 'Default behavior is to not rerun alignment if already completed. Use this to force realignment')
 args = parser.parse_args()
 
