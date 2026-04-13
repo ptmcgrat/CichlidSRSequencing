@@ -90,12 +90,12 @@ class AlignmentWorker():
 		for i in range(min(len(command_dict),num_parallel)):
 			data = current_processes[i]
 			data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
-			print('Starting ' + data.sampleID)
+			#print('Starting ' + data.sampleID)
 		while current_processes:
 			finished_processes = [x for x in current_processes if x.process is not None and x.process.poll() is not None]	
 			if finished_processes != []:
 				for data in finished_processes:
-					print(data.sampleID + ' is complete')
+					#print(data.sampleID + ' is complete')
 					data.error_fp.close()
 					if data.process.returncode != 0:
 						error_samples.append(data.sampleID)
@@ -105,7 +105,7 @@ class AlignmentWorker():
 					try:
 						newdata = [x for x in current_processes if x.process is None][0]
 						newdata.process = subprocess.Popen(newdata.command, stderr = newdata.error_fp, stdout = subprocess.DEVNULL)
-						print('Starting ' + newdata.sampleID)
+						#print('Starting ' + newdata.sampleID)
 
 					except IndexError:
 						continue
@@ -256,7 +256,7 @@ class AlignmentWorker():
 					bad_samples.append(sample)
 					
 				for bam_file in bam_files:
-					pass
+					continue
 					subprocess.run(['rm', bam_file])
 		return bad_samples
 
