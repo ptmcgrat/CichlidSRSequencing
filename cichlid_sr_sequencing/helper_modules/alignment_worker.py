@@ -82,7 +82,7 @@ class AlignmentWorker():
 		current_processes = []
 		error_samples = []
 		for sample,command in command_dict.items():
-			fm_obj.createSampleFiles(sample)
+			fm_obj.createSampleFiles(sample.split('__')[0])
 			error_file = fm_obj.localErrorsDir + base_text + '_' + sample + '_errors.txt'
 			data = SimpleNamespace(sampleID=sample, error_file = error_file, error_fp = open(error_file, 'w'), 
 					command = command, process = None)
@@ -239,7 +239,7 @@ class AlignmentWorker():
 			for contig in contigs:
 				commands[sample + '__' + contig] = ['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]
 
-		tb_samples = self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), self.max_processes)
+		tb_samples = self.monitorProcesses(commands, 'SplitBamFiles_' + str(len(self.samples)), self.max_processes)
 		bad_samples.extend(list(set([x.split('__')[0] for x in tb_samples])))
 
 		for sample in self.samples:
