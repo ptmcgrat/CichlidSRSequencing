@@ -15,7 +15,7 @@ class AlignmentWorker():
 		self.genome = genome
 
 		self.uBam_files = {}
-		self.max_processes = int(psutil.virtual_memory().available/4000000000)
+		self.max_processes = min(int(psutil.virtual_memory().available/4000000000),cpu_count())
 		sizes = {}
 
 		for sampleID in fm_obj.samples:
@@ -89,7 +89,7 @@ class AlignmentWorker():
 			current_processes.append(data)
 		for i in range(min(len(command_dict),num_parallel)):
 			data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
-
+			print('Starting ' + data.sampleID)
 		while current_processes:
 			finished_processes = [x for x in current_processes if x.process is not None and x.process.poll() is not None]	
 			if finished_processes != []:
@@ -102,8 +102,10 @@ class AlignmentWorker():
 						subprocess.run(['rm',data.error_file])
 					current_processes.remove(data)  # Remove finished process from monitoring list
 					try:
-						new_process = [x for x in current_processes if x.process is None][0]
-						new_process.process = subprocess.Popen(data.command, stderr = error_fp, stdout = subprocess.DEVNULL)
+						newdata = [x for x in current_processes if x.process is None][0]
+						newdata.process = subprocess.Popen(newdata.command, stderr = newdata.error_fp, stdout = subprocess.DEVNULL)
+						print('Starting ' + newdata.sampleID)
+
 					except IndexError:
 						continue
 
