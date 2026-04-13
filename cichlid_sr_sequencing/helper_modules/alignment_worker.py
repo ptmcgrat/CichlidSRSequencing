@@ -94,7 +94,7 @@ class AlignmentWorker():
 			finished_processes = [x for x in current_processes if x.process is not None and x.process.poll() is not None]	
 			if finished_processes != []:
 				for data in finished_processes:
-					print(data.SampleID ' is complete')
+					print(data.SampleID + ' is complete')
 					data.error_fp.close()
 					if data.process.returncode != 0:
 						error_samples.append(data.sampleID)
@@ -215,8 +215,10 @@ class AlignmentWorker():
 		for sample in self.samples:
 			if sample not in bad_samples:
 				subprocess.run(['rm','-f',del_files[sample]])
+		return bad_samples
 
 	def splitBamfiles(self):
+		bad_samples = []
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
@@ -226,6 +228,7 @@ class AlignmentWorker():
 				bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
 			except OSError:
 				print( '.........ERROR WITH THIS bam file. Probably truncated ' + sample)
+				bad_samples.append(sample)
 				continue
 			contigs = bam_obj.references  
 			
@@ -248,10 +251,11 @@ class AlignmentWorker():
 				command += ['-O', fm_obj.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
 				output = subprocess.run(command, capture_output = True)
 				if output.returncode != 0:
-					pdb.set_trace()
+					bad_samples.append(sample)
+					
 				for bam_file in bam_files:
 					subprocess.run(['rm', bam_file])
-
+		return bad_samples
 
 	def createGVCF(self):
 		fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
@@ -287,7 +291,7 @@ class AlignmentWorker():
 			else:
 				commands[sample] = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
 		if not split:
-			self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', self.max_processes)
+			error_samples = self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', self.max_processes)
 
 	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
 		if sample_override:
