@@ -222,6 +222,7 @@ class AlignmentWorker():
 
 	def splitBamfiles(self):
 		bad_samples = []
+		commands = {}
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
@@ -235,17 +236,15 @@ class AlignmentWorker():
 				continue
 			contigs = bam_obj.references  
 			
-			processes = []
 			for contig in contigs:
-				processes.append(subprocess.Popen(['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]))
+				commands = [sample + '__' + contig] = ['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]
 
-				if len(processes) == cpu_count():
-					for p1 in processes:
-						p1.communicate()
-					processes = []
-			for p1 in processes:
-				p1.communicate()
+		tb_samples = self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), self.max_processes)
+		bad_samples.extend(list(set([x.split('__')[0] for x in tb_samples])))
 
+		for sample in self.samples:
+			if sample in bad_samples:
+				continue
 			for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
 				bam_files = [fm_obj.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
 				command = ['gatk', 'MergeSamFiles']
