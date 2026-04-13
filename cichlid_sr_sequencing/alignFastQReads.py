@@ -5,7 +5,6 @@ from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
 
 fm_obj = FM()
-pdb.set_trace()
 # Need to make SampleIDs and ProjectIDs mutually exclusive
 parser = argparse.ArgumentParser(usage = 'This script will download fastq data the McGrath lab dropbox and align it to the Genome version of choice. It will also create gvcf files')
 parser.add_argument('Genome', type = str, choices = fm_obj.returnOptions('Genomes'), help = 'Version of the genome to align to')
