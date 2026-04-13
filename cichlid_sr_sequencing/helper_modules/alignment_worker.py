@@ -237,7 +237,7 @@ class AlignmentWorker():
 			contigs = bam_obj.references  
 			
 			for contig in contigs:
-				commands = [sample + '__' + contig] = ['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]
+				commands[sample + '__' + contig] = ['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]
 
 		tb_samples = self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), self.max_processes)
 		bad_samples.extend(list(set([x.split('__')[0] for x in tb_samples])))
