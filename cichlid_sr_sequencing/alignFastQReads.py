@@ -25,7 +25,7 @@ fm_obj.setGenome(args.Genome)
 timer = Timer()
 
 # This command identifies all the samples that will need to be run based upon user input and stores in self.samples and self.s_dt
-fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, ecogroups = args.Ecogroups, rerun = args.Rerun)
+fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, species = args.Species, ecogroups = args.Ecogroups, subgroups = args.Subgroups, rerun = args.Rerun)
 
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
@@ -58,11 +58,17 @@ if bad_samples != []:
 timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')
-#aw_obj.splitBamfiles()
+bad_samples = aw_obj.splitBamfiles()
+if bad_samples != []:
+	print('Error splitting bamfiles for the following samples: ' + ','.join(bad_samples))
+	fm_obj.removeSamples(bad_samples)
 timer.stop()
 
 timer.start('  Calling haplotypes to create gvcf files')
-aw_obj.createGVCF()
+bad_samples = aw_obj.createGVCF()
+if bad_samples != []:
+	print('Error creating GVCF for the following samples: ' + ','.join(bad_samples))
+	fm_obj.removeSamples(bad_samples)
 timer.stop()
 
 timer.start('  Uploading and updating database')
