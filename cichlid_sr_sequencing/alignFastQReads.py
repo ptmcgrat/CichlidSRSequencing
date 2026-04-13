@@ -29,25 +29,25 @@ fm_obj.setSamples(projectIDs = args.ProjectIDs, sampleIDs = args.SampleIDs, spec
 # Download genome data necessary for analysis
 timer.start('Downloading genome')		
 #fm_obj.uploadData(fm_obj.localGenomeDir)
-fm_obj.downloadData(fm_obj.localGenomeDir)
+#fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj, check_size = False)
 
 timer.start('  Parallel Downloading uBams files')
-bad_samples = aw_obj.downloadReadData()
-if bad_samples != []:
-	print('Error downloading the following samples: ' + ','.join(bad_samples))
-	fm_obj.removeSamples(bad_samples)
+#bad_samples = aw_obj.downloadReadData()
+#if bad_samples != []:
+#	print('Error downloading the following samples: ' + ','.join(bad_samples))
+#	fm_obj.removeSamples(bad_samples)
 timer.stop()
 
-timer.start('  Aligning Reads to created sorted Bamfiles')
-bad_samples = aw_obj.alignData()
-if bad_samples != []:
-	print('Error aligning the following samples: ' + ','.join(bad_samples))
-	fm_obj.removeSamples(bad_samples)
-timer.stop()
+#timer.start('  Aligning Reads to created sorted Bamfiles')
+#bad_samples = aw_obj.alignData()
+#if bad_samples != []:
+#	print('Error aligning the following samples: ' + ','.join(bad_samples))
+#	fm_obj.removeSamples(bad_samples)
+#timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
 bad_samples = aw_obj.markDuplicates()
@@ -55,7 +55,7 @@ if bad_samples != []:
 	print('Error marking duplicates for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
 timer.stop()
-
+pdb.set_trace()
 timer.start('  Splitting reads based upon their alignment')
 bad_samples = aw_obj.splitBamfiles()
 if bad_samples != []:

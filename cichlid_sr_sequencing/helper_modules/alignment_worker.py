@@ -88,7 +88,7 @@ class AlignmentWorker():
 					command = command, process = None)
 			current_processes.append(data)
 		for i in range(min(len(command_dict),num_parallel)):
-			data.process = subprocess.Popen(data.command, stderr = error_fp, stdout = subprocess.DEVNULL)
+			data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
 
 		while current_processes:
 			finished_processes = [x for x in current_processes if x.process is not None and x.process.poll() is not None]	
