@@ -218,16 +218,16 @@ class FileManager():
 				return self.merged_dt.ProjectID.unique().tolist()
 		if datatype == 'Ecogroups':
 			try:
-				return self.merged_dt.Ecogroup.unique().tolist()
+				return self.merged_dt.Ecogroup.dropna().unique().tolist()
 			except AttributeError:
 				self.readSampleDatabase()
-				return self.merged_dt.Ecogroup.unique().tolist()
+				return self.merged_dt.Ecogroup.dropna().unique().tolist()
 		if datatype == 'Subgroups':
 			try:
-				return self.merged_dt.Subgroup.unique().tolist()
+				return self.merged_dt.Subgroup.dropna().unique().tolist()
 			except AttributeError:
 				self.readSampleDatabase()
-				return self.merged_dt.Subgroup.unique().tolist()
+				return self.merged_dt.Subgroup.dropna().unique().tolist()
 
 	def _authenticateGS(self):
 		self.downloadData(self.localCredentialFile)
