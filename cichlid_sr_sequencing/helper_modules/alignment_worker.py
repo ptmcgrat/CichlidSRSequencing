@@ -94,7 +94,7 @@ class AlignmentWorker():
 			finished_processes = [x for x in current_processes if x.process is not None and x.process.poll() is not None]	
 			if finished_processes != []:
 				for data in finished_processes:
-					print(data.SampleID + ' is complete')
+					print(data.sampleID + ' is complete')
 					data.error_fp.close()
 					if data.process.returncode != 0:
 						error_samples.append(data.sampleID)
