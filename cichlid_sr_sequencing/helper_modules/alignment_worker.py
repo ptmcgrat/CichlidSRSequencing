@@ -256,6 +256,7 @@ class AlignmentWorker():
 					bad_samples.append(sample)
 					
 				for bam_file in bam_files:
+					pass
 					subprocess.run(['rm', bam_file])
 		return bad_samples
 
