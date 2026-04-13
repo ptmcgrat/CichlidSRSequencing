@@ -240,7 +240,7 @@ class AlignmentWorker():
 				commands[sample + '__' + contig] = ['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]
 
 		tb_samples = self.monitorProcesses(commands, 'SplitBamFiles_' + str(len(self.samples)), self.max_processes)
-		bad_samples.extend(list(set([x.split('__')[0] for x in tb_samples])))
+		bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
 
 		for sample in self.samples:
 			if sample in bad_samples:
@@ -264,37 +264,28 @@ class AlignmentWorker():
 		fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
 		chromosomes = fasta_obj.references
 		commands = {}
-		if len(self.samples) < 20:
-			split = True
-		else:
-			split = False
-		
-		for sample in self.samples:
-			fm_obj = self.fm_obj
-			fm_obj.createSampleFiles(sample)
-			if split:
-				processes = []
-				vcfs = []
-				for chrom in chromosomes:
-					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
-					command = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
-					processes.append(subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL))
-					vcfs.append(contig_vcf)
-				for p1 in processes:
-					p1.communicate()
-				command = ['gatk','GatherVcfs']
-				for chrom in chromosomes:
-					contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
-					command += ['-I', contig_vcf]
-				command += ['-O', fm_obj.localGVCFFile]
-				output = subprocess.run(command, capture_output = True)
-				for vcf_file in vcfs:
-					subprocess.run(['rm', vcf_file])
+		fm_obj = self.fm_obj
 
-			else:
-				commands[sample] = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-ERC', 'GVCF', '-O', fm_obj.localGVCFFile]
-		if not split:
-			error_samples = self.monitorProcesses(commands, 'HaplotypeCaller_' + str(len(self.samples)) + 'Samples', self.max_processes)
+		for sample in self.samples:
+			fm_obj.createSampleFiles(sample)
+			for chrom in chromosomes:
+				contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
+				commands[sample + '__' + chrom] = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
+				
+		tb_samples = self.monitorProcesses(commands, 'SplitBamFiles_' + str(len(self.samples)), self.max_processes)
+		bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
+
+		for sample in self.samples:
+			fm_obj.createSampleFiles(sample)
+			command = ['gatk','GatherVcfs']
+
+			for chrom in chromosomes:
+				contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
+				command += ['-I', contig_vcf]
+			command += ['-O', fm_obj.localGVCFFile]
+			output = subprocess.run(command, capture_output = True)
+			
+		return bad_samples
 
 	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
 		if sample_override:
