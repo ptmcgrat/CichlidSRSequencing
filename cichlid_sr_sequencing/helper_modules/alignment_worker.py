@@ -87,8 +87,8 @@ class AlignmentWorker():
 			data = SimpleNamespace(sampleID=sample, error_file = error_file, error_fp = open(error_file, 'w'), 
 					command = command, process = None)
 			current_processes.append(data)
-		pdb.set_trace()
 		for i in range(min(len(command_dict),num_parallel)):
+			data = current_processes[i]
 			data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
 			print('Starting ' + data.sampleID)
 		while current_processes:
