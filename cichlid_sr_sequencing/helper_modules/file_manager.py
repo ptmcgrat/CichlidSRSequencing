@@ -141,7 +141,7 @@ class FileManager():
 		return False
 
 
-	def setSamples(self, projectIDs, sampleIDs, species, ecogroups, rerun):
+	def setSamples(self, projectIDs, sampleIDs, species, ecogroups, subgroups, rerun):
 		assert self.genome_version
 
 		try:
@@ -163,7 +163,9 @@ class FileManager():
 			temp_dt = temp_dt[temp_dt.Species.isin(species)]
 		if ecogroups is not None:
 			temp_dt = temp_dt[temp_dt.Ecogroup.isin(ecogroups)]
-		
+		if subgroups is not None:
+			temp_dt = temp_dt[temp_dt.Subgroup.isin(subgroups)]
+
 		# Filter alignment database for requested genome version
 		a_dt = self.alignment_dt[(self.alignment_dt.GenomeVersion == self.genome_version)]
 
@@ -185,6 +187,9 @@ class FileManager():
 
 		print('The following samples will be run:')
 		print(','.join(sorted(self.samples)))
+
+	def removeSamples(self, bad_samples):
+		self.samples = [x for x in self.samples if x not in bad_samples]
 
 	def returnOptions(self, datatype):
 		if datatype == 'Genomes':
@@ -211,13 +216,18 @@ class FileManager():
 			except AttributeError:
 				self.readSampleDatabase()
 				return self.merged_dt.ProjectID.unique().tolist()
-		if datatype == 'Ecogroupss':
+		if datatype == 'Ecogroups':
 			try:
 				return self.merged_dt.Ecogroup.unique().tolist()
 			except AttributeError:
 				self.readSampleDatabase()
 				return self.merged_dt.Ecogroup.unique().tolist()
-
+		if datatype == 'Subgroups':
+			try:
+				return self.merged_dt.Subgroup.unique().tolist()
+			except AttributeError:
+				self.readSampleDatabase()
+				return self.merged_dt.Subgroup.unique().tolist()
 
 	def _authenticateGS(self):
 		self.downloadData(self.localCredentialFile)

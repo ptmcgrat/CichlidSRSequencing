@@ -13,7 +13,8 @@ parser.add_argument('-n', '--NumberParallel', type = int, default = 48, help = '
 parser.add_argument('-s', '--SampleIDs', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Samples'), help = 'Restrict analysis to the listed sampleIDs')
 parser.add_argument('-c', '--Species', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Species'), help = 'Restrict analysis to the following species: ' + ','.join(fm_obj.returnOptions('Species')))
 parser.add_argument('-p', '--ProjectIDs', nargs = '+', metavar = '', choices = fm_obj.returnOptions('ProjectIDs'), help = 'Restrict analysis to a specific ProjectIDs: ' + ','.join(fm_obj.returnOptions('ProjectIDs')))
-parser.add_argument('-e', '--Ecogroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Ecogroups'), help = 'Restrict analysis to a specific ProjectIDs: ' + ','.join(fm_obj.returnOptions('ProjectIDs')))
+parser.add_argument('-e', '--Ecogroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Ecogroups'), help = 'Restrict analysis to a specific Ecogroup: ' + ','.join(fm_obj.returnOptions('Ecogroups')))
+parser.add_argument('-u', '--Subgroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Subgroups'), help = 'Restrict analysis to a specific Subgroup: ' + ','.join(fm_obj.returnOptions('Subgroups')))
 parser.add_argument('-r', '--Rerun', action = 'store_true', help = 'Default behavior is to not rerun alignment if already completed. Use this to force realignment')
 args = parser.parse_args()
 
@@ -36,15 +37,24 @@ timer.stop()
 aw_obj = AW(args.Genome, fm_obj, check_size = False)
 
 timer.start('  Parallel Downloading uBams files')
-#aw_obj.downloadReadData()
+bad_samples = aw_obj.downloadReadData()
+if bad_samples != []:
+	print('Error downloading the following samples: ' + ','.join(bad_samples))
+	fm_obj.removeSamples(bad_samples)
 timer.stop()
 
 timer.start('  Aligning Reads to created sorted Bamfiles')
-#aw_obj.alignData()
+bad_samples = aw_obj.alignData()
+if bad_samples != []:
+	print('Error aligning the following samples: ' + ','.join(bad_samples))
+	fm_obj.removeSamples(bad_samples)
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
-#aw_obj.markDuplicates()
+bad_samples = aw_obj.markDuplicates()
+if bad_samples != []:
+	print('Error marking duplicates for the following samples: ' + ','.join(bad_samples))
+	fm_obj.removeSamples(bad_samples)
 timer.stop()
 
 timer.start('  Splitting reads based upon their alignment')

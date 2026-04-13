@@ -4,6 +4,7 @@ import pandas as pd
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.Timer import Timer
 from multiprocessing import cpu_count
+from types import SimpleNamespace
 
 class AlignmentWorker():
 	def __init__(self, genome, fm_obj, check_size = True):
@@ -14,7 +15,6 @@ class AlignmentWorker():
 		self.genome = genome
 
 		self.uBam_files = {}
-
 		self.max_processes = int(psutil.virtual_memory().available/4000000000)
 		sizes = {}
 
@@ -77,52 +77,53 @@ class AlignmentWorker():
 		timer.stop()
 
 	def monitorProcesses(self, command_dict, base_text, num_parallel):
-		timer = Timer()
-		timer.start('    ' + base_text)
+		fm_obj = self.fm_obj
 
-		error_files = {}
-		processes = {}
-		current_samples = []
+		current_processes = []
 		error_samples = []
 		for sample,command in command_dict.items():
-			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
-			error_files[sample] = fm_obj.localErrorsDir + base_text + '_' + sample + '_errors.txt'
-			error_fp = open(error_files[sample], 'w')
-			processes[sample] = subprocess.Popen(command, stderr = error_fp, stdout = subprocess.DEVNULL)
-			current_samples.append(sample)
-			if len(current_samples) == num_parallel:
+			error_file = fm_obj.localErrorsDir + base_text + '_' + sample + '_errors.txt'
+			data = SimpleNamespace(sampleID=sample, error_file = error_file, error_fp = open(error_file, 'w'), 
+					command = command, process = None)
+			current_processes.append(data)
+		for i in range(min(len(command_dict),num_parallel)):
+			data.process = subprocess.Popen(data.command, stderr = error_fp, stdout = subprocess.DEVNULL)
 
-				for sample2, p in processes.items():
-					p.communicate()
-					if p.returncode != 0:
-						print('  Failure of command for sample: ' + sample)
-						error_samples.append(sample2)
+		while current_processes:
+			finished_processes = [x for x in current_processes if x.process is not None and x.process.poll() is not None]	
+			if finished_processes != []:
+				for data in finished_processes:
+					print(data.SampleID ' is complete')
+					data.error_fp.close()
+					if data.process.returncode != 0:
+						error_samples.append(data.sampleID)
 					else:
-						subprocess.run(['rm',error_files[sample2]])
+						subprocess.run(['rm',data.error_file])
+    				current_processes.remove(data)  # Remove finished process from monitoring list
+    				try:
+    					new_process = [x for x in current_processes if x.process is None][0]
+    					new_process.process = subprocess.Popen(data.command, stderr = error_fp, stdout = subprocess.DEVNULL)
+    				except IndexError:
+    					continue
 
-				current_samples = []
-
-		for sample2, p in processes.items():
-			p.communicate()
-			if p.returncode != 0:
-				print('  Failure of command for sample: ' + sample)
-				error_samples.append(sample2)
-			
-		timer.stop()
 		return error_samples
 
 	def downloadReadData(self):
-		processes = []
+		processes = {}
+		bad_samples = []
 		# Loop through all of the runs for a sample
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
 			for uBam_file in self.uBam_files[sample]:
-				processes.append(fm_obj.downloadData(uBam_file, parallel = True))
+				processes[sample] = fm_obj.downloadData(uBam_file, parallel = True)
 				
-		for p in processes:
+		for sample, p in processes.items():
 			p.communicate()
+			if p.returncode != 0:
+				bad_samples.append(sample)
+		return bad_samples
 
 	def delete_read_data(self):
 		subprocess.run(['rm', '-f'] + self.downloaded_files)
@@ -130,6 +131,8 @@ class AlignmentWorker():
 	def alignData(self):
 		# Loop through all of the runs for a sample
 		timer = Timer()
+		print('  Starting alignment of individual samples')
+		bad_samples = []
 		for sample in self.samples:
 			fm_obj = self.fm_obj
 			fm_obj.createSampleFiles(sample)
@@ -140,7 +143,6 @@ class AlignmentWorker():
 			if os.path.isfile(sorted_bam):
 				print(sample + ' already run')
 				continue
-
 			timer.start('  Aligning reads to create sorted Bam files for: ' + sample)
 
 			for i,uBam_file in enumerate(self.uBam_files[sample]):
@@ -174,21 +176,29 @@ class AlignmentWorker():
 				output = p3.communicate()
 				if p3.returncode != 0:
 					print('  Error aligning with sample ' + sample)
+					bad_samples.append(sample)
+					timer.stop()
 					continue
 				else:
 					subprocess.run(['rm', '-f', uBam_file])
 				
 			if i == 0:
 				subprocess.run(['mv', t_bam, sorted_bam])
+				timer.stop()
+				continue
 			else:
 				inputs = []
 				ind_files = [fm_obj.localSampleTempDir + sample + '.' + str(x) + '.sorted.bam' for x in range(i+1)]
 				for ind_file in ind_files:
 					inputs = inputs + ['-I', ind_file]
 				output = subprocess.run(['gatk', 'MergeSamFiles', '--TMP_DIR', fm_obj.localSampleTempDir] + inputs + ['-O', sorted_bam], stderr = open(fm_obj.localSampleTempDir + 'MergeSamFiles_errors.txt', 'w'), stdout = subprocess.DEVNULL)
-				subprocess.run(['rm','-f'] + ind_files)
-			
+				if output.returncode == 0 and os.path.exists(sorted_bam):
+					subprocess.run(['rm','-f'] + ind_files)
+				else:
+					bad_samples.append(sample)
+					
 			timer.stop()
+		return bad_samples
 
 	def markDuplicates(self):
 		commands = {}
