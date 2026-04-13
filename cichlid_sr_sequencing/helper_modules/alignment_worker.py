@@ -100,12 +100,12 @@ class AlignmentWorker():
 						error_samples.append(data.sampleID)
 					else:
 						subprocess.run(['rm',data.error_file])
-    				current_processes.remove(data)  # Remove finished process from monitoring list
-    				try:
-    					new_process = [x for x in current_processes if x.process is None][0]
-    					new_process.process = subprocess.Popen(data.command, stderr = error_fp, stdout = subprocess.DEVNULL)
-    				except IndexError:
-    					continue
+					current_processes.remove(data)  # Remove finished process from monitoring list
+					try:
+						new_process = [x for x in current_processes if x.process is None][0]
+						new_process.process = subprocess.Popen(data.command, stderr = error_fp, stdout = subprocess.DEVNULL)
+					except IndexError:
+						continue
 
 		return error_samples
 
