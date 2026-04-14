@@ -15,7 +15,7 @@ class AlignmentWorker():
 		self.genome = genome
 
 		self.uBam_files = {}
-		self.max_processes = self.setMaxProcesses()
+		self.setMaxProcesses()
 
 		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
