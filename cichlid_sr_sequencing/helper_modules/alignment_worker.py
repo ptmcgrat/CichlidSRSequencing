@@ -15,71 +15,70 @@ class AlignmentWorker():
 		self.genome = genome
 
 		self.uBam_files = {}
-		self.max_processes = min(int(psutil.virtual_memory().available/4000000000),cpu_count())
-		sizes = {}
+		self.max_processes = setMaxProcesses()
 
 		for sampleID in fm_obj.samples:
 			# Create sample file manager (need to keep them all in memory for parallelization)
 			self.fm_obj.createSampleFiles(sampleID)
-
-			#sub_dt = fm_obj.s_dt[fm_obj.s_dt.SampleID == sampleID]
 			self.uBam_files[sampleID] = self.fm_obj.localRawBamFiles
-			if check_size:
-				try:
-					sizes[sampleID] = fm_obj.merged_dt[fm_obj.merged_dt.SampleID == sampleID].FileSize.sum()
-				except ValueError:
-					pdb.set_trace()
-		if check_size:
-			# Make sure there is enough room
-			total_sample_size = sum(sizes.values())
-			free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
-			if 3*total_sample_size > free_memory:
-				print('Total_sample_size: ' + str(3*total_sample_size) + ', Free memory: ' + str(free_memory))
-				raise Exception('Need more space to run this analysis')
-			self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
-			print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
-		else:
-			self.samples = fm_obj.samples
+		self.samples = fm_obj.samples
 
-	def monitorProcesses(self, command_dict, base_text, num_parallel):
+	def setMaxProcesses(self):
+		cpus = cpu_count()
+		ram_units = int(psutil.virtual_memory().available/2500000000)
+		if cpus > ram_units:
+			self.max_processes = ram_units
+			self.ram_unit = '2G'
+		else:
+			self.max_processes = cpus
+			self.ram_unit = str(int(psutil.virtual_memory().available/cpus/1000000000)) + 'G'
+		print(f'  Analysis using {self.max_processes} cores and {self.ram_unit} of RAM per core',)
+	
+	def checkSize(self):
+		sizes = {}
+		for sampleID in fm_obj.samples:
+			try:
+				sizes[sampleID] = fm_obj.merged_dt[fm_obj.merged_dt.SampleID == sampleID].FileSize.sum()
+			except ValueError:
+				pdb.set_trace()
+		total_sample_size = sum(sizes.values())
+		free_memory = shutil.disk_usage(fm_obj.localMasterDir).free
+		if 3*total_sample_size > free_memory:
+			print('Total_sample_size: ' + str(3*total_sample_size) + ', Free memory: ' + str(free_memory))
+			raise Exception('Need more space to run this analysis')
+		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
+		print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
+		
+	def monitorProcesses(self, command_list):
 		# command_dict is a dictionary where the key is the sample name that allows
 		# the user to keep track of each separate command they want run
 		# the values are a SimpleNamespace object containing command: a command as a list
 		# and the location for an error file to be printed to (which is deleted if the
 		# command runs sucessfully)
 
-		fm_obj = self.fm_obj
-
 		current_processes = []
 		bad_samples = []
-		for sample,command in command_dict.items():
-			fm_obj.createSampleFiles(sample.split('__')[0])
-			error_file = fm_obj.localErrorsDir + base_text + '_' + sample + '_errors.txt'
-			data = SimpleNamespace(sampleID=sample, error_file = error_file, error_fp = open(error_file, 'w'), 
-					command = command, process = None)
-			current_processes.append(data)
-		for i in range(min(len(command_dict),num_parallel)):
-			data = current_processes[i]
-			data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
-			#print('Starting ' + data.sampleID)
-		while current_processes:
-			finished_processes = [x for x in current_processes if x.process is not None and x.process.poll() is not None]	
-			if finished_processes != []:
-				for data in finished_processes:
-					#print(data.sampleID + ' is complete')
-					data.error_fp.close()
-					if data.process.returncode != 0:
-						bad_samples.append(data.sampleID)
-					else:
-						subprocess.run(['rm',data.error_file])
-					current_processes.remove(data)  # Remove finished process from monitoring list
-					try:
-						newdata = [x for x in current_processes if x.process is None][0]
-						newdata.process = subprocess.Popen(newdata.command, stderr = newdata.error_fp, stdout = subprocess.DEVNULL)
-						#print('Starting ' + newdata.sampleID)
 
-					except IndexError:
-						continue
+		for i,data in enumerate(command_list):
+			data.error_fp = open(data.error_file, 'w')
+			data.process = None
+			if i < self.max_processes:
+				data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
+
+		while command_list:
+			finished_processes = [x for x in command_list if x.process is not None and x.process.poll() is not None]
+			for data in finished_processes:
+				data.error_fp.close()
+				if data.process.returncode != 0:
+					bad_samples.append(data.sampleID)
+				else:
+					subprocess.run(['rm',data.error_file])
+				current_processes.remove(data)  # Remove finished process from monitoring list
+				next_command = next((x for x in command_list if x.process is None),None)
+				if next_command is not None:
+					next_command.process = subprocess.Popen(next_command.command, stderr = next_comand.error_fp, stdout = subprocess.DEVNULL)
+				except IndexError:
+					continue
 
 		return bad_samples
 
@@ -175,30 +174,27 @@ class AlignmentWorker():
 		return bad_samples
 
 	def markDuplicates(self):
-		commands = {}
-		del_files = {}
-		for sample in self.samples:
-			fm_obj = self.fm_obj
-			fm_obj.createSampleFiles(sample)
+		commands = []
 
-			command = ['gatk', '--java-options', '-Xmx2g','MarkDuplicates', '-I', fm_obj.localTempSortedBamFile, '-O', fm_obj.localBamFile, '-M', fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', fm_obj.localSampleTempDir, '--SORTING_COLLECTION_SIZE_RATIO', '.2','--CREATE_INDEX']
-			commands[sample] = command
-			del_files[sample] = fm_obj.localTempSortedBamFile
-
-		bad_samples = self.monitorProcesses(commands, 'MarkDuplicates_' + str(len(self.samples)), self.max_processes)
 		for sample in self.samples:
+			self.fm_obj.createSampleFiles(sample)
+			error_file = self.fm_obj.localErrorsDir + 'MarkDuplicates_' + sample + '_errors.txt'
+			command = ['gatk', '--java-options', '-Xmx'+self.ram_unit, 'MarkDuplicates', '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--SORTING_COLLECTION_SIZE_RATIO', '.2','--CREATE_INDEX']
+			commands.append(SimpleNamespace(sampleID=sample, error_file = error_file, command = command))
+
+		bad_samples = self.monitorProcesses(commands)
+		
+		for sample in self.samples:
+			self.fm_obj.createSampleFiles(sample)
 			if sample not in bad_samples:
-				subprocess.run(['rm','-f',del_files[sample]])
+				subprocess.run(['rm','-f',self.fm_obj.localTempSortedBamFile])
 		return bad_samples
 
 	def splitBamfiles(self):
 		bad_samples = []
-		commands = {}
+		commands = []
 		for sample in self.samples:
-			fm_obj = self.fm_obj
-			fm_obj.createSampleFiles(sample)
-			#print('  Splitting sample ' + sample)
-			# Get contigs
+			self.fm_obj.createSampleFiles(sample)
 			try:
 				bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
 			except OSError:
@@ -208,20 +204,22 @@ class AlignmentWorker():
 			contigs = bam_obj.references  
 			
 			for contig in contigs:
-				commands[sample + '__' + contig] = ['python3', 'unit_scripts/split_bamfile_by_contig.py', fm_obj.localBamFile, contig]
+				error_file = self.fm_obj.localErrorsDir + 'SplitBamFiles_' + sample +'__' + contig + '_errors.txt'
+				command = ['python3', 'unit_scripts/split_bamfile_by_contig.py', self.fm_obj.localBamFile, contig]
+				commands.append(SimpleNamespace(sampleID=sample + '__' + contig, error_file = error_file, command = command))
 
-		tb_samples = self.monitorProcesses(commands, 'SplitBamFiles_' + str(len(self.samples)), self.max_processes)
+		tb_samples = self.monitorProcesses(commands)
 		bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
 
 		for sample in self.samples:
 			if sample in bad_samples:
 				continue
 			for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
-				bam_files = [fm_obj.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
+				bam_files = [self.fm_obj.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
 				command = ['gatk', 'MergeSamFiles']
 				for bam_file in bam_files:
 					command += ['-I', bam_file]
-				command += ['-O', fm_obj.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
+				command += ['-O', self.fm_obj.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
 				output = subprocess.run(command, capture_output = True)
 				if output.returncode != 0:
 					bad_samples.append(sample)
@@ -233,32 +231,37 @@ class AlignmentWorker():
 
 	def createGVCF(self):
 		fasta_obj = pysam.FastaFile(self.fm_obj.localGenomeFile)
-		chromosomes = fasta_obj.references
-		commands = {}
-		fm_obj = self.fm_obj
+		contigs = fasta_obj.references
+		commands = []
 		bad_samples = []
 		for sample in self.samples:
-			fm_obj.createSampleFiles(sample)
-			for chrom in chromosomes:
-				contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
-				commands[sample + '__' + chrom] = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
+			self.fm_obj.createSampleFiles(sample)
+			for contig in contigs:
+				contig_vcf = self.fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + contig + '.g.vcf.gz')
+				error_file = self.fm_obj.localErrorsDir + 'HaplotypeCaller_' + sample + '__' + contig + '_errors.txt'
+				command = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-L', contig, '-ERC', 'GVCF', '-O', contig_vcf]
+				commands.append(SimpleNamespace(sampleID=sample + '__' + contig, error_file = error_file, command = command))
 				
-		tb_samples = self.monitorProcesses(commands, 'SplitBamFiles_' + str(len(self.samples)), self.max_processes)
-		if tb_samples != []:
-			bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
+		tb_samples = self.monitorProcesses(commands)
+		bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
 
 		for sample in self.samples:
 			if sample in bad_samples:
 				continue
-			fm_obj.createSampleFiles(sample)
+			self.fm_obj.createSampleFiles(sample)
 			command = ['gatk','GatherVcfs']
-
-			for chrom in chromosomes:
-				contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + chrom + '.g.vcf.gz')
+			for contig in contigs:
+				contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + contig + '.g.vcf.gz')
 				command += ['-I', contig_vcf]
 			command += ['-O', fm_obj.localGVCFFile]
 			output = subprocess.run(command, capture_output = True)
-			
+			if output.returncode != 0:
+				bad_samples.append(sample)
+				continue
+			for vcf_file in [fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + x + '.g.vcf.gz') for x in contigs]:
+				continue
+				subprocess.run(['rm', bam_file])
+
 		return bad_samples
 
 	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
