@@ -77,8 +77,6 @@ class AlignmentWorker():
 				next_command = next((x for x in command_list if x.process is None),None)
 				if next_command is not None:
 					next_command.process = subprocess.Popen(next_command.command, stderr = next_comand.error_fp, stdout = subprocess.DEVNULL)
-				except IndexError:
-					continue
 
 		return bad_samples
 
