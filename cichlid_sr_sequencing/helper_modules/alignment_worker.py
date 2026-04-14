@@ -56,7 +56,6 @@ class AlignmentWorker():
 		# and the location for an error file to be printed to (which is deleted if the
 		# command runs sucessfully)
 
-		current_processes = []
 		bad_samples = []
 
 		for i,data in enumerate(command_list):
@@ -73,7 +72,7 @@ class AlignmentWorker():
 					bad_samples.append(data.sampleID)
 				else:
 					subprocess.run(['rm',data.error_file])
-				current_processes.remove(data)  # Remove finished process from monitoring list
+				command_list.remove(data)  # Remove finished process from monitoring list
 				next_command = next((x for x in command_list if x.process is None),None)
 				if next_command is not None:
 					next_command.process = subprocess.Popen(next_command.command, stderr = next_comand.error_fp, stdout = subprocess.DEVNULL)
