@@ -17,10 +17,10 @@ class GenotypeBC:
         self.master_directory = self.fm_obj.localMasterDir + '2026_Nikesh/'
         self.broods = ['MCYH-BC1-24-01-10-1','MCYH-BC1-24-03-17-1','MCYH-BC1-24-03-11-1','MCYH-BC1-24-04-22-1','MCYH-BC1-24-03-27-1']
         self.yh_sire = 'YH_008_m'
-        self.mothers = ['MC-1R6R-f', 'MC-3R6R-f','MC-1G2G-f','MC-5G11G-f']
+        self.mc_dam = 'MC-1R6R-f'
+        self.mothers = ['MC-3R6R-f','MC-1G2G-f','MC-5G11G-f']
         self.f1_dads = ['MCYHF1-002','MCYHF1-003']
         self.yh_sire_vcf = self.master_directory + 'YH_Father.vcf.gz'
-        #self.parents_vcf = self.master_directory + 'YH_father_MC_mothers.vcf.gz'
         self.all_pileup = self.master_directory + 'BC_Pileup.vcf.gz'
         self.all_vcf = self.master_directory + 'BC_Variants.vcf.gz'
         self.all_samples = self.master_directory + 'BC_Pileup_Samples.txt'
@@ -28,7 +28,7 @@ class GenotypeBC:
     def createSampleList(self):
         self.fm_obj.readSampleDatabase()
         with open(self.all_samples, 'w') as f:
-            all_samples = [self.yh_sire] + self.mothers + self.f1_dads
+            all_samples = [self.yh_sire] + [self.mc_dam] + self.mothers + self.f1_dads
             all_samples += self.fm_obj.sample_dt[self.fm_obj.sample_dt.Species == 'YHxMC x MC BC'].SampleID.tolist()
             for sample in all_samples:
                 print('Downloading sample: ' + sample)
@@ -70,12 +70,6 @@ class GenotypeBC:
         #subprocess.run(['bcftools', 'mpileup', '-f', self.fm_obj.localGenomeFile, '-R', self.yh_sire_vcf, '-b', self.all_samples, '-a', 'AD', '-Q', '0', '-o', self.all_pileup, '-Oz', '--threads', str(cpu_count())])
         subprocess.run(['bcftools', 'call', '-c','-o',self.all_vcf,'-O','z',self.all_pileup])
 
-    def checkMasterVCFS(self):
-        self.yh_sire_dict = allel.read_vcf(self.yh_sire_vcf, fields=['variants/CHROM','variants/POS'])
-        self.parents_dict = allel.read_vcf(self.parents_vcf, fields=['variants/CHROM','variants/POS'])
-        self.all_dict = allel.read_vcf(self.all_vcf, fields=['variants/CHROM','variants/POS'])
-        pdb.set_trace()
-
     def identifyYHSNVs(self, f1_father, f1_mother, depth_cutoff = 12):
         try:
             self.vcf_dict
@@ -96,36 +90,24 @@ class GenotypeBC:
                 print(chrom + '\t' + str(position - 1) + '\t' + str(position), file = f)
         self.informative_mask = informative_mask
 
-    def createBroodMasks2(self, mothers):
-        try:
-            self.informative_mask
-        except AttributeError:
-            self.informative_mask = np.load(self.cross_name + '/' + self.cross_name + 'InformativeMask.npy')
+    def createBroodMasks(self):
         try:
             self.vcf_dict
         except AttributeError:
-            self._loadVCF(self.parents_vcf)
+            self._loadVCF(self.all_vcf)
 
-        out_data = {}
-        for mother in mothers:
-            if mother in out_data:
-                continue
+        yh_sire_idx = int((self.samples == self.yh_sire).argmax())
+        mc_dam_idx = int((self.samples == self.mc_dam).argmax())
+
+        yh_sire_mask = self.converted_genotype[:,yh_sire_idx].is_hom_alt()
+        mc_dam_mask = self.converted_genotype[:,mc_dam_idx].is_hom_ref()
+        pdb.set_trace()
+        self.brood_masks = {}
+        for mother in self.mothers:
             mother_idx = int((self.samples == mother).argmax())
-            fil_converted_genotype = self.converted_genotype[self.informative_mask]
+            mother_mask = self.converted_genotype[:,mother_idx].is_hom_ref()
 
-            out_data[mother] = fil_converted_genotype[:,mother_idx].is_hom_ref()
-
-        return out_data
-
-    def createBroodMasks2(self, mothers):
-
-        out_data = {}
-        for mother in mothers:
-            if mother in out_data:
-                continue
-            mother_idx = int((self.samples == mother).argmax())
-            out_data[mother] = (self.allelic_depth[:,mother_idx][:,1] == 0) & (self.allelic_depth[:,mother_idx][:,0] > 2)
-        return out_data
+            self.brood_mask[mother] = yh_sire_mask & mc_dam_mask & mother_mask
 
     def retBroodInfo(self, index):
         dt = pd.read_csv("https://docs.google.com/spreadsheets/d/1BovaQm-FaOzchci9By71xTh3MzKCqMSpK3DCWB9sGiE/export?gid=1566739159&format=csv")
@@ -153,10 +135,10 @@ class GenotypeBC:
                 str_ad, str_chr, str_pos = self._stretchADVector(off_ad, off_chromosomes, off_positions)
                 self._hmmVector(offspring, str_ad, str_chr, str_pos)
 
-    def identifyHaplotypesInBCs(self, vcf_file):
-        self._loadVCF(vcf_file)
+    def identifyHaplotypesInBCs(self):
+        self._loadVCF(self.all_vcf)
 
-        brood_masks = self.createBroodMasks2(self.mothers)
+        brood_masks = self.createBroodMasks()
         all_data = []
         for brood_idx in range(5):
             mother, bcs = self.retBroodInfo(brood_idx)
@@ -290,7 +272,8 @@ class GenotypeBC:
 gt_bc = GenotypeBC()
 #gt_bc.createSampleList()
 gt_bc.createMasterVCFs()
-gt_bc.checkMasterVCFS()
+gt_bc.identifyHaplotypesInBCs()
+#gt_bc.checkMasterVCFS()
 pdb.set_trace()
 #gt_bc.identifyYHSNVs('YH_008_m', 'MC-1R6R-f')
 

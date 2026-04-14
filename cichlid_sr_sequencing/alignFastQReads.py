@@ -48,13 +48,14 @@ if bad_samples != []:
 	print('Error aligning the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
 timer.stop()
-"""
+
 timer.start('  Marking duplicates for bamfiles')
 bad_samples = aw_obj.markDuplicates()
 if bad_samples != []:
 	print('Error marking duplicates for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
 timer.stop()
+"""
 timer.start('  Splitting reads based upon their alignment')
 bad_samples = aw_obj.splitBamfiles()
 if bad_samples != []:

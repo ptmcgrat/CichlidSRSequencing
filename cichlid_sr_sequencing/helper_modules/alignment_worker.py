@@ -193,7 +193,7 @@ class AlignmentWorker():
 		for sample in self.samples:
 			self.fm_obj.createSampleFiles(sample)
 			try:
-				bam_obj = pysam.AlignmentFile(fm_obj.localBamFile)
+				bam_obj = pysam.AlignmentFile(self.fm_obj.localBamFile)
 			except OSError:
 				print( '.........ERROR WITH THIS bam file. Probably truncated ' + sample)
 				bad_samples.append(sample)
