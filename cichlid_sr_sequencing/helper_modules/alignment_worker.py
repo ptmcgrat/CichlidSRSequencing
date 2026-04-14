@@ -28,10 +28,10 @@ class AlignmentWorker():
 		ram_units = int(psutil.virtual_memory().available/2500000000)
 		if cpus > ram_units:
 			self.max_processes = ram_units
-			self.ram_unit = '2G'
+			self.ram_unit = '2g'
 		else:
 			self.max_processes = cpus
-			self.ram_unit = str(int(psutil.virtual_memory().available/cpus/1000000000)) + 'G'
+			self.ram_unit = str(int(psutil.virtual_memory().available/cpus/1000000000)) + 'g'
 		print(f'  Analysis using {self.max_processes} cores and {self.ram_unit} of RAM per core',)
 	
 	def checkSize(self):
@@ -237,7 +237,7 @@ class AlignmentWorker():
 			for contig in contigs:
 				contig_vcf = self.fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + contig + '.g.vcf.gz')
 				error_file = self.fm_obj.localErrorsDir + 'HaplotypeCaller_' + sample + '__' + contig + '_errors.txt'
-				command = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-L', contig, '-ERC', 'GVCF', '-O', contig_vcf]
+				command = ['gatk', '--java-options', '-Xmx' + self.ram_unit, 'HaplotypeCaller', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-L', contig, '-ERC', 'GVCF', '-O', contig_vcf]
 				commands.append(SimpleNamespace(sampleID=sample + '__' + contig, error_file = error_file, command = command))
 				
 		tb_samples = self.monitorProcesses(commands)
