@@ -75,7 +75,7 @@ class AlignmentWorker():
 				command_list.remove(data)  # Remove finished process from monitoring list
 				next_command = next((x for x in command_list if x.process is None),None)
 				if next_command is not None:
-					next_command.process = subprocess.Popen(next_command.command, stderr = next_comand.error_fp, stdout = subprocess.DEVNULL)
+					next_command.process = subprocess.Popen(next_command.command, stderr = next_command.error_fp, stdout = subprocess.DEVNULL)
 
 		return bad_samples
 
