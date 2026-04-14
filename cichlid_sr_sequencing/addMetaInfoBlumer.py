@@ -9,6 +9,13 @@ from helper_modules.file_manager import FileManager as FM
 fm_obj = FM()
 
 fm_obj.readSampleDatabase()
+fm_obj.downloadData(fm_obj.localReadDownloadDir + 'BlumerPaperData.csv')
+
+dt1 = pd.read_csv(fm_obj.localReadDownloadDir + 'BlumerPaperData.csv')
+dt2 = pd.read_csv('../TempBioProjectData/Table_S1.tsv', sep = '\t')
+dt3 = pd.merge(dt1, dt2[['Biosample','clade']], left_on = 'BioSample', right_on='Biosample', how = 'left')
+dt3.to_csv(fm_obj.localReadDownloadDir + 'BlumerPaperData_withClades.csv')
+pdb.set_trace()
 # Download and open run info file that contains new data to include
 #fm_obj.downloadData(fm_obj.localReadDownloadDir)
 

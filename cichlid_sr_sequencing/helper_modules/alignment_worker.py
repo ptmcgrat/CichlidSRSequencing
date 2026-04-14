@@ -41,46 +41,17 @@ class AlignmentWorker():
 		else:
 			self.samples = fm_obj.samples
 
-	def monitorProcess(self,command,base_text,resource_file,error_file):
-		
-		timer = Timer()
-		
-		fm_obj = self.fm_obj
-		fm_obj.createSampleFiles(self.samples[i])
-
-		resource_fp = open(resource_file, 'w')
-		error_fp= open(error_file, 'w')
-		timer.start('    ' + base_text)
-		print('cpu,threads,memory', file = resource_fp)
-
-		p1 = subprocess.Popen(command, stderr = error_fp, stdout = subprocess.DEVNULL)
-		proc = psutil.Process(pid = p1.pid)
-		print(','.join([str(x) for x in [proc.cpu_percent(interval = 1), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
-
-		while p1.poll() is None:
-			try:
-				print(','.join([str(x) for x in [proc.cpu_percent(interval = 60), proc.num_threads(), proc.memory_info().rss/1000000000]]), file = resource_fp)
-			except psutil.ZombieProcess:
-				break
-			except psutil.NoSuchProcess:
-				break
-			data_file.flush()
-
-		p1.communicate()
-
-		data_file.close()
-		dt = pd.read_csv(resource_file)
-		mean = dt.mean()
-		max_usage = dt.max()
-		#print(' CPU_avg,max: ' + str(round(mean.cpu,1)) + ',' + str(round(max_usage.cpu,1)) + ' RAM_avg,max: ' + str(round(mean.memory,1)) + ',' + str(round(max_usage.memory,1)) + ' Threads: ' + str(mean.threads) + ' ')
-		print(' CPU_avg,max: {:0.1f},{:0.1f} RAM_avg,max: {:0.1f},{:0.1f} Threads: {}.... '.format(mean.cpu, max_usage.cpu, mean.memory, max_usage.memory, mean.threads), end = '')
-		timer.stop()
-
 	def monitorProcesses(self, command_dict, base_text, num_parallel):
+		# command_dict is a dictionary where the key is the sample name that allows
+		# the user to keep track of each separate command they want run
+		# the values are a SimpleNamespace object containing command: a command as a list
+		# and the location for an error file to be printed to (which is deleted if the
+		# command runs sucessfully)
+
 		fm_obj = self.fm_obj
 
 		current_processes = []
-		error_samples = []
+		bad_samples = []
 		for sample,command in command_dict.items():
 			fm_obj.createSampleFiles(sample.split('__')[0])
 			error_file = fm_obj.localErrorsDir + base_text + '_' + sample + '_errors.txt'
@@ -98,7 +69,7 @@ class AlignmentWorker():
 					#print(data.sampleID + ' is complete')
 					data.error_fp.close()
 					if data.process.returncode != 0:
-						error_samples.append(data.sampleID)
+						bad_samples.append(data.sampleID)
 					else:
 						subprocess.run(['rm',data.error_file])
 					current_processes.remove(data)  # Remove finished process from monitoring list
@@ -110,7 +81,7 @@ class AlignmentWorker():
 					except IndexError:
 						continue
 
-		return error_samples
+		return bad_samples
 
 	def downloadReadData(self):
 		processes = {}
@@ -265,7 +236,7 @@ class AlignmentWorker():
 		chromosomes = fasta_obj.references
 		commands = {}
 		fm_obj = self.fm_obj
-
+		bad_samples = []
 		for sample in self.samples:
 			fm_obj.createSampleFiles(sample)
 			for chrom in chromosomes:
@@ -273,9 +244,12 @@ class AlignmentWorker():
 				commands[sample + '__' + chrom] = ['gatk', '--java-options', '-Xmx2g', 'HaplotypeCaller', '-R', fm_obj.localGenomeFile, '-I', fm_obj.localBamFile, '-L', chrom, '-ERC', 'GVCF', '-O', contig_vcf]
 				
 		tb_samples = self.monitorProcesses(commands, 'SplitBamFiles_' + str(len(self.samples)), self.max_processes)
-		bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
+		if tb_samples != []:
+			bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
 
 		for sample in self.samples:
+			if sample in bad_samples:
+				continue
 			fm_obj.createSampleFiles(sample)
 			command = ['gatk','GatherVcfs']
 
