@@ -68,11 +68,12 @@ class AlignmentWorker():
 		while command_list:
 			finished_processes = [x for x in command_list if x.process is not None and x.process.poll() is not None]
 			for data in finished_processes:
+				print('..{data.sampleID} complete..', end = '')
 				data.error_fp.close()
 				if data.process.returncode != 0:
 					bad_samples.append(data.sampleID)
 				else:
-					subprocess.run(['rm',data.error_file])
+										subprocess.run(['rm',data.error_file])
 				command_list.remove(data)  # Remove finished process from monitoring list
 				next_command = next((x for x in command_list if x.process is None),None)
 				if next_command is not None:
