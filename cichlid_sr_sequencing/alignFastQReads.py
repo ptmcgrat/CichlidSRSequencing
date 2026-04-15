@@ -55,7 +55,7 @@ if bad_samples != []:
 	print('Error marking duplicates for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
 timer.stop()
-
+"""
 timer.start('  Splitting reads based upon their alignment')
 bad_samples = aw_obj.splitBamfiles()
 if bad_samples != []:
@@ -69,7 +69,7 @@ if bad_samples != []:
 	print('Error creating GVCF for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
 timer.stop()
-"""
+
 timer.start('  Uploading and updating database')
 bad_samples = aw_obj.uploadAndUpdateDatabase()
 if bad_samples != []:
