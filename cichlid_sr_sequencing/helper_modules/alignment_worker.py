@@ -282,7 +282,7 @@ class AlignmentWorker():
 				stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		
 			try:
-				read_length = self.fm_obj.merged_dt[fm_obj.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
+				read_length = self.fm_obj.merged_dt[self.fm_obj.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 			except IndexError:
 				print('Weird Error. Somehow this Sample is not in the DNAReadsDatabase. Skipping...')
 				continue
