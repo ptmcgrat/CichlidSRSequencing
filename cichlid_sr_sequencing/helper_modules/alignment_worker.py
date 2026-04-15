@@ -248,15 +248,14 @@ class AlignmentWorker():
 			self.fm_obj.createSampleFiles(sample)
 			command = ['gatk','GatherVcfs']
 			for contig in contigs:
-				contig_vcf = fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + contig + '.g.vcf.gz')
+				contig_vcf = self.fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + contig + '.g.vcf.gz')
 				command += ['-I', contig_vcf]
-			command += ['-O', fm_obj.localGVCFFile]
+			command += ['-O', self.fm_obj.localGVCFFile]
 			output = subprocess.run(command, capture_output = True)
 			if output.returncode != 0:
 				bad_samples.append(sample)
 				continue
-			for vcf_file in [fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + x + '.g.vcf.gz') for x in contigs]:
-				continue
+			for vcf_file in [self.fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + x + '.g.vcf.gz') for x in contigs]:
 				subprocess.run(['rm', bam_file])
 
 		return bad_samples
