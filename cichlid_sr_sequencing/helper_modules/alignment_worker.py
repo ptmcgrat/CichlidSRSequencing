@@ -256,7 +256,7 @@ class AlignmentWorker():
 				bad_samples.append(sample)
 				continue
 			for vcf_file in [self.fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + x + '.g.vcf.gz') for x in contigs]:
-				subprocess.run(['rm', bam_file])
+				subprocess.run(['rm', vcf_file])
 
 		return bad_samples
 
