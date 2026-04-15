@@ -280,8 +280,11 @@ class AlignmentWorker():
 			
 			for filename in [self.fm_obj.localBamFile, self.fm_obj.localUnmappedBamFile, self.fm_obj.localDiscordantBamFile, self.fm_obj.localInversionBamFile, self.fm_obj.localDuplicationBamFile, self.fm_obj.localClippedBamFile, self.fm_obj.localChimericBamFile]:
 				output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
-				stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
-		
+				try:
+					stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
+				except IndexError:
+					pdb.set_trace()
+	
 			try:
 				read_length = self.fm_obj.merged_dt[self.fm_obj.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 			except IndexError:
