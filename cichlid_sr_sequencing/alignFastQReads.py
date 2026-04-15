@@ -62,15 +62,17 @@ if bad_samples != []:
 	print('Error splitting bamfiles for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
 timer.stop()
-"""
+
 timer.start('  Calling haplotypes to create gvcf files')
 bad_samples = aw_obj.createGVCF()
 if bad_samples != []:
 	print('Error creating GVCF for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
 timer.stop()
-pdb.set_trace()
+"""
 timer.start('  Uploading and updating database')
-aw_obj.uploadAndUpdateDatabase()
+bad_samples = aw_obj.uploadAndUpdateDatabase()
+if bad_samples != []:
+	print('Error uploading data for the following samples: ' + ','.join(bad_samples))
 timer.stop()
 

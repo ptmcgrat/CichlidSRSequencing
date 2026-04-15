@@ -319,8 +319,8 @@ class FileManager():
 
 		if os.path.isdir(local_path + relative_name):
 			if parallel:
-				process = subprocess.Popen(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name])
-				return process
+				command = ['rclone', 'copy', local_path + relative_name, cloud_path + relative_name]
+				return command
 			else:
 				output = subprocess.run(['rclone', 'copy', local_path + relative_name, cloud_path + relative_name], capture_output = True, encoding = 'utf-8')
 			#subprocess.run(['rclone', 'check', local_path + relative_name, cloud_path + relative_name], check = True)

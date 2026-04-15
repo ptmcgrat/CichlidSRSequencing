@@ -49,7 +49,7 @@ class AlignmentWorker():
 		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
 		print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
 		
-	def monitorProcesses(self, command_list):
+	def monitorProcesses(self, command_list, num_parallel = None):
 		# command_dict is a dictionary where the key is the sample name that allows
 		# the user to keep track of each separate command they want run
 		# the values are a SimpleNamespace object containing command: a command as a list
@@ -57,11 +57,12 @@ class AlignmentWorker():
 		# command runs sucessfully)
 
 		bad_samples = []
-
+		if num_parallel is None:
+			num_parallel = self.max_processes
 		for i,data in enumerate(command_list):
 			data.error_fp = open(data.error_file, 'w')
 			data.process = None
-			if i < self.max_processes:
+			if i < num_parallel:
 				data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
 
 		while command_list:
@@ -260,46 +261,36 @@ class AlignmentWorker():
 
 		return bad_samples
 
-	def uploadAndUpdateDatabase(self, upload = True, sample_override = False):
-		if sample_override:
-			self.samples = [sample_override]
-		processes = []
-		for sample in self.samples:
-			fm_obj = self.fm_obj
-			fm_obj.createSampleFiles(sample)
-			
-			if not os.path.exists(fm_obj.localGVCFFile):
-				print(sample + ' did not complete. You need to rerun.')
-				continue
-
-			if upload:
-				processes.append(fm_obj.uploadData(fm_obj.localSampleBamDir, parallel = True))
-		
-		for p in processes:
-			p.communicate
+	def uploadAndUpdateDatabase(self, upload = True):
+		commands = []
 
 		for sample in self.samples:
-			# Calcultate stats
-			if not os.path.exists(fm_obj.localGVCFFile):
-				#print(sample + ' did not complete. You need to rerun.')
-				continue
+			self.fm_obj.createSampleFiles(sample)
+			error_file = self.fm_obj.localErrorsDir + 'UploadData_' + sample + '_errors.txt'
+			command = self.fm_obj.uploadData(fm_obj.localSampleBamDir, parallel = True)
+			commands.append(SimpleNamespace(sampleID=sample, error_file = error_file, command = command))
 
+		bad_samples = self.monitorProcesses(commands, 6)
+
+		for sample in self.samples:
+			if sample in bad_samples:
+				continue
 			stats = {}
 			
-			for filename in [fm_obj.localBamFile, fm_obj.localUnmappedBamFile, fm_obj.localDiscordantBamFile, fm_obj.localInversionBamFile, fm_obj.localDuplicationBamFile, fm_obj.localClippedBamFile, fm_obj.localChimericBamFile]:
+			for filename in [self.fm_obj.localBamFile, self.fm_obj.localUnmappedBamFile, self.fm_obj.localDiscordantBamFile, self.fm_obj.localInversionBamFile, self.fm_obj.localDuplicationBamFile, self.fm_obj.localClippedBamFile, self.fm_obj.localChimericBamFile]:
 				output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 				stats[filename.split('.')[-2]] = int(output.stdout.split('\n')[1])
 		
 			try:
-				read_length = fm_obj.merged_dt[fm_obj.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
+				read_length = self.fm_obj.merged_dt[fm_obj.merged_dt['SampleID'] == sample]['ReadLength'].values[0]/2
 			except IndexError:
 				print('Weird Error. Somehow this Sample is not in the DNAReadsDatabase. Skipping...')
 				continue
-			reference_size = sum(pysam.FastaFile(fm_obj.localGenomeFile).lengths)
+			reference_size = sum(pysam.FastaFile(self.fm_obj.localGenomeFile).lengths)
 			coverage = stats['all'] * read_length / reference_size
 			stats = {k:v/stats['all'] if k!= 'all' else v for k,v in stats.items()}
 			
-			sample_data = {'SampleID':sample, 'GenomeVersion': fm_obj.genome_version, 'RunIDs':',,'.join(list(fm_obj.reads_dt[fm_obj.reads_dt['SampleID'] == sample].RunID)), 
+			sample_data = {'SampleID':sample, 'GenomeVersion': fm_obj.genome_version, 'RunIDs':',,'.join(list(self.fm_obj.reads_dt[self.fm_obj.reads_dt['SampleID'] == sample].RunID)), 
 			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
 
@@ -312,7 +303,7 @@ class AlignmentWorker():
 			fm_obj.addAlignmentRow(sample_data)
 			fm_obj.setAlignmentDatabase()
 
-			subprocess.run(['rm','-rf', fm_obj.localSampleBamDir])
-			subprocess.run(['rm','-rf', fm_obj.localSampleTempDir])
+			#subprocess.run(['rm','-rf', self.fm_obj.localSampleBamDir])
+			#subprocess.run(['rm','-rf', self.fm_obj.localSampleTempDir])
 		
 
