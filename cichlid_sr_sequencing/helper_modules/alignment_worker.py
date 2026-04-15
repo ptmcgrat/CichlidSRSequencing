@@ -267,10 +267,10 @@ class AlignmentWorker():
 		for sample in self.samples:
 			self.fm_obj.createSampleFiles(sample)
 			error_file = self.fm_obj.localErrorsDir + 'UploadData_' + sample + '_errors.txt'
-			command = self.fm_obj.uploadData(fm_obj.localSampleBamDir, parallel = True)
+			command = self.fm_obj.uploadData(self.fm_obj.localSampleBamDir, parallel = True)
 			commands.append(SimpleNamespace(sampleID=sample, error_file = error_file, command = command))
 
-		bad_samples = self.monitorProcesses(commands, 6)
+		bad_samples = self.monitorProcesses(commands, 1)
 
 		for sample in self.samples:
 			if sample in bad_samples:
@@ -290,7 +290,7 @@ class AlignmentWorker():
 			coverage = stats['all'] * read_length / reference_size
 			stats = {k:v/stats['all'] if k!= 'all' else v for k,v in stats.items()}
 			
-			sample_data = {'SampleID':sample, 'GenomeVersion': fm_obj.genome_version, 'RunIDs':',,'.join(list(self.fm_obj.reads_dt[self.fm_obj.reads_dt['SampleID'] == sample].RunID)), 
+			sample_data = {'SampleID':sample, 'GenomeVersion': self.fm_obj.genome_version, 'RunIDs':',,'.join(list(self.fm_obj.reads_dt[self.fm_obj.reads_dt['SampleID'] == sample].RunID)), 
 			   'Coverage':coverage, 'TotalReads':stats['all'], 'UnmappedReads':stats['unmapped'], 'DiscordantReads':stats['discordant'], 'InversionReads':stats['inversion'],
 			   'DuplicationReads':stats['duplication'], 'ClippedReads':stats['clipped'], 'ChimericReads':stats['chimeric']}
 
@@ -298,10 +298,10 @@ class AlignmentWorker():
 			sample_data['minimap2_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('minimap2')][0]
 			sample_data['gatk_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('gatk4')][0]
 			sample_data['pysam_version'] = [x.split()[1] for x in output.stdout.decode('utf-8').split('\n') if x.startswith('pysam')][0]
-			sample_data['BamSize'] = os.path.getsize(fm_obj.localBamFile)
+			sample_data['BamSize'] = os.path.getsize(self.fm_obj.localBamFile)
 	
-			fm_obj.addAlignmentRow(sample_data)
-			fm_obj.setAlignmentDatabase()
+			self.fm_obj.addAlignmentRow(sample_data)
+			self.fm_obj.setAlignmentDatabase()
 
 			#subprocess.run(['rm','-rf', self.fm_obj.localSampleBamDir])
 			#subprocess.run(['rm','-rf', self.fm_obj.localSampleTempDir])
