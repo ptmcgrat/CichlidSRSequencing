@@ -309,4 +309,4 @@ class AlignmentWorker():
 			#subprocess.run(['rm','-rf', self.fm_obj.localSampleBamDir])
 			#subprocess.run(['rm','-rf', self.fm_obj.localSampleTempDir])
 		
-
+		return bad_samples
