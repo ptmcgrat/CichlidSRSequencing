@@ -33,7 +33,7 @@ timer.start('Downloading genome')
 timer.stop()
 
 # Create alignment worker object:
-aw_obj = AW(args.Genome, fm_obj, check_size = False)
+aw_obj = AW(args.Genome, fm_obj, check_size = True)
 
 timer.start('  Parallel Downloading uBams files')
 bad_samples = aw_obj.downloadReadData()
