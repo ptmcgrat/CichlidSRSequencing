@@ -272,6 +272,7 @@ class AlignmentWorker():
 		bad_samples = self.monitorProcesses(commands, 1)
 
 		for sample in self.samples:
+			self.fm_obj.createSampleFiles(sample)
 			if sample in bad_samples:
 				continue
 			stats = {}

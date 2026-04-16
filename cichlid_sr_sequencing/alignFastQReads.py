@@ -73,6 +73,9 @@ timer.stop()
 timer.start('  Uploading and updating database')
 bad_samples = aw_obj.uploadAndUpdateDatabase()
 if bad_samples != []:
-	print('Error uploading data for the following samples: ' + ','.join(bad_samples))
+	try:
+		print('Error uploading data for the following samples: ' + ','.join(bad_samples))
+	except:
+		pdb.set_trace()
 timer.stop()
 
