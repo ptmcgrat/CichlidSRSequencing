@@ -20,7 +20,8 @@ class GenotypeBC:
         self.mc_dam = 'MC-1R6R-f'
         self.mothers = ['MC-3R6R-f','MC-1G2G-f','MC-5G11G-f']
         self.f1_dads = ['MCYHF1-002','MCYHF1-003']
-        self.yh_sire_vcf = self.master_directory + 'YH_Father.vcf.gz'
+        self.parents_unfiltered_vcf = self.master_directory + 'AllBroodParents_Unfiltered.vcf.gz'
+        self.parents_filtered_vcf = self.master_directory + 'AllBroodParents_Filtered.vcf.gz'
         self.all_pileup = self.master_directory + 'BC_Pileup.vcf.gz'
         self.all_vcf = self.master_directory + 'BC_Variants.vcf.gz'
         self.all_samples = self.master_directory + 'BC_Pileup_Samples.txt'
@@ -34,6 +35,9 @@ class GenotypeBC:
                 print('Downloading sample: ' + sample)
                 self.fm_obj.createSampleFiles(sample)
                 self.fm_obj.downloadData(self.fm_obj.localSampleBamDir)
+                if not os.path.exists(self.fm_obj.localGVCFFile + '.tbi'):
+                    output = subprocess.run(['gatk','IndexFeatureFile','-I', self.fm_obj.localGVCFFile], capture_output = True)
+                    self.fm_obj.uploadData(self.fm_obj.localGVCFFile + '.tbi')
                 print(self.fm_obj.localBamFile, file = f)
 
     def createMasterVCFs(self):
@@ -44,30 +48,33 @@ class GenotypeBC:
         print('Downloading reference data')
         fm_obj.downloadData(fm_obj.localGenomeDir)
 
-        print('Downloading YH sire data')
+        #print('Downloading YH sire data')
+        #fm_obj.createSampleFiles(self.yh_sire) # Start with the YH father
+        #fm_obj.downloadData(fm_obj.localSampleBamDir)
+        
+        print('Identifying small variants from YH sire and MC mothers')
+        command = ['gatk','CombineGVCFs','-R',fm_obj.localGenomeFile]
         fm_obj.createSampleFiles(self.yh_sire) # Start with the YH father
-        fm_obj.downloadData(fm_obj.localSampleBamDir)
-        
-        print('Identifying small variants from YH sire')
-        command = ['gatk','GenotypeGVCFs','-R',fm_obj.localGenomeFile]
-        command += ['-V',fm_obj.localGVCFFile,'-O', self.yh_sire_vcf]
-        #subprocess.run(command)
-        """
-        print('Identifying variants from YH sire in MC moms')
-        command1 = ['bcftools','mpileup','-R',self.yh_sire_vcf,'-f',fm_obj.localGenomeFile]
-        command1 += ['-a','AD,DP']
-        
-        for sample in [self.yh_sire] + self.mothers:
-            fm_obj.createSampleFiles(sample) # Start with the YH father
-            command1 += [fm_obj.localBamFile]
-        command2 = ['bcftools', 'call','-m','-o',self.parents_vcf,'-O','z','-']
-        p1 = subprocess.Popen(command1, stdout = subprocess.PIPE)
-        p2 = subprocess.Popen(command2, stdin = p1.stdin)
-        p2.communicate()
-        """
-        print('Piling up variants from BCs')
+        command += ['--variant',fm_obj.localGVCFFile]
+        fm_obj.createSampleFiles(self.mc_dam) # Add the MC mother
+        command += ['--variant',fm_obj.localGVCFFile]
+        for mother in self.mothers:
+            fm_obj.createSampleFiles(mother) # Add the MC mother
+            command += ['--variant',fm_obj.localGVCFFile]
 
-        #subprocess.run(['bcftools', 'mpileup', '-f', self.fm_obj.localGenomeFile, '-R', self.yh_sire_vcf, '-b', self.all_samples, '-a', 'AD', '-Q', '0', '-o', self.all_pileup, '-Oz', '--threads', str(cpu_count())])
+        command += ['-O', self.parents_unfiltered_vcf + '.temp_cohort.g.vcf']
+        #output = subprocess.run(command, capture_output = True)
+        command = ['gatk','GenotypeGVCFs','-R',fm_obj.localGenomeFile,'-V',self.parents_unfiltered_vcf + '.temp_cohort.g.vcf', '-O',self.parents_unfiltered_vcf]
+        #output = subprocess.run(command, capture_output = True)
+        #subprocess.run(['rm','-f', self.parents_unfiltered_vcf + '.temp_cohort.g.vcf'])
+
+        command = ['bcftools','view','-v','snps','-i','GT[4]="AA" && GT[1]="RR" & FORMAT/DP[4] >12 && FORMAT/DP[1] >12','-o', self.parents_filtered_vcf, '-O','z', self.parents_unfiltered_vcf]
+        #output = subprocess.run(command, capture_output = True)
+        #pdb.set_trace()
+        print('Piling up variants from BCs')
+        subprocess.run(['ulimit','-n','4096'])
+        subprocess.run(['bcftools', 'mpileup', '-f', self.fm_obj.localGenomeFile, '-R', self.parents_filtered_vcf, '-b', self.all_samples, '-a', 'AD', '-Q', '0', '-o', self.all_pileup, '-Oz', '--threads', str(cpu_count())])
+        pdb.set_trace()
         subprocess.run(['bcftools', 'call', '-c','-o',self.all_vcf,'-O','z',self.all_pileup])
 
     def identifyYHSNVs(self, f1_father, f1_mother, depth_cutoff = 12):
@@ -272,7 +279,7 @@ class GenotypeBC:
 gt_bc = GenotypeBC()
 #gt_bc.createSampleList()
 gt_bc.createMasterVCFs()
-gt_bc.identifyHaplotypesInBCs()
+#gt_bc.identifyHaplotypesInBCs()
 #gt_bc.checkMasterVCFS()
 pdb.set_trace()
 #gt_bc.identifyYHSNVs('YH_008_m', 'MC-1R6R-f')

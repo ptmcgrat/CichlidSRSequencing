@@ -255,8 +255,14 @@ class AlignmentWorker():
 			if output.returncode != 0:
 				bad_samples.append(sample)
 				continue
+			output = subprocess.run(['gatk','IndexFeatureFile','-F', self.fm_obj.localGVCFFile])
+			if output.returncode != 0:
+				bad_samples.append(sample)
+				continue
 			for vcf_file in [self.fm_obj.localGVCFFile.replace('.g.vcf.gz','_' + x + '.g.vcf.gz') for x in contigs]:
 				subprocess.run(['rm', vcf_file])
+				subprocess.run(['rm', vcf_file + '.tbi'])
+				
 
 		return bad_samples
 
