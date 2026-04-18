@@ -221,6 +221,7 @@ class AlignmentWorker():
 				command += ['-O', self.fm_obj.localBamFile.replace('all.bam', bam_type + '.bam'), '--CREATE_INDEX']
 				output = subprocess.run(command, capture_output = True)
 				if output.returncode != 0:
+					pdb.set_trace()
 					bad_samples.append(sample)
 				for bam_file in bam_files:
 					subprocess.run(['rm', bam_file])

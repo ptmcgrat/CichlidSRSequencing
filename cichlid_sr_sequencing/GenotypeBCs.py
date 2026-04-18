@@ -31,7 +31,7 @@ class GenotypeBC:
 
     def readPhenoDatabase(self):
         dt = pd.read_csv("https://docs.google.com/spreadsheets/d/1BovaQm-FaOzchci9By71xTh3MzKCqMSpK3DCWB9sGiE/export?gid=1566739159&format=csv")
-        pheno_dt = dt[(dt.species.isin(['MCYHBC1'])) & (dt.tagtype == 'PIT')][['samplename','sex','sex_100','implant_date','DOF','standard_length_cm','body_mass_g']]           
+        pheno_dt = dt[(dt.species.isin(['MCYHBC1'])) & (dt.tagtype == 'PIT')][['samplename','sex','sex_100','implant_date','DOF','standard_length_cm','body_mass_g','Dead']]           
         pheno_dt['implant_date'] = pd.to_datetime(pheno_dt.implant_date)
         pheno_dt['DOF'] = pd.to_datetime(pheno_dt.DOF)
         pheno_dt['AgeAtInjection'] = (pheno_dt.implant_date - pheno_dt.DOF).dt.days
@@ -184,12 +184,20 @@ class GenotypeBC:
         plot_dt = pd.merge(temp_dt[temp_dt.QTL].T, sex_dt, left_index = True, right_on = 'samplename').set_index('samplename')
         order = ['MCYHBC1-709-1','MCYHBC1-825-1','MCYHBC1-737-1','MCYHBC1-765-1','MCYHBC1-800-1','MCYHBC1-638-1','MCYHBC1-788-1','MCYHBC1-814-1','MCYHBC1-619-1','MCYHBC1-790-1','MCYHBC1-656-1','MCYHBC1-645-1','MCYHBC1-580-1','MCYHBC1-668-1','MCYHBC1-919-1','MCYHBC1-642-1','MCYHBC1-828-1','MCYHBC1-755-1','MCYHBC1-701-1','MCYHBC1-795-1','MCYHBC1-927-1']
         plot_dt = plot_dt.reindex(order)
-        pdb.set_trace()
+        plot_dt = plot_dt[plot_dt.sex_100 != '-']
 
         plot_color = plot_dt['sex_100']
 
         plot_dt = plot_dt.drop(columns = ['sex','sex_100'])
-        sns.clustermap(plot_dt, col_cluster=False, row_cluster = False, row_colors = plot_color.map({'M':'blue','F':'pink'}))
+        new_names = [merged_dt.loc[x].Position for x in plot_dt.columns.tolist()]
+        plot_dt.columns = new_names
+        ax = sns.clustermap(plot_dt.astype(float), col_cluster=False, row_cluster = False, row_colors = plot_color.map({'M':'blue','F':'pink'}))
+        for label in ax.ax_heatmap.get_yticklabels():
+            labels_text = label.get_text()
+            if self.pheno_dt[self.pheno_dt.samplename == labels_text].Dead.values[0] == 'TRUE':
+                label.set_color("red")
+            else:
+                label.set_color("black")    
         plt.show()
 
     def plotRecombinationByChromosome(self):
