@@ -213,6 +213,7 @@ class AlignmentWorker():
 		for sample in self.samples:
 			if sample in bad_samples:
 				continue
+			self.fm_obj.createSampleFiles(sample)
 			for bam_type in ['unmapped', 'discordant', 'inversion', 'duplication', 'clipped', 'chimeric']:
 				bam_files = [self.fm_obj.localBamFile.replace('bam', x + '.' + bam_type + '.bam') for x in contigs]
 				command = ['gatk', 'MergeSamFiles']
