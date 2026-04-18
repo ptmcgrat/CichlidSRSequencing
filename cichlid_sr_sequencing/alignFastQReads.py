@@ -1,6 +1,5 @@
-import argparse, pdb, pysam, subprocess, os
+import argparse, pdb, pysam, subprocess, os,resource
 from helper_modules.file_manager import FileManager as FM
-
 from helper_modules.alignment_worker import AlignmentWorker as AW
 from helper_modules.Timer import Timer
 
@@ -16,6 +15,10 @@ parser.add_argument('-e', '--Ecogroups', nargs = '+', metavar = '', choices = fm
 parser.add_argument('-u', '--Subgroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Subgroups'), help = 'Restrict analysis to a specific Subgroup: ' + ','.join(fm_obj.returnOptions('Subgroups')))
 parser.add_argument('-r', '--Rerun', action = 'store_true', help = 'Default behavior is to not rerun alignment if already completed. Use this to force realignment')
 args = parser.parse_args()
+
+# Set soft limits for number of files to open at a time
+soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (4096, hard))
 
 # Create FileManager object to keep track of filenames
 fm_obj.setGenome(args.Genome)
@@ -34,12 +37,13 @@ timer.stop()
 
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj, check_size = True)
-
+"""
 timer.start('  Parallel Downloading uBams files')
 bad_samples = aw_obj.downloadReadData()
 if bad_samples != []:
 	print('Error downloading the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
+	aw_obj.samples = fm_obj.samples
 timer.stop()
 
 timer.start('  Aligning Reads to created sorted Bamfiles')
@@ -47,6 +51,7 @@ bad_samples = aw_obj.alignData()
 if bad_samples != []:
 	print('Error aligning the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
+	aw_obj.samples = fm_obj.samples
 timer.stop()
 
 timer.start('  Marking duplicates for bamfiles')
@@ -54,13 +59,15 @@ bad_samples = aw_obj.markDuplicates()
 if bad_samples != []:
 	print('Error marking duplicates for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
+	aw_obj.samples = fm_obj.samples
 timer.stop()
-
+"""
 timer.start('  Splitting reads based upon their alignment')
 bad_samples = aw_obj.splitBamfiles()
 if bad_samples != []:
 	print('Error splitting bamfiles for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
+	aw_obj.samples = fm_obj.samples
 timer.stop()
 
 timer.start('  Calling haplotypes to create gvcf files')
@@ -68,6 +75,7 @@ bad_samples = aw_obj.createGVCF()
 if bad_samples != []:
 	print('Error creating GVCF for the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
+	aw_obj.samples = fm_obj.samples
 timer.stop()
 
 timer.start('  Uploading and updating database')
