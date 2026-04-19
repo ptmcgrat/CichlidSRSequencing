@@ -120,7 +120,6 @@ while commands:
 		if data.process.returncode != 0:
 			print(data.sampleID + ' did not complete properly. Something went wrong')
 		else:
-			subprocess.run(['rm',data.error_file])
 			read_data = {'SampleID':data.sampleID,'ProjectID':data.projectID,'RunID':data.runID,
 			'ReadLength':data.readLength,'TotalBases':data.totalBases,'Instrument':data.instrument,
 			'LibraryID':data.libraryID,'LibraryLayout':data.libraryLayout,'LibrarySource':data.librarySource,
