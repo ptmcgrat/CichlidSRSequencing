@@ -65,12 +65,12 @@ for index, row in new_dt.iterrows():
 
 	# Make sure we this run hasn't already been added to the sample database
 	if data.runID in set(fm_obj.reads_dt['RunID']):
-		print('Error on ' + data.RunID + ': Run already added to sample database', file = sys.stderr)
+		print('Error on ' + data.runID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
 	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
 	if data.runID in existing_bamfiles:
-		print('Warning on ' + data.RunID + ': Run data on cloud but not in Sample Database. Rerunning...', file = sys.stderr)
+		print('Warning on ' + data.runID + ': Run data on cloud but not in Sample Database. Rerunning...', file = sys.stderr)
 		#row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 		
 	# Create directories for temp and final data to be stored in
