@@ -58,7 +58,7 @@ for index, row in new_dt.iterrows():
 		platform = row['Platform'], layout = row['LibraryLayout'], projectID = row['ProjectID'],
 		readLength = row['ReadLength'], totalBases = row['TotalBases'], instrument = row['Instrument'],
 		libraryLayout = row['LibraryLayout'], librarySource = row['LibrarySource'],
-		platform = row['Platform'], organism = row['Organism'])
+		organism = row['Organism'])
 	
 	data.outputBamfile = fm_obj.localReadsDir + data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
 
