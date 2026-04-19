@@ -49,7 +49,7 @@ class AlignmentWorker():
 		self.samples = list({k: v for k, v in sorted(sizes.items(), key=lambda item: item[1], reverse = True)}.keys())
 		print('The order of analysis based on size will be: ' + ',' + ','.join(self.samples))
 		
-	def monitorProcesses(self, command_list, num_parallel = None):
+	def monitorProcesses(self, command_list, num_parallel = None, verbose = True):
 		# command_dict is a dictionary where the key is the sample name that allows
 		# the user to keep track of each separate command they want run
 		# the values are a SimpleNamespace object containing command: a command as a list
@@ -68,7 +68,8 @@ class AlignmentWorker():
 		while command_list:
 			finished_processes = [x for x in command_list if x.process is not None and x.process.poll() is not None]
 			for data in finished_processes:
-				print(f'..{data.sampleID} complete..', end = '')
+				if verbose:
+					print(f'..{data.sampleID} complete..', end = '')
 				data.error_fp.close()
 				if data.process.returncode != 0:
 					bad_samples.append(data.sampleID)
