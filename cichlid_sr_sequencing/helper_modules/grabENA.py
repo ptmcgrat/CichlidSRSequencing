@@ -26,24 +26,27 @@ if args.Local:
 else:
 	local_fq1 = args.Temp_directory + args.RunID + '_1.fastq.gz'
 	local_fq2 = args.Temp_directory + args.RunID + '_2.fastq.gz'
-temp_bam_file = args.Temp_directory + args.RunID + '_temp.bam'
 
+temp_bam_file = args.Temp_directory + args.RunID + '_temp.bam'
+print('  Processing files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))	
 if args.Local:
 	fm_obj.downloadData(args.fq1)
 	if args.LibraryLayout == 'PAIRED':
 		fm_obj.downloadData(args.fq2)
 else:
-
 	#target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
-	print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
+	#print('  Fastq files acsping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 	for i in range(3):
 		#output = subprocess.run(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/.aspera/sdk/aspera_bypass_rsa.pem', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 		output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 		if output.returncode == 0:
 			break
 		elif i == 2:
+			print('  Failed downloading ' + args.RunID + ', Time:' + str(datetime.datetime.now()))	
+			with open(args.Temp_directory + args.RunID + 'Errors.txt','w') as f:
+				print(output.stderr.decode(), file = f)
 			sys.exit()
-		print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
+		#print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 	for i in range(3):
 		#output = subprocess.run(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/.aspera/sdk/aspera_bypass_rsa.pem', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
@@ -52,11 +55,15 @@ else:
 		if output.returncode == 0:
 			break
 		elif i == 2:
+			print('  Failed downloading ' + args.RunID + ', Time:' + str(datetime.datetime.now()))	
+			with open(args.Temp_directory + args.RunID + 'Errors.txt','w') as f:
+				print(output.stderr.decode(), file = f)
+
 			sys.exit()
-		print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
+		#print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 # Convert fastq files to unmapped bam
-print('  Converting fastq files to uBam file')
+#print('  Converting fastq files to uBam file')
 
 
 # Quality control fastq files
@@ -99,7 +106,8 @@ output1 = subprocess.run(command, capture_output = True)
 if output1.returncode != 0:
 	with open(args.OutputBam + '.FastQToSamErrors.txt', 'w') as f:
 		print(output1.stderr.decode('utf-8'), file = f)
-	fm_obj.uploadData(args.OutputBam + '.FastQToSamErrors.txt')
+	#fm_obj.uploadData(args.OutputBam + '.FastQToSamErrors.txt')
+	print('  Failed converting to Sam ' + args.RunID + ', Time:' + str(datetime.datetime.now()))	
 	sys.exit()
 
 # Mark illumina adapters
@@ -110,14 +118,15 @@ if args.Platform == 'ILLUMINA' or 'ELEMENT' in args.Platform:
 	if output2.returncode != 0:
 		with open(args.OutputBam + '.MarkIlluminaErrors.txt', 'w') as f:
 			print(output2.stderr.decode('utf-8'), file = f)
-		fm_obj.uploadData(args.OutputBam + '.MarkIlluminaErrors.txt')
+		#fm_obj.uploadData(args.OutputBam + '.MarkIlluminaErrors.txt')
+		print('  Failed converting to Sam ' + args.RunID + ', Time:' + str(datetime.datetime.now()))	
 		sys.exit()
 
 # Upload data to dropbox
-print('  Uploading uBam files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
+#print('  Uploading uBam files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 fm_obj.uploadData(args.OutputBam)
 fm_obj.uploadData(args.OutputBam + '.metrics.txt')
-print('  Finished for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
+print('  Successfully processed ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 
 
 # Remove files that were created

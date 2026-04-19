@@ -110,7 +110,7 @@ for index, row in new_dt.iterrows():
 
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
-	print(command)
+	#print(command)
 	if args.Local:
 		command += ['--Local']
 
@@ -140,12 +140,12 @@ for index, row in new_dt.iterrows():
 
 		fm_obj.setSampleDatabase()
 
-		print('Database uploaded')
+		#print('Database uploaded')
 		processes = []
 		rows = []
 
 if len(processes) != 0:
-	print('  Waiting for processes to complete')
+	#print('  Waiting for processes to complete')
 	for p in processes:
 		p.communicate()
 		# Check to see if process was successful
