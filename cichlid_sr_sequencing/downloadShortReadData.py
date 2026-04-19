@@ -50,7 +50,7 @@ new_dt = new_dt.rename(columns = remapper)[remapper.values()]
 # Loop through runs and download data and convert to uBam
 commands = []
 for index, row in new_dt.iterrows():
-	if layout != 'PAIRED':
+	if row['LibraryLayout'] != 'PAIRED':
 		print('Error on ' + row.RunID + ': Can only handle paired end data. Library layout is: ' + layout, file = sys.stderr)
 		continue
 	
