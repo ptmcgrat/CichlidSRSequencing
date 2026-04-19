@@ -92,11 +92,16 @@ class FileManager():
 		self.reads_dt = get_as_dataframe(worksheet, evaluate_formulas=True)
 		self.merged_dt = pd.merge(self.sample_dt,self.reads_dt, on = 'SampleID')
 
-	def addDNAReadRow(self, row_dict):
+	def addDNAReadRow(self, dna_dict, sample_dict):
 		self.readSampleDatabase()
-		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations','FileSize'])
-		assert row_dict['RunID'] not in self.reads_dt.RunID.to_list()
-		self.reads_dt = pd.concat([self.reads_dt,pd.DataFrame([row_dict])], ignore_index = True)
+		assert set(dna_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations','FileSize'])
+		assert dna_dict['RunID'] not in self.reads_dt.RunID.to_list()
+		assert set(sample_dict.keys()) == set(['SampleID','Sex','Species','DoB','BroodID','Parents','Ecogroup','LabReared','Inversion10'])
+		if sample_dict['SampleID'] not in self.sample_dt.SampleID.to_list():
+			print('Warning: ' + sample_dict['SampleID'] + ' already in SampleDatabase')
+		self.reads_dt = pd.concat([self.reads_dt,pd.DataFrame([dna_dict])], ignore_index = True)
+		self.sample_dt = pd.concat([self.sample_dt,pd.DataFrame([sample_dict])], ignore_index = True)
+
 		self.setSampleDatabase()
 	
 	def addSampleRow(self, row_dict):

@@ -48,26 +48,28 @@ new_dt = new_dt.rename(columns = remapper)[remapper.values()]
 
 
 # Loop through runs and download data and convert to uBam
-processes = []
-rows = []
+commands = []
 for index, row in new_dt.iterrows():
-
-	run_id, library_id, sample_id, platform, layout = row['RunID'], row['LibraryID'], row['SampleID'], row['Platform'], row['LibraryLayout']
-	output_bamfile = fm_obj.localReadsDir + row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
-
-	# Make sure we are analyzing paired end reads
-	if layout != 'PAIRED' and layout != 'SINGLE':
-		print('Error on ' + row.RunID + ': Can only handle single/paired end data. Library layout is: ' + layout, file = sys.stderr)
+	if layout != 'PAIRED':
+		print('Error on ' + row.RunID + ': Can only handle paired end data. Library layout is: ' + layout, file = sys.stderr)
 		continue
+	
+	data = SimpleNamespce(runID = row['RunID'], libraryID = row['LibraryID'], sampleID = row['SampleID'],
+		platform = row['Platform'], layout = row['LibraryLayout'], projectID = row['ProjectID'],
+		readLength = row['ReadLength'], totalBases = row['TotalBases'], instrument = row['Instrument'],
+		libraryLayout = row['LibraryLayout'], librarySource = row['LibrarySource'],
+		platform = row['Platform'], organism = row['Organism'])
+	
+	data.outputBamfile = fm_obj.localReadsDir + data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
 
 	# Make sure we this run hasn't already been added to the sample database
-	if run_id in set(fm_obj.reads_dt['RunID']):
-		print('Error on ' + row.RunID + ': Run already added to sample database', file = sys.stderr)
+	if data.runID in set(fm_obj.reads_dt['RunID']):
+		print('Error on ' + data.RunID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
 	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
-	if run_id in existing_bamfiles:
-		print('Warning on ' + row.RunID + ': Run data on cloud but not in Sample Database. Rerunning...', file = sys.stderr)
+	if data.runID in existing_bamfiles:
+		print('Warning on ' + data.RunID + ': Run data on cloud but not in Sample Database. Rerunning...', file = sys.stderr)
 		#row.FileLocations = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
 		
 	# Create directories for temp and final data to be stored in
@@ -76,17 +78,7 @@ for index, row in new_dt.iterrows():
 
 	# Download ENA data to determine ftp site of fastq files
 	if args.Local:
-		if layout == 'PAIRED':
-			fq1,fq2 = row['FileLocations'].split(',,')
-			if fq1[0] != '/':
-				fq1 = fm_obj.localSeqCoreDataDir + fq1
-				fq2 = fm_obj.localSeqCoreDataDir + fq2
-		else:
-			fq1 = row['FileLocations']
-			fq2 = row['FileLocations']
-			if fq1[0] != '/':
-				fq1 = fm_obj.localMasterDir + fq1
-				fq2 = fm_obj.localMasterDir + fq2
+		fq1,fq2 = [fm_obj.localSeqCoreDataDir + x for x in row['FileLocations'].split(',,')]
 
 	else:
 		try:
@@ -99,7 +91,7 @@ for index, row in new_dt.iterrows():
 
 		# If ftp site doesn't exist it is None
 		if ena_dt.fastq_ftp[0] != ena_dt.fastq_ftp[0]:
-			print('Error on ' + row.RunID + ': Cant find ftp site locations', file = sys.stderr)
+			print('Error on ' + data.RunID + ': Cant find ftp site locations', file = sys.stderr)
 			continue 
 
 		# Store file locations for remote and local fq files
@@ -107,55 +99,39 @@ for index, row in new_dt.iterrows():
 		fq1 = ftps[0]
 		fq2 = ftps[1]
 
-
 	# Asynchronously download fastq files (up to 12 at a time)
-	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', run_id, fq1, fq2, output_bamfile, fm_obj.localTempDir, sample_id, library_id, platform, layout]]
+	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', data.runID, fq1, fq2, data.outputBamfile, fm_obj.localTempDir, data.sampleID, data.libraryID, data.platform, data.layout]]
 	#print(command)
 	if args.Local:
 		command += ['--Local']
+	data.command = command
+	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
+	commands.append(data)
+	
+for i,data in enumerate(commands):
+	data.process = None
+	if i < 6:
+		data.process = subprocess.Popen(data.command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+		print('Starting analysis of ' + data.sampleID)
+while commands:
+	finished_processes = [x for x in commands if x.process is not None and x.process.poll() is not None]
+	for data in finished_processes:
+		if data.process.returncode != 0:
+			print(data.sampleID + ' did not complete properly. Something went wrong')
+		else:
+			subprocess.run(['rm',data.error_file])
+			read_data = {'SampleID':data.sampleID,'ProjectID':data.projectID,'RunID':data.runID,
+			'ReadLength':data.readLength,'TotalBases':data.totalBases,'Instrument':data.instrument,
+			'LibraryID':data.libraryID,'LibraryLayout':data.libraryLayout,'LibrarySource':data.librarySource,
+			'Platform':data.platform,'FileLocations':data.fileLocations}
+			read_data['FileSize'] = fm_obj.returnFileSize(fm_obj.localReadsDir + data.fileLocations)
+			sample_data = {'SampleID':data.sampleID,'Sex':'','Species':data.organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''}
+			fm_obj.addDNAReadRow(read_data, sample_data)
+			print('Finished analysis of ' + data.sampleID)
+		commands.remove(data)  # Remove finished process from monitoring list
+		next_command = next((x for x in commands if x.process is None),None)
+		if next_command is not None:
+			next_command.process = subprocess.Popen(next_command.command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+			print('Starting analysis of ' + next_command.sampleID)
 
-	#processes.append(subprocess.Popen(['ls']))
-	processes.append(subprocess.Popen(command))
-	row.loc['FileLocations'] = row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
-	#if 'FileLocations' in row:
-	#	rows.append(row.drop(labels = ['FileLocations']))
-	#else:
-	rows.append(row)
-	if len(processes) == 6:
-		#print('  Waiting for processes to complete')
-		for p in processes:
-			p.communicate()
-		# Check to see if process was successful
-		for i, p in enumerate(processes):
-			if p.returncode == 0:
-				rows[i].loc['FileSize'] = fm_obj.returnFileSize(fm_obj.localReadsDir + rows[i].FileLocations)
-				fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
-				try:
-					fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
-				except AssertionError:
-					print(rows[i].SampleID + ' already in the database.')
 
-		#print('Database uploaded')
-		processes = []
-		rows = []
-
-if len(processes) != 0:
-	#print('  Waiting for processes to complete')
-	for p in processes:
-		p.communicate()
-		# Check to see if process was successful
-	for i, p in enumerate(processes):
-		if p.returncode == 0:	
-			try:
-				rows[i].loc['FileSize'] = fm_obj.returnFileSize(fm_obj.localReadsDir + rows[i].FileLocations)
-			except:
-				continue
-			fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
-			try:
-				fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
-			except AssertionError:
-				print(rows[i].SampleID + ' already in the database.')
-
-	print('Database uploaded')
-	processes = []
-	rows = []
