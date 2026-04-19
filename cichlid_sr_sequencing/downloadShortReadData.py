@@ -2,6 +2,7 @@ import argparse, subprocess, os, urllib, shutil, contextlib, datetime, sys, pdb
 import pandas as pd
 import numpy as np
 from helper_modules.file_manager import FileManager as FM
+from types import SimpleNamespace
 
 # --java-options "-Xmx8g -Xms4g -Djava.io.tmpdir=${TMP_DIR} -Dsamjdk.compression_level=5"
 
