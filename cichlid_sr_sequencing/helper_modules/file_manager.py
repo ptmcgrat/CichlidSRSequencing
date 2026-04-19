@@ -93,18 +93,19 @@ class FileManager():
 		self.merged_dt = pd.merge(self.sample_dt,self.reads_dt, on = 'SampleID')
 
 	def addDNAReadRow(self, row_dict):
-		try:
-			assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations','FileSize'])
-		except:
-			pdb.set_trace()	
+		self.readSampleDatabase()
+		assert set(row_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations','FileSize'])
 		assert row_dict['RunID'] not in self.reads_dt.RunID.to_list()
 		self.reads_dt = pd.concat([self.reads_dt,pd.DataFrame([row_dict])], ignore_index = True)
-
+		self.setSampleDatabase()
+	
 	def addSampleRow(self, row_dict):
+		self.readSampleDatabase()
 		assert set(row_dict.keys()) == set(['SampleID','Sex','Species','DoB','BroodID','Parents','Ecogroup','LabReared','Inversion10'])
 		assert row_dict['SampleID'] not in self.sample_dt.SampleID.to_list()
 		self.sample_dt = pd.concat([self.sample_dt,pd.DataFrame([row_dict])], ignore_index = True)
-
+		self.setSampleDatabase()
+	
 	def setSampleDatabase(self):
 		for i in range(3):
 			try:

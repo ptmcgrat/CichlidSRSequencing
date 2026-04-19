@@ -122,23 +122,18 @@ for index, row in new_dt.iterrows():
 	#else:
 	rows.append(row)
 	if len(processes) == 6:
-		print('  Waiting for processes to complete')
+		#print('  Waiting for processes to complete')
 		for p in processes:
 			p.communicate()
 		# Check to see if process was successful
 		for i, p in enumerate(processes):
 			if p.returncode == 0:
-				try:
-					rows[i].loc['FileSize'] = os.path.getsize(fm_obj.localReadsDir + rows[i].FileLocations)
-				except:
-					continue
+				rows[i].loc['FileSize'] = fm_obj.returnFileSize(fm_obj.localReadsDir + rows[i].FileLocations)
 				fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
 				try:
 					fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
 				except AssertionError:
 					print(rows[i].SampleID + ' already in the database.')
-
-		fm_obj.setSampleDatabase()
 
 		#print('Database uploaded')
 		processes = []
@@ -152,7 +147,7 @@ if len(processes) != 0:
 	for i, p in enumerate(processes):
 		if p.returncode == 0:	
 			try:
-				rows[i].loc['FileSize'] = os.path.getsize(fm_obj.localReadsDir + rows[i].FileLocations)
+				rows[i].loc['FileSize'] = fm_obj.returnFileSize(fm_obj.localReadsDir + rows[i].FileLocations)
 			except:
 				continue
 			fm_obj.addDNAReadRow(rows[i].drop(labels = ['Organism']))
@@ -160,7 +155,6 @@ if len(processes) != 0:
 				fm_obj.addSampleRow({'SampleID':rows[i].SampleID,'Sex':'','Species':rows[i].Organism,'DoB':'','BroodID':'','Parents':'','Ecogroup':'','LabReared':'','Inversion10':''})
 			except AssertionError:
 				print(rows[i].SampleID + ' already in the database.')
-	fm_obj.setSampleDatabase()
 
 	print('Database uploaded')
 	processes = []
