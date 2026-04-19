@@ -242,7 +242,7 @@ class AlignmentWorker():
 				command = ['gatk', '--java-options', '-Xmx' + self.ram_unit, 'HaplotypeCaller', '-R', self.fm_obj.localGenomeFile, '-I', self.fm_obj.localBamFile, '-L', contig, '-ERC', 'GVCF', '-O', contig_vcf]
 				commands.append(SimpleNamespace(sampleID=sample + '__' + contig, error_file = error_file, command = command))
 				
-		tb_samples = self.monitorProcesses(commands)
+		tb_samples = self.monitorProcesses(commands, verbose = False)
 		bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
 
 		for sample in self.samples:
@@ -258,7 +258,7 @@ class AlignmentWorker():
 			if output.returncode != 0:
 				bad_samples.append(sample)
 				continue
-			output = subprocess.run(['gatk','IndexFeatureFile','-F', self.fm_obj.localGVCFFile])
+			output = subprocess.run(['gatk','IndexFeatureFile','-I', self.fm_obj.localGVCFFile], capture_output = True)
 			if output.returncode != 0:
 				bad_samples.append(sample)
 				continue
@@ -266,7 +266,6 @@ class AlignmentWorker():
 				subprocess.run(['rm', vcf_file])
 				subprocess.run(['rm', vcf_file + '.tbi'])
 				
-
 		return bad_samples
 
 	def uploadAndUpdateDatabase(self, upload = True):
