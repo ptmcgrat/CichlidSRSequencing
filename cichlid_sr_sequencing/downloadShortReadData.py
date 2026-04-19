@@ -55,7 +55,7 @@ for index, row in new_dt.iterrows():
 		print('Error on ' + row.RunID + ': Can only handle paired end data. Library layout is: ' + layout, file = sys.stderr)
 		continue
 	
-	data = SimpleNamespce(runID = row['RunID'], libraryID = row['LibraryID'], sampleID = row['SampleID'],
+	data = SimpleNamespace(runID = row['RunID'], libraryID = row['LibraryID'], sampleID = row['SampleID'],
 		platform = row['Platform'], layout = row['LibraryLayout'], projectID = row['ProjectID'],
 		readLength = row['ReadLength'], totalBases = row['TotalBases'], instrument = row['Instrument'],
 		libraryLayout = row['LibraryLayout'], librarySource = row['LibrarySource'],
