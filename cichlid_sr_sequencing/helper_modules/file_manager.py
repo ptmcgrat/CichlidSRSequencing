@@ -131,9 +131,11 @@ class FileManager():
 
 	def addAlignmentRow(self, row_dict):
 		assert set(row_dict.keys()) == set(['SampleID','GenomeVersion','RunIDs','Coverage','TotalReads','UnmappedReads','DiscordantReads','InversionReads','DuplicationReads','ClippedReads','ChimericReads','minimap2_version','gatk_version','pysam_version','BamSize'])
+		self.readAlignmentDatabase()
 		assert row_dict['SampleID'] not in self.alignment_dt.SampleID.to_list()
 		self.alignment_dt = pd.concat([self.alignment_dt,pd.DataFrame([row_dict])], ignore_index = True)
-
+		self.setAlignmentDatabase()
+		
 	def setAlignmentDatabase(self):
 		assert self.genome_version
 

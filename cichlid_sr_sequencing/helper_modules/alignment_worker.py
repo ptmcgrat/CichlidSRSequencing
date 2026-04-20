@@ -283,8 +283,11 @@ class AlignmentWorker():
 			self.fm_obj.createSampleFiles(sample)
 			if sample in bad_samples:
 				continue
+			if not os.path.exists(self.fm_obj.localBamFile):
+				bad_samples.append(sample)
+				continue
 			stats = {}
-			
+
 			for filename in [self.fm_obj.localBamFile, self.fm_obj.localUnmappedBamFile, self.fm_obj.localDiscordantBamFile, self.fm_obj.localInversionBamFile, self.fm_obj.localDuplicationBamFile, self.fm_obj.localClippedBamFile, self.fm_obj.localChimericBamFile]:
 				output = subprocess.run(['gatk', 'CountReads', '-I', filename], capture_output = True, encoding = 'utf-8')
 				try:
@@ -312,7 +315,7 @@ class AlignmentWorker():
 			sample_data['BamSize'] = os.path.getsize(self.fm_obj.localBamFile)
 	
 			self.fm_obj.addAlignmentRow(sample_data)
-			self.fm_obj.setAlignmentDatabase()
+			#self.fm_obj.setAlignmentDatabase()
 
 			#subprocess.run(['rm','-rf', self.fm_obj.localSampleBamDir])
 			#subprocess.run(['rm','-rf', self.fm_obj.localSampleTempDir])
