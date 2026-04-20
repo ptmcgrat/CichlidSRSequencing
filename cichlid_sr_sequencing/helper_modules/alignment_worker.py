@@ -37,9 +37,9 @@ class AlignmentWorker():
 	
 	def checkSize(self):
 		sizes = {}
-		for sampleID in fm_obj.samples:
+		for sampleID in self.fm_obj.samples:
 			try:
-				sizes[sampleID] = fm_obj.merged_dt[fm_obj.merged_dt.SampleID == sampleID].FileSize.sum()
+				sizes[sampleID] = self.fm_obj.merged_dt[self.fm_obj.merged_dt.SampleID == sampleID].FileSize.sum()
 			except ValueError:
 				pdb.set_trace()
 		total_sample_size = sum(sizes.values())
