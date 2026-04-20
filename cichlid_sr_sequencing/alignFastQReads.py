@@ -69,7 +69,7 @@ if bad_samples != []:
 	fm_obj.removeSamples(bad_samples)
 	aw_obj.samples = fm_obj.samples
 timer.stop()
-"""
+
 timer.start('  Calling haplotypes to create gvcf files')
 bad_samples = aw_obj.createGVCF()
 if bad_samples != []:
@@ -86,4 +86,4 @@ if bad_samples != []:
 	except:
 		pdb.set_trace()
 timer.stop()
-"""
+

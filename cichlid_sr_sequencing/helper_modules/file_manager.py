@@ -96,12 +96,12 @@ class FileManager():
 		self.readSampleDatabase()
 		assert set(dna_dict.keys()) == set(['SampleID','ProjectID','RunID','ReadLength','TotalBases','Instrument','LibraryID','LibraryLayout','LibrarySource','Platform','FileLocations','FileSize'])
 		assert dna_dict['RunID'] not in self.reads_dt.RunID.to_list()
-		assert set(sample_dict.keys()) == set(['SampleID','Sex','Species','DoB','BroodID','Parents','Ecogroup','LabReared','Inversion10'])
-		if sample_dict['SampleID'] not in self.sample_dt.SampleID.to_list():
-			print('Warning: ' + sample_dict['SampleID'] + ' already in SampleDatabase')
 		self.reads_dt = pd.concat([self.reads_dt,pd.DataFrame([dna_dict])], ignore_index = True)
-		self.sample_dt = pd.concat([self.sample_dt,pd.DataFrame([sample_dict])], ignore_index = True)
-
+		assert set(sample_dict.keys()) == set(['SampleID','Sex','Species','DoB','BroodID','Parents','Ecogroup','LabReared','Inversion10'])
+		if sample_dict['SampleID'] in self.sample_dt.SampleID.to_list():
+			print('Warning: ' + sample_dict['SampleID'] + ' already in SampleDatabase')
+		else:
+			self.sample_dt = pd.concat([self.sample_dt,pd.DataFrame([sample_dict])], ignore_index = True)	
 		self.setSampleDatabase()
 	
 	def addSampleRow(self, row_dict):
