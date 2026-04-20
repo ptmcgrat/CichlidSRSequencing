@@ -22,7 +22,8 @@ class AlignmentWorker():
 			self.fm_obj.createSampleFiles(sampleID)
 			self.uBam_files[sampleID] = self.fm_obj.localRawBamFiles
 		self.samples = fm_obj.samples
-
+		if check_size:
+			self.checkSize()
 	def setMaxProcesses(self):
 		cpus = cpu_count()
 		ram_units = int(psutil.virtual_memory().available/2500000000)
