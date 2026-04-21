@@ -111,7 +111,7 @@ for index, row in new_dt.iterrows():
 	
 for i,data in enumerate(commands):
 	data.process = None
-	if i < 6:
+	if i < 4:
 		data.process = subprocess.Popen(data.command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
 		print('Starting analysis of ' + data.sampleID)
 while commands:
