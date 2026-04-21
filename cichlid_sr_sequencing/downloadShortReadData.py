@@ -112,7 +112,7 @@ for index, row in new_dt.iterrows():
 for i,data in enumerate(commands):
 	data.process = None
 	if i < 4:
-		data.process = subprocess.Popen(data.command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+		data.process = subprocess.Popen(data.command, stderr = open(fm_obj.localTempDir + data.sampleID + '_errors.txt', 'w'), stdout = subprocess.DEVNULL)
 		print('Starting analysis of ' + data.sampleID)
 while commands:
 	finished_processes = [x for x in commands if x.process is not None and x.process.poll() is not None]
@@ -120,6 +120,7 @@ while commands:
 		if data.process.returncode != 0:
 			print(data.sampleID + ' did not complete properly. Something went wrong')
 		else:
+			subprocess.run(['rm',fm_obj.localTempDir + data.sampleID + '_errors.txt'])
 			read_data = {'SampleID':data.sampleID,'ProjectID':data.projectID,'RunID':data.runID,
 			'ReadLength':data.readLength,'TotalBases':data.totalBases,'Instrument':data.instrument,
 			'LibraryID':data.libraryID,'LibraryLayout':data.libraryLayout,'LibrarySource':data.librarySource,
@@ -131,7 +132,7 @@ while commands:
 		commands.remove(data)  # Remove finished process from monitoring list
 		next_command = next((x for x in commands if x.process is None),None)
 		if next_command is not None:
-			next_command.process = subprocess.Popen(next_command.command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)
+			next_command.process = subprocess.Popen(next_command.command, stderr = open(fm_obj.localTempDir + data.sampleID + '_errors.txt', 'w'), stdout = subprocess.DEVNULL)
 			print('Starting analysis of ' + next_command.sampleID)
 
 
