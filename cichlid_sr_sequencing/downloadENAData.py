@@ -52,6 +52,7 @@ for index, row in dt.iterrows():
 		organism = row['Organism'], fq1 = row.FastqAspera.split(';')[0], fq2 = row.FastqAspera.split(';'))
 	
 	data.outputBamfile = fm_obj.localReadsDir + data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
+	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh',data.fq1,fm_obj.localTempDir], capture_output = True)
 	pdb.set_trace()
 	# Make sure we this run hasn't already been added to the sample database
 	if data.runID in set(fm_obj.reads_dt['RunID']):
