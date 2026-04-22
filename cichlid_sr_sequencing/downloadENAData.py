@@ -67,7 +67,7 @@ for index, row in dt.iterrows():
 
 
 	# Asynchronously download fastq files (up to 12 at a time)
-	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', fm_obj.localTempDir + args.Run_Info_File, data.runID, data.outputBamfile, fm_obj.localTempDir]]
+	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', fm_obj.localTempDir + args.Run_Info_File, data.runID, fm_obj.localReadsDir + data.fileLocations, fm_obj.localTempDir]]
 	print(command)
 	data.command = command
 	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
