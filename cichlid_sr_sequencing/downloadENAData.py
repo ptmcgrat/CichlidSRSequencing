@@ -35,7 +35,7 @@ if missing_columns != []:
 	sys.exit()
 
 # Rename columns to be consistent with master sample Database
-remapper = {'run_accession':'RunID', 'sample_accession':'SampleID','nominal_length':'ReadLength','base_count':'TotalBases','study_accession':'ProjectID','instrument_model:':'Instrument','library_name':'LibraryID','library_layout':'LibraryLayout','library_source':'LibrarySource','scientific_name':'Organism','instrument_platform':'Platform','fastq_ftp':'FastqFtp','fastq_aspera':'FastqAspera','fastq_md5':'FastqMd5'}
+remapper = {'run_accession':'RunID', 'sample_accession':'SampleID','experiment_accession':'ExperimentID','nominal_length':'ReadLength','base_count':'TotalBases','study_accession':'ProjectID','instrument_model':'Instrument','library_name':'LibraryID','library_layout':'LibraryLayout','library_source':'LibrarySource','scientific_name':'Organism','instrument_platform':'Platform','fastq_ftp':'FastqFtp','fastq_aspera':'FastqAspera','fastq_md5':'FastqMd5'}
 pdb.set_trace()
 dt = dt.rename(columns = remapper)[remapper.values()]
 pdb.set_trace()
