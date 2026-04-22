@@ -37,7 +37,7 @@ if missing_columns != []:
 # Rename columns to be consistent with master sample Database
 remapper = {'run_accession':'RunID', 'sample_accession':'SampleID','experiment_accession':'ExperimentID','nominal_length':'ReadLength','base_count':'TotalBases','study_accession':'ProjectID','instrument_model':'Instrument','library_name':'LibraryID','library_layout':'LibraryLayout','library_source':'LibrarySource','scientific_name':'Organism','instrument_platform':'Platform','fastq_ftp':'FastqFtp','fastq_aspera':'FastqAspera','fastq_md5':'FastqMd5'}
 dt = dt.rename(columns = remapper)[remapper.values()]
-
+dt.to_csv(fm_obj.localTempDir + args.Run_Info_File)
 # Loop through runs and download data and convert to uBam
 commands = []
 for index, row in dt.iterrows():
@@ -67,7 +67,7 @@ for index, row in dt.iterrows():
 
 
 	# Asynchronously download fastq files (up to 12 at a time)
-	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', data.runID, fq1, fq2, data.outputBamfile, fm_obj.localTempDir, data.sampleID, data.libraryID, data.platform, data.layout]]
+	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', fm_obj.localTempDir + args.Run_Info_File, data.runID, data.outputBamfile, fm_obj.localTempDir]]
 	print(command)
 	data.command = command
 	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
