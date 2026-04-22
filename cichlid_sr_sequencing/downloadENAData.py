@@ -70,14 +70,15 @@ for index, row in dt.iterrows():
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', fm_obj.localTempDir + args.Run_Info_File, data.runID, fm_obj.localReadsDir + data.fileLocations, fm_obj.localTempDir]]
 	print(command)
 	data.command = command
-	
+	data.process = subprocess.run(data.command, capture_output = True)
+	if data.process.returncode != 0:
+		pdb.set_trace()
+
 	commands.append(data)
 	
 for i,data in enumerate(commands):
 	data.process = None
 	data.process = subprocess.run(data.command, capture_output = True)
-	if data.process.returncode != 0:
-		pdb.set_trace()
 	continue
 	if i < 4:
 		
