@@ -36,9 +36,7 @@ if missing_columns != []:
 
 # Rename columns to be consistent with master sample Database
 remapper = {'run_accession':'RunID', 'sample_accession':'SampleID','experiment_accession':'ExperimentID','nominal_length':'ReadLength','base_count':'TotalBases','study_accession':'ProjectID','instrument_model':'Instrument','library_name':'LibraryID','library_layout':'LibraryLayout','library_source':'LibrarySource','scientific_name':'Organism','instrument_platform':'Platform','fastq_ftp':'FastqFtp','fastq_aspera':'FastqAspera','fastq_md5':'FastqMd5'}
-pdb.set_trace()
 dt = dt.rename(columns = remapper)[remapper.values()]
-pdb.set_trace()
 
 # Loop through runs and download data and convert to uBam
 commands = []
@@ -51,10 +49,10 @@ for index, row in new_dt.iterrows():
 		platform = row['Platform'], layout = row['LibraryLayout'], projectID = row['ProjectID'],
 		readLength = row['ReadLength'], totalBases = row['TotalBases'], instrument = row['Instrument'],
 		libraryLayout = row['LibraryLayout'], librarySource = row['LibrarySource'],
-		organism = row['Organism'])
+		organism = row['Organism'], fq1 = row.FastqAspera.split(';')[0], fq2 = row.FastqAspera.split(';'))
 	
 	data.outputBamfile = fm_obj.localReadsDir + data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
-
+	pdb.set_trace()
 	# Make sure we this run hasn't already been added to the sample database
 	if data.runID in set(fm_obj.reads_dt['RunID']):
 		print('Error on ' + data.runID + ': Run already added to sample database', file = sys.stderr)
