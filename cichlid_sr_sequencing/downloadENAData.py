@@ -65,12 +65,12 @@ for index, row in dt.iterrows():
 	os.makedirs(fm_obj.localReadsDir + row['ProjectID'], exist_ok = True)
 	os.makedirs(fm_obj.localTempDir, exist_ok = True)
 
-
+	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', fm_obj.localTempDir + args.Run_Info_File, data.runID, fm_obj.localReadsDir + data.fileLocations, fm_obj.localTempDir]]
 	print(command)
 	data.command = command
-	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
+	
 	commands.append(data)
 	
 for i,data in enumerate(commands):
