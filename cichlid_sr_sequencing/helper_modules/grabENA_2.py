@@ -1,5 +1,6 @@
 import subprocess, argparse, datetime, os, pdb,sys, pysam
 from file_manager import FileManager as FM
+import pandas as pd
 
 parser = argparse.ArgumentParser(usage = 'This script grabs the ENA data for a run and uploads it to dropbox')
 parser.add_argument('RunInfoFile', type = str, help = 'File containing info on the runs you would like to download')
