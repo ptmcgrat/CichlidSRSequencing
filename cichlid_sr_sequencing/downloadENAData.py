@@ -51,9 +51,6 @@ for index, row in dt.iterrows():
 		libraryLayout = row['LibraryLayout'], librarySource = row['LibrarySource'],
 		organism = row['Organism'], fq1 = row.FastqAspera.split(';')[0], fq2 = row.FastqAspera.split(';'))
 	
-	data.outputBamfile = fm_obj.localReadsDir + data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
-	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + data.fq1,fm_obj.localTempDir], capture_output = True)
-	pdb.set_trace()
 	# Make sure we this run hasn't already been added to the sample database
 	if data.runID in set(fm_obj.reads_dt['RunID']):
 		print('Error on ' + data.runID + ': Run already added to sample database', file = sys.stderr)
@@ -68,43 +65,23 @@ for index, row in dt.iterrows():
 	os.makedirs(fm_obj.localReadsDir + row['ProjectID'], exist_ok = True)
 	os.makedirs(fm_obj.localTempDir, exist_ok = True)
 
-	# Download ENA data to determine ftp site of fastq files
-	if args.Local:
-		fq1,fq2 = [fm_obj.localSeqCoreDataDir + x for x in row['FileLocations'].split(',,')]
-
-	else:
-		try:
-			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
-		except:
-			try:
-				ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
-			except:
-				ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
-
-		# If ftp site doesn't exist it is None
-		if ena_dt.fastq_ftp[0] != ena_dt.fastq_ftp[0]:
-			print('Error on ' + data.RunID + ': Cant find ftp site locations', file = sys.stderr)
-			continue 
-
-		# Store file locations for remote and local fq files
-		ftps = ena_dt.fastq_ftp[0].split(';')
-		fq1 = ftps[0]
-		fq2 = ftps[1]
 
 	# Asynchronously download fastq files (up to 12 at a time)
-	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', data.runID, fq1, fq2, data.outputBamfile, fm_obj.localTempDir, data.sampleID, data.libraryID, data.platform, data.layout]]
+	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', data.runID, fq1, fq2, data.outputBamfile, fm_obj.localTempDir, data.sampleID, data.libraryID, data.platform, data.layout]]
 	print(command)
-	if args.Local:
-		command += ['--Local']
 	data.command = command
 	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
 	commands.append(data)
 	
 for i,data in enumerate(commands):
 	data.process = None
+	data.process = subprocess.run(data.command, capture_output = True)
+	continue
 	if i < 4:
+		
 		data.process = subprocess.Popen(data.command, stderr = open(fm_obj.localTempDir + data.sampleID + '_errors.txt', 'w'))
 		print('Starting analysis of ' + data.sampleID)
+"""
 while commands:
 	finished_processes = [x for x in commands if x.process is not None and x.process.poll() is not None]
 	for data in finished_processes:
@@ -126,5 +103,5 @@ while commands:
 		if next_command is not None:
 			next_command.process = subprocess.Popen(next_command.command, stderr = open(fm_obj.localTempDir + data.sampleID + '_errors.txt', 'w'))
 			print('Starting analysis of ' + next_command.sampleID)
-
+"""
 
