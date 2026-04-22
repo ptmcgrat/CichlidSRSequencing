@@ -76,6 +76,8 @@ for index, row in dt.iterrows():
 for i,data in enumerate(commands):
 	data.process = None
 	data.process = subprocess.run(data.command, capture_output = True)
+	if data.process.returncode != 0:
+		pdb.set_trace()
 	continue
 	if i < 4:
 		
