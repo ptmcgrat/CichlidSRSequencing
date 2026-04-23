@@ -27,10 +27,12 @@ print('  Processing files for ' + args.RunID + ', Time:' + str(datetime.datetime
 for i in range(3):
 	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + asp_fq1,args.Temp_directory], capture_output = True)
 	if output.returncode == 0:
-		md5_output = subprocess.run(['md5sum',local_fq1]).stdout.decode().split()[0]
-		if returncode != 0:
+		print(['md5sum',local_fq1])
+		md5_output = subprocess.run(['md5sum',local_fq1])
+		
+		if md5_output.returncode != 0:
 			pdb.set_trace()
-		if md5_output == row.FastqMd5.split(';')[0]:
+		if md5_output.stdout.decode().split()[0] == row.FastqMd5.split(';')[0]:
 			print(output.stdout.decode())
 			break
 	
