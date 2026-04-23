@@ -19,7 +19,7 @@ for index, row in dt.iterrows():
 		asp_fq1 = row.FastqAspera.split(';')[0]
 		asp_fq2 = row.FastqAspera.split(';')[1]
 		local_fq1 = args.Temp_directory + asp_fq1.split('/')[-1]
-		local_fq1 = args.Temp_directory + asp_fq2.split('/')[-1]
+		local_fq2 = args.Temp_directory + asp_fq2.split('/')[-1]
 		break
 
 temp_bam_file = args.Temp_directory + args.RunID + '_temp.bam'
