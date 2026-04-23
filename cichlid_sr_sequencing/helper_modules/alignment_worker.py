@@ -24,6 +24,7 @@ class AlignmentWorker():
 		self.samples = fm_obj.samples
 		if check_size:
 			self.checkSize()
+	
 	def setMaxProcesses(self):
 		cpus = cpu_count()
 		ram_units = int(psutil.virtual_memory().available/2500000000)
@@ -183,7 +184,7 @@ class AlignmentWorker():
 			command = ['gatk', '--java-options', '-Xmx'+self.ram_unit, 'MarkDuplicates', '-I', self.fm_obj.localTempSortedBamFile, '-O', self.fm_obj.localBamFile, '-M', self.fm_obj.localBamFile + '.duplication_metrics.txt', '--TMP_DIR', self.fm_obj.localSampleTempDir, '--SORTING_COLLECTION_SIZE_RATIO', '.2','--CREATE_INDEX']
 			commands.append(SimpleNamespace(sampleID=sample, error_file = error_file, command = command))
 
-		bad_samples = self.monitorProcesses(commands)
+		bad_samples = self.monitorProcesses(commands, verbose = False)
 		
 		for sample in self.samples:
 			self.fm_obj.createSampleFiles(sample)
