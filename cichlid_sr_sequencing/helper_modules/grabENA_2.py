@@ -32,9 +32,10 @@ for i in range(3):
 		
 		if md5_output.returncode != 0:
 			pdb.set_trace()
+		pdb.set_trace()
 		if md5_output.stdout.decode().split()[0] == row.FastqMd5.split(';')[0]:
 			print(output.stdout.decode())
-			break
+			breaks
 	
 	pdb.set_trace()
 
