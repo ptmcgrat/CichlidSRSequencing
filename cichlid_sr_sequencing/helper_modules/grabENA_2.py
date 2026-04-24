@@ -25,28 +25,39 @@ for index, row in dt.iterrows():
 temp_bam_file = args.Temp_directory + args.RunID + '_temp.bam'
 print('  Processing files for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))	
 for i in range(3):
-	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + asp_fq1,args.Temp_directory], capture_output = True)
+	output = subprocess.run(['ascp', '-QT', '-k','3', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + asp_fq1,args.Temp_directory], capture_output = True)
 	if output.returncode == 0:
 		print(['md5sum',local_fq1])
-		md5_output = subprocess.run(['md5sum',local_fq1])
+		md5_output = subprocess.run(['md5sum',local_fq1], capture_output = True)
 		
 		if md5_output.returncode != 0:
 			pdb.set_trace()
-		pdb.set_trace()
 		if md5_output.stdout.decode().split()[0] == row.FastqMd5.split(';')[0]:
 			print(output.stdout.decode())
-			breaks
-	
-	pdb.set_trace()
+			break
+		else:
+			print('Redownloading')
+			continue
+
+	if i == 2:
+		pdb.set_trace()
 
 for i in range(3):
-	output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + asp_fq2,args.Temp_directory], capture_output = True)
+	output = subprocess.run(['ascp', '-QT', '-k','3','-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + asp_fq2,args.Temp_directory], capture_output = True)
 	if output.returncode == 0:
-		md5_output = subprocess.run(['md5sum',local_fq2]).stdout.decode().split()[0]
-		if md5_output == row.FastqMd5.split(';')[1]:
+		print(['md5sum',local_fq2])
+		md5_output = subprocess.run(['md5sum',local_fq2], capture_output = True)
+		if md5_output.returncode != 0:
+			pdb.set_trace()
+
+		if md5_output.stdout.decode().split()[0] == row.FastqMd5.split(';')[1]:
 			print(output.stdout.decode())
 			break
-	pdb.set_trace()
+		else:
+			print('Redownloading')
+			continue
+	if i == 2:
+		pdb.set_trace()
 
 
 # Quality control fastq files
