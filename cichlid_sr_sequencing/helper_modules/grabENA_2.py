@@ -80,7 +80,7 @@ with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
 
 
 command = ['gatk', 'FastqToSam', '--FASTQ', fixed_fq1, '--FASTQ2', fixed_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
-command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', row.SampleName, '--LIBRARY_NAME', row.LibraryName, '--PLATFORM', row.Platform]
+command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', row.SampleID, '--LIBRARY_NAME', row.LibraryID, '--PLATFORM', row.Platform]
 
 output1 = subprocess.run(command, capture_output = True)
 if output1.returncode != 0:
