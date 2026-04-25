@@ -91,7 +91,7 @@ if output1.returncode != 0:
 	sys.exit()
 
 # Mark illumina adapters
-if args.Platform == 'ILLUMINA' or 'ELEMENT' in args.Platform:
+if row.Platform == 'ILLUMINA' or 'ELEMENT' in row.Platform:
 	#print('  Marking Illumina adapters')
 	command = ['gatk', 'MarkIlluminaAdapters', '-I', temp_bam_file, '-O', args.OutputBam, '-M', args.OutputBam + '.metrics.txt', '--TMP_DIR', args.Temp_directory]
 	output2 = subprocess.run(command, capture_output = True)
