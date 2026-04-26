@@ -211,7 +211,7 @@ class AlignmentWorker():
 				command = ['python3', 'unit_scripts/split_bamfile_by_contig.py', self.fm_obj.localBamFile, contig]
 				commands.append(SimpleNamespace(sampleID=sample + '__' + contig, error_file = error_file, command = command))
 
-		tb_samples = self.monitorProcesses(commands)
+		tb_samples = self.monitorProcesses(commands, verbose = False)
 		bad_samples = list(set(bad_samples + [x.split('__')[0] for x in tb_samples]))
 
 		for sample in self.samples:

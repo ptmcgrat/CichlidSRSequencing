@@ -37,11 +37,11 @@ for i in range(3):
 			print(output.stdout.decode())
 			break
 		else:
-			print('Issue with downloading ' + args.runID '. Redownloading... ')
+			print('Issue with downloading ' + args.runID + '. Redownloading... ')
 			continue
 
 	if i == 2:
-		print('Tried downloading ' + args.runID ' three times. Giving up... ')
+		print('Tried downloading ' + args.runID + ' three times. Giving up... ')
 		sys.exit()
 
 for i in range(3):
@@ -57,10 +57,10 @@ for i in range(3):
 			print(output.stdout.decode())
 			break
 		else:
-			print('Issue with downloading ' + args.runID '. Redownloading... ')
+			print('Issue with downloading ' + args.runID + '. Redownloading... ')
 			continue
 	if i == 2:
-		print('Tried downloading ' + args.runID ' three times. Giving up... ')
+		print('Tried downloading ' + args.runID + ' three times. Giving up... ')
 		sys.exit()
 
 # Quality control fastq files
