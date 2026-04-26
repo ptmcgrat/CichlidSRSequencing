@@ -68,29 +68,22 @@ for index, row in dt.iterrows():
 	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA_2.py', fm_obj.localTempDir + args.Run_Info_File, data.runID, fm_obj.localReadsDir + data.fileLocations, fm_obj.localTempDir]]
-	print(command)
+	#print(command)
 	data.command = command
-	data.process = subprocess.run(data.command, capture_output = True)
-	if data.process.returncode != 0:
-		pdb.set_trace()
-
 	commands.append(data)
 	
 for i,data in enumerate(commands):
 	data.process = None
-	data.process = subprocess.run(data.command, capture_output = True)
-	continue
-	if i < 4:
-		
+	#data.process = subprocess.run(data.command, capture_output = True)
+	if i < 4:	
 		data.process = subprocess.Popen(data.command, stderr = open(fm_obj.localTempDir + data.sampleID + '_errors.txt', 'w'))
 		print('Starting analysis of ' + data.sampleID)
-"""
+
 while commands:
 	finished_processes = [x for x in commands if x.process is not None and x.process.poll() is not None]
 	for data in finished_processes:
 		if data.process.returncode != 0:
 			print(data.sampleID + ' did not complete properly. Something went wrong')
-			pdb.set_trace()
 		else:
 			subprocess.run(['rm',fm_obj.localTempDir + data.sampleID + '_errors.txt'])
 			read_data = {'SampleID':data.sampleID,'ProjectID':data.projectID,'RunID':data.runID,
@@ -106,5 +99,5 @@ while commands:
 		if next_command is not None:
 			next_command.process = subprocess.Popen(next_command.command, stderr = open(fm_obj.localTempDir + data.sampleID + '_errors.txt', 'w'))
 			print('Starting analysis of ' + next_command.sampleID)
-"""
+
 

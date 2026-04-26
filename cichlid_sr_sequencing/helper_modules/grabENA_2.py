@@ -27,38 +27,41 @@ print('  Processing files for ' + args.RunID + ', Time:' + str(datetime.datetime
 for i in range(3):
 	output = subprocess.run(['ascp', '-QT', '-k','3', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + asp_fq1,args.Temp_directory], capture_output = True)
 	if output.returncode == 0:
-		print(['md5sum',local_fq1])
+		#print(['md5sum',local_fq1])
 		md5_output = subprocess.run(['md5sum',local_fq1], capture_output = True)
 		
 		if md5_output.returncode != 0:
-			pdb.set_trace()
+			print('Issue with running md5sum on ' + args.runID)
+			sys.exit()
 		if md5_output.stdout.decode().split()[0] == row.FastqMd5.split(';')[0]:
 			print(output.stdout.decode())
 			break
 		else:
-			print('Redownloading')
+			print('Issue with downloading ' + args.runID '. Redownloading... ')
 			continue
 
 	if i == 2:
-		pdb.set_trace()
+		print('Tried downloading ' + args.runID ' three times. Giving up... ')
+		sys.exit()
 
 for i in range(3):
 	output = subprocess.run(['ascp', '-QT', '-k','3','-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh','era-fasp@' + asp_fq2,args.Temp_directory], capture_output = True)
 	if output.returncode == 0:
-		print(['md5sum',local_fq2])
+		#print(['md5sum',local_fq2])
 		md5_output = subprocess.run(['md5sum',local_fq2], capture_output = True)
 		if md5_output.returncode != 0:
-			pdb.set_trace()
+			print('Issue with running md5sum on ' + args.runID)
+			sys.exit()
 
 		if md5_output.stdout.decode().split()[0] == row.FastqMd5.split(';')[1]:
 			print(output.stdout.decode())
 			break
 		else:
-			print('Redownloading')
+			print('Issue with downloading ' + args.runID '. Redownloading... ')
 			continue
 	if i == 2:
-		pdb.set_trace()
-
+		print('Tried downloading ' + args.runID ' three times. Giving up... ')
+		sys.exit()
 
 # Quality control fastq files
 f1 = pysam.FastqFile(local_fq1)
@@ -66,7 +69,6 @@ f2 = pysam.FastqFile(local_fq2)
 
 fixed_fq1 = local_fq1.replace(local_fq1.split('/')[-1],'fixed_' + local_fq1.split('/')[-1]).replace('.gz','')
 fixed_fq2 = local_fq2.replace(local_fq2.split('/')[-1],'fixed_' + local_fq2.split('/')[-1]).replace('.gz','')
-
 
 with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
 	for r1,r2 in zip(f1,f2):
@@ -77,7 +79,6 @@ with open(fixed_fq1, 'w') as outfq1, open(fixed_fq2, 'w') as outfq2:
 		else:
 			outfq1.write('@' + r1.name + ' 1:N:0:2\n' + r1.sequence + '\n+\n' + r1.quality + '\n')
 			outfq2.write('@' + r2.name + ' 2:N:0:2\n' + r2.sequence + '\n+\n' + r2.quality + '\n')
-
 
 command = ['gatk', 'FastqToSam', '--FASTQ', fixed_fq1, '--FASTQ2', fixed_fq2, '--READ_GROUP_NAME', args.RunID, '--TMP_DIR', args.Temp_directory]
 command += ['--OUTPUT', temp_bam_file, '--SAMPLE_NAME', row.SampleID, '--LIBRARY_NAME', row.LibraryID, '--PLATFORM', row.Platform]
