@@ -6,6 +6,24 @@ import pandas as pd
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.ChimericData import ChimericRead
 
+        ref_SSW = StripedSmithWaterman(ref_seq)
+        alt_SSW = StripedSmithWaterman(alt_seq)
+       
+        for read in unique_reads.values():
+            if not read.is_secondary and read.mapq > 10:
+                ref_score = max(ref_SSW(read.seq).optimal_alignment_score, ref_SSW(reverse_complement(read.seq)).optimal_alignment_score)
+                alt_score = max(alt_SSW(read.seq).optimal_alignment_score, alt_SSW(reverse_complement(read.seq)).optimal_alignment_score)
+                if ref_score - alt_score > 10:
+                    geno[0]+=1
+                elif ref_score - alt_score < -10:
+                    geno[1]+=1
+                else:
+                    geno[2]+=1
+                if troubleshooting != False:
+                    print(read.seq + '\t' + str(ref_SSW(read.seq).optimal_alignment_score) + '\t' + str(alt_SSW(read.seq).optimal_alignment_score), file = troubleshooting)
+                    print(reverse_complement(read.seq) + '\t' + str(ref_SSW(reverse_complement(read.seq)).optimal_alignment_score) + '\t' + str(alt_SSW(reverse_complement(read.seq)).optimal_alignment_score), file = troubleshooting)
+                    
+
 def genotype_normal(bam_obj, position, mtype):
 	for puc in bam_obj.pileup('NC_135176.1', position - 3, position + 3):
 	    # Check if the current column is the exact target position (important when fetching larger regions)
