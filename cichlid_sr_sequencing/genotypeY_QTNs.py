@@ -30,7 +30,7 @@ aligned_samples = fm_obj.alignment_dt[fm_obj.alignment_dt.SampleID.isin(all_samp
 
 dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
 threshold = 10
-num_parallel = 48
+num_parallel = 1
 sv_vcf_file = fm_obj.localNikeshDir + 'QTG_Candidates/' + 'candidateQTNs_sv.vcf'
 sv_norm_vcf_file = fm_obj.localNikeshDir + 'QTG_Candidates/' + 'candidateQTNs_sv.norm.vcf.gz'
 lv_csv_file = fm_obj.localNikeshDir + 'QTG_Candidates/' + 'candidateQTNs_lv.csv'
@@ -39,10 +39,12 @@ normalize_sites(sv_vcf_file, fm_obj.localGenomeFile, sv_norm_vcf_file)
 dt[(dt.Alt.str.len() > threshold) | (dt.Reference.str.len() > threshold)].to_csv(lv_csv_file)
 
 commands = []
+bad_samples = []
 for i,sampleID in enumerate(aligned_samples):
     out_vcf = fm_obj.localNikeshDir + 'QTG_Candidates/' + sampleID + '_candidate_QTNs.vcf.gz'
     command = ['python','-m', 'unit_scripts.genotypeCandidates',sv_norm_vcf_file,lv_csv_file,out_vcf,'Mzebra_GT3_NCBI',sampleID]
     if i < num_parallel:
+        print(' '.join(command))
         commands.append(SimpleNamespace(sampleID=sampleID, command = command, process = subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)))
     else:
         commands.append(SimpleNamespace(sampleID=sampleID, command = command, process = None))
