@@ -65,7 +65,7 @@ while commands:
             bad_samples.append(data.sampleID)
         else:
             subprocess.run(['rm',data.error_file])
-        command_list.remove(data)  # Remove finished process from monitoring list
+        commands.remove(data)  # Remove finished process from monitoring list
         next_command = next((x for x in commands if x.process is None),None)
         if next_command is not None:
             next_command.error_fp = open(data.error_file, 'w')
