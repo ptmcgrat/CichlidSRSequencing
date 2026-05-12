@@ -43,11 +43,12 @@ class FileManager():
 		self._createGenomeFiles()
 
 	def createSampleFiles(self, sampleID):
+		"""
 		try:
 			self.sample_dt
 		except AttributeError:
 			self.readSampleDatabase()
-
+		"""
 		self.sampleID = sampleID
 
 		self.localRawBamFiles = [self.localReadsDir + x for x in self.reads_dt[self.reads_dt.SampleID == sampleID].FileLocations.to_list()]
