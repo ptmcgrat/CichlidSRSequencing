@@ -43,7 +43,7 @@ for i,sampleID in enumerate(aligned_samples):
     out_vcf = fm_obj.localNikeshDir + 'QTG_Candidates/' + sampleID + '_candidate_QTNs.vcf.gz'
     command = ['python','-m', 'unit_scripts.genotypeCandidates',sv_norm_vcf_file,lv_csv_file,out_vcf,'Mzebra_GT3_NCBI',sampleID]
     if i < num_parallel:
-        commands.append(SimpleNamespace(sampleID=sampleID, command = command, process = subprocess.Popen(data.command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)))
+        commands.append(SimpleNamespace(sampleID=sampleID, command = command, process = subprocess.Popen(command, stderr = subprocess.DEVNULL, stdout = subprocess.DEVNULL)))
     else:
         commands.append(SimpleNamespace(sampleID=sampleID, command = command, process = None))
     
