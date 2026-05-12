@@ -66,8 +66,8 @@ class FileManager():
 		self.localChimericBamFile = self.localSampleBamDir + sampleID + '.chimeric.bam'
 		self.localGVCFFile = self.localSampleBamDir + sampleID + '.g.vcf.gz'
 
-		#os.makedirs(self.localSampleBamDir, exist_ok = True)
-		#os.makedirs(self.localSampleTempDir, exist_ok = True)	
+		os.makedirs(self.localSampleBamDir, exist_ok = True)
+		os.makedirs(self.localSampleTempDir, exist_ok = True)	
 
 	def readGenomeDatabase(self):
 		spreadsheet = self.gc.open_by_key(self.s_ID) # Or use open('Spreadsheet Name')
@@ -252,7 +252,9 @@ class FileManager():
 		self.localGenomesDir = self.localMasterDir + 'Genomes/'
 		self.localTempDir = self.localMasterDir + 'Temp/'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
+		self.localNikeshDir = self.localMasterDir + '2026_Nikesh/'
 		
+
 		self.localCredentialFile = self.localMasterDir + 'cichlidsrsequencing_api_creds.json'
 		self.localProcessesFile = self.localTempDir + 'ProcessInfo.csv'
 		self.localErrorsDir = self.localMasterDir + 'Errors/'
