@@ -36,10 +36,12 @@ class FileManager():
 
 	def setGenome(self, genome_version):
 		self.genome_version = genome_version
+		"""
 		try:
 			self.g_dt
 		except AttributeError:
 			self.readGenomeDatabase()
+		"""
 		self._createGenomeFiles()
 
 	def createSampleFiles(self, sampleID, reads = True):
