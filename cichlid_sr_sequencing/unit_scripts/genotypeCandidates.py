@@ -15,7 +15,7 @@ parser.add_argument('SampleID', type = str, help = 'Version of the genome to ali
 args = parser.parse_args()
 
 fm_obj = FM(genome_version = args.genome_version)
-fm_obj.createSampleFiles(args.SampleID)
+fm_obj.createSampleFiles(args.SampleID, reads = False)
 refObj = pysam.FastaFile(fm_obj.localGenomeFile)
 
 fm_obj.downloadData(fm_obj.localSampleBamDir)
