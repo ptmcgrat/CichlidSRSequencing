@@ -1,4 +1,4 @@
-import argparse,os,sys,pysam
+import argparse,os,sys,pysam,subprocess
 sys.path.append("..") # Adds higher directory to python modules path.
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.smallVariantGenotyper import genotype_at_sites
