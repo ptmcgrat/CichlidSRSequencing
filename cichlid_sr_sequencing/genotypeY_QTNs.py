@@ -19,14 +19,14 @@ def print_sv(outfile, dt):
             print('\t'.join([row.Chromosome,str(row.Position),row.Name,row.Reference.upper(), row.Alt.upper(), str(row.Q), 'PASS', row.Info]), file = fp)
 
 fm_obj = FM(genome_version = 'Mzebra_GT3_NCBI')
-print(fm_obj.localNikeshDir + 'QTG_Candidates/')
-os.makedirs(fm_obj.localNikeshDir + 'QTG_Candidates/', exist_ok = True)
-os.makedirs(fm_obj.localErrorsDir, exist_ok = True)
-
-fm_obj.downloadData(fm_obj.localGenomeFile)
-
 fm_obj.readSampleDatabase()
 fm_obj.readAlignmentDatabase()
+
+os.makedirs(fm_obj.localNikeshDir + 'QTG_Candidates/', exist_ok = True)
+os.makedirs(fm_obj.localErrorsDir, exist_ok = True)
+fm_obj.downloadData(fm_obj.localGenomeFile)
+
+# Get samples to genotype (all aligned Deep and Shallow Benthics)
 all_samples = fm_obj.sample_dt[fm_obj.sample_dt.Ecogroup.isin(['Deep_Benthic','Shallow_Benthic'])].SampleID.to_list()
 aligned_samples = fm_obj.alignment_dt[fm_obj.alignment_dt.SampleID.isin(all_samples)].SampleID.to_list()
 

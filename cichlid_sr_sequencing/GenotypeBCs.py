@@ -191,7 +191,7 @@ class GenotypeBC:
         plot_dt = plot_dt.drop(columns = ['sex','sex_100'])
         new_names = [merged_dt.loc[x].Position for x in plot_dt.columns.tolist()]
         plot_dt.columns = new_names
-        ax = sns.clustermap(plot_dt.astype(float), col_cluster=False, row_cluster = False, row_colors = plot_color.map({'M':'blue','F':'pink'}))
+        ax = sns.clustermap(plot_dt.astype(float), col_cluster=False, row_cluster = False, row_colors = plot_color.map({'M':'blue','F':'pink'}), cmap = 'cividis')
         for label in ax.ax_heatmap.get_yticklabels():
             labels_text = label.get_text()
             if self.pheno_dt[self.pheno_dt.samplename == labels_text].Dead.values[0] == 'TRUE':
@@ -297,7 +297,6 @@ gt_bc = GenotypeBC()
 #gt_bc.createMasterVCFs()
 #gt_bc.createHaplotypesBCs()
 gt_bc.fineMapRegion()
-pdb.set_trace()
 
 #gt_bc.identifyHaplotypesInBCs('All_BCs.vcf')
 #gt_bc.fineMapHelper('YH_MC_F1s_variant_pileup.vcf', ['MCYHBC1-642-1','MCYHBC1-668-1','MCYHBC1-656-1', 'MCYHBC1-755-1'], 'NC_036789.1', 26500000, 27800000)
@@ -306,21 +305,21 @@ linkageGroups = {'NC_036780.1':'LG1', 'NC_036781.1':'LG2', 'NC_036782.1':'LG3', 
                               'NC_036791.1':'LG12', 'NC_036792.1':'LG13', 'NC_036793.1':'LG14', 'NC_036794.1':'LG15', 'NC_036795.1':'LG16', 'NC_036796.1':'LG17',
                               'NC_036797.1':'LG18', 'NC_036798.1':'LG19', 'NC_036799.1':'LG20', 'NC_036800.1':'LG22', 'NC_036801.1':'LG23'}
 
-merged_dt = pd.read_csv('OutputGenotypes.csv', index_col = 0)
+merged_dt = pd.read_csv(gt_bc.fm_obj.localNikeshDir + 'OutputGenotypes.csv', index_col = 0)
 #gt_bc.plotRecombinationByChromosome()
 
-#gmap_dt = pd.DataFrame()
-#gmap_dt['chr'] = merged_dt.Chromosome.map(linkageGroups)
-#gmap_dt['pos'] = merged_dt.Position
-#gmap_dt.index.name = 'marker'
-#gmap_dt.to_csv('~/Desktop/QTL_Data/nikesh_gmap.csv')
+gmap_dt = pd.DataFrame()
+gmap_dt['chr'] = merged_dt.Chromosome.map(linkageGroups)
+gmap_dt['pos'] = merged_dt.Position
+gmap_dt.index.name = 'marker'
+gmap_dt.to_csv('~/Desktop/QTL_Data/nikesh_gmap.csv')
 
 geno_dt = merged_dt.drop(columns=['Chromosome','Position']).T
 geno_dt = merged_dt.drop(columns=['Chromosome','Position']).T.round(0).astype(int)
-#geno_map = {0:'MC',1:'YH'}
-#for x in geno_dt.columns:
-#    geno_dt[x] = geno_dt[x].map(geno_map)
-#geno_dt.to_csv('~/Desktop/QTL_Data/nikesh_geno.csv')
+geno_map = {0:'MC',1:'YH'}
+for x in geno_dt.columns:
+    geno_dt[x] = geno_dt[x].map(geno_map)
+geno_dt.to_csv('~/Desktop/QTL_Data/nikesh_geno.csv')
 dt = pd.read_csv("https://docs.google.com/spreadsheets/d/1BovaQm-FaOzchci9By71xTh3MzKCqMSpK3DCWB9sGiE/export?gid=1566739159&format=csv")
 pheno_dt = dt[(dt.species.isin(['MCYHBC1'])) & (dt.tagtype == 'PIT') & (dt.samplename.isin(geno_dt.index))][['samplename','sex','sex_100','implant_date','DOF','standard_length_cm','body_mass_g']]           
 pheno_dt['implant_date'] = pd.to_datetime(pheno_dt.implant_date)
@@ -337,15 +336,15 @@ pheno_dt.loc[pheno_dt.sex_100.isna(),'sex_100'] = '-'
 pheno_dt.loc[pheno_dt.sex_100 == 'M','sex_100'] = '1'
 pheno_dt.loc[pheno_dt.sex_100 == 'F','sex_100'] = '0'
 
-dt2 = pd.read_csv("https://docs.google.com/spreadsheets/d/1YdN1R2na-J8AGbFYluA4yPZp2DQOaQ2qQ7vWNfrUstk/export?gid=0&format=csv")[['samplename','BowerShape']]
-pheno_dt = pd.merge(pheno_dt, dt2, on='samplename', how = 'left')
-pheno_dt['BowerShape'] = pheno_dt['BowerShape'].fillna('-')
+#dt2 = pd.read_csv("https://docs.google.com/spreadsheets/d/1YdN1R2na-J8AGbFYluA4yPZp2DQOaQ2qQ7vWNfrUstk/export?gid=0&format=csv")[['samplename','BowerShape']]
+#pheno_dt = pd.merge(pheno_dt, dt2, on='samplename', how = 'left')
+#pheno_dt['BowerShape'] = pheno_dt['BowerShape'].fillna('-')
 
 
 pheno_dt = pheno_dt.set_index('samplename')
 pheno_dt.index.name = 'id'
-pheno_dt[['sex','sex_100','StandardLength','BodyMass','BowerShape']].to_csv('~/Desktop/QTL_Data/nikesh_pheno.csv')
-#pheno_dt[['sex']].to_csv('~/Desktop/QTL_Data/size_covar.csv')
+pheno_dt[['sex','sex_100','StandardLength','BodyMass']].to_csv('~/Desktop/QTL_Data/nikesh_pheno.csv')
+pheno_dt[['sex','sex_100']].to_csv('~/Desktop/QTL_Data/sex_pheno.csv')
 pdb.set_trace()
 informative_bcs = ['MCYHBC1-709-1', 'MCYHBC1-825-1', 'MCYHBC1-737-1', 'MCYHBC1-800-1', 'MCYHBC1-645-1', 'MCYHBC1-788-1', 'MCYHBC1-814-1', 'MCYHBC1-619-1', 'MCYHBC1-790-1', 'MCYHBC1-656-1', 'MCYHBC1-668-1', 'MCYHBC1-642-1', 'MCYHBC1-701-1', 'MCYHBC1-927-1', 'MCYHBC1-765-1', 'MCYHBC1-638-1', 'MCYHBC1-580-1', 'MCYHBC1-919-1', 'MCYHBC1-828-1', 'MCYHBC1-755-1', 'MCYHBC1-795-1']
 
