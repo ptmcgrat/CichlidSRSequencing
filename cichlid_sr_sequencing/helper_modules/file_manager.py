@@ -256,8 +256,7 @@ class FileManager():
 		self.localTempDir = self.localMasterDir + 'Temp/'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		self.localNikeshDir = self.localMasterDir + '2026_Nikesh/'
-		
-
+		self.localCandidateQTNDir = self.localMasterDir + 'CandidateQTNs/'
 		self.localCredentialFile = self.localMasterDir + 'cichlidsrsequencing_api_creds.json'
 		self.localProcessesFile = self.localTempDir + 'ProcessInfo.csv'
 		self.localErrorsDir = self.localMasterDir + 'Errors/'
