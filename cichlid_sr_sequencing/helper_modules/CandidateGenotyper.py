@@ -1,6 +1,7 @@
 from helper_modules.smallVariantGenotyper import normalize_sites
 from helper_modules.file_manager import FileManager as FM
 import pandas as pd
+import os,subprocess,pdb
 
 class CandidateGenotyper:
 	def __init__(self, genome_version, candidate_QTNs_ID, ecogroups):
