@@ -20,7 +20,7 @@ class CandidateGenotyper:
 		self._downloadData()	
 
 	def _createMasterFiles(self):
-		self.masterDir = fm_obj.localCandidateQTNDir + self.QTNs_ID + '/'
+		self.masterDir = self.fm_obj.localCandidateQTNDir + self.QTNs_ID + '/'
 		self.masterSampleVCFDir = self.masterDir + 'SampleVCFs/'
 		self.masterTSV = self.masterDir + self.QTNs_ID + '.tsv'
 		self.masterSV_VCF = self.masterDir + self.QTNs_ID + '_sv.vcf'
