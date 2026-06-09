@@ -66,8 +66,8 @@ class CandidateGenotyper:
 		for sampleID in self.samples[0:6]:
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			command = ['python','-m', 'unit_scripts.genotypeCandidates', self.masterSV_Norm_VCF, self.masterLV_Norm_VCF, out_vcf, self.genome_version, sampleID]
-		error_file = self.fm_obj.localErrorsDir + 'QTGFinder_' + sampleID + '_errors.txt'
-		commands.append(SimpleNamespace(sampleID=sampleID, command = command, error_file = error_file))
+			error_file = self.fm_obj.localErrorsDir + 'QTGFinder_' + sampleID + '_errors.txt'
+			commands.append(SimpleNamespace(sampleID=sampleID, command = command, error_file = error_file))
 	
 		for i,data in enumerate(commands):
 	
