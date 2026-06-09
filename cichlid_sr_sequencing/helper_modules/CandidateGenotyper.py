@@ -33,7 +33,7 @@ class CandidateGenotyper:
 
 	def _createMasterVCFs(self, threshold = 10):
 		# Master tsv file of QTN candidates
-		dt = pd.read_csv(self.candidate_QTN_TSVfile, sep = '\t')
+		dt = pd.read_csv(self.masterTSV, sep = '\t')
 
 		# Create normalized small SV vcf
 		small_dt = dt[(dt.Alt.str.len() <= threshold) & (dt.Reference.str.len() <= threshold)]
