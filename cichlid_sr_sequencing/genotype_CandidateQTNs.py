@@ -11,5 +11,5 @@ parser.add_argument('-e', '--Ecogroups', nargs = '+', metavar = '', choices = fm
 args = parser.parse_args()
 
 cg_obj = CG(args.Genome, args.Candidate_TSV, args.Ecogroups)
-
+cb_obj.genotypeSamples()
 

@@ -61,7 +61,7 @@ class CandidateGenotyper:
 
 		commands = []
 		bad_samples = []
-		for sampleID in self.samples:
+		for sampleID in self.samples[0:2]:
 			out_vcf = self.masterSampleVCFDir + sampleID + '_candidate_QTNs.vcf.gz'
 			command = ['python','-m', 'unit_scripts.genotypeCandidates', self.masterSV_Norm_VCF, self.masterLV_Norm_VCF, self.genome_version, sampleID]
 		error_file = fm_obj.localErrorsDir + 'QTGFinder_' + sampleID + '_errors.txt'
@@ -70,6 +70,7 @@ class CandidateGenotyper:
 		for i,data in enumerate(commands):
 	
 			if i < num_parallel:
+				print(data.sampleID)
 				data.error_fp = open(data.error_file, 'w')
 				data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
 			else:
