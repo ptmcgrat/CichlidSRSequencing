@@ -48,7 +48,7 @@ for i,row in dt.iterrows():
     ))
  
 write_classifier_vcf(calls, args.SampleID, lv_temp_vcf, template_vcf=sv_temp_vcf)
-concat_sample_vcfs(lv_temp_vcf, lv_temp_vcf, args.OUT_VCF)
+concat_sample_vcfs(sv_temp_vcf, lv_temp_vcf, args.OUT_VCF)
 
 fm_obj.uploadData(args.OUT_VCF)
 subprocess.run(['rm','-rf',fm_obj.localSampleBamDir])
