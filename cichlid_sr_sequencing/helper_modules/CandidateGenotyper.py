@@ -10,10 +10,10 @@ class CandidateGenotyper:
 		self.ecogroups = ecogroups
 		
 		# Set samples
-		fm_obj.readSampleDatabase()
-		fm_obj.readAlignmentDatabase()
-		all_samples = fm_obj.sample_dt[fm_obj.sample_dt.Ecogroup.isin(self.ecogroups)].SampleID.to_list()
-		self.samples = fm_obj.alignment_dt[fm_obj.alignment_dt.SampleID.isin(all_samples)].SampleID.to_list()
+		self.fm_obj.readSampleDatabase()
+		self.fm_obj.readAlignmentDatabase()
+		all_samples = self.fm_obj.sample_dt[self.fm_obj.sample_dt.Ecogroup.isin(self.ecogroups)].SampleID.to_list()
+		self.samples = self.fm_obj.alignment_dt[self.fm_obj.alignment_dt.SampleID.isin(all_samples)].SampleID.to_list()
 
 		self._createMasterFiles()
 		self._createMasterVCFs()
