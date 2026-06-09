@@ -16,8 +16,8 @@ class CandidateGenotyper:
 		self.samples = self.fm_obj.alignment_dt[self.fm_obj.alignment_dt.SampleID.isin(all_samples)].SampleID.to_list()
 
 		self._createMasterFiles()
-		self._createMasterVCFs()
 		self._downloadData()	
+		self._createMasterVCFs()
 
 	def _createMasterFiles(self):
 		self.masterDir = self.fm_obj.localCandidateQTNDir + self.QTNs_ID + '/'
@@ -28,8 +28,9 @@ class CandidateGenotyper:
 		self.masterLV_Norm_VCF = self.masterDir + self.QTNs_ID + '_lv.csv'
 
 	def _downloadData(self):
-		os.makedirs(fm_obj.localErrorsDir, exist_ok = True)
-		fm_obj.downloadData(fm_obj.localGenomeFile)
+		os.makedirs(self.fm_obj.localErrorsDir, exist_ok = True)
+		self.fm_obj.downloadData(self.fm_obj.localGenomeFile)
+		self.fm_obj.downloadData(self.fm_obj.masterDir)
 
 	def _createMasterVCFs(self, threshold = 10):
 		# Master tsv file of QTN candidates
