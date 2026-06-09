@@ -52,7 +52,7 @@ class CandidateGenotyper:
 			for i,row in small_dt.iterrows():
 				print('\t'.join([row.Chromosome,str(row.Position),row.Name,row.Reference.upper(), row.Alt.upper(), str(row.Q), 'PASS', row.Info]), file = fp)
 
-		normalize_sites(self.masterSV_VCF, fm_obj.localGenomeFile, self.masterSV_Norm_VCF)
+		normalize_sites(self.masterSV_VCF, self.fm_obj.localGenomeFile, self.masterSV_Norm_VCF)
 
 		# Create large LV csv
 		dt[(dt.Alt.str.len() > threshold) | (dt.Reference.str.len() > threshold)].to_csv(self.masterLV_Norm_VCF)
