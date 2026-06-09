@@ -31,7 +31,7 @@ class CandidateGenotyper:
 	def _downloadData(self):
 		os.makedirs(self.fm_obj.localErrorsDir, exist_ok = True)
 		self.fm_obj.downloadData(self.fm_obj.localGenomeFile)
-		self.fm_obj.downloadData(self.fm_obj.masterDir)
+		self.fm_obj.downloadData(self.masterDir)
 
 	def _createMasterVCFs(self, threshold = 10):
 		# Master tsv file of QTN candidates
