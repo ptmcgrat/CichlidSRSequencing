@@ -69,7 +69,7 @@ class CandidateGenotyper:
 
 		commands = []
 		bad_samples = []
-		for sampleID in self.samples[0:6]:
+		for sampleID in self.samples:
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			command = ['python','-m', 'unit_scripts.genotypeCandidates', self.masterSV_Norm_VCF, self.masterLV_Norm_VCF, out_vcf, self.genome_version, sampleID]
 			print(command)
