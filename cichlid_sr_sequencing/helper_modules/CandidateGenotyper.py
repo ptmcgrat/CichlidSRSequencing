@@ -10,7 +10,7 @@ class CandidateGenotyper:
 		self.fm_obj = FM(genome_version)
 		self.QTNs_ID = candidate_QTNs_ID
 		self.ecogroups = ecogroups
-		self.subgroups = subgroups
+		self.sampleIDs = sampleIDs
 		# Set samples
 		self.fm_obj.readSampleDatabase()
 		self.fm_obj.readAlignmentDatabase()
