@@ -5,16 +5,22 @@ import os,subprocess,pdb
 from types import SimpleNamespace
 
 class CandidateGenotyper:
-	def __init__(self, genome_version, candidate_QTNs_ID, ecogroups):
+	def __init__(self, genome_version, candidate_QTNs_ID, ecogroups, sampleIDs):
 		self.genome_version = genome_version
 		self.fm_obj = FM(genome_version)
 		self.QTNs_ID = candidate_QTNs_ID
 		self.ecogroups = ecogroups
-		
+		self.subgroups = subgroups
 		# Set samples
 		self.fm_obj.readSampleDatabase()
 		self.fm_obj.readAlignmentDatabase()
-		all_samples = self.fm_obj.sample_dt[self.fm_obj.sample_dt.Ecogroup.isin(self.ecogroups)].SampleID.to_list()
+		s_dt = self.fm_obj.sample_dt
+		if ecogroups is not None:
+			s_dt = s_dt[s_dt.Ecogroup.isin(ecogroups)]
+		if sampleIDs is not None:
+			s_dt = s_dt[s_dt.SampleID.isin(sampleIDs)]
+		all_samples = s_dt.SampleID.to_list()
+
 		self.samples = self.fm_obj.alignment_dt[self.fm_obj.alignment_dt.SampleID.isin(all_samples)].SampleID.to_list()
 
 		self._createMasterFiles()

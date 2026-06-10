@@ -8,8 +8,9 @@ parser = argparse.ArgumentParser(usage = 'This script will download fastq data t
 parser.add_argument('Genome', type = str, choices = fm_obj.returnOptions('Genomes'), help = 'Version of the genome to align to')
 parser.add_argument('Candidate_TSV', type = str, help = 'TSV file of candidate QTNs')
 parser.add_argument('-e', '--Ecogroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Ecogroups'), help = 'Restrict analysis to a specific Ecogroup: ' + ','.join(fm_obj.returnOptions('Ecogroups')))
+parser.add_argument('-s', '--SampleIDs', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Samples'), help = 'Restrict analysis to the listed sampleIDs')
 args = parser.parse_args()
 
-cg_obj = CG(args.Genome, args.Candidate_TSV, args.Ecogroups)
+cg_obj = CG(args.Genome, args.Candidate_TSV, args.Ecogroups, args.SampleIDs)
 cg_obj.genotypeSamples()
 
