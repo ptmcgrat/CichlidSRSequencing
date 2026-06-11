@@ -71,15 +71,16 @@ class CandidateGenotyper:
 		bad_samples = []
 		for sampleID in self.samples:
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
-			command = ['python','-m', 'unit_scripts.genotypeCandidates', self.masterSV_Norm_VCF, self.masterLV_Norm_VCF, out_vcf, self.genome_version, sampleID]
-			print(command)
-			error_file = self.fm_obj.localErrorsDir + 'QTGFinder_' + sampleID + '_errors.txt'
-			commands.append(SimpleNamespace(sampleID=sampleID, command = command, error_file = error_file))
+			if not os.path.exists(out_vcf):
+				command = ['python','-m', 'unit_scripts.genotypeCandidates', self.masterSV_Norm_VCF, self.masterLV_Norm_VCF, out_vcf, self.genome_version, sampleID]
+				#print(command)
+				error_file = self.fm_obj.localErrorsDir + 'QTGFinder_' + sampleID + '_errors.txt'
+				commands.append(SimpleNamespace(sampleID=sampleID, command = command, error_file = error_file))
 	
 		for i,data in enumerate(commands):
 	
 			if i < num_parallel:
-				print(data.sampleID)
+				#print(data.sampleID)
 				data.error_fp = open(data.error_file, 'w')
 				data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
 			else:
@@ -89,7 +90,7 @@ class CandidateGenotyper:
 			finished_processes = [x for x in commands if x.process is not None and x.process.poll() is not None]
 			for data in finished_processes:
 				data.error_fp.close()
-				print(f'..{data.sampleID} complete..', end = '')
+				#print(f'..{data.sampleID} complete..', end = '')
 				if data.process.returncode != 0:
 					bad_samples.append(data.sampleID)
 				else:
@@ -101,3 +102,14 @@ class CandidateGenotyper:
 					next_command.process = subprocess.Popen(next_command.command, stderr = next_command.error_fp, stdout = subprocess.DEVNULL)
 
 		print(bad_samples)
+
+class GenotypeGroup:
+	def __init__(self, name, samples):
+		self.name = name
+		self.samples = samples
+	def initSites(self, vcf_file):
+
+	def addSample(self, group, vcf_file):
+		pass
+
+class VariantSummary:
