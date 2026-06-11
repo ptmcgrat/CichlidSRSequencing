@@ -108,8 +108,7 @@ class GenotypeGroup:
 		self.name = name
 		self.samples = samples
 	def initSites(self, vcf_file):
-
+		pass
 	def addSample(self, group, vcf_file):
 		pass
 
-class VariantSummary:
