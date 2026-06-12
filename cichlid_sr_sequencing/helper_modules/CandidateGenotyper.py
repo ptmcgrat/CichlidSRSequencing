@@ -4,7 +4,8 @@ import pandas as pd
 import os,subprocess,pdb
 from types import SimpleNamespace
 from cyvcf2 import VCF
-
+from collections import defaultdict
+	
 
 class CandidateGenotyper:
 	def __init__(self, genome_version, candidate_QTNs_ID, ecogroups, sampleIDs):
@@ -107,12 +108,26 @@ class CandidateGenotyper:
 
 	def read_vcf(self, threshold = 5):
 		for sampleID in self.samples:
+			sample_counter = defaultdict(int)
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
 			for variant in vcf_obj:
 				for sample in vcf_obj.samples:
+					depth = variant.format("AD").sum()
 					gt = variant.genotypes[vcf_obj.samples.index(sample)]
-					pdb.set_trace()
+					if depth <= threshold:
+						sample_counter['LowReads'] += 1:
+					elif gt[0:2] == [-1,-1]:
+						sample_counter['NoGenotype'] += 1:
+					elif gt[0:2] == [0,0]:
+						sample_counter['Ref'] += 1:
+					elif gt[0:2] == [0,1]:
+						sample_counter['Het'] += 1:
+					elif gt[0:2] == [1,1]:
+						sample_counter['Alt'] += 1:
+					else:				
+						pdb.set_trace()
+			pdb.set_trace()
 class GenotypeGroup:
 	def __init__(self, name, samples):
 		self.name = name
