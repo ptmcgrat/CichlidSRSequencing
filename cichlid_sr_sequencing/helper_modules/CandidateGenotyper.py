@@ -108,21 +108,20 @@ class CandidateGenotyper:
 
 	def read_vcf(self, threshold = 5):
 		counters = ['LowReads','NoGenotype','Ref','Het','Alt']
-		f = open('Firstpass_QTGs.csv','w')
-		print(','.join(['SampleID','Category'] + counters), file = f)
+		dt = d.DataFrame(columns = ['SampleID','Category','Chromosome','Location','Genotype'])
 		for sampleID in self.samples:
 			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sampleID].Category.values[0]
 			sample_counter = defaultdict(int)
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
+			pdb.set_trace()
 			for variant in vcf_obj:
 				for sample in vcf_obj.samples:
 					depth = variant.format("AD").sum()
 					gt = variant.genotypes[vcf_obj.samples.index(sample)]
-					if depth <= threshold:
+					if depth <= threshold or gt[0:2] == [-1,-1]:
+						dt.loc[len(dt)] = [sampleID,category]
 						sample_counter['LowReads'] += 1
-					elif gt[0:2] == [-1,-1]:
-						sample_counter['NoGenotype'] += 1
 					elif gt[0:2] == [0,0]:
 						sample_counter['Ref'] += 1
 					elif gt[0:2] == [0,1]:
