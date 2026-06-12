@@ -116,15 +116,15 @@ class CandidateGenotyper:
 					depth = variant.format("AD").sum()
 					gt = variant.genotypes[vcf_obj.samples.index(sample)]
 					if depth <= threshold:
-						sample_counter['LowReads'] += 1:
+						sample_counter['LowReads'] += 1
 					elif gt[0:2] == [-1,-1]:
-						sample_counter['NoGenotype'] += 1:
+						sample_counter['NoGenotype'] += 1
 					elif gt[0:2] == [0,0]:
-						sample_counter['Ref'] += 1:
+						sample_counter['Ref'] += 1
 					elif gt[0:2] == [0,1]:
-						sample_counter['Het'] += 1:
+						sample_counter['Het'] += 1
 					elif gt[0:2] == [1,1]:
-						sample_counter['Alt'] += 1:
+						sample_counter['Alt'] += 1
 					else:				
 						pdb.set_trace()
 			pdb.set_trace()
