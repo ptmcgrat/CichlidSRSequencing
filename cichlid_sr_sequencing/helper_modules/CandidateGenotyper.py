@@ -110,8 +110,9 @@ class CandidateGenotyper:
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
 			for variant in vcf_obj:
-				pdb.set_trace()
-
+				for sample in vcf.samples:
+        			gt = variant.genotypes[vcf.samples.index(sample)]
+        			pdb.set_trace()
 class GenotypeGroup:
 	def __init__(self, name, samples):
 		self.name = name
