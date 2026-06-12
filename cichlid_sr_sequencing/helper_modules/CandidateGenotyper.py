@@ -105,7 +105,7 @@ class CandidateGenotyper:
 
 		print(bad_samples)
 
-	def read_vcf(self, threshold):
+	def read_vcf(self, threshold = 5):
 		for sampleID in self.samples:
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
