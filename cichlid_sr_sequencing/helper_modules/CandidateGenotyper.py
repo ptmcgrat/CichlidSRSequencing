@@ -108,7 +108,7 @@ class CandidateGenotyper:
 
 	def read_vcf(self, threshold = 5):
 		counters = ['LowReads','NoGenotype','Ref','Het','Alt']
-		dt = d.DataFrame(columns = ['SampleID','Category','Chromosome','Location','Genotype'])
+		dt = pd.DataFrame(columns = ['SampleID','Category','Chromosome','Location','Genotype'])
 		for sampleID in self.samples:
 			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sampleID].Category.values[0]
 			sample_counter = defaultdict(int)
