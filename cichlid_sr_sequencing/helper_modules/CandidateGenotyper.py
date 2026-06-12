@@ -107,6 +107,8 @@ class CandidateGenotyper:
 		print(bad_samples)
 
 	def read_vcf(self, threshold = 5):
+		counters = ['LowReads','NoGenotype','Ref','Het','Alt']
+		print('\t'.join(['SampleID'] + counters))
 		for sampleID in self.samples:
 			sample_counter = defaultdict(int)
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
@@ -127,7 +129,8 @@ class CandidateGenotyper:
 						sample_counter['Alt'] += 1
 					else:				
 						pdb.set_trace()
-			pdb.set_trace()
+			print('\t'.join([sample] + [str(sample_counter[key]) for key in counters]))
+		pdb.set_trace()
 class GenotypeGroup:
 	def __init__(self, name, samples):
 		self.name = name
