@@ -3,6 +3,8 @@ from helper_modules.file_manager import FileManager as FM
 import pandas as pd
 import os,subprocess,pdb
 from types import SimpleNamespace
+from cyvcf2 import VCF
+
 
 class CandidateGenotyper:
 	def __init__(self, genome_version, candidate_QTNs_ID, ecogroups, sampleIDs):
@@ -102,6 +104,13 @@ class CandidateGenotyper:
 					next_command.process = subprocess.Popen(next_command.command, stderr = next_command.error_fp, stdout = subprocess.DEVNULL)
 
 		print(bad_samples)
+
+	def read_vcf(self, threshold):
+		for sampleID in self.samples:
+			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
+			vcf_obj = VCF(out_vcf)
+			for variant in vcf_obj:
+				pdb.set_trace()
 
 class GenotypeGroup:
 	def __init__(self, name, samples):

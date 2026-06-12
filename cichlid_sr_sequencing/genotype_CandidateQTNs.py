@@ -13,4 +13,4 @@ args = parser.parse_args()
 
 cg_obj = CG(args.Genome, args.Candidate_TSV, args.Ecogroups, args.SampleIDs)
 cg_obj.genotypeSamples()
-
+cg_obj.read_vcf()
