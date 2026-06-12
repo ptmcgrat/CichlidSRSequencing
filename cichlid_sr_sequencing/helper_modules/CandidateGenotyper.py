@@ -108,7 +108,7 @@ class CandidateGenotyper:
 
 	def read_vcf(self, threshold = 5):
 		counters = ['LowReads','NoGenotype','Ref','Het','Alt']
-		f = open('Firstpass_QTGs.csv')
+		f = open('Firstpass_QTGs.csv','w')
 		print(','.join(['SampleID','Category'] + counters), file = f)
 		for sampleID in self.samples:
 			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sample].Category.values[0]
