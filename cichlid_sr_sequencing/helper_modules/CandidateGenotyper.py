@@ -111,7 +111,7 @@ class CandidateGenotyper:
 		f = open('Firstpass_QTGs.csv','w')
 		print(','.join(['SampleID','Category'] + counters), file = f)
 		for sampleID in self.samples:
-			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sample].Category.values[0]
+			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sampleID].Category.values[0]
 			sample_counter = defaultdict(int)
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
@@ -131,7 +131,7 @@ class CandidateGenotyper:
 						sample_counter['Alt'] += 1
 					else:				
 						pdb.set_trace()
-			print(','.join([sample,category] + [str(sample_counter[key]) for key in counters]), file = f)
+			print(','.join([sampleID,category] + [str(sample_counter[key]) for key in counters]), file = f)
 		f.close()
 		pdb.set_trace()
 class GenotypeGroup:
