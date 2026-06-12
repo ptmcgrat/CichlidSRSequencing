@@ -107,31 +107,25 @@ class CandidateGenotyper:
 		print(bad_samples)
 
 	def read_vcf(self, threshold = 5):
-		counters = ['LowReads','NoGenotype','Ref','Het','Alt']
 		dt = pd.DataFrame(columns = ['SampleID','Category','Chromosome','Location','Genotype'])
 		for sampleID in self.samples:
 			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sampleID].Category.values[0]
-			sample_counter = defaultdict(int)
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
-			pdb.set_trace()
 			for variant in vcf_obj:
 				for sample in vcf_obj.samples:
 					depth = variant.format("AD").sum()
 					gt = variant.genotypes[vcf_obj.samples.index(sample)]
 					if depth <= threshold or gt[0:2] == [-1,-1]:
-						dt.loc[len(dt)] = [sampleID,category]
-						sample_counter['LowReads'] += 1
+						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'None']
 					elif gt[0:2] == [0,0]:
-						sample_counter['Ref'] += 1
+						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'Ref']
 					elif gt[0:2] == [0,1]:
-						sample_counter['Het'] += 1
+						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'Het']
 					elif gt[0:2] == [1,1]:
-						sample_counter['Alt'] += 1
+						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'Alt']
 					else:				
 						pdb.set_trace()
-			print(','.join([sampleID,category] + [str(sample_counter[key]) for key in counters]), file = f)
-		f.close()
 		pdb.set_trace()
 class GenotypeGroup:
 	def __init__(self, name, samples):
