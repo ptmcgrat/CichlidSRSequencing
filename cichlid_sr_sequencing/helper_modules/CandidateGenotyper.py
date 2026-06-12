@@ -108,8 +108,10 @@ class CandidateGenotyper:
 
 	def read_vcf(self, threshold = 5):
 		counters = ['LowReads','NoGenotype','Ref','Het','Alt']
-		print('\t'.join(['SampleID'] + counters))
+		f = open('Firstpass_QTGs.csv')
+		print(','.join(['SampleID','Category'] + counters), file = f)
 		for sampleID in self.samples:
+			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sample].Category.values[0]
 			sample_counter = defaultdict(int)
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
@@ -129,7 +131,8 @@ class CandidateGenotyper:
 						sample_counter['Alt'] += 1
 					else:				
 						pdb.set_trace()
-			print('\t'.join([sample] + [str(sample_counter[key]) for key in counters]))
+			print(','.join([sample,category] + [str(sample_counter[key]) for key in counters]), file = f)
+		f.close()
 		pdb.set_trace()
 class GenotypeGroup:
 	def __init__(self, name, samples):
