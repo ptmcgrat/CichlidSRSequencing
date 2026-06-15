@@ -107,9 +107,11 @@ class CandidateGenotyper:
 		print(bad_samples)
 
 	def read_vcf(self, threshold = 5):
-		dt = pd.DataFrame(columns = ['SampleID','Category','Chromosome','Location','Genotype'])
+		dt = pd.DataFrame(columns = ['SampleID','Species','Category','Chromosome','Location','Genotype'])
 		for sampleID in self.samples:
 			category = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sampleID].Category.values[0]
+			species = self.fm_obj.sample_dt[self.fm_obj.sample_dt.SampleID == sampleID].Species.values[0]
+			
 			out_vcf = self.masterSampleVCFDir + sampleID + '_' + self.QTNs_ID + '.vcf.gz'
 			vcf_obj = VCF(out_vcf)
 			for variant in vcf_obj:
@@ -117,16 +119,16 @@ class CandidateGenotyper:
 					depth = variant.format("AD").sum()
 					gt = variant.genotypes[vcf_obj.samples.index(sample)]
 					if depth <= threshold or gt[0:2] == [-1,-1]:
-						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'None']
+						dt.loc[len(dt)] = [sampleID,species,category,variant.CHROM,variant.POS,'None']
 					elif gt[0:2] == [0,0]:
-						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'Ref']
+						dt.loc[len(dt)] = [sampleID,species,category,variant.CHROM,variant.POS,'Ref']
 					elif gt[0:2] == [0,1]:
-						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'Het']
+						dt.loc[len(dt)] = [sampleID,species,category,variant.CHROM,variant.POS,'Het']
 					elif gt[0:2] == [1,1]:
-						dt.loc[len(dt)] = [sampleID,category,variant.CHROM,variant.POS,'Alt']
+						dt.loc[len(dt)] = [sampleID,species,category,variant.CHROM,variant.POS,'Alt']
 					else:				
 						pdb.set_trace()
-		g_dt = dt.groupby(['Chromosome','Location','Category','Genotype']).count().reset_index()
+		g_dt = dt.groupby(['Chromosome','Location','Species','Category','Genotype']).count().reset_index()
 		p_dt = g_dt.pivot(columns = ['Category','Genotype'], index = ['Chromosome','Location']).reset_index()
 		dt[dt.Location.isin([24921178,24921394])].to_csv('InsertionCandidates.csv')
 		dt[dt.Location.isin([24802996,24802999,24805349,24877131,24887907,24890082,24891647,24912691,24917675,24919240,24919248,24919748,24921178,24929548])].to_csv('DistributionCandidates.csv')
