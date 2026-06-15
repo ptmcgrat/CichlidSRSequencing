@@ -128,7 +128,7 @@ class CandidateGenotyper:
 						dt.loc[len(dt)] = [sampleID,species,category,variant.CHROM,variant.POS,'Alt']
 					else:				
 						pdb.set_trace()
-		g_dt = dt.groupby(['Chromosome','Location','Species','Category','Genotype']).count().reset_index()
+		g_dt = dt.groupby(['Chromosome','Location','Category','Genotype']).count().reset_index()
 		p_dt = g_dt.pivot(columns = ['Category','Genotype'], index = ['Chromosome','Location']).reset_index()
 		dt[dt.Location.isin([24921178,24921394])].to_csv('InsertionCandidates.csv')
 		dt[dt.Location.isin([24802996,24802999,24805349,24877131,24887907,24890082,24891647,24912691,24917675,24919240,24919248,24919748,24921178,24929548])].to_csv('DistributionCandidates.csv')
