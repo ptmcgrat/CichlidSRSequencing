@@ -1,4 +1,4 @@
-import pysam
+import pysam, pdb
 
 class ChimericRead():
     def __init__(self, read):
@@ -39,13 +39,16 @@ class ChimericRead():
                 # Matched part of read second e.g. Secondary hit: 34S67M
                 try:
                     secondary['MB'] = int(chi_cigarstring.split('S')[1].split('M')[0])
-                except ValueError:
-                    pdb.set_trace()
+                except :
+                    raise TypeError('Alignments should be from different parts of the read')
                 secondary['Pos'] = int(SA_tag[1]) - 1 # Convert 1-coordinate to 0-coordinate
                 secondary['Dir'] = 'left'
             else:
                 # Matched part of read first: e.g. Secondary hit: 67M34S
-                secondary['MB'] = int(chi_cigarstring.split('M')[0])
+                try:
+                    secondary['MB'] = int(chi_cigarstring.split('M')[0])
+                except :
+                    raise TypeError('Alignments should be from different parts of the read')
                 secondary['Pos'] = int(SA_tag[1]) + secondary['MB'] - 2
                 secondary['Dir'] = 'right'
                 
@@ -64,12 +67,19 @@ class ChimericRead():
             secondary['Strand'] = SA_tag[2]
             if first['Strand'] == secondary['Strand']:
                 # Matched part of read first: e.g. Secondary hit: 67M34S
-                secondary['MB'] = int(chi_cigarstring.split('M')[0])
+                try:
+                    secondary['MB'] = int(chi_cigarstring.split('M')[0])
+                except:
+                    raise TypeError('ChimericRead Error: alignments must be from different parts of the read')
                 secondary['Pos'] = int(SA_tag[1]) + secondary['MB'] - 2
                 secondary['Dir'] = 'right'
             else:
                 # Matched part of read second e.g. Secondary hit: 34S67M
-                secondary['MB'] =  int(chi_cigarstring.split('S')[1].split('M')[0])
+                try:
+                    secondary['MB'] =  int(chi_cigarstring.split('S')[1].split('M')[0])
+                except:
+                    raise TypeError('ChimericRead Error: alignments must be from different parts of the read')
+
                 secondary['Pos'] = int(SA_tag[1]) - 1 # Convert 1-coordinate to 0-coordinate
                 secondary['Dir'] = 'left'
  
