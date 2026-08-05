@@ -49,8 +49,8 @@ else:
 		#print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 	for i in range(3):
-		#output = subprocess.run(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/.aspera/sdk/aspera_bypass_rsa.pem', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
-		output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
+		output = subprocess.run(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/.aspera/sdk/aspera_bypass_rsa.pem', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
+		#output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 
 		if output.returncode == 0:
 			break

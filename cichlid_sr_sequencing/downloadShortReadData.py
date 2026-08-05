@@ -102,7 +102,7 @@ for index, row in new_dt.iterrows():
 
 	# Asynchronously download fastq files (up to 12 at a time)
 	command = [str(x) for x in ['python3', 'helper_modules/grabENA.py', data.runID, fq1, fq2, data.outputBamfile, fm_obj.localTempDir, data.sampleID, data.libraryID, data.platform, data.layout]]
-	print(command)
+	#print(command)
 	if args.Local:
 		command += ['--Local']
 	data.command = command
@@ -119,7 +119,7 @@ while commands:
 	for data in finished_processes:
 		if data.process.returncode != 0:
 			print(data.sampleID + ' did not complete properly. Something went wrong')
-			pdb.set_trace()
+			#pdb.set_trace()
 		else:
 			subprocess.run(['rm',fm_obj.localTempDir + data.sampleID + '_errors.txt'])
 			read_data = {'SampleID':data.sampleID,'ProjectID':data.projectID,'RunID':data.runID,
