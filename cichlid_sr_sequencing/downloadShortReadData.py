@@ -82,13 +82,14 @@ for index, row in new_dt.iterrows():
 		fq1,fq2 = [fm_obj.localSeqCoreDataDir + x for x in row['FileLocations'].split(',,')]
 
 	else:
+		headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 		try:
-			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+			ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t', storage_options=headers)
 		except:
 			try:
-				ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+				ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t', storage_options=headers)
 			except:
-				ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t')
+				ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t', storage_options=headers)
 
 		# If ftp site doesn't exist it is None
 		if ena_dt.fastq_ftp[0] != ena_dt.fastq_ftp[0]:
@@ -119,7 +120,7 @@ while commands:
 	for data in finished_processes:
 		if data.process.returncode != 0:
 			print(data.sampleID + ' did not complete properly. Something went wrong')
-			#pdb.set_trace()
+			
 		else:
 			subprocess.run(['rm',fm_obj.localTempDir + data.sampleID + '_errors.txt'])
 			read_data = {'SampleID':data.sampleID,'ProjectID':data.projectID,'RunID':data.runID,
