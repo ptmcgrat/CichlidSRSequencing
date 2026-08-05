@@ -156,8 +156,8 @@ class FileManager():
 			if len(bad_analyses) > 0:
 				raise FileNotFoundError('AnalysisType' + analysis + ' does not exist. Options are ' + ','.join(set(s_dt.columns.to_list)))
 			mask = (s_dt[analysisType] == 'Yes').any(axis=1)
-			s_dt = s_dt.loc[mask, 'SampleID']
-		
+			s_dt = s_dt.loc[mask, ['SampleID']]
+
 		else: 
 			s_dt = s_dt
 

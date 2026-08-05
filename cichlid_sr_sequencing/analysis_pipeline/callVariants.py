@@ -30,6 +30,16 @@ time python callVariants.py Mzebra_GT3 -d --concurrent_processes 26 -s alignment
 
 
 time python callVariants.py Mzebra_GT3 -i -g -m 10 -c -s alignment_file --concurrent_processes 96 2> error_503_cohort_run.txt 1> log_503_cohort_run.txt
+Runnning all samples needed to phase parents on 2026.03.10 - NK
+time python callVariants.py Mconophoros_GT1 -i -g -m 10 -c -s v2_column --concurrent_processes 96 1> log_phasing_20260310.txt 2> error_phasing_20260310.txt
+time python callVariants.py Mconophoros_GT1 -i -g -m 10 -c -s v2_column --concurrent_processes 96
+time python callVariants.py Mconophoros_GT1 -i -g -m 10 -c -s v2_column --concurrent_processes 96 1> logs/log_newYHPedigree.txt 2> logs/error_newYHPedigree.txt
+
+Run to generate a vcf with all MCs and YHs we've ever aligned to the GT3 genome
+time python callVariants.py Mzebra_GT3 --download_GVCF_data -i -g -m 10 -c -s custom --concurrent_processes 96 1> ./logs/log_all_YH_MC_vcf_160317.txt 2> ./logs/error_all_YH_MC_vcf_160317.txt
+
+Generate an MC specific VCF file with males and females that can be used for FST analysis 
+time python callVariants.py Mzebra_GT3 --download_GVCF_data -i -g -m 10 -c -s custom --concurrent_processes 48 1> ./logs/log_only_MC_vcf_260320.txt 2> ./logs/error_only_MC_vcf_260320.txt
 """
 
 """
@@ -43,13 +53,6 @@ TODO:
 2. CODE DOES NOT EXIST ANYMORE TO DOWNLOAD BAM OR GVCF FILES OR ITS BROKEN. NEED TO FIX THIS!!
     GVCF file downloader has been fixed but I do not know how to download it straight to /Output b/c the directory structure is not mirrored on Dropbox and /Output. i think i need to add an option in FIleManager that allows me to specify that the master dir is /Output instead of /Data 
 """
-
-"""
-A run from 2025.02.27
-MC-5B6B-f,YH_005_m,MCYHF1_010_m,MCYHF1_011_m,MCYHF1_012_m,MCYHF1_013_m,MCYHF1_014_f,MCYHF1_015_f,MCYHF1_016_f,MCYHF1_017_f
-time python callVariants.py Mzebra_GT3 -s custom -i -g --concurrent_processes 48 -m 16 -c 2> error_250227.txt 1> log_250227.txt 
-"""
-
 class VariantCaller:
     def __init__(self, genome, sampleIDs, linkage_groups, memory, ecogroups, processes):
         self.genome = genome
@@ -70,6 +73,7 @@ class VariantCaller:
             self.ecogroups = ['Mbuna', 'Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
         elif self.ecogroups == ['Sand']:
             self.ecogroups = ['Utaka', 'Shallow_Benthic', 'Shallow_Benthic2', 'Deep_Benthic']
+
 
         # block for defining sampleIDs if you want specific samples from a SampleDatabase column, using the alignmnetdatabase, or anythign else
         if self.sampleIDs == ['All']:
@@ -130,7 +134,7 @@ class VariantCaller:
             self.linkage_groups = ['NC_036780.1', 'NC_036781.1', 'NC_036782.1']
             self.concurrent_processes = 10
         print(f"Number of samples for this pipeline run is {len(self.sampleIDs)}")
-
+        # pdb.set_trace()
     def _generate_sample_map(self):
         sampleIDs = self.sampleIDs
         with open('sample_map.txt', 'w') as fh:
@@ -436,43 +440,3 @@ if __name__ == "__main__":
     variant_caller_obj = VariantCaller(args.reference_genome, args.sampleIDs, args.regions, args.memory, args.ecogroups, args.concurrent_processes)
     variant_caller_obj.run_methods()
     print('PIPELINE RUN COMPLETE')
-
-
-"""
-time python callVariants.py Mzebra_GT3 -b  -H -a --concurrent_processes 24 -m 40 2> error_sd_rerun_240721.txt 1> log_sd_rerun240721.txt
-time python callVariants.py Mzebra_GT3 -b -a --concurrent_processes 24 -m 40
-time python callVariants.py Mzebra_GT3 -g -a --concurrent_processes 96 -m 10
-time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --temp_zip 2> error_zip_allsites_vcfs_240802.txt 1> log_zip_allsites_vcfs_240802.txt
-
-time python callVariants.py Mzebra_GT3 --concurrent_processes 96 -m 10 --concat_and_index 2> error_concat_all_sites_240805.txt  1> log_concat_all_sites_240805.txt
-
-
-time python callVariants.py Mzebra_GT3 --local_test --concat_and_index --memory 1 --concurrent_processes 10
-
-"""
-
-"""
-Old Code & Unused functions:
-    def mp_test_function(self, interval):
-        print(f"Task {interval} started at {self.current_time}")
-        # Simulate some work with sleep
-        time.sleep(interval)
-        print(f"Task {interval} finished at {self.current_time}")
-    def new_test(self, sample_name):
-        print(f"Task {sample_name} started at {self.current_time}")
-        # Simulate some work with sleep
-        print(sample_name)
-        time.sleep(random.randint(1,7))
-        print(f"Task {sample_name} finished at {self.current_time}")
-            below code was used to test the new_test() and mp_test_function() functions in the multiprocess function.
-            if not args.local_test:
-                intervals = list(range(1,97))
-                inputs = list(map(str, intervals))
-            else:
-                inputs = [5, 3, 8, 2, 6, 1, 7, 4]
-        Below code goes in the run_methods() function
-        if args.local_test:
-            self.multiprocess(self.mp_test_function, 'interval')
-        if args.local_test:
-            self.multiprocess(self.new_test, 'sampleID')
-"""

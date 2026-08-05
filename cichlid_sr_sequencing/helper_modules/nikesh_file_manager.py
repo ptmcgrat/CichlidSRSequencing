@@ -7,7 +7,7 @@ from multiprocessing import cpu_count
 from collections import defaultdict
 
 class FileManager():
-	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:/', masterDir = 'CoS/BioSci/McGrath/Apps/CichlidSequencingData/'):
+	def __init__(self, genome_version = '', rcloneRemote = 'ptm_dropbox:/', masterDir = 'CoS/BioSci/BioSci-McGrath/Apps/CichlidSequencingData/'):
 
 		self.genome_version = genome_version
 		
@@ -34,6 +34,7 @@ class FileManager():
 				self.cloudMasterDir = self.rcloneRemote + masterDir
 			else:
 				raise Exception('Cant find master directory (' + masterDir + ') in rclone remote (' + rcloneRemote + '')
+
 		self._createMasterDirs()
 
 	def _createMasterDirs(self):
@@ -59,17 +60,21 @@ class FileManager():
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT2.fna'
 		elif self.genome_version == 'Mzebra_GT3':
 			self.localGenomeFile = self.localGenomeDir + 'Mzebra_GT3.fasta'
+		elif self.genome_version == 'kocher_E_Mchenga_conof_Male':
+			self.localGenomeFile = self.localGenomeDir + 'anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta'
 		
 
 		self.localSampleFile = self.localReadsDir + 'SampleDatabase.csv'
 		self.localSampleFile_v2 = self.localReadsDir + 'SampleDatabase_v2.xlsx'
-		self.localSampleFile_gt3 = self.localReadsDir + 'SampleDatabase_v2_gt3.xlsx'
+		# self.localSampleFile_gt3 = self.localReadsDir + 'SampleDatabase_v2_gt3.xlsx' # should not need this anymore. Changing pca_maker so I use SampleData_v2 only and not a new version. 
 		self.localSampleFile_for_grant = self.localReadsDir + 'SampleDatabase_v2_2024_feb_grant.xlsx'
+		self.localSampleFileKT = self.localReadsDir + 'KT_Metadata.xlsx'
 		self.localAlignmentFile = self.localBamfilesDir + 'AlignmentDatabase.csv'
 		self.localReadDownloadDir = self.localReadsDir + 'ReadDownloadFiles/'
 		self.localDatabasesDir = self.localMasterDir + 'Databases/'
 		self.localOutputDir = self.localMasterDir + 'Outputs/'
 		self.localPCADir = self.localOutputDir + 'pca_outputs'
+		self.localBEDDir = self.localOutputDir + 'BEDFiles/'
 
 		# Below block is to map file structures in /Output on the Utaka server:
 		self.StorageBamfilesDir = self.localStorageDir + 'Bamfiles/'

@@ -33,14 +33,12 @@ if args.Local:
 	fm_obj.downloadData(args.fq1)
 	fm_obj.downloadData(args.fq2)
 else:
-	# pdb.set_trace()
 	#target_directory = args.Local_fq1.replace(args.Local_fq1.split('/')[-1],'')
 	if pathlib.Path(local_fq1).exists():
 		print(f"fastq_1 for {args.RunID} already exists in {target_directory}. Skipping ascp for this sample")
 	else:
 		print('  Fastq files ascping for ' + args.RunID + ', Time:' + str(datetime.datetime.now()))
 		for i in range(3):
-			# pdb.set_trace()
 			if args.kmnike:
 				output = subprocess.run(['/Applications/Aspera\ Connect.app/Contents/Resources/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniforge3/envs/gatk/etc/asperaweb_id_dsa.openssh', args.fq1.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 			elif args.TCM:
@@ -71,7 +69,6 @@ else:
 
 # Convert fastq files to unmapped bam
 print('  Converting fastq files to uBam file')
-
 
 # Quality control fastq files
 f1 = pysam.FastqFile(local_fq1)

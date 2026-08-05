@@ -1,0 +1,132 @@
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-860-1, Time:2026-03-13 13:10:47.811237
+  Finished for MCYHBC1-860-1, Time:2026-03-13 13:11:20.006038
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-854-1, Time:2026-03-13 13:10:45.462241
+  Finished for MCYHBC1-854-1, Time:2026-03-13 13:11:21.295021
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-859-1, Time:2026-03-13 13:11:04.291999
+  Finished for MCYHBC1-859-1, Time:2026-03-13 13:11:41.741366
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-857-1, Time:2026-03-13 13:11:26.003482
+  Finished for MCYHBC1-857-1, Time:2026-03-13 13:12:14.410523
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-878-1, Time:2026-03-13 13:13:40.287851
+  Finished for MCYHBC1-878-1, Time:2026-03-13 13:14:20.825004
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-864-1, Time:2026-03-13 13:14:00.497046
+  Finished for MCYHBC1-864-1, Time:2026-03-13 13:14:37.398001
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-886-1, Time:2026-03-13 13:14:03.987240
+  Finished for MCYHBC1-886-1, Time:2026-03-13 13:14:40.513604
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-877-1, Time:2026-03-13 13:14:22.073324
+  Finished for MCYHBC1-877-1, Time:2026-03-13 13:15:04.405330
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-894-1, Time:2026-03-13 13:16:14.381305
+  Finished for MCYHBC1-894-1, Time:2026-03-13 13:16:39.140304
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-905-1, Time:2026-03-13 13:16:39.790705
+  Finished for MCYHBC1-905-1, Time:2026-03-13 13:17:09.958322
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-897-1, Time:2026-03-13 13:17:07.186203
+  Finished for MCYHBC1-897-1, Time:2026-03-13 13:17:50.502366
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-891-1, Time:2026-03-13 13:17:08.909479
+  Finished for MCYHBC1-891-1, Time:2026-03-13 13:17:53.209887
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-916-1, Time:2026-03-13 13:19:21.919139
+  Finished for MCYHBC1-916-1, Time:2026-03-13 13:19:54.077378
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-914-1, Time:2026-03-13 13:19:36.076277
+  Finished for MCYHBC1-914-1, Time:2026-03-13 13:20:14.238395
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-918-1, Time:2026-03-13 13:19:38.306717
+  Finished for MCYHBC1-918-1, Time:2026-03-13 13:20:17.124339
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-919-1, Time:2026-03-13 13:20:15.301362
+  Finished for MCYHBC1-919-1, Time:2026-03-13 13:20:59.745891
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-925-1, Time:2026-03-13 13:22:21.372921
+  Finished for MCYHBC1-925-1, Time:2026-03-13 13:22:48.811722
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-929-1, Time:2026-03-13 13:22:21.207960
+  Finished for MCYHBC1-929-1, Time:2026-03-13 13:22:51.719698
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-934-1, Time:2026-03-13 13:22:45.308070
+  Finished for MCYHBC1-934-1, Time:2026-03-13 13:23:17.589003
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-927-1, Time:2026-03-13 13:22:42.920724
+  Finished for MCYHBC1-927-1, Time:2026-03-13 13:23:20.417553
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-935-1, Time:2026-03-13 13:25:05.563921
+  Finished for MCYHBC1-935-1, Time:2026-03-13 13:25:41.291390
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-943-1, Time:2026-03-13 13:25:10.435934
+  Finished for MCYHBC1-943-1, Time:2026-03-13 13:25:42.474833
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-942-1, Time:2026-03-13 13:25:38.131053
+  Finished for MCYHBC1-942-1, Time:2026-03-13 13:26:18.621929
+  Converting fastq files to uBam file
+Done Fixing the fastqs. Staring UBAM conversion
+  Marking Illumina adapters
+  Uploading uBam files for MCYHBC1-961-1, Time:2026-03-13 13:25:52.295924
+  Finished for MCYHBC1-961-1, Time:2026-03-13 13:26:37.318867
+  Waiting for processes to complete
+Database uploaded
+  Waiting for processes to complete
+Database uploaded
+  Waiting for processes to complete
+Database uploaded
+  Waiting for processes to complete
+Database uploaded
+  Waiting for processes to complete
+Database uploaded
+  Waiting for processes to complete
+Database uploaded

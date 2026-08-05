@@ -32,8 +32,8 @@ class VCFProcessor:
     def __init__(self, genome):
         self.genome = genome
         self.fm_obj = FM(self.genome)
-        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/haplotype_analysis_master_file.vcf.gz'
-        self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/'
+        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/YH_MC_F1s.vcf.gz' # please type the directory of master VCF
+        self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/YH_MC_F1s' # type the directory to produce the stat file
         intervals = list(range(1,97))
         self.intervals = list(map(str, intervals))
         self.current_time = datetime.datetime.now()
@@ -49,7 +49,7 @@ class VCFProcessor:
             pass
         # check if filtering_stats dir exists and make if it doesnt't exist
         try:
-            os.makedirs(self.fm_obj.localOutputDir + 'filtering_stats/')
+            os.makedirs(self.stats_dir)
         except FileExistsError:
             pass
         self.vcfConcatDir = self.fm_obj.localOutputDir + 'vcf_concat_output/'
@@ -134,8 +134,8 @@ class VCFProcessor:
 
     def filter_variants(self):
         print('RUNNING VARIANT FILTERING')
-        self.filtered_file = self.fm_obj.localOutputDir + 'vcf_concat_output/haplotype_analysis_filtered_master_file.vcf.gz'
-        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/haplotype_analysis_pass_variants_master_file.vcf.gz'
+        self.filtered_file = self.fm_obj.localOutputDir + 'YH_MC_F1s_filtered.vcf.gz' # type the name of output filtered VCF
+        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/YH_MC_F1s_pass_variants.vcf.gz' # type the name of output passed VCF
         subprocess.run(shlex.split(f"gatk VariantFiltration \
                                     -R {self.fm_obj.localGenomeFile} \
                                     -V {self.master_file} \
@@ -147,20 +147,21 @@ class VCFProcessor:
                                     --filter-name 'depth_Qual' \
                                     --filter-expression 'QD < 2.0' \
                                     --filter-name 'max_DP' \
-                                    --filter-expression 'DP > 150' \
+                                    --filter-expression 'DP > 300' \
                                     --filter-name 'min_DP' \
-                                    --filter-expression 'DP < 70' \
+                                    --filter-expression 'DP < 85' \
                                     --filter-name 'strand_bias' \
                                     --filter-expression 'FS > 40.0' \
                                     --filter-name 'mapping_quality' \
                                     --filter-expression 'MQ < 50.0' \
                                     --filter-name 'no_calls' \
-                                    --filter-expression 'NCC > 1' \
+                                    --filter-expression 'NCC > 6' \
                                     --verbosity ERROR"))
         print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
-        subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '-O', self.pass_file])
+        # NOTE: The --select-type-to-include SNP means no indels will survive this selection. be sure to remove if indels are desired. 
+        subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '--select-type-to-include', 'SNP', '-O', self.pass_file])
         print('INDEXING PASS VARIANTS FILE...')
-        subprocess.run(shlex.split(f"tabix -p vcf self.pass_file"))
+        subprocess.run(shlex.split(f"tabix -p vcf {self.pass_file}"))
         print('PASS VARIANT FILE GENERATED')
 
     def run_methods(self):

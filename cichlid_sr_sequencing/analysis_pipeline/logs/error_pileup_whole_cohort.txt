@@ -1,0 +1,4 @@
+[W::bam_hdr_read] EOF marker is absent. The input is probably truncated
+[E::idx_find_and_load] Could not retrieve index file for '/Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mconophoros_GT1/MCYHBC1-548-1/MCYHBC1-548-1.all.bam'
+[mpileup] fail to load index for /Data/mcgrath-lab/Data/CichlidSequencingData/Bamfiles/Mconophoros_GT1/MCYHBC1-548-1/MCYHBC1-548-1.all.bam
+rm: cannot remove 'pileup_sample.txt': No such file or directory

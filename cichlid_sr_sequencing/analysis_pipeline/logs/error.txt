@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "alignFastQ.py", line 112, in <module>
+    aw_obj.alignData()
+  File "/home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/helper_modules/alignment_worker.py", line 33, in alignData
+    self.fileManager.downloadData(uBam_file)
+  File "/home/mcgrath-lab/nkumar317/CichlidSRSequencing/cichlid_sr_sequencing/analysis_pipeline/helper_modules/nikesh_file_manager.py", line 142, in downloadData
+    output = subprocess.run(['rclone', 'copy', cloud_path + relative_name, local_path], capture_output = True, encoding = 'utf-8')
+  File "/home/mcgrath-lab/miniconda3/envs/genomics/lib/python3.7/subprocess.py", line 490, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/home/mcgrath-lab/miniconda3/envs/genomics/lib/python3.7/subprocess.py", line 964, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/home/mcgrath-lab/miniconda3/envs/genomics/lib/python3.7/subprocess.py", line 1715, in _communicate
+    ready = selector.select(timeout)
+  File "/home/mcgrath-lab/miniconda3/envs/genomics/lib/python3.7/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+KeyboardInterrupt

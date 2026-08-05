@@ -1,0 +1,11 @@
+Generating stats for master_file.vcf...
+starting process at 2025-02-27 16:06:20.743959
+starting process at 2025-02-27 16:06:20.743959
+starting process at 2025-02-27 16:06:20.743959
+starting process at 2025-02-27 16:06:20.743959
+starting process at 2025-02-27 16:06:20.743959
+starting process at 2025-02-27 16:06:20.743959
+starting process at 2025-02-27 16:06:20.743959
+starting process at 2025-02-27 16:06:20.743959
+Stat calculation for vcf file complete at 2025-02-27 16:06:20.743959
+Pipeline Run Successful

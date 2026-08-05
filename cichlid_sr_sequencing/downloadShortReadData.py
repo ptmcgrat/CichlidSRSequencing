@@ -11,7 +11,7 @@ Data is stored as uBam format to follow best practices:\n \
 https://gatk.broadinstitute.org/hc/en-us/articles/4403687183515--How-to-Generate-an-unmapped-BAM-from-FASTQ-or-aligned-BAM\n \
 https://gatk.broadinstitute.org/hc/en-us/articles/360039568932--How-to-Map-and-clean-up-short-read-sequence-data-efficiently\n \
 Data in the Run Info File should be Run,AvgSpotLen,Bases,BioProject,BioSample,Experiment,Instrument,Library Name,LibraryLayout,LibrarySelection,LibrarySource,Organism,Platform,SRA Study')
-parser.add_argument('Run_Info_File', type = str, help = 'File containing information on each run')
+parser.add_argument('Run_Info_File', type = str, help = 'File containing information on each run. This is not an absolute path. Provide the name of the file uploaded to the ReadDownloadFiles within the localReadsDir on Dropbox.')
 parser.add_argument('-t', '--TestData', action = 'store_true', help = 'Use this flag if you want to create a small test file (1000 reads) instead of the entire read set')
 parser.add_argument('-l', '--Local', action = 'store_true', help = 'Use this flag if the data is local. The Run Info File should include a FileLocations column that lists the absolute or relative path to the Reads files (split by ,,)')
 parser.add_argument('-n', '--kmnike', help = '>:)', action = 'store_true')
@@ -60,7 +60,7 @@ for index, row in new_dt.iterrows():
 
 	run_id, library_id, sample_id, platform, layout = row['RunID'], row['LibraryID'], row['SampleID'], row['Platform'], row['LibraryLayout']
 	output_bamfile = fm_obj.localReadsDir + row['ProjectID'] + '/' + run_id + '.unmapped_marked_adapters.bam'
-
+	
 	# Make sure we are analyzing paired end reads
 	if layout != 'PAIRED':
 		print('Error on ' + row.RunID + ': Can only handle paired end data. Library layout is: ' + layout, file = sys.stderr)

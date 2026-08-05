@@ -1,0 +1,576 @@
+Enter name of column you want to use from SampleDatabase_v2.xlsx: Number of samples for this pipeline run is 52
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Tool returned:
+true
+Processing for interval 9 started at 2026-03-16 13:33:15.869243
+Interval 9 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 11 started at 2026-03-16 13:33:15.869243
+Interval 11 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 96 started at 2026-03-16 13:33:15.869243
+Interval 96 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 10 started at 2026-03-16 13:33:15.869243
+Interval 10 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 12 started at 2026-03-16 13:33:15.869243
+Interval 12 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 17 started at 2026-03-16 13:33:15.869243
+Interval 17 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 80 started at 2026-03-16 13:33:15.869243
+Interval 80 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 18 started at 2026-03-16 13:33:15.869243
+Interval 18 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 60 started at 2026-03-16 13:33:15.869243
+Interval 60 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 46 started at 2026-03-16 13:33:15.869243
+Interval 46 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 45 started at 2026-03-16 13:33:15.869243
+Interval 45 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 15 started at 2026-03-16 13:33:15.869243
+Interval 15 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 85 started at 2026-03-16 13:33:15.869243
+Interval 85 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 13 started at 2026-03-16 13:33:15.869243
+Interval 13 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 14 started at 2026-03-16 13:33:15.869243
+Interval 14 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 42 started at 2026-03-16 13:33:15.869243
+Interval 42 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 19 started at 2026-03-16 13:33:15.869243
+Interval 19 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 49 started at 2026-03-16 13:33:15.869243
+Interval 49 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 91 started at 2026-03-16 13:33:15.869243
+Interval 91 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 30 started at 2026-03-16 13:33:15.869243
+Interval 30 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 53 started at 2026-03-16 13:33:15.869243
+Interval 53 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 57 started at 2026-03-16 13:33:15.869243
+Interval 57 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 6 started at 2026-03-16 13:33:15.869243
+Interval 6 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 88 started at 2026-03-16 13:33:15.869243
+Interval 88 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 41 started at 2026-03-16 13:33:15.869243
+Interval 41 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 69 started at 2026-03-16 13:33:15.869243
+Interval 69 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 59 started at 2026-03-16 13:33:15.869243
+Interval 59 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 27 started at 2026-03-16 13:33:15.869243
+Interval 27 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 26 started at 2026-03-16 13:33:15.869243
+Interval 26 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 77 started at 2026-03-16 13:33:15.869243
+Interval 77 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 73 started at 2026-03-16 13:33:15.869243
+Interval 73 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 87 started at 2026-03-16 13:33:15.869243
+Interval 87 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 72 started at 2026-03-16 13:33:15.869243
+Interval 72 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 52 started at 2026-03-16 13:33:15.869243
+Interval 52 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 29 started at 2026-03-16 13:33:15.869243
+Interval 29 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 61 started at 2026-03-16 13:33:15.869243
+Interval 61 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 86 started at 2026-03-16 13:33:15.869243
+Interval 86 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 28 started at 2026-03-16 13:33:15.869243
+Interval 28 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 58 started at 2026-03-16 13:33:15.869243
+Interval 58 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 48 started at 2026-03-16 13:33:15.869243
+Interval 48 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 22 started at 2026-03-16 13:33:15.869243
+Interval 22 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 43 started at 2026-03-16 13:33:15.869243
+Interval 43 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 36 started at 2026-03-16 13:33:15.869243
+Interval 36 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 25 started at 2026-03-16 13:33:15.869243
+Interval 25 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 54 started at 2026-03-16 13:33:15.869243
+Interval 54 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 38 started at 2026-03-16 13:33:15.869243
+Interval 38 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 64 started at 2026-03-16 13:33:15.869243
+Interval 64 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 95 started at 2026-03-16 13:33:15.869243
+Interval 95 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 90 started at 2026-03-16 13:33:15.869243
+Interval 90 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 56 started at 2026-03-16 13:33:15.869243
+Interval 56 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 34 started at 2026-03-16 13:33:15.869243
+Interval 34 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 16 started at 2026-03-16 13:33:15.869243
+Interval 16 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 44 started at 2026-03-16 13:33:15.869243
+Interval 44 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 70 started at 2026-03-16 13:33:15.869243
+Interval 70 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 47 started at 2026-03-16 13:33:15.869243
+Interval 47 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 84 started at 2026-03-16 13:33:15.869243
+Interval 84 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 32 started at 2026-03-16 13:33:15.869243
+Interval 32 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 89 started at 2026-03-16 13:33:15.869243
+Interval 89 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 20 started at 2026-03-16 13:33:15.869243
+Interval 20 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 31 started at 2026-03-16 13:33:15.869243
+Interval 31 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 37 started at 2026-03-16 13:33:15.869243
+Interval 37 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 67 started at 2026-03-16 13:33:15.869243
+Interval 67 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 81 started at 2026-03-16 13:33:15.869243
+Interval 81 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 68 started at 2026-03-16 13:33:15.869243
+Interval 68 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 4 started at 2026-03-16 13:33:15.869243
+Interval 4 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 74 started at 2026-03-16 13:33:15.869243
+Interval 74 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 35 started at 2026-03-16 13:33:15.869243
+Interval 35 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 50 started at 2026-03-16 13:33:15.869243
+Interval 50 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 33 started at 2026-03-16 13:33:15.869243
+Interval 33 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 21 started at 2026-03-16 13:33:15.869243
+Interval 21 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 39 started at 2026-03-16 13:33:15.869243
+Interval 39 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 23 started at 2026-03-16 13:33:15.869243
+Interval 23 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 94 started at 2026-03-16 13:33:15.869243
+Interval 94 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 62 started at 2026-03-16 13:33:15.869243
+Interval 62 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 76 started at 2026-03-16 13:33:15.869243
+Interval 76 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 5 started at 2026-03-16 13:33:15.869243
+Interval 5 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 79 started at 2026-03-16 13:33:15.869243
+Interval 79 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 40 started at 2026-03-16 13:33:15.869243
+Interval 40 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 63 started at 2026-03-16 13:33:15.869243
+Interval 63 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 83 started at 2026-03-16 13:33:15.869243
+Interval 83 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 93 started at 2026-03-16 13:33:15.869243
+Interval 93 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 51 started at 2026-03-16 13:33:15.869243
+Interval 51 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 24 started at 2026-03-16 13:33:15.869243
+Interval 24 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 71 started at 2026-03-16 13:33:15.869243
+Interval 71 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 66 started at 2026-03-16 13:33:15.869243
+Interval 66 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 8 started at 2026-03-16 13:33:15.869243
+Interval 8 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 65 started at 2026-03-16 13:33:15.869243
+Interval 65 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 55 started at 2026-03-16 13:33:15.869243
+Interval 55 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 78 started at 2026-03-16 13:33:15.869243
+Interval 78 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 75 started at 2026-03-16 13:33:15.869243
+Interval 75 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 92 started at 2026-03-16 13:33:15.869243
+Interval 92 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 82 started at 2026-03-16 13:33:15.869243
+Interval 82 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 7 started at 2026-03-16 13:33:15.869243
+Interval 7 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 1 started at 2026-03-16 13:33:15.869243
+Interval 1 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 9 started at 2026-03-16 13:33:15.869243
+Interval 9 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 11 started at 2026-03-16 13:33:15.869243
+Interval 11 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 10 started at 2026-03-16 13:33:15.869243
+Interval 10 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 80 started at 2026-03-16 13:33:15.869243
+Interval 80 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 96 started at 2026-03-16 13:33:15.869243
+Interval 96 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 60 started at 2026-03-16 13:33:15.869243
+Interval 60 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 41 started at 2026-03-16 13:33:15.869243
+Interval 41 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 12 started at 2026-03-16 13:33:15.869243
+Interval 12 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 17 started at 2026-03-16 13:33:15.869243
+Interval 17 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 45 started at 2026-03-16 13:33:15.869243
+Interval 45 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 69 started at 2026-03-16 13:33:15.869243
+Interval 69 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 27 started at 2026-03-16 13:33:15.869243
+Interval 27 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 18 started at 2026-03-16 13:33:15.869243
+Interval 18 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 57 started at 2026-03-16 13:33:15.869243
+Interval 57 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 26 started at 2026-03-16 13:33:15.869243
+Interval 26 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 46 started at 2026-03-16 13:33:15.869243
+Interval 46 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 19 started at 2026-03-16 13:33:15.869243
+Interval 19 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 42 started at 2026-03-16 13:33:15.869243
+Interval 42 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 30 started at 2026-03-16 13:33:15.869243
+Interval 30 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 6 started at 2026-03-16 13:33:15.869243
+Interval 6 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 88 started at 2026-03-16 13:33:15.869243
+Interval 88 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 85 started at 2026-03-16 13:33:15.869243
+Interval 85 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 15 started at 2026-03-16 13:33:15.869243
+Interval 15 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 59 started at 2026-03-16 13:33:15.869243
+Interval 59 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 53 started at 2026-03-16 13:33:15.869243
+Interval 53 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 44 started at 2026-03-16 13:33:15.869243
+Interval 44 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 58 started at 2026-03-16 13:33:15.869243
+Interval 58 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 28 started at 2026-03-16 13:33:15.869243
+Interval 28 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 91 started at 2026-03-16 13:33:15.869243
+Interval 91 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 29 started at 2026-03-16 13:33:15.869243
+Interval 29 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 77 started at 2026-03-16 13:33:15.869243
+Interval 77 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 49 started at 2026-03-16 13:33:15.869243
+Interval 49 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 86 started at 2026-03-16 13:33:15.869243
+Interval 86 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 72 started at 2026-03-16 13:33:15.869243
+Interval 72 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 13 started at 2026-03-16 13:33:15.869243
+Interval 13 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 52 started at 2026-03-16 13:33:15.869243
+Interval 52 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 61 started at 2026-03-16 13:33:15.869243
+Interval 61 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 73 started at 2026-03-16 13:33:15.869243
+Interval 73 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 38 started at 2026-03-16 13:33:15.869243
+Interval 38 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 87 started at 2026-03-16 13:33:15.869243
+Interval 87 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 48 started at 2026-03-16 13:33:15.869243
+Interval 48 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 43 started at 2026-03-16 13:33:15.869243
+Interval 43 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 81 started at 2026-03-16 13:33:15.869243
+Interval 81 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 54 started at 2026-03-16 13:33:15.869243
+Interval 54 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 16 started at 2026-03-16 13:33:15.869243
+Interval 16 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 47 started at 2026-03-16 13:33:15.869243
+Interval 47 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 36 started at 2026-03-16 13:33:15.869243
+Interval 36 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 14 started at 2026-03-16 13:33:15.869243
+Interval 14 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 34 started at 2026-03-16 13:33:15.869243
+Interval 34 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 95 started at 2026-03-16 13:33:15.869243
+Interval 95 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 89 started at 2026-03-16 13:33:15.869243
+Interval 89 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 84 started at 2026-03-16 13:33:15.869243
+Interval 84 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 25 started at 2026-03-16 13:33:15.869243
+Interval 25 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 37 started at 2026-03-16 13:33:15.869243
+Interval 37 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 21 started at 2026-03-16 13:33:15.869243
+Interval 21 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 50 started at 2026-03-16 13:33:15.869243
+Interval 50 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 22 started at 2026-03-16 13:33:15.869243
+Interval 22 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 31 started at 2026-03-16 13:33:15.869243
+Interval 31 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 33 started at 2026-03-16 13:33:15.869243
+Interval 33 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 90 started at 2026-03-16 13:33:15.869243
+Interval 90 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 20 started at 2026-03-16 13:33:15.869243
+Interval 20 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 32 started at 2026-03-16 13:33:15.869243
+Interval 32 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 74 started at 2026-03-16 13:33:15.869243
+Interval 74 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 51 started at 2026-03-16 13:33:15.869243
+Interval 51 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 4 started at 2026-03-16 13:33:15.869243
+Interval 4 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 67 started at 2026-03-16 13:33:15.869243
+Interval 67 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 55 started at 2026-03-16 13:33:15.869243
+Interval 55 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 56 started at 2026-03-16 13:33:15.869243
+Interval 56 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 5 started at 2026-03-16 13:33:15.869243
+Interval 5 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 70 started at 2026-03-16 13:33:15.869243
+Interval 70 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 68 started at 2026-03-16 13:33:15.869243
+Interval 68 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 64 started at 2026-03-16 13:33:15.869243
+Interval 64 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 62 started at 2026-03-16 13:33:15.869243
+Interval 62 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 8 started at 2026-03-16 13:33:15.869243
+Interval 8 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 79 started at 2026-03-16 13:33:15.869243
+Interval 79 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 23 started at 2026-03-16 13:33:15.869243
+Interval 23 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 24 started at 2026-03-16 13:33:15.869243
+Interval 24 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 66 started at 2026-03-16 13:33:15.869243
+Interval 66 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 92 started at 2026-03-16 13:33:15.869243
+Interval 92 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 63 started at 2026-03-16 13:33:15.869243
+Interval 63 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 94 started at 2026-03-16 13:33:15.869243
+Interval 94 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 83 started at 2026-03-16 13:33:15.869243
+Interval 83 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 7 started at 2026-03-16 13:33:15.869243
+Interval 7 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 76 started at 2026-03-16 13:33:15.869243
+Interval 76 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 65 started at 2026-03-16 13:33:15.869243
+Interval 65 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 35 started at 2026-03-16 13:33:15.869243
+Interval 35 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 39 started at 2026-03-16 13:33:15.869243
+Interval 39 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 71 started at 2026-03-16 13:33:15.869243
+Interval 71 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 78 started at 2026-03-16 13:33:15.869243
+Interval 78 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 93 started at 2026-03-16 13:33:15.869243
+Interval 93 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 82 started at 2026-03-16 13:33:15.869243
+Interval 82 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 40 started at 2026-03-16 13:33:15.869243
+Interval 40 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 75 started at 2026-03-16 13:33:15.869243
+Interval 75 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 1 started at 2026-03-16 13:33:15.869243
+Interval 1 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 3 started at 2026-03-16 13:33:15.869243
+Interval 3 finished processing at 2026-03-16 13:33:15.869243
+Processing for interval 2 started at 2026-03-16 13:33:15.869243
+Interval 2 finished processing at 2026-03-16 13:33:15.869243
+Starting compression of individual VCF files at 2026-03-16 13:33:15.869243
+master_file.vcf.gz finished concatenating and inxing at 2026-03-16 13:33:15.869243
+PIPELINE RUN COMPLETE
