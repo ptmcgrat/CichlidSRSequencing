@@ -130,7 +130,7 @@ for info,hits in sorted(discoveryChimeras.items(), key=lambda item: item[0][1]):
     if hits < 10 or info[7] != 'del':
         continue
     length = info[4] - info[1]
-    if length < 70 or length > 300:
+    if length < 40 or length > 300:
         continue
     if exclusionChimeras[info] > 0:
         continue
