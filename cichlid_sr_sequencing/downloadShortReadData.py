@@ -92,9 +92,12 @@ for index, row in new_dt.iterrows():
 				ena_dt = pd.read_csv('https://www.ebi.ac.uk/ena/portal/api/filereport?accession=' + row['RunID'] + '&result=read_run&fields=fastq_ftp&format=tsv&limit=0', sep = '\t', storage_options=headers)
 
 		# If ftp site doesn't exist it is None
-		if ena_dt.fastq_ftp[0] != ena_dt.fastq_ftp[0]:
-			print('Error on ' + data.RunID + ': Cant find ftp site locations', file = sys.stderr)
-			continue 
+		try:
+			if ena_dt.fastq_ftp[0] != ena_dt.fastq_ftp[0]:
+				print('Error on ' + data.RunID + ': Cant find ftp site locations', file = sys.stderr)
+				continue 
+		except IndexError:
+			pdb.set_trace()
 
 		# Store file locations for remote and local fq files
 		ftps = ena_dt.fastq_ftp[0].split(';')
