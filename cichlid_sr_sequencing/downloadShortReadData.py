@@ -97,6 +97,8 @@ for index, row in new_dt.iterrows():
 				print('Error on ' + data.RunID + ': Cant find ftp site locations', file = sys.stderr)
 				continue 
 		except IndexError:
+			print('Cant find ' + row['RunID'] + ' on ENA')
+			continue
 			pdb.set_trace()
 
 		# Store file locations for remote and local fq files
