@@ -37,7 +37,7 @@ timer.stop()
 
 # Create alignment worker object:
 aw_obj = AW(args.Genome, fm_obj, check_size = True)
-"""
+
 timer.start('  Parallel Downloading uBams files')
 bad_samples = aw_obj.downloadReadData()
 if bad_samples != []:
@@ -77,7 +77,7 @@ if bad_samples != []:
 	fm_obj.removeSamples(bad_samples)
 	aw_obj.samples = fm_obj.samples
 timer.stop()
-"""
+
 timer.start('  Uploading and updating database')
 bad_samples = aw_obj.uploadAndUpdateDatabase()
 if bad_samples != []:
