@@ -25,6 +25,6 @@ dt3 = pd.merge(dt,dt2,left_on='sequence_id', right_on='sample_id')
 for idx, row in dt3.iterrows():
 	if row.Biosample in fm_obj.sample_dt.SampleID.tolist():
 		if not pd.isna(row.chr10):
-			fm_obj.sample_dt.loc[fm_obj.sample_dt.SampleID == row.Biosample,'Inversion10'] = str(row.chr10)
+			fm_obj.sample_dt.loc[fm_obj.sample_dt.SampleID == row.Biosample,'Inversion10'] = int(row.chr10)
 
 fm_obj.setSampleDatabase()
