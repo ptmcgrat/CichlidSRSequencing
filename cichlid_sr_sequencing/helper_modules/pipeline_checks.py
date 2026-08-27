@@ -265,20 +265,27 @@ def check_reference_alleles(sites_vcf, ref_fasta, max_report=8):
 
 
 
-def missing_sites(sites_vcf, output_vcf, bam_file=None, max_report=None):
-    """Which requested sites are absent from the genotyped output, and why.
+def missing_sites(sites_vcf, output_vcf, bam_file=None, max_report=None, min_mq=20):
+    """Reconcile requested sites against genotyped output, by position.
 
-    A count ("198 of 202") says something went wrong; this says what. Each entry
-    carries the variant type and, when a BAM is given, the read depth at that
-    position -- which separates "no reads there" from "reads present but bcftools
-    never proposed this allele", the usual fate of indels in homopolymers.
+    Two failures look alike in a record count but are not alike:
+
+      absent          no record at that position at all. The site was not
+                      genotyped and there is no call for this sample.
+      re-represented  the position IS in the output, with different REF/ALT than
+                      requested. Normal and harmless for indels -- bcftools
+                      left-aligns and re-anchors them -- but it means the output
+                      record will not join back to the candidate table on
+                      chrom+pos+ref+alt. Join on chrom+pos instead; no two
+                      candidates share a position.
+
+    Only 'absent' counts as a shortfall. Returns (absent, re_represented).
     """
-    want = {(c, p, r, a) for c, p, r, a in vcf_keys(sites_vcf)}
-    got = {(c, p, r, a) for c, p, r, a in vcf_keys(output_vcf)}
-
-    # Match on position alone as well: an allele that came back with different
-    # REF/ALT was re-represented, not lost, and that is worth telling apart.
-    got_pos = {(c, p) for c, p, _, _ in got}
+    want, got = vcf_keys(sites_vcf), vcf_keys(output_vcf)
+    got_by_pos = {}
+    for c, p, r, a in got:
+        got_by_pos.setdefault((c, p), []).append((r, a))
+    want_set, got_set = set(want), set(got)
 
     types = {}
     with _open_maybe_gz(sites_vcf) as fh:
@@ -297,21 +304,42 @@ def missing_sites(sites_vcf, output_vcf, bam_file=None, max_report=None):
         except Exception:
             bam = None
 
-    out = []
-    for (c, p, r, a) in sorted(want - got, key=lambda k: k[1]):
+    absent, rerep = [], []
+    for (c, p, r, a) in sorted(want_set - got_set, key=lambda k: k[1]):
         entry = {"chrom": c, "pos": p, "ref": r, "alt": a,
-                 "type": types.get((c, p), "?"),
-                 "reason": "position present with different alleles"
-                           if (c, p) in got_pos else "position absent from output"}
+                 "type": types.get((c, p), "?")}
         if bam is not None:
             try:
-                entry["depth"] = bam.count(c, p - 1, p)
+                # Report depth the way the caller sees it. Raw depth alone is
+                # misleading in repeat-rich sequence: a site can have 60 reads and
+                # zero usable ones, because --min-MQ discards multi-mappers. The
+                # gap between these two numbers is usually the whole explanation.
+                raw = usable = 0
+                mq0 = 0
+                for read in bam.fetch(c, max(0, p - 1), p):
+                    if read.is_unmapped:
+                        continue
+                    raw += 1
+                    if read.mapping_quality == 0:
+                        mq0 += 1
+                    if read.mapping_quality >= min_mq:
+                        usable += 1
+                entry["depth_raw"] = raw
+                entry["depth_mq%d" % min_mq] = usable
+                entry["frac_mq0"] = round(mq0 / raw, 2) if raw else None
             except Exception:
                 pass
-        out.append(entry)
+        if (c, p) in got_by_pos:
+            entry["output_alleles"] = ["%s>%s" % ra for ra in got_by_pos[(c, p)]]
+            rerep.append(entry)
+        else:
+            absent.append(entry)
     if bam is not None:
         bam.close()
-    return out[:max_report] if max_report else out
+
+    if max_report:
+        return absent[:max_report], rerep[:max_report]
+    return absent, rerep
 
 
 def case_match_sites(sites_vcf, ref_fasta, output_vcf, index=True):
@@ -583,6 +611,7 @@ class Manifest:
     errors: list = field(default_factory=list)
     diagnostic: dict = field(default_factory=dict)
     missing_sites: list = field(default_factory=list)
+    rerepresented_sites: list = field(default_factory=list)
 
     def add_warning(self, msg):
         self.warnings.append(msg)

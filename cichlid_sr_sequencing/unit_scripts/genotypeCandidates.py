@@ -196,7 +196,7 @@ def main():
             man.diagnostic["allele_casing"] = pc.probe_allele_casing(
                 fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile,
                 fm_obj.localSampleTempDir + "casing_probe/")
-            man.missing_sites = pc.missing_sites(
+            man.missing_sites, man.rerepresented_sites = pc.missing_sites(
                 args.SV_VCF, sv_temp_vcf, bam_file=fm_obj.localBamFile)
             msg = (f"small-variant stage produced {observed_sv} of {expected_sv} "
                    f"expected records.\n"
@@ -214,14 +214,29 @@ def main():
                     if mode in casing:
                         msg += (f"\n    {mode:7s} -> {casing[mode]['records']}"
                                 f"/{casing[mode]['of']} records")
+            if man.rerepresented_sites:
+                msg += (f"\n  {len(man.rerepresented_sites)} site(s) returned with "
+                        f"different alleles than requested (present in the output, "
+                        f"joinable on chrom+pos):")
+                for e in man.rerepresented_sites[:5]:
+                    msg += (f"\n    {e['chrom']}:{e['pos']} asked {e['ref']}>{e['alt']} "
+                            f"[{e['type']}], got {','.join(e['output_alleles'])}")
             if man.missing_sites:
                 by_type = {}
                 for e in man.missing_sites:
                     by_type[e["type"]] = by_type.get(e["type"], 0) + 1
-                msg += f"\n  missing by variant type: {by_type}"
+                msg += f"\n  {len(man.missing_sites)} site(s) ABSENT, by type: {by_type}"
                 for e in man.missing_sites[:8]:
                     msg += (f"\n    {e['chrom']}:{e['pos']} {e['ref']}>{e['alt']} "
-                            f"[{e['type']}] depth={e.get('depth', '?')} -- {e['reason']}")
+                            f"[{e['type']}] reads={e.get('depth_raw', '?')} "
+                            f"usable(MQ>=20)={e.get('depth_mq20', '?')} "
+                            f"MQ0={e.get('frac_mq0', '?')}")
+                unmappable = [e for e in man.missing_sites
+                              if e.get("depth_mq20") == 0 and e.get("depth_raw", 0) > 0]
+                if unmappable:
+                    msg += (f"\n  {len(unmappable)} of these have reads but none passing "
+                            f"--min-MQ 20: multi-mapping repeat sequence, not a caller "
+                            f"failure. Genuinely uncallable for this sample.")
 
             shortfall = expected_sv - observed_sv
             if shortfall <= args.max_missing and observed_sv > 0:
