@@ -11,6 +11,7 @@ run would report success.
 
 import argparse
 import os
+import shutil
 import sys
 import subprocess
 
@@ -45,6 +46,10 @@ def parse_args():
                    help="Write output even when a stage produced fewer records than "
                         "expected. Off by default: a partial VCF that looks complete "
                         "is worse than no VCF.")
+    p.add_argument("--keep-bams", action="store_true",
+                   help="Keep the downloaded BAM and temp files after the sample "
+                        "finishes. Off by default: BAMs are ~10 GB each and 370 of "
+                        "them will not fit anywhere.")
     p.add_argument("--min-mapped-reads", type=int, default=1000,
                    help="Minimum reads in the candidate region before genotyping is "
                         "considered meaningful (default 1000)")
@@ -118,9 +123,40 @@ class RichCall(ClassifierCall):
         return self
 
 
+def cleanup_sample(fm_obj, sample_id, keep=False):
+    """Remove this sample's downloaded BAM and scratch directory.
+
+    Runs whether the sample succeeded or failed. A run that fails on 300 samples
+    while keeping every 10 GB BAM fills the disk just as effectively as one that
+    succeeds. Everything worth keeping -- the output VCF, the manifest, the error
+    log -- lives outside these directories.
+    """
+    if keep:
+        log(f"{sample_id}: keeping BAM and temp files (--keep-bams)")
+        return
+    freed = 0
+    for d in (getattr(fm_obj, "localSampleBamDir", None),
+              getattr(fm_obj, "localSampleTempDir", None)):
+        if not d or not os.path.isdir(d):
+            continue
+        try:
+            for root, _, files in os.walk(d):
+                for fn in files:
+                    try:
+                        freed += os.path.getsize(os.path.join(root, fn))
+                    except OSError:
+                        pass
+            shutil.rmtree(d, ignore_errors=True)
+        except Exception as e:
+            warn(f"{sample_id}: could not remove {d}: {e}")
+    if freed:
+        log(f"{sample_id}: freed {freed / 1e9:.1f} GB")
+
+
 def main():
     args = parse_args()
     man = Manifest(sample_id=args.SampleID)
+    fm_obj = None
 
     try:
         # ---------------- preflight ----------------
@@ -351,9 +387,12 @@ def main():
         man.errors.append(f"{type(e).__name__}: {e}")
         log(f"{args.SampleID}: FAILED -- {e}", "ERROR")
         man.write(args.OUT_VCF + ".manifest.json")
+        if fm_obj is not None:
+            cleanup_sample(fm_obj, args.SampleID, keep=args.keep_bams)
         sys.exit(1)
 
     man.write(args.OUT_VCF + ".manifest.json")
+    cleanup_sample(fm_obj, args.SampleID, keep=args.keep_bams)
 
 
 if __name__ == "__main__":

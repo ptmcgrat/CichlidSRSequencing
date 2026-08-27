@@ -16,6 +16,7 @@ Structure:
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -42,6 +43,10 @@ def parse_args():
     p.add_argument("--threshold", type=int, default=10,
                    help="Ref/alt length at or below which a variant goes to bcftools")
     p.add_argument("--num-parallel", type=int, default=48)
+    p.add_argument("--keep-bams", action="store_true",
+                   help="Keep each sample's downloaded BAM after it finishes. "
+                        "Off by default -- BAMs average 10 GB and 370 of them is "
+                        "roughly 4.8 TB.")
     p.add_argument("--max-missing", type=int, default=0,
                    help="Per sample, tolerate up to this many requested small-variant "
                         "sites being absent from the output. They are still recorded "
@@ -267,6 +272,57 @@ def preflight_samples(fm_obj, ecogroups):
     return sorted(aligned_meta.SampleID.unique()), cautions
 
 
+
+def preflight_disk(fm_obj, sample_ids, num_parallel, keep_bams):
+    """Will the concurrent BAM downloads fit on disk?
+
+    Each worker downloads its sample's BAM directory before genotyping, so peak
+    usage is roughly num_parallel BAMs at once -- and they are not uniform: the
+    largest in this cohort is six times the median. Sizing on the median is how
+    you fill a filesystem at 3am.
+    """
+    cautions = []
+    adt = fm_obj.alignment_dt
+    if "BamSize" not in adt.columns:
+        cautions.append("alignment database has no BamSize column; cannot estimate "
+                        "disk usage")
+        return cautions
+
+    sizes = pd.to_numeric(
+        adt[adt.SampleID.isin(sample_ids)].BamSize, errors="coerce").dropna()
+    if sizes.empty:
+        return cautions
+
+    target = fm_obj.localBamfilesDir
+    while target and not os.path.isdir(target):
+        target = os.path.dirname(target.rstrip("/"))
+    free = shutil.disk_usage(target or "/").free
+
+    # 1.35x covers the discordant BAM and indexes downloaded alongside the main one.
+    p90 = float(sizes.quantile(0.9)) * 1.35
+    peak = p90 * num_parallel
+    total = float(sizes.sum()) * 1.35
+
+    log(f"BAM sizes: median {sizes.median()/1e9:.1f} GB, "
+        f"max {sizes.max()/1e9:.1f} GB, {len(sizes)} samples")
+    log(f"disk free at {target}: {free/1e9:.0f} GB")
+    log(f"estimated peak usage with {num_parallel} concurrent: {peak/1e9:.0f} GB")
+
+    if keep_bams:
+        log(f"--keep-bams is set: total retained would be {total/1e12:.1f} TB")
+        if total > free:
+            cautions.append(
+                f"--keep-bams needs about {total/1e12:.1f} TB but only "
+                f"{free/1e9:.0f} GB is free. The run will fill the disk.")
+    elif peak > free * 0.8:
+        safe = max(1, int(free * 0.6 / p90))
+        cautions.append(
+            f"peak BAM usage (~{peak/1e9:.0f} GB with {num_parallel} concurrent) is "
+            f"close to or above the {free/1e9:.0f} GB free. Consider "
+            f"--num-parallel {safe}.")
+    return cautions
+
+
 def run_one(sampleID, command, error_file):
     """Run a single sample synchronously and return (returncode, manifest_or_None)."""
     with open(error_file, "w") as fp:
@@ -355,6 +411,8 @@ def main():
 
     aligned_samples, c3 = preflight_samples(fm_obj, args.ecogroups)
     cautions += c3
+    cautions += preflight_disk(fm_obj, aligned_samples, args.num_parallel,
+                               args.keep_bams)
 
     log("=== preflight summary ===")
     for c in cautions:
@@ -375,10 +433,13 @@ def main():
 
     def cmd_for(sampleID):
         out_vcf = out_dir + sampleID + "_candidate_QTNs.vcf.gz"
-        return out_vcf, ["python", "-m", "unit_scripts.genotypeCandidates",
-                         sv_norm_vcf_file, lv_csv_file, out_vcf,
-                         args.genome_version, sampleID,
-                         "--max-missing", str(args.max_missing)]
+        cmd = ["python", "-m", "unit_scripts.genotypeCandidates",
+               sv_norm_vcf_file, lv_csv_file, out_vcf,
+               args.genome_version, sampleID,
+               "--max-missing", str(args.max_missing)]
+        if args.keep_bams:
+            cmd.append("--keep-bams")
+        return out_vcf, cmd
 
     # ---------------- smoke test ----------------
     if not args.skip_smoke_test:
