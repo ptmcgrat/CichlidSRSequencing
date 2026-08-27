@@ -461,18 +461,27 @@ def main():
         # Which sites go missing, and in how many samples. A site missing
         # everywhere is a property of the site; a site missing in a few samples
         # is a property of those samples' coverage.
-        site_counts = Counter()
+        site_counts, rerep_counts = Counter(), Counter()
         for v in ok.values():
             for e in v.get("missing_sites", []):
                 site_counts[(e["chrom"], e["pos"], e["type"])] += 1
+            for e in v.get("rerepresented_sites", []):
+                rerep_counts[(e["chrom"], e["pos"], e["type"])] += 1
+
+        if rerep_counts:
+            log(f"{len(rerep_counts)} site(s) returned with re-anchored alleles "
+                f"(present in output; join on chrom+pos, not on alleles):")
+            for (c, p, t), n in rerep_counts.most_common(10):
+                log(f"    {c}:{p} [{t}] in {n}/{len(ok)} samples")
+
         if site_counts:
-            log(f"{len(site_counts)} distinct site(s) missing in at least one sample:")
+            log(f"{len(site_counts)} distinct site(s) ABSENT in at least one sample:")
             for (c, p, t), n in site_counts.most_common(15):
-                log(f"    {c}:{p} [{t}] missing in {n}/{len(ok)} samples")
+                log(f"    {c}:{p} [{t}] absent in {n}/{len(ok)} samples")
             universal = [k for k, n in site_counts.items() if n == len(ok)]
             if universal:
-                warn(f"{len(universal)} site(s) missing in EVERY sample -- these are "
-                     f"uncallable by this pipeline, not sample-specific dropouts")
+                warn(f"{len(universal)} site(s) absent in EVERY sample -- uncallable by "
+                     f"this pipeline rather than sample-specific dropouts")
 
     if failures:
         log(f"{len(failures)} failures:", "ERROR")
