@@ -274,22 +274,32 @@ def run_one(sampleID, command, error_file):
     return proc.returncode
 
 
-def check_manifest(out_vcf, sampleID):
+def check_manifest(out_vcf, sampleID, max_missing=0):
     """Read back what the worker actually produced. Exit codes are not enough --
-    the original failure mode was a clean exit over an incomplete file."""
+    the original failure mode was a clean exit over an incomplete file.
+
+    Sites the worker was told to tolerate are subtracted from the expected count,
+    otherwise the driver rejects exactly the output it authorised. What must still
+    hold is that every requested site is accounted for: written, or recorded as
+    missing. A record that is neither is unexplained loss.
+    """
     path = out_vcf + ".manifest.json"
     if not os.path.exists(path):
         return None, f"{sampleID}: no manifest written"
     m = json.load(open(path))
     if m["status"] != "ok":
         return m, f"{sampleID}: status={m['status']} errors={m['errors']}"
+
     expected = m["expected_sv"] + m["expected_lv"]
-    if m["observed_out"] != expected:
-        n_missing = len(m.get("missing_sites", []))
-        if n_missing:
-            return m, (f"{sampleID}: {m['observed_out']} records, expected {expected} "
-                       f"({n_missing} sites missing)")
-        return m, (f"{sampleID}: {m['observed_out']} records, expected {expected}")
+    n_missing = len(m.get("missing_sites", []))
+
+    if n_missing > max_missing:
+        return m, (f"{sampleID}: {n_missing} sites missing, above --max-missing "
+                   f"{max_missing}")
+    if m["observed_out"] + n_missing != expected:
+        unexplained = expected - n_missing - m["observed_out"]
+        return m, (f"{sampleID}: {m['observed_out']} records + {n_missing} recorded "
+                   f"missing != {expected} expected ({unexplained} unaccounted for)")
     if m["duplicates"]:
         return m, f"{sampleID}: {m['duplicates']} duplicate records"
     return m, None
@@ -377,17 +387,19 @@ def main():
         out_vcf, command = cmd_for(probe)
         err = fm_obj.localErrorsDir + "QTGFinder_" + probe + "_errors.txt"
         rc = run_one(probe, command, err)
-        man, problem = check_manifest(out_vcf, probe)
+        man, problem = check_manifest(out_vcf, probe, args.max_missing)
         if rc != 0 or problem:
             log(f"smoke test failed: {problem or f'exit code {rc}'}", "ERROR")
             log(f"worker stderr: {err}", "ERROR")
-            if man and man.get("diagnostic"):
+            if man and man.get("status") != "ok" and man.get("diagnostic"):
                 log("diagnostic: " + json.dumps(man["diagnostic"], indent=2), "ERROR")
             log("Not launching the remaining samples.", "ERROR")
             sys.exit(1)
+        n_missing = len(man.get("missing_sites", []))
         log(f"smoke test passed: {man['observed_out']} records "
             f"({man['observed_sv']} small + {man['observed_lv']} large), "
-            f"mean depth {man['mean_depth']}")
+            f"mean depth {man['mean_depth']}"
+            + (f", {n_missing} site(s) uncallable and recorded" if n_missing else ""))
         aligned_samples = aligned_samples[1:]
 
     # ---------------- fan out ----------------
@@ -421,7 +433,8 @@ def main():
             running.remove(data)
             done += 1
 
-            man, problem = check_manifest(data.out_vcf, data.sampleID)
+            man, problem = check_manifest(data.out_vcf, data.sampleID,
+                                          args.max_missing)
             results[data.sampleID] = man
             if data.process.returncode != 0 or problem:
                 failures.append(problem or f"{data.sampleID}: exit "
@@ -433,8 +446,10 @@ def main():
                 # Only discard the log when the output has been verified.
                 if os.path.exists(data.error_file):
                     os.remove(data.error_file)
+                n_missing = len(man.get("missing_sites", []))
                 log(f"[{done}/{total}] {data.sampleID} ok "
-                    f"({man['observed_out']} records, depth {man['mean_depth']})")
+                    f"({man['observed_out']} records, depth {man['mean_depth']}"
+                    + (f", {n_missing} missing" if n_missing else "") + ")")
 
             if pending:
                 launch(pending.pop(0))
