@@ -36,6 +36,11 @@ def parse_args():
     p.add_argument("OUT_VCF", type=str, help="Output bgzipped VCF path")
     p.add_argument("genome_version", type=str, help="Genome version key for FileManager")
     p.add_argument("SampleID", type=str, help="Sample to genotype")
+    p.add_argument("--max-missing", type=int, default=0,
+                   help="Tolerate up to this many requested sites being absent from "
+                        "the small-variant output. Missing sites are always listed in "
+                        "the manifest so the browser can tell them from no-calls. "
+                        "Default 0.")
     p.add_argument("--allow-partial", action="store_true",
                    help="Write output even when a stage produced fewer records than "
                         "expected. Off by default: a partial VCF that looks complete "
@@ -191,6 +196,8 @@ def main():
             man.diagnostic["allele_casing"] = pc.probe_allele_casing(
                 fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile,
                 fm_obj.localSampleTempDir + "casing_probe/")
+            man.missing_sites = pc.missing_sites(
+                args.SV_VCF, sv_temp_vcf, bam_file=fm_obj.localBamFile)
             msg = (f"small-variant stage produced {observed_sv} of {expected_sv} "
                    f"expected records.\n"
                    f"  unconstrained pileup at the same sites: "
@@ -207,9 +214,23 @@ def main():
                     if mode in casing:
                         msg += (f"\n    {mode:7s} -> {casing[mode]['records']}"
                                 f"/{casing[mode]['of']} records")
-            if not args.allow_partial:
+            if man.missing_sites:
+                by_type = {}
+                for e in man.missing_sites:
+                    by_type[e["type"]] = by_type.get(e["type"], 0) + 1
+                msg += f"\n  missing by variant type: {by_type}"
+                for e in man.missing_sites[:8]:
+                    msg += (f"\n    {e['chrom']}:{e['pos']} {e['ref']}>{e['alt']} "
+                            f"[{e['type']}] depth={e.get('depth', '?')} -- {e['reason']}")
+
+            shortfall = expected_sv - observed_sv
+            if shortfall <= args.max_missing and observed_sv > 0:
+                man.add_warning(f"tolerating {shortfall} missing site(s) "
+                                f"(--max-missing {args.max_missing})\n" + msg)
+            elif not args.allow_partial:
                 raise PipelineError(msg)
-            man.add_warning(msg)
+            else:
+                man.add_warning(msg)
 
         # ---------------- stage 2: large variants ----------------
         lv_temp_vcf = fm_obj.localSampleTempDir + args.SampleID + ".lv.vcf.gz"

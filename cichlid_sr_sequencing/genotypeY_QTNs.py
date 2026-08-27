@@ -42,6 +42,10 @@ def parse_args():
     p.add_argument("--threshold", type=int, default=10,
                    help="Ref/alt length at or below which a variant goes to bcftools")
     p.add_argument("--num-parallel", type=int, default=48)
+    p.add_argument("--max-missing", type=int, default=0,
+                   help="Per sample, tolerate up to this many requested small-variant "
+                        "sites being absent from the output. They are still recorded "
+                        "in each manifest. Default 0.")
     p.add_argument("--skip-smoke-test", action="store_true",
                    help="Skip the single-sample validation run. Not recommended.")
     p.add_argument("--preflight-only", action="store_true",
@@ -281,6 +285,10 @@ def check_manifest(out_vcf, sampleID):
         return m, f"{sampleID}: status={m['status']} errors={m['errors']}"
     expected = m["expected_sv"] + m["expected_lv"]
     if m["observed_out"] != expected:
+        n_missing = len(m.get("missing_sites", []))
+        if n_missing:
+            return m, (f"{sampleID}: {m['observed_out']} records, expected {expected} "
+                       f"({n_missing} sites missing)")
         return m, (f"{sampleID}: {m['observed_out']} records, expected {expected}")
     if m["duplicates"]:
         return m, f"{sampleID}: {m['duplicates']} duplicate records"
@@ -359,7 +367,8 @@ def main():
         out_vcf = out_dir + sampleID + "_candidate_QTNs.vcf.gz"
         return out_vcf, ["python", "-m", "unit_scripts.genotypeCandidates",
                          sv_norm_vcf_file, lv_csv_file, out_vcf,
-                         args.genome_version, sampleID]
+                         args.genome_version, sampleID,
+                         "--max-missing", str(args.max_missing)]
 
     # ---------------- smoke test ----------------
     if not args.skip_smoke_test:
@@ -448,6 +457,22 @@ def main():
         bad = [k for k, f in nocall if f > 0.5]
         if bad:
             warn(f"{len(bad)} samples are more than half no-calls: {bad[:10]}")
+
+        # Which sites go missing, and in how many samples. A site missing
+        # everywhere is a property of the site; a site missing in a few samples
+        # is a property of those samples' coverage.
+        site_counts = Counter()
+        for v in ok.values():
+            for e in v.get("missing_sites", []):
+                site_counts[(e["chrom"], e["pos"], e["type"])] += 1
+        if site_counts:
+            log(f"{len(site_counts)} distinct site(s) missing in at least one sample:")
+            for (c, p, t), n in site_counts.most_common(15):
+                log(f"    {c}:{p} [{t}] missing in {n}/{len(ok)} samples")
+            universal = [k for k, n in site_counts.items() if n == len(ok)]
+            if universal:
+                warn(f"{len(universal)} site(s) missing in EVERY sample -- these are "
+                     f"uncallable by this pipeline, not sample-specific dropouts")
 
     if failures:
         log(f"{len(failures)} failures:", "ERROR")

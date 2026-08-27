@@ -264,6 +264,56 @@ def check_reference_alleles(sites_vcf, ref_fasta, max_report=8):
 
 
 
+
+def missing_sites(sites_vcf, output_vcf, bam_file=None, max_report=None):
+    """Which requested sites are absent from the genotyped output, and why.
+
+    A count ("198 of 202") says something went wrong; this says what. Each entry
+    carries the variant type and, when a BAM is given, the read depth at that
+    position -- which separates "no reads there" from "reads present but bcftools
+    never proposed this allele", the usual fate of indels in homopolymers.
+    """
+    want = {(c, p, r, a) for c, p, r, a in vcf_keys(sites_vcf)}
+    got = {(c, p, r, a) for c, p, r, a in vcf_keys(output_vcf)}
+
+    # Match on position alone as well: an allele that came back with different
+    # REF/ALT was re-represented, not lost, and that is worth telling apart.
+    got_pos = {(c, p) for c, p, _, _ in got}
+
+    types = {}
+    with _open_maybe_gz(sites_vcf) as fh:
+        for line in fh:
+            if line.startswith("#"):
+                continue
+            f = line.rstrip("\n").split("\t")
+            m = re.search(r"TYPE=([^;,\t]+)", f[7])
+            types[(f[0], int(f[1]))] = m.group(1) if m else "?"
+
+    bam = None
+    if bam_file and os.path.exists(str(bam_file)):
+        try:
+            import pysam
+            bam = pysam.AlignmentFile(str(bam_file), "rb")
+        except Exception:
+            bam = None
+
+    out = []
+    for (c, p, r, a) in sorted(want - got, key=lambda k: k[1]):
+        entry = {"chrom": c, "pos": p, "ref": r, "alt": a,
+                 "type": types.get((c, p), "?"),
+                 "reason": "position present with different alleles"
+                           if (c, p) in got_pos else "position absent from output"}
+        if bam is not None:
+            try:
+                entry["depth"] = bam.count(c, p - 1, p)
+            except Exception:
+                pass
+        out.append(entry)
+    if bam is not None:
+        bam.close()
+    return out[:max_report] if max_report else out
+
+
 def case_match_sites(sites_vcf, ref_fasta, output_vcf, index=True):
     """Rewrite a sites VCF so REF alleles carry the same case as the reference.
 
@@ -476,7 +526,10 @@ def diagnose_empty_genotyping(bam_file, sites_vcf, ref_fasta, n_sites=5, region=
         region = f"{chrom}:{keys[0][1]}-{keys[-1][1]}"
     result["region"] = region
 
-    base = ["bcftools", "mpileup", "-r", region, "-f", str(ref_fasta),
+    # -R (the sites file) rather than -r (a span): with `call -m` emitting every
+    # callable site, a span would report thousands of positions and the comparison
+    # against the target count would be meaningless.
+    base = ["bcftools", "mpileup", "-R", str(sites_vcf), "-f", str(ref_fasta),
             "-a", "AD,DP", "--min-MQ", "20", "--min-BQ", "20", str(bam_file), "-Ou"]
 
     try:
@@ -529,6 +582,7 @@ class Manifest:
     warnings: list = field(default_factory=list)
     errors: list = field(default_factory=list)
     diagnostic: dict = field(default_factory=dict)
+    missing_sites: list = field(default_factory=list)
 
     def add_warning(self, msg):
         self.warnings.append(msg)
