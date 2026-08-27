@@ -120,9 +120,15 @@ def main():
     try:
         # ---------------- preflight ----------------
         man.tool_versions = pc.require_tools()
-        if not pc.mpileup_supports("--indels-2.0"):
+        # Detected once and passed explicitly, so every sample in a run uses the
+        # same indel model. Letting it default to True would make the run fail
+        # outright on a build without the flag; letting it silently default to
+        # False would change the calls without saying so.
+        use_indels_2 = pc.mpileup_supports("--indels-2.0")
+        if not use_indels_2:
             man.add_warning("this bcftools build does not advertise --indels-2.0; "
-                            "small-indel calls in repeats will be less accurate")
+                            "falling back to the default indel model, which is less "
+                            "accurate for small indels in repeats")
 
         fm_obj = FM(genome_version=args.genome_version)
         fm_obj.createSampleFiles(args.SampleID, reads=False)
@@ -164,7 +170,8 @@ def main():
         sv_temp_vcf = fm_obj.localSampleTempDir + args.SampleID + ".sv.vcf.gz"
         try:
             genotype_at_sites(fm_obj.localBamFile, args.SV_VCF,
-                              fm_obj.localGenomeFile, sv_temp_vcf)
+                              fm_obj.localGenomeFile, sv_temp_vcf,
+                              indels_2=use_indels_2)
         except BcftoolsError as e:
             raise PipelineError(f"small-variant genotyping raised: {e}")
 
@@ -179,6 +186,11 @@ def main():
                 fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile)
             ref_check = pc.check_reference_alleles(args.SV_VCF, fm_obj.localGenomeFile)
             man.diagnostic["reference_alleles"] = ref_check
+            # Ask bcftools directly which allele casing it will accept, using this
+            # sample's own BAM, rather than leaving it as a manual experiment.
+            man.diagnostic["allele_casing"] = pc.probe_allele_casing(
+                fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile,
+                fm_obj.localSampleTempDir + "casing_probe/")
             msg = (f"small-variant stage produced {observed_sv} of {expected_sv} "
                    f"expected records.\n"
                    f"  unconstrained pileup at the same sites: "
@@ -188,9 +200,13 @@ def main():
                    f"{ref_check['n_case_only']} differ only in case, "
                    f"{ref_check['n_mismatch']} genuinely mismatched\n"
                    f"  targets file: {sv_temp_vcf}.targets.tsv.gz")
-            if ref_check["n_case_only"]:
-                msg += ("\n  NOTE: sites on soft-masked (lowercase) reference sequence "
-                        "will not match uppercase constraint alleles.")
+            casing = man.diagnostic.get("allele_casing", {})
+            if casing.get("conclusion"):
+                msg += f"\n  allele casing probe: {casing['conclusion']}"
+                for mode in ("upper", "lower", "genome"):
+                    if mode in casing:
+                        msg += (f"\n    {mode:7s} -> {casing[mode]['records']}"
+                                f"/{casing[mode]['of']} records")
             if not args.allow_partial:
                 raise PipelineError(msg)
             man.add_warning(msg)

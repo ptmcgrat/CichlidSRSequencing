@@ -113,12 +113,22 @@ def mpileup_supports(flag):
 
     Version numbers are a poor proxy: flags get backported, and the machine that
     built the sites VCF is not necessarily the machine running the genotyping.
+
+    `bcftools mpileup --help` does NOT work -- mpileup rejects --help and prints
+    "unrecognized option" with no usage text, which makes every flag look absent.
+    Running it with no arguments is what prints the option list.
     """
     try:
-        out = subprocess.run(["bcftools", "mpileup", "--help"],
+        out = subprocess.run(["bcftools", "mpileup"],
                              capture_output=True, text=True, timeout=30)
-        return flag in (out.stdout + out.stderr)
-    except Exception:
+        usage = out.stdout + out.stderr
+        if "Usage:" not in usage:
+            warn(f"could not read bcftools mpileup usage text; "
+                 f"cannot verify support for {flag}")
+            return False
+        return flag in usage
+    except Exception as e:
+        warn(f"flag detection for {flag} failed: {e}")
         return False
 
 
@@ -251,6 +261,158 @@ def check_reference_alleles(sites_vcf, ref_fasta, max_report=8):
     ref.close()
     return {"n_exact": n_exact, "n_case_only": n_case, "n_mismatch": n_bad,
             "examples": examples}
+
+
+
+def case_match_sites(sites_vcf, ref_fasta, output_vcf, index=True):
+    """Rewrite a sites VCF so REF alleles carry the same case as the reference.
+
+    Soft-masked references store repeats in lowercase. A sites VCF written with
+    ``.upper()`` therefore disagrees with the genome at every masked position, in
+    case only. Whether `bcftools call -C alleles` cares is not documented, so this
+    sidesteps the question: matching the case is harmless if bcftools is
+    case-insensitive and necessary if it is not.
+
+    REF is replaced with the reference sequence verbatim. ALT is left uppercase --
+    alt alleles come from read sequence, which is uppercase in the BAM regardless
+    of masking. Records whose REF genuinely disagrees with the genome are passed
+    through unchanged so that downstream checks still flag them.
+
+    Returns counts of what it did.
+    """
+    import pysam
+    ref = pysam.FastaFile(str(ref_fasta))
+
+    header = subprocess.run(["bcftools", "view", "-h", str(sites_vcf)],
+                            capture_output=True, text=True, check=True).stdout
+    body = subprocess.run(["bcftools", "view", "-H", str(sites_vcf)],
+                          capture_output=True, text=True, check=True).stdout
+
+    n_changed = n_same = n_mismatch = 0
+    out_lines = []
+    for line in body.splitlines():
+        if not line.strip():
+            continue
+        f = line.split("\t")
+        chrom, pos, vref = f[0], int(f[1]), f[3]
+        try:
+            gref = ref.fetch(chrom, pos - 1, pos - 1 + len(vref))
+        except Exception:
+            n_mismatch += 1
+            out_lines.append(line)
+            continue
+        if gref == vref:
+            n_same += 1
+        elif gref.upper() == vref.upper():
+            f[3] = gref
+            f[4] = f[4].upper()
+            n_changed += 1
+            line = "\t".join(f)
+        else:
+            n_mismatch += 1
+        out_lines.append(line)
+    ref.close()
+
+    raw = str(output_vcf)[:-3] if str(output_vcf).endswith(".gz") else str(output_vcf)
+    with open(raw, "w") as fh:
+        for hl in header.splitlines():
+            if hl.startswith("#CHROM"):
+                fh.write("##sitesCaseMatched=REF alleles set to reference case; "
+                         "ALT uppercase\n")
+            fh.write(hl + "\n")
+        for line in out_lines:
+            fh.write(line + "\n")
+    subprocess.run(["bgzip", "-f", raw], check=True)
+    if index:
+        subprocess.run(["tabix", "-f", "-p", "vcf", str(output_vcf)], check=True)
+
+    return {"already_matching": n_same, "case_corrected": n_changed,
+            "true_mismatch": n_mismatch}
+
+
+def probe_allele_casing(bam_file, sites_vcf, ref_fasta, workdir, n=10):
+    """Try several allele casings on a small subset to see which bcftools accepts.
+
+    Only runs when a sample has already produced the wrong record count. Answers,
+    without anyone having to run anything by hand, whether allele case is what is
+    dropping sites -- and if so, which casing works.
+    """
+    import pysam
+    import tempfile
+
+    os.makedirs(workdir, exist_ok=True)
+    header = subprocess.run(["bcftools", "view", "-h", str(sites_vcf)],
+                            capture_output=True, text=True, check=True).stdout
+    body = subprocess.run(["bcftools", "view", "-H", str(sites_vcf)],
+                          capture_output=True, text=True, check=True).stdout
+    records = [l for l in body.splitlines() if l.strip()][:n]
+    if not records:
+        return {"error": "no records to probe"}
+
+    ref = pysam.FastaFile(str(ref_fasta))
+
+    def recase(line, mode):
+        f = line.split("\t")
+        pos, vref = int(f[1]), f[3]
+        gref = ref.fetch(f[0], pos - 1, pos - 1 + len(vref))
+        if mode == "upper":
+            f[3], f[4] = vref.upper(), f[4].upper()
+        elif mode == "lower":
+            f[3], f[4] = vref.lower(), f[4].lower()
+        elif mode == "genome":
+            if gref.upper() == vref.upper():
+                f[3] = gref
+            f[4] = f[4].upper()
+        return "\t".join(f)
+
+    results = {}
+    for mode in ("upper", "lower", "genome"):
+        sub = os.path.join(workdir, f"probe_{mode}.vcf.gz")
+        raw = sub[:-3]
+        with open(raw, "w") as fh:
+            fh.write(header)
+            for line in records:
+                fh.write(recase(line, mode) + "\n")
+        subprocess.run(["bgzip", "-f", raw], check=True)
+        subprocess.run(["tabix", "-f", "-p", "vcf", sub], check=True)
+
+        targets = os.path.join(workdir, f"probe_{mode}.targets.tsv.gz")
+        with open(targets, "wb") as out_fh:
+            q = subprocess.Popen(["bcftools", "query", "-f",
+                                  "%CHROM\\t%POS\\t%REF,%ALT\\n", sub],
+                                 stdout=subprocess.PIPE)
+            z = subprocess.Popen(["bgzip", "-c"], stdin=q.stdout, stdout=out_fh)
+            q.stdout.close(); z.wait(); q.wait()
+        subprocess.run(["tabix", "-f", "-s", "1", "-b", "2", "-e", "2", targets],
+                       check=True)
+
+        out = os.path.join(workdir, f"probe_{mode}.out.vcf.gz")
+        mp = subprocess.Popen(
+            ["bcftools", "mpileup", "-R", sub, "-f", str(ref_fasta),
+             "-a", "AD,DP", "--min-MQ", "20", "--min-BQ", "20", str(bam_file)],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        cl = subprocess.Popen(
+            ["bcftools", "call", "-m", "-A", "-C", "alleles", "-T", targets,
+             "--ploidy", "2", "-o", out, "-O", "z"],
+            stdin=mp.stdout, stderr=subprocess.PIPE)
+        mp.stdout.close()
+        err = cl.stderr.read().decode(errors="replace")
+        cl.wait(); mp.wait()
+        try:
+            got = count_vcf_records(out)
+        except Exception:
+            got = -1
+        results[mode] = {"records": got, "of": len(records),
+                         "stderr": err.strip()[-200:]}
+    ref.close()
+
+    winners = [m for m, r in results.items() if r["records"] > 0]
+    results["conclusion"] = (
+        f"allele casing matters; these worked: {winners}" if winners and
+        len(winners) < 3 else
+        "casing made no difference" if len(winners) == 3 else
+        "no casing produced records -- the failure is upstream of allele matching")
+    return results
 
 
 def softmask_summary(sites_vcf, ref_fasta):

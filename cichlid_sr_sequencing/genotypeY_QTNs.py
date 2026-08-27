@@ -187,12 +187,9 @@ def preflight_sites(sv_norm_vcf_file, genome_file, n_input_sv):
 
     if ref_check["n_case_only"]:
         problems.append(
-            f"{ref_check['n_case_only']} sites sit on soft-masked (lowercase) reference "
-            f"sequence while the sites VCF uses uppercase alleles. `-C alleles` compares "
-            f"allele strings literally, so these can be dropped without warning. "
-            f"Fix by uppercasing the reference FASTA (coordinates and contig lengths are "
-            f"unchanged, so BAMs stay valid -- just re-run samtools faidx and "
-            f"CreateSequenceDictionary afterwards).")
+            f"{ref_check['n_case_only']} sites still disagree with the reference in case "
+            f"after case-matching. That should not happen -- inspect "
+            f"{sv_norm_vcf_file}.")
 
     mask = pc.softmask_summary(sv_norm_vcf_file, genome_file)
     log(f"candidate sites on masked sequence: {mask['masked']}/"
@@ -320,6 +317,19 @@ def main():
     print_sv(sv_vcf_file, sv_dt)
     normalize_sites(sv_vcf_file, fm_obj.localGenomeFile, sv_norm_vcf_file)
     lv_dt.to_csv(lv_csv_file, index=False)
+
+    # Match REF allele case to the reference before anything reads this file.
+    # The genome is soft-masked; a sites VCF written with .upper() disagrees with
+    # it at every repeat-masked position. Harmless if bcftools is case-insensitive,
+    # necessary if it is not -- so just do it rather than testing for it. The
+    # reference itself is never modified.
+    sv_cased_vcf_file = out_dir + "candidateQTNs_sv.norm.cased.vcf.gz"
+    case_stats = pc.case_match_sites(sv_norm_vcf_file, fm_obj.localGenomeFile,
+                                     sv_cased_vcf_file)
+    log(f"allele case vs reference: {case_stats['already_matching']} already matched, "
+        f"{case_stats['case_corrected']} corrected, "
+        f"{case_stats['true_mismatch']} genuinely mismatched")
+    sv_norm_vcf_file = sv_cased_vcf_file
 
     p2, c2 = preflight_sites(sv_norm_vcf_file, fm_obj.localGenomeFile, len(sv_dt))
     problems += p2
