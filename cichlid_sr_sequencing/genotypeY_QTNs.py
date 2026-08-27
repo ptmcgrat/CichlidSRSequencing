@@ -1,74 +1,467 @@
-from helper_modules.file_manager import FileManager as FM
-from helper_modules.smallVariantGenotyper import normalize_sites
-import pdb, os, subprocess
-import pandas as pd
+"""Driver: genotype candidate QTNs across all aligned Deep and Shallow Benthic samples.
+
+Structure:
+  1. Preflight   -- validate the reference, the candidate table, and the sample
+                    database before launching anything.
+  2. Smoke test  -- run ONE sample to completion and check its manifest. If the
+                    pipeline is broken, this catches it in a few minutes instead
+                    of after several hundred parallel jobs have each produced a
+                    valid-looking, mostly-empty VCF.
+  3. Fan out     -- run the rest, reading each manifest back rather than trusting
+                    exit codes.
+  4. Report      -- write a run-level summary and keep the logs of anything that
+                    failed or came back short.
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+from collections import Counter
 from types import SimpleNamespace
 
-def print_sv(outfile, dt):
-    with open(outfile,'w') as fp:
-        print('##fileformat=VCFv4.2', file = fp)
-        print('##source=MSAUniqueVariantCaller', file = fp)
-        print('##sample=Y_reg', file = fp)
-        print('##contig=<ID=NC_135176.1>', file = fp)
-        print('##INFO=<ID=TYPE,Number=1,Type=String,Description="SNV, INS, or DEL">', file = fp)
-        print('##INFO=<ID=ALN_COL,Number=1,Type=Integer,Description="1-based alignment column where the variant starts">', file = fp)
-        print('##INFO=<ID=LEN,Number=1,Type=Integer,Description="Length of inserted or deleted sequence">', file = fp)
-        print('\t'.join(['#CHROM','POS','ID','REF','ALT','QUAL','FILTER','INFO']), file = fp)
-        
-        for i,row in dt.iterrows():
-            print('\t'.join([row.Chromosome,str(row.Position),row.Name,row.Reference.upper(), row.Alt.upper(), str(row.Q), 'PASS', row.Info]), file = fp)
+import pandas as pd
 
-fm_obj = FM(genome_version = 'Mzebra_GT3_NCBI')
-fm_obj.readSampleDatabase()
-fm_obj.readAlignmentDatabase()
+from helper_modules.file_manager import FileManager as FM
+from helper_modules.smallVariantGenotyper import normalize_sites
+from helper_modules import pipeline_checks as pc
+from helper_modules.pipeline_checks import PipelineError, log, warn
 
-os.makedirs(fm_obj.localNikeshDir + 'QTG_Candidates/', exist_ok = True)
-os.makedirs(fm_obj.localErrorsDir, exist_ok = True)
-fm_obj.downloadData(fm_obj.localGenomeFile)
 
-# Get samples to genotype (all aligned Deep and Shallow Benthics)
-all_samples = fm_obj.sample_dt[fm_obj.sample_dt.Ecogroup.isin(['Deep_Benthic','Shallow_Benthic'])].SampleID.to_list()
-aligned_samples = fm_obj.alignment_dt[fm_obj.alignment_dt.SampleID.isin(all_samples)].SampleID.to_list()
+def parse_args():
+    p = argparse.ArgumentParser(description="Genotype candidate QTNs across samples.")
+    p.add_argument("--candidates", default=None,
+                   help="Master candidate table (TSV). Defaults to "
+                        "<localNikeshDir>/QTG_Candidates/candidateQTNs_all.tsv, "
+                        "downloaded via FileManager. Pass a path to use a local file "
+                        "instead (no download attempted).")
+    p.add_argument("--genome-version", default="Mzebra_GT3_NCBI")
+    p.add_argument("--ecogroups", nargs="+", default=["Deep_Benthic", "Shallow_Benthic"])
+    p.add_argument("--threshold", type=int, default=10,
+                   help="Ref/alt length at or below which a variant goes to bcftools")
+    p.add_argument("--num-parallel", type=int, default=48)
+    p.add_argument("--skip-smoke-test", action="store_true",
+                   help="Skip the single-sample validation run. Not recommended.")
+    p.add_argument("--preflight-only", action="store_true",
+                   help="Run the checks and exit without genotyping anything.")
+    p.add_argument("--force", action="store_true",
+                   help="Continue past preflight warnings that would otherwise stop the run.")
+    return p.parse_args()
 
-dt = pd.read_csv('candidateQTNs_all.tsv', sep = '\t')
-threshold = 10
-num_parallel = 48
-sv_vcf_file = fm_obj.localNikeshDir + 'QTG_Candidates/' + 'candidateQTNs_sv.vcf'
-sv_norm_vcf_file = fm_obj.localNikeshDir + 'QTG_Candidates/' + 'candidateQTNs_sv.norm.vcf.gz'
-lv_csv_file = fm_obj.localNikeshDir + 'QTG_Candidates/' + 'candidateQTNs_lv.csv'
-print_sv(sv_vcf_file, dt[(dt.Alt.str.len() <= threshold) & (dt.Reference.str.len() <= threshold)])
-normalize_sites(sv_vcf_file, fm_obj.localGenomeFile, sv_norm_vcf_file)
-dt[(dt.Alt.str.len() > threshold) | (dt.Reference.str.len() > threshold)].to_csv(lv_csv_file)
 
-commands = []
-bad_samples = []
-for sampleID in aligned_samples:
-    out_vcf = fm_obj.localNikeshDir + 'QTG_Candidates/' + sampleID + '_candidate_QTNs.vcf.gz'
-    command = ['python','-m', 'unit_scripts.genotypeCandidates',sv_norm_vcf_file,lv_csv_file,out_vcf,'Mzebra_GT3_NCBI',sampleID]
-    error_file = fm_obj.localErrorsDir + 'QTGFinder_' + sampleID + '_errors.txt'
-    commands.append(SimpleNamespace(sampleID=sampleID, command = command, error_file = error_file))
-    
-for i,data in enumerate(commands):
-    
-    if i < num_parallel:
-        data.error_fp = open(data.error_file, 'w')
-        data.process = subprocess.Popen(data.command, stderr = data.error_fp, stdout = subprocess.DEVNULL)
+def load_candidates(fm_obj, args):
+    """Resolve and read the master candidate table.
+
+    With no --candidates argument the canonical copy is pulled from cloud storage,
+    so every run starts from the same table rather than whatever happens to be in
+    the working directory. An explicit path is used as-is and never downloaded,
+    which is what you want when testing a modified table.
+    """
+    if args.candidates is None:
+        path = fm_obj.localNikeshDir + "QTG_Candidates/candidateQTNs_all.tsv"
+        try:
+            fm_obj.downloadData(path)
+        except FileNotFoundError as e:
+            raise PipelineError(
+                f"could not download the candidate table: {e}. Pass --candidates "
+                f"to point at a local file instead.")
+        log(f"candidate table downloaded to {path}")
     else:
-        data.process = None
-    
-while commands:
-    finished_processes = [x for x in commands if x.process is not None and x.process.poll() is not None]
-    for data in finished_processes:
-        data.error_fp.close()
-        print(f'..{data.sampleID} complete..', end = '')
-        if data.process.returncode != 0:
-            bad_samples.append(data.sampleID)
-        else:
-            subprocess.run(['rm',data.error_file])
-        commands.remove(data)  # Remove finished process from monitoring list
-        next_command = next((x for x in commands if x.process is None),None)
-        if next_command is not None:
-            next_command.error_fp = open(next_command.error_file, 'w')
-            next_command.process = subprocess.Popen(next_command.command, stderr = next_command.error_fp, stdout = subprocess.DEVNULL)
+        path = args.candidates
+        pc.require_file(path, "candidate table")
+        log(f"using local candidate table {path}")
 
-print(bad_samples)
+    args.candidates = path
+    dt = pd.read_csv(path, sep="\t")
+    if dt.empty:
+        raise PipelineError(f"candidate table {path} has no rows")
+    return dt
+
+
+def ensure_reference(fm_obj):
+    """Download the reference and make sure its .fai is present.
+
+    FileManager.downloadData copies a single file, so asking for the FASTA does
+    not bring the index with it. Try the cloud copy first, then build one locally
+    -- faidx on an existing FASTA is cheap and deterministic.
+    """
+    fm_obj.downloadData(fm_obj.localGenomeFile)
+    fai = fm_obj.localGenomeFile + ".fai"
+    if os.path.exists(fai):
+        return
+    try:
+        fm_obj.downloadData(fai)
+        log("downloaded reference .fai")
+        return
+    except FileNotFoundError:
+        log("no .fai in cloud storage; building one locally with samtools faidx")
+    r = subprocess.run(["samtools", "faidx", fm_obj.localGenomeFile],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise PipelineError(f"samtools faidx failed: {r.stderr}")
+
+
+def print_sv(outfile, dt):
+    """Write the small-variant sites VCF.
+
+    Alleles are uppercased to match VCF convention. Note that the reference FASTA
+    may be soft-masked, in which case these uppercase alleles will not string-match
+    the lowercase genome under `bcftools call -C alleles`. Preflight checks for
+    exactly that.
+    """
+    with open(outfile, "w") as fp:
+        print("##fileformat=VCFv4.2", file=fp)
+        print("##source=MSAUniqueVariantCaller", file=fp)
+        print("##sample=Y_reg", file=fp)
+        print("##contig=<ID=NC_135176.1>", file=fp)
+        print('##INFO=<ID=TYPE,Number=1,Type=String,'
+              'Description="SUBSTITUTE, INSERTION, or DELETION">', file=fp)
+        print('##INFO=<ID=ALN_START,Number=1,Type=Integer,'
+              'Description="1-based alignment column where the variant starts">', file=fp)
+        print("\t".join(["#CHROM", "POS", "ID", "REF", "ALT",
+                         "QUAL", "FILTER", "INFO"]), file=fp)
+        for i, row in dt.iterrows():
+            name = row.Name if isinstance(row.Name, str) and row.Name.strip() else "."
+            print("\t".join([row.Chromosome, str(row.Position), name,
+                             row.Reference.upper(), row.Alt.upper(),
+                             str(row.Q), "PASS", row.Info]), file=fp)
+
+
+def preflight(args, fm_obj, dt):
+    """Everything that can be checked before a single BAM is touched."""
+    problems, cautions = [], []
+
+    log("=== preflight ===")
+    versions = pc.require_tools()
+    if not pc.mpileup_supports("--indels-2.0"):
+        cautions.append("bcftools build does not advertise --indels-2.0")
+
+    pc.require_file(fm_obj.localGenomeFile, "reference FASTA", min_bytes=1000)
+    pc.require_index(fm_obj.localGenomeFile, "reference FASTA")
+
+    # --- candidate table ---
+    log(f"candidate table: {len(dt)} rows")
+    if dt.Name.astype(str).str.strip().isin([".", "", "nan"]).all():
+        cautions.append("every candidate has Name='.', so records can only be joined "
+                        "back on chrom+pos+ref+alt after normalization")
+    dup_pos = dt.duplicated(subset=["Chromosome", "Position", "Reference", "Alt"]).sum()
+    if dup_pos:
+        problems.append(f"{dup_pos} duplicate rows in {args.candidates}")
+
+    for col in ["Chromosome", "Position", "Reference", "Alt", "Q", "Info"]:
+        if col not in dt.columns:
+            problems.append(f"candidate table is missing column {col}")
+    if dt.Reference.isna().any() or dt.Alt.isna().any():
+        problems.append("candidate table has null Reference or Alt values")
+
+    return problems, cautions, versions
+
+
+def preflight_sites(sv_norm_vcf_file, genome_file, n_input_sv):
+    """Checks that need the normalized sites VCF to exist."""
+    problems, cautions = [], []
+
+    n_norm = pc.count_vcf_records(sv_norm_vcf_file)
+    log(f"normalized sites VCF: {n_norm} records (from {n_input_sv} input rows)")
+    if n_norm != n_input_sv:
+        cautions.append(f"bcftools norm changed the record count: "
+                        f"{n_input_sv} in, {n_norm} out")
+
+    dups = pc.duplicate_keys(pc.vcf_keys(sv_norm_vcf_file))
+    if dups:
+        problems.append(f"normalized sites VCF has {len(dups)} duplicate records, "
+                        f"e.g. {dups[:3]}")
+
+    # The check that would have caught this run's failure before it started.
+    ref_check = pc.check_reference_alleles(sv_norm_vcf_file, genome_file)
+    log(f"sites REF vs genome: {ref_check['n_exact']} exact, "
+        f"{ref_check['n_case_only']} case-only, {ref_check['n_mismatch']} mismatched")
+
+    if ref_check["n_mismatch"]:
+        problems.append(
+            f"{ref_check['n_mismatch']} sites have REF alleles that disagree with the "
+            f"reference genome. Examples: {ref_check['examples'][:3]}. "
+            f"These will be dropped silently by `bcftools call -C alleles`.")
+
+    if ref_check["n_case_only"]:
+        problems.append(
+            f"{ref_check['n_case_only']} sites sit on soft-masked (lowercase) reference "
+            f"sequence while the sites VCF uses uppercase alleles. `-C alleles` compares "
+            f"allele strings literally, so these can be dropped without warning. "
+            f"Fix by uppercasing the reference FASTA (coordinates and contig lengths are "
+            f"unchanged, so BAMs stay valid -- just re-run samtools faidx and "
+            f"CreateSequenceDictionary afterwards).")
+
+    mask = pc.softmask_summary(sv_norm_vcf_file, genome_file)
+    log(f"candidate sites on masked sequence: {mask['masked']}/"
+        f"{mask['masked'] + mask['unmasked']}")
+
+    return problems, cautions
+
+
+def preflight_samples(fm_obj, ecogroups):
+    """Sample-database sanity. These are cautions, not blockers -- but they change
+    how the resulting genotypes can be interpreted, so they get reported loudly."""
+    cautions = []
+    sample_dt, alignment_dt = fm_obj.sample_dt, fm_obj.alignment_dt
+
+    dupes = sample_dt[sample_dt.SampleID.duplicated(keep=False)]
+    if len(dupes):
+        cautions.append(
+            f"{dupes.SampleID.nunique()} SampleID(s) appear more than once in the sample "
+            f"database with conflicting metadata: "
+            f"{sorted(dupes.SampleID.unique())[:5]}. Deduplicate before relying on "
+            f"Subgroup/Category groupings.")
+
+    in_scope = sample_dt[sample_dt.Ecogroup.isin(ecogroups)]
+    aligned = alignment_dt[alignment_dt.SampleID.isin(in_scope.SampleID)]
+    aligned_meta = in_scope[in_scope.SampleID.isin(aligned.SampleID)]
+
+    log(f"samples in scope: {len(in_scope)} in database, {len(aligned_meta)} with alignments")
+
+    for col in ["Subgroup", "Category"]:
+        if col not in sample_dt.columns:
+            cautions.append(f"sample database has no {col} column")
+            continue
+        missing = aligned_meta[col].isna().sum()
+        if missing:
+            cautions.append(f"{missing}/{len(aligned_meta)} aligned samples have no {col}")
+        log(f"{col}: {aligned_meta[col].nunique()} distinct values")
+
+    sexes = aligned_meta.Sex.fillna("(blank)").value_counts().to_dict()
+    usable = sum(v for k, v in sexes.items() if k in ("M", "F"))
+    log(f"sex: {sexes}")
+    if usable < len(aligned_meta) * 0.8:
+        cautions.append(
+            f"only {usable}/{len(aligned_meta)} aligned samples have a definite M/F sex. "
+            f"Any sex-association statistic will be computed on that subset, not the "
+            f"full cohort.")
+
+    # Sex recorded in the Sex column vs sex implied by a Category label.
+    if "Category" in aligned_meta.columns:
+        for cat, expected in [("YH_Males", "M"), ("YH_Females", "F"),
+                              ("MC_males", "M"), ("MC_females", "F"),
+                              ("CV_males", "M"), ("CV_females", "F")]:
+            sub = aligned_meta[aligned_meta.Category == cat]
+            bad = sub[sub.Sex.isin(["M", "F"]) & (sub.Sex != expected)]
+            if len(bad):
+                cautions.append(
+                    f"{len(bad)} sample(s) with Category={cat} have Sex="
+                    f"{sorted(bad.Sex.unique())}: {sorted(bad.SampleID)[:5]}")
+
+    missing_bam = set(aligned.SampleID) - set(alignment_dt.SampleID)
+    if missing_bam:
+        cautions.append(f"{len(missing_bam)} samples lack alignment records")
+
+    if "Coverage" in alignment_dt.columns:
+        cov = alignment_dt[alignment_dt.SampleID.isin(aligned_meta.SampleID)].Coverage
+        low = (cov < 5).sum()
+        log(f"coverage: median {cov.median():.1f}x, {low} samples below 5x")
+        if low:
+            cautions.append(f"{low} samples have coverage below 5x and will produce "
+                            f"mostly no-calls")
+
+    return sorted(aligned_meta.SampleID.unique()), cautions
+
+
+def run_one(sampleID, command, error_file):
+    """Run a single sample synchronously and return (returncode, manifest_or_None)."""
+    with open(error_file, "w") as fp:
+        proc = subprocess.run(command, stderr=fp, stdout=subprocess.DEVNULL)
+    return proc.returncode
+
+
+def check_manifest(out_vcf, sampleID):
+    """Read back what the worker actually produced. Exit codes are not enough --
+    the original failure mode was a clean exit over an incomplete file."""
+    path = out_vcf + ".manifest.json"
+    if not os.path.exists(path):
+        return None, f"{sampleID}: no manifest written"
+    m = json.load(open(path))
+    if m["status"] != "ok":
+        return m, f"{sampleID}: status={m['status']} errors={m['errors']}"
+    expected = m["expected_sv"] + m["expected_lv"]
+    if m["observed_out"] != expected:
+        return m, (f"{sampleID}: {m['observed_out']} records, expected {expected}")
+    if m["duplicates"]:
+        return m, f"{sampleID}: {m['duplicates']} duplicate records"
+    return m, None
+
+
+def main():
+    args = parse_args()
+
+    fm_obj = FM(genome_version=args.genome_version)
+    fm_obj.readSampleDatabase()
+    fm_obj.readAlignmentDatabase()
+
+    out_dir = fm_obj.localNikeshDir + "QTG_Candidates/"
+    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(fm_obj.localErrorsDir, exist_ok=True)
+    ensure_reference(fm_obj)
+
+    dt = load_candidates(fm_obj, args)
+
+    problems, cautions, versions = preflight(args, fm_obj, dt)
+
+    # Build the two site files.
+    sv_vcf_file = out_dir + "candidateQTNs_sv.vcf"
+    sv_norm_vcf_file = out_dir + "candidateQTNs_sv.norm.vcf.gz"
+    lv_csv_file = out_dir + "candidateQTNs_lv.csv"
+
+    is_small = (dt.Alt.str.len() <= args.threshold) & (dt.Reference.str.len() <= args.threshold)
+    sv_dt, lv_dt = dt[is_small], dt[~is_small]
+    if len(sv_dt) + len(lv_dt) != len(dt):
+        problems.append("small/large partition does not cover the candidate table")
+    log(f"partition at threshold {args.threshold}: {len(sv_dt)} small, {len(lv_dt)} large")
+
+    print_sv(sv_vcf_file, sv_dt)
+    normalize_sites(sv_vcf_file, fm_obj.localGenomeFile, sv_norm_vcf_file)
+    lv_dt.to_csv(lv_csv_file, index=False)
+
+    p2, c2 = preflight_sites(sv_norm_vcf_file, fm_obj.localGenomeFile, len(sv_dt))
+    problems += p2
+    cautions += c2
+
+    aligned_samples, c3 = preflight_samples(fm_obj, args.ecogroups)
+    cautions += c3
+
+    log("=== preflight summary ===")
+    for c in cautions:
+        warn(c)
+    for p in problems:
+        log(p, "ERROR")
+
+    if problems and not args.force:
+        log(f"{len(problems)} blocking problem(s). Fix them, or re-run with --force "
+            f"to proceed anyway.", "ERROR")
+        sys.exit(1)
+    if args.preflight_only:
+        log("preflight complete (--preflight-only)")
+        sys.exit(0)
+    if not aligned_samples:
+        log("no samples to genotype", "ERROR")
+        sys.exit(1)
+
+    def cmd_for(sampleID):
+        out_vcf = out_dir + sampleID + "_candidate_QTNs.vcf.gz"
+        return out_vcf, ["python", "-m", "unit_scripts.genotypeCandidates",
+                         sv_norm_vcf_file, lv_csv_file, out_vcf,
+                         args.genome_version, sampleID]
+
+    # ---------------- smoke test ----------------
+    if not args.skip_smoke_test:
+        probe = aligned_samples[0]
+        log(f"=== smoke test on {probe} ===")
+        out_vcf, command = cmd_for(probe)
+        err = fm_obj.localErrorsDir + "QTGFinder_" + probe + "_errors.txt"
+        rc = run_one(probe, command, err)
+        man, problem = check_manifest(out_vcf, probe)
+        if rc != 0 or problem:
+            log(f"smoke test failed: {problem or f'exit code {rc}'}", "ERROR")
+            log(f"worker stderr: {err}", "ERROR")
+            if man and man.get("diagnostic"):
+                log("diagnostic: " + json.dumps(man["diagnostic"], indent=2), "ERROR")
+            log("Not launching the remaining samples.", "ERROR")
+            sys.exit(1)
+        log(f"smoke test passed: {man['observed_out']} records "
+            f"({man['observed_sv']} small + {man['observed_lv']} large), "
+            f"mean depth {man['mean_depth']}")
+        aligned_samples = aligned_samples[1:]
+
+    # ---------------- fan out ----------------
+    commands = []
+    for sampleID in aligned_samples:
+        out_vcf, command = cmd_for(sampleID)
+        commands.append(SimpleNamespace(
+            sampleID=sampleID, command=command, out_vcf=out_vcf,
+            error_file=fm_obj.localErrorsDir + "QTGFinder_" + sampleID + "_errors.txt",
+            process=None, error_fp=None))
+
+    pending = list(commands)
+    running, results, failures = [], {}, []
+    total = len(pending)
+    log(f"=== genotyping {total} samples, {args.num_parallel} at a time ===")
+
+    def launch(data):
+        data.error_fp = open(data.error_file, "w")
+        data.process = subprocess.Popen(data.command, stderr=data.error_fp,
+                                        stdout=subprocess.DEVNULL)
+        running.append(data)
+
+    while pending and len(running) < args.num_parallel:
+        launch(pending.pop(0))
+
+    done = 0
+    while running:
+        time.sleep(1)
+        for data in [x for x in running if x.process.poll() is not None]:
+            data.error_fp.close()
+            running.remove(data)
+            done += 1
+
+            man, problem = check_manifest(data.out_vcf, data.sampleID)
+            results[data.sampleID] = man
+            if data.process.returncode != 0 or problem:
+                failures.append(problem or f"{data.sampleID}: exit "
+                                           f"{data.process.returncode}")
+                log(f"[{done}/{total}] {data.sampleID} FAILED -- "
+                    f"{problem or data.process.returncode} (log: {data.error_file})",
+                    "ERROR")
+            else:
+                # Only discard the log when the output has been verified.
+                if os.path.exists(data.error_file):
+                    os.remove(data.error_file)
+                log(f"[{done}/{total}] {data.sampleID} ok "
+                    f"({man['observed_out']} records, depth {man['mean_depth']})")
+
+            if pending:
+                launch(pending.pop(0))
+
+    # ---------------- report ----------------
+    ok = {k: v for k, v in results.items() if v and v.get("status") == "ok"}
+    log("=== run summary ===")
+    log(f"{len(ok)}/{total} samples produced verified output")
+
+    if ok:
+        counts = Counter(v["observed_out"] for v in ok.values())
+        log(f"record counts across samples: {dict(counts)}")
+        if len(counts) > 1:
+            warn("samples disagree on record count -- the matrix will be ragged")
+        depths = [v["mean_depth"] for v in ok.values()]
+        log(f"mean depth: min {min(depths):.1f}, median "
+            f"{sorted(depths)[len(depths) // 2]:.1f}, max {max(depths):.1f}")
+        nocall = [(k, v["genotype_counts"].get("./.", 0) / max(1, v["observed_out"]))
+                  for k, v in ok.items()]
+        bad = [k for k, f in nocall if f > 0.5]
+        if bad:
+            warn(f"{len(bad)} samples are more than half no-calls: {bad[:10]}")
+
+    if failures:
+        log(f"{len(failures)} failures:", "ERROR")
+        for f in failures:
+            log("  " + f, "ERROR")
+        log(f"worker logs kept in {fm_obj.localErrorsDir}", "ERROR")
+
+    summary_path = out_dir + "run_summary.json"
+    with open(summary_path, "w") as fh:
+        json.dump({
+            "finished": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "tool_versions": versions,
+            "expected_records": len(sv_dt) + len(lv_dt),
+            "n_requested": total,
+            "n_ok": len(ok),
+            "failures": failures,
+            "preflight_problems": problems,
+            "preflight_cautions": cautions,
+            "samples": results,
+        }, fh, indent=2)
+    log(f"summary written to {summary_path}")
+
+    sys.exit(1 if failures else 0)
+
+
+if __name__ == "__main__":
+    main()
