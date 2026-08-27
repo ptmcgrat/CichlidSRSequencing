@@ -21,11 +21,9 @@ dt3.to_csv(fm_obj.localReadDownloadDir + 'BlumerPaperData_withClades.csv')
 dt = pd.read_csv('../TempBioProjectData/Table_S1.tsv', sep = '\t')
 dt2 = pd.read_csv('../TempBioProjectData/Table_S7.tsv', sep = '\t')
 dt3 = pd.merge(dt,dt2,left_on='sequence_id', right_on='sample_id')
-pdb.set_trace()
 
-for idx, row in dt3.iterrows():
-	if row.Biosample in fm_obj.sample_dt.SampleID.tolist():
-		if not pd.isna(row.chr10):
-			fm_obj.sample_dt.loc[fm_obj.sample_dt.SampleID == row.Biosample,'Inversion10'] = int(row.chr10)
+for idx, row in dt3[dt3.Biosample.isin(fm_obj.sample_dt.SampleID.tolist())]:
+	fm_obj.sample_dt.loc[fm_obj.sample_dt.SampleID == row.Biosample,'Inversion10'] = int(row.chr10)
+	fm_obj.sample_dt.loc[fm_obj.sample_dt.SampleID == row.Biosample,'Sex'] = int(row.sex)
 
 fm_obj.setSampleDatabase()
