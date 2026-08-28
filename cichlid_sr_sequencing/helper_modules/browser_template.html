@@ -105,7 +105,16 @@ button.nv{font-family:"IBM Plex Mono",monospace;font-size:13px;border:1px solid 
 .dbar .z{position:absolute;left:50%;top:-1px;bottom:-1px;width:1px;background:#C3CCC4}
 .dbar i{position:absolute;top:0;bottom:0;background:var(--alt);border-radius:1px}.dbar i.neg{background:var(--flag)}
 .dbar b{position:absolute;right:3px;top:-1px;font-size:9px;font-family:"IBM Plex Mono",monospace;color:var(--muted);font-weight:400}
-.cells{display:flex;flex-wrap:wrap;gap:1.5px;padding:5px 0 9px 16px;border-bottom:1px solid var(--soft)}
+.cells{padding:5px 0 9px 16px;border-bottom:1px solid var(--soft)}
+.sprow{display:grid;grid-template-columns:158px minmax(0,1fr);gap:8px;align-items:start;padding:1.5px 0}
+.sprow:hover{background:#F7F9F6}
+.spname{font-size:10px;font-style:italic;color:#3F5A61;text-align:right;padding-top:1px;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spname b{font-style:normal;color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:9px}
+.sexset{display:flex;flex-wrap:wrap;gap:10px}
+.sexclu{display:flex;align-items:flex-start;gap:3px}
+.sexclu .g{font-size:9.5px;color:#9AA8A2;padding-top:1px;flex:none}
+.sexclu .cc{display:flex;flex-wrap:wrap;gap:1.5px}
 .cell{width:10px;height:10px;border-radius:1.5px;border:1px solid rgba(0,0,0,.10);cursor:pointer;flex:none}
 .cell.ref{background:var(--ref)}.cell.het{background:var(--het)}.cell.alt{background:var(--alt)}
 .cell.nc{background:var(--none);border-style:dashed;border-color:#C7CFC8}
@@ -454,14 +463,30 @@ function rowHTML(vi,label,ids,level,path,open,leaf){
   ${dcell}<div></div></div>`;
 }
 function cellBlock(vi,ids){
- const v=V[vi];
- return `<div class="cells" style="display:block">`+[["\u2642 M","M"],["\u2640 F","F"],["? U",null]].map(([lab,sx])=>{
-  const list=ids.filter(i=>sx?S[i].sex===sx:!(S[i].sex==="M"||S[i].sex==="F"))
-   .sort((x,y)=>call(vi,y)-call(vi,x));
-  if(!list.length)return "";
-  return `<div class="sexrow"><div class="sx">${lab}</div><div style="display:flex;flex-wrap:wrap;gap:1.5px">`+
-   list.map(i=>{const g=call(vi,i),uc=UNC[vi*NS+i]===1;
-    return `<div class="cell ${uc?"uc":g<0?"nc":CLS[g]}" data-s="${i}"></div>`;}).join("")+`</div></div>`;
+ // Individual fish, grouped by species with the three sex clusters side by side
+ // on each row. Species is the level at which an odd sample is recognisable, and
+ // keeping M/F/U adjacent means sex is still readable without splitting the
+ // species apart.
+ const bySp={};
+ ids.forEach(i=>{(bySp[S[i].sp||"(unnamed)"]||=(bySp[S[i].sp||"(unnamed)"]=[])).push(i);});
+ let rows=Object.entries(bySp);
+ if(St.ord==="freq")       rows.sort((a,b)=>carrierFreq(vi,b[1])-carrierFreq(vi,a[1])||a[0].localeCompare(b[0]));
+ else if(St.ord==="delta") rows.sort((a,b)=>invDelta(vi,b[1])-invDelta(vi,a[1])||a[0].localeCompare(b[0]));
+ else                      rows.sort((a,b)=>a[0].localeCompare(b[0]));
+
+ const SEX=[["\u2642","M"],["\u2640","F"],["?",null]];
+ return `<div class="cells">`+rows.map(([sp,list])=>{
+  const clusters=SEX.map(([glyph,sx])=>{
+   const sub=list.filter(i=>sx?S[i].sex===sx:!(S[i].sex==="M"||S[i].sex==="F"))
+                 .sort((x,y)=>call(vi,y)-call(vi,x));
+   if(!sub.length)return "";
+   return `<div class="sexclu"><div class="g">${glyph}</div><div class="cc">`+
+    sub.map(i=>{const g=call(vi,i),uc=UNC[vi*NS+i]===1;
+     return `<div class="cell ${uc?"uc":g<0?"nc":CLS[g]}" data-s="${i}"></div>`;}).join("")+
+    `</div></div>`;
+  }).join("");
+  return `<div class="sprow"><div class="spname" title="${sp}">${sp} <b>${list.length}</b></div>
+   <div class="sexset">${clusters}</div></div>`;
  }).join("")+`</div>`;
 }
 function sortKeys(vi,entries){
