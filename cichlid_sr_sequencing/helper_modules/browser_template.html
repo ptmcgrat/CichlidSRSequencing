@@ -39,7 +39,7 @@ body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system
 .gene{position:relative;margin-top:4px;min-height:0}
 .gene .in{position:absolute;height:1px}
 .gene .ex{position:absolute;height:7px;border-radius:1px}
-.gene .gn{position:absolute;font-size:9px;font-style:italic;white-space:nowrap;pointer-events:auto;cursor:default}
+.gene .gn{position:absolute;font-size:9px;font-style:italic;white-space:nowrap;line-height:10px;pointer-events:auto;cursor:default}
 .ax{position:relative;height:14px;margin-top:2px}.ax span{position:absolute;font-size:9px;color:#5E7679;transform:translateX(-50%)}
 .work{display:grid;grid-template-columns:288px minmax(0,1fr);gap:14px;padding:14px 18px 40px;align-items:start}
 .card{background:var(--card);border:1px solid var(--line);border-radius:3px}.card+.card{margin-top:10px}
@@ -375,22 +375,37 @@ function renderGenes(){
  const host=document.getElementById("gene");
  const genes=(D.genes||[]).slice().sort((a,b)=>a.start-b.start);
  if(!genes.length){host.style.height="0px";return;}
+ // Pack into lanes, reserving horizontal room for the label so a short gene's
+ // name cannot run into the next model on the same lane. Roughly 6.2px per
+ // character at 9px italic, converted to genomic distance.
+ const span=P_HI-P_LO, host0=document.getElementById("gene");
+ const pxPerBp=(host0.clientWidth||900)/span;
  const lanes=[];
  genes.forEach(g=>{
-  const pad=(P_HI-P_LO)*0.06;                     // room for the label
-  let li=lanes.findIndex(L=>L<g.start-pad);
-  if(li<0){lanes.push(g.end);li=lanes.length-1;} else lanes[li]=g.end;
+  const labelBp=((g.name.length+2)*6.2)/Math.max(1e-9,pxPerBp);
+  const need=Math.max(g.end, g.start+labelBp);
+  let li=lanes.findIndex(end=>end < g.start);
+  if(li<0){lanes.push(need);li=lanes.length-1;} else lanes[li]=need;
   g._lane=li;
  });
- const LH=17;
+ // Each lane is a label row stacked above the model row, so names never sit on
+ // top of exon blocks: label occupies 0-10px, the model 13-20px.
+ const LH=24, LABEL_H=11, MODEL_TOP=13;
  host.style.height=(lanes.length*LH+4)+"px";
  host.innerHTML=genes.map(g=>{
   const L=pct(g.start),W=Math.max(0.15,pct(g.end)-pct(g.start)),top=g._lane*LH;
   const col=g.biotype==="protein_coding"?"#41666E":g.biotype==="lncRNA"?"#8A6316":"#5B7A62";
   const exons=(g.exons||[]).map(([a,b])=>
-    `<div class="ex" style="left:${pct(a)}%;width:${Math.max(.08,pct(b)-pct(a))}%;top:${top+5}px;background:${col}"></div>`).join("");
-  return `<div class="in" style="left:${L}%;width:${W}%;top:${top+10}px;background:${col}"></div>`+exons+
-   `<div class="gn" data-g="${g.name}" style="left:${L}%;top:${top-3}px;color:${col}">${g.name}${g.strand==="-"?" ◄":" ►"}</div>`;
+    `<div class="ex" style="left:${pct(a)}%;width:${Math.max(.08,pct(b)-pct(a))}%;`+
+    `top:${top+MODEL_TOP}px;background:${col}"></div>`).join("");
+  // Genes near the right edge get a right-anchored label so it stays on screen.
+  const nearEdge = L > 78;
+  const lblPos = nearEdge
+    ? `right:${(100-pct(g.end)).toFixed(2)}%;text-align:right`
+    : `left:${L}%`;
+  return `<div class="in" style="left:${L}%;width:${W}%;top:${top+MODEL_TOP+3}px;background:${col}"></div>`+exons+
+   `<div class="gn" data-g="${g.name}" style="${lblPos};top:${top}px;color:${col}">`+
+   `${g.strand==="-"?"◄ ":""}${g.name}${g.strand==="-"?"":" ►"}</div>`;
  }).join("");
 }
 function tree(){
@@ -673,8 +688,8 @@ document.addEventListener("keydown",e=>{if(/SELECT|INPUT/.test(e.target.tagName)
  if(e.key==="ArrowRight"){St.cur=(St.cur+1)%NV;render()}
  else if(e.key==="ArrowLeft"){St.cur=(St.cur-1+NV)%NV;render()}
  else if(e.key==="k")tri("keep");else if(e.key==="x")tri("drop");});
-addEventListener("resize",()=>renderEv(St.cur));
+addEventListener("resize",()=>{renderEv(St.cur);renderGenes();});
 St.cur=V.findIndex(v=>v.pos===24921178);if(St.cur<0)St.cur=0;
 St.open.add("Deep_Benthic");St.open.add("Deep_Benthic/True_Deeps");
 render();
-</script></body></html> 
+</script></body></html>
