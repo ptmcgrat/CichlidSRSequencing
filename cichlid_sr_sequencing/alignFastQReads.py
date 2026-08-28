@@ -36,7 +36,7 @@ fm_obj.downloadData(fm_obj.localGenomeDir)
 timer.stop()
 
 # Create alignment worker object:
-aw_obj = AW(args.Genome, fm_obj, check_size = True)
+aw_obj = AW(args.Genome, fm_obj, check_size = False)
 
 timer.start('  Parallel Downloading uBams files')
 bad_samples = aw_obj.downloadReadData()
