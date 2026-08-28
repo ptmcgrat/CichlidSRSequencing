@@ -24,6 +24,13 @@ body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system
 .mhb{position:absolute;bottom:0;width:2px;margin-left:-1px;background:#33707F;border-radius:1px 1px 0 0;cursor:pointer}
 .mhb:hover{background:#8FD3E4}.mhb.cur{background:var(--mark);width:3px;margin-left:-1.5px}
 .tk{position:relative;height:19px;margin-top:1px}
+.strk{position:relative;height:26px;margin-top:5px;border-top:1px solid rgba(255,255,255,.07)}
+.strk .lbl{position:absolute;left:0;top:1px;font-size:9px;letter-spacing:.05em;color:#6E888C;z-index:3;
+ background:linear-gradient(90deg,rgba(11,32,40,.95) 70%,rgba(11,32,40,0));padding-right:8px;pointer-events:none}
+.strk .half{position:absolute;left:0;right:0;top:13px;border-top:1px dotted rgba(255,255,255,.10)}
+.strk i{position:absolute;bottom:0;width:2px;margin-left:-1px;border-radius:1px 1px 0 0;cursor:pointer}
+.strk i.cur{width:3px;margin-left:-1.5px;outline:1px solid var(--mark)}
+.strk i.none{background:rgba(255,255,255,.10)!important;height:2px!important}
 .t{position:absolute;top:2px;width:1px;height:9px;margin-left:-.5px;background:#4E7A85;cursor:pointer}
 .t.INSERTION,.t.DELETION{height:13px;width:2px;margin-left:-1px;background:#9FCBA6}
 .t.big{height:17px;width:3px;margin-left:-1.5px;background:#E0A32E}
@@ -125,6 +132,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:10px;background:#E7ECE6;bord
  <div class="tw">
   <div class="th"><div class="eyebrow">\u03c6 with inversion state (inv=1 vs inv=2), per candidate</div><div class="rng mono" id="rng"></div></div>
   <div class="mh" id="mh"></div><div class="tk" id="tk"></div>
+  <div id="strks"></div>
   <div class="gene" id="gene"></div><div class="ax" id="ax"></div>
  </div>
 </div>
@@ -278,6 +286,26 @@ function phiStat(vi){
          disc:missHet.length+extraHom.length};
 }
 
+// ---- extra frequency tracks --------------------------------------------
+// Each entry gets its own row under the Manhattan showing alt allele frequency
+// per candidate across that group. Add a row by adding an entry here -- the
+// layout, rendering and tooltips all follow from this list, so new ecogroups
+// need no other change.
+const TRACKS=[
+ {key:"lab",   label:"InformativeLabFish",
+  pick:s=>s.cat==="InformativeLabFish", color:"#C8913A", flagAbove:0.02},
+ {key:"rocky", label:"Rocky_Aulonocara",
+  pick:s=>s.sub==="Rocky_Aulonocara",   color:"#7FA88A", flagAbove:0.05},
+];
+TRACKS.forEach(t=>{t.idx=S.map((s,i)=>i).filter(i=>t.pick(S[i]));});
+
+// Alt allele frequency: (het + 2*hom) / 2N over called samples in the group.
+function afOf(vi,idx){
+ let alt=0,n=0,carr=0;
+ idx.forEach(i=>{const g=call(vi,i);if(g<0)return;n++;alt+=g;if(g>0)carr++;});
+ return n?{af:alt/(2*n),n,carr}:{af:null,n:0,carr:0};
+}
+
 const LF=[0];for(let i=1;i<=3000;i++)LF[i]=LF[i-1]+Math.log(i);
 const hy=(a,b,c,d)=>Math.exp(LF[a+b]+LF[c+d]+LF[a+c]+LF[b+d]-LF[a]-LF[b]-LF[c]-LF[d]-LF[a+b+c+d]);
 function fisher(a,b,c,d){const o=hy(a,b,c,d)*1.0000001,n=a+b+c+d,r=a+b,C=a+c;let p=0;
@@ -318,6 +346,14 @@ const pct=p=>((p-P_LO)/(P_HI-P_LO)*100);
   const t=document.createElement("div");
   t.className="t "+v.type+(v.big?" big":"")+(v.lowmap?" lowmap":"");
   t.dataset.i=i;t.style.left=pct(v.pos)+"%";tk.appendChild(t);});
+ const host=document.getElementById("strks");
+ TRACKS.forEach(t=>{
+  const row=document.createElement("div");row.className="strk";row.dataset.k=t.key;
+  row.innerHTML=`<div class="half"></div><div class="lbl">${t.label} · n=${t.idx.length}</div>`;
+  V.forEach((v,i)=>{const b=document.createElement("i");
+   b.dataset.i=i;b.dataset.k=t.key;b.style.left=pct(v.pos)+"%";row.appendChild(b);});
+  host.appendChild(row);
+ });
  renderGenes();
  const ax=document.getElementById("ax");
  for(let p=24780000;p<=24970000;p+=30000){const s=document.createElement("span");
@@ -513,6 +549,26 @@ function renderEv(vi){
   `<div class="r${w?" w":""}"><span>${k}</span><span>${val}</span></div>`).join("");
 }
 
+function drawTracks(){
+ // Recomputed on every render because Min DP / Min GQ change which calls count.
+ TRACKS.forEach(t=>{
+  const row=document.querySelector(`.strk[data-k="${t.key}"]`);
+  if(!row)return;
+  row.querySelectorAll("i").forEach(b=>{
+   const vi=+b.dataset.i, r=afOf(vi,t.idx);
+   if(r.af===null){b.className="none";b.style.height="2px";return;}
+   b.className=(vi===St.cur?"cur":"");
+   b.style.height=Math.max(1.5,r.af*24)+"px";
+   b.style.background=r.af>t.flagAbove?"var(--flag)":t.color;
+  });
+ });
+ // The Manhattan is a live metric too, not a fixed one computed at load.
+ document.querySelectorAll(".mhb").forEach(b=>{
+  const vi=+b.dataset.i, ph=Math.max(0,phiStat(vi).phi);
+  b.style.height=Math.max(2,ph/RMAX*50)+"px";
+ });
+}
+
 function render(){
  const vi=St.cur,v=V[vi],st=stats(vi);
  document.getElementById("vname").textContent="candidate "+(vi+1);
@@ -549,7 +605,7 @@ function render(){
   : "no calls in the three informative categories at this threshold";
  document.getElementById("warn").innerHTML = v.lowmap
   ? `<div class="warnbar">This site sits in a low-mappability region. Most reads here have MQ 0, so genotypes rest on a small uniquely-mapping minority and no-calls are expected.</div>` : "";
- scorecard(vi);renderCats(vi);renderEv(vi);renderGroups(vi);
+ scorecard(vi);renderCats(vi);renderEv(vi);renderGroups(vi);drawTracks();
  document.querySelectorAll(".t").forEach(t=>t.classList.toggle("cur",+t.dataset.i===vi));
  document.querySelectorAll(".mhb").forEach(t=>t.classList.toggle("cur",+t.dataset.i===vi));
  const tr=V[vi].triage;
@@ -575,6 +631,18 @@ document.addEventListener("mouseover",e=>{
   tip.style.opacity=1;const w=tip.offsetWidth,h=tip.offsetHeight;
   tip.style.left=Math.min(innerWidth-w-8,Math.max(8,e.clientX+14))+"px";
   tip.style.top=Math.max(8,e.clientY-h-12)+"px";return;}
+ const st_=e.target.closest(".strk i");
+ if(st_&&st_.dataset.k){const vi=+st_.dataset.i,tr=TRACKS.find(x=>x.key===st_.dataset.k);
+  const r=afOf(vi,tr.idx),v=V[vi];
+  tip.innerHTML=`<b>${v.pos.toLocaleString()}</b> ${v.type.toLowerCase()}
+   <br><span style="color:#7E979B">${tr.label}</span>
+   <div style="height:6px"></div>
+   <div class="r"><span>alt AF</span><span>${r.af===null?"—":r.af.toFixed(3)}</span></div>
+   <div class="r"><span>carriers</span><span>${r.carr}/${r.n}</span></div>
+   <div class="r"><span>\u03c6 overall</span><span>${phiStat(vi).phi.toFixed(2)}</span></div>`;
+  tip.style.opacity=1;const w=tip.offsetWidth,h=tip.offsetHeight;
+  tip.style.left=Math.min(innerWidth-w-8,Math.max(8,e.clientX+14))+"px";
+  tip.style.top=Math.max(8,e.clientY-h-12)+"px";return;}
  const t=e.target.closest(".t,.mhb");
  if(t){const v=V[+t.dataset.i];
   tip.innerHTML=`<b>${v.pos.toLocaleString()}</b> ${v.type.toLowerCase()}${v.big?" · "+v.len+" bp":""}
@@ -585,7 +653,8 @@ document.addEventListener("mouseover",e=>{
  tip.style.opacity=0;});
 
 document.addEventListener("click",e=>{
- const t=e.target.closest(".t,.mhb");if(t){St.cur=+t.dataset.i;render();return;}
+ const t=e.target.closest(".t,.mhb,.strk i");
+ if(t&&t.dataset.i!==undefined){St.cur=+t.dataset.i;render();return;}
  const g=e.target.closest(".gr");if(g&&g.dataset.p){const k=g.dataset.p;
   if(St.all){St.all=false;document.getElementById("exp").classList.remove("on");
    document.getElementById("exp").textContent="Expand all";}
@@ -608,4 +677,4 @@ addEventListener("resize",()=>renderEv(St.cur));
 St.cur=V.findIndex(v=>v.pos===24921178);if(St.cur<0)St.cur=0;
 St.open.add("Deep_Benthic");St.open.add("Deep_Benthic/True_Deeps");
 render();
-</script></body></html>
+</script></body></html> 
