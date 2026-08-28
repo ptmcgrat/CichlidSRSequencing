@@ -123,7 +123,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:10px;background:#E7ECE6;bord
   <div class="sub"><b id="nv"></b> candidates · <b id="ns"></b> samples · <b id="nsub"></b> subgroups · Mzebra_GT3_NCBI</div>
   <div class="spacer"></div><div class="sub hint">real metadata · synthetic genotypes</div></div>
  <div class="tw">
-  <div class="th"><div class="eyebrow">Scorecard criteria passed, per candidate</div><div class="rng mono" id="rng"></div></div>
+  <div class="th"><div class="eyebrow">\u03c6 with inversion state (inv=1 vs inv=2), per candidate</div><div class="rng mono" id="rng"></div></div>
   <div class="mh" id="mh"></div><div class="tk" id="tk"></div>
   <div class="gene" id="gene"></div><div class="ax" id="ax"></div>
  </div>
@@ -175,8 +175,10 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:10px;background:#E7ECE6;bord
     <div class="stat"><div class="n" id="c3"></div><div class="l"><i class="sw" style="background:var(--none);border-style:dashed"></i>No call</div></div>
     <div style="flex:1;min-width:80px"></div>
     <div class="stat big"><div class="n mono" id="rho"></div><div class="l">Scorecard criteria passed</div></div>
-    <div class="stat big"><div class="n mono" id="pv2"></div><div class="l">Sex assoc. (n called)</div></div>
+    <div class="stat big"><div class="n mono" id="phi"></div><div class="l">\u03c6 &nbsp;inv=1 vs inv=2</div></div>
+    <div class="stat big"><div class="n mono" id="disc"></div><div class="l">Discordant samples</div></div>
    </div>
+   <div class="hint" id="phinote" style="margin-top:9px"></div>
   </div></div>
 
   <div class="card"><div class="ch"><span class="eyebrow">Scored categories</span>
@@ -241,6 +243,41 @@ function verdicts(vi){
   return {...c,o,ok,why};
  });
 }
+// ---- association metric -------------------------------------------------
+// The informative contrast is Inversion10 state, not sex: within these three
+// categories every inv=1 sample with a recorded sex is male, but so are most
+// inv=2 samples, so sex separates nothing. inv=1 is the operational definition
+// of "carries the Y haplotype".
+//
+// phi (Matthews correlation) between "inv==1" and "carries alt". Ranges -1..1,
+// reaches exactly 1 for a perfectly Y-restricted variant, and is not fooled by
+// the 36-vs-86 group imbalance the way a raw frequency or accuracy would be.
+// Fisher's p is deliberately not used for ranking: at this n, a perfect variant
+// and a three-error variant both come out near 1e-33 and cannot be told apart.
+const PHICATS=["OtherYHs","HetSpecies","NoHetSpecies"];
+const PHIIDX=S.map((s,i)=>i).filter(i=>PHICATS.includes(S[i].cat));
+
+function phiStat(vi){
+ let a=0,b=0,c=0,d=0;          // a: inv1 carrier, b: inv1 non, c: inv2 carrier, d: inv2 non
+ const missHet=[], extraHom=[];
+ PHIIDX.forEach(i=>{
+  const s=S[i], g=call(vi,i);
+  if(g<0||(s.inv!==1&&s.inv!==2))return;
+  const carr=g>0;
+  if(s.inv===1){ carr?a++:b++; if(!carr)missHet.push(i); }
+  else         { carr?c++:d++; if(carr)extraHom.push(i); }
+ });
+ const n=a+b+c+d;
+ const num=a*d-b*c;
+ const den=Math.sqrt((a+b)*(c+d)*(a+c)*(b+d));
+ const phi=den>0?num/den:0;
+ return {phi,a,b,c,d,n,
+         sens:(a+b)?a/(a+b):0,        // carriers recovered among inv=1
+         spec:(c+d)?d/(c+d):0,        // non-carriers correct among inv=2
+         missHet,extraHom,
+         disc:missHet.length+extraHom.length};
+}
+
 const LF=[0];for(let i=1;i<=3000;i++)LF[i]=LF[i-1]+Math.log(i);
 const hy=(a,b,c,d)=>Math.exp(LF[a+b]+LF[c+d]+LF[a+c]+LF[b+d]-LF[a]-LF[b]-LF[c]-LF[d]-LF[a+b+c+d]);
 function fisher(a,b,c,d){const o=hy(a,b,c,d)*1.0000001,n=a+b+c+d,r=a+b,C=a+c;let p=0;
@@ -265,8 +302,8 @@ function stats(vi){
   r=(sx&&sy)?sxy/Math.sqrt(sx*sy):0;}
  return {n,r,tab,p:(a+b&&c+d)?fisher(a,b,c,d):1,nsex:a+b+c+d};
 }
-const RHO=V.map((_,i)=>verdicts(i).filter(v=>v.ok).length);
-const RMAX=6;
+const RHO=V.map((_,i)=>Math.max(0,phiStat(i).phi));
+const RMAX=1;
 const pct=p=>((p-P_LO)/(P_HI-P_LO)*100);
 
 (function track(){
@@ -292,6 +329,7 @@ const pct=p=>((p-P_LO)/(P_HI-P_LO)*100);
 // scorecard above deliberately uses them, since the within-brood contrast is
 // exactly what those crosses are for.
 const WILD=S.map((s,i)=>i).filter(i=>S[i].lab===0);
+
 
 // ---- gene models -------------------------------------------------------
 // Genes are packed into lanes so overlapping models stack instead of colliding.
@@ -496,7 +534,19 @@ function render(){
  const nv=verdicts(vi).filter(v=>v.ok).length;
  const rr=document.getElementById("rho");rr.textContent=nv+"/6";
  rr.className="n mono "+(nv===6?"good":nv<=3?"bad":"");
- document.getElementById("pv2").textContent=fp(st.p)+"  n="+st.nsex;
+ const ps=phiStat(vi);
+ const pe=document.getElementById("phi");
+ pe.textContent=ps.phi.toFixed(3);
+ pe.className="n mono "+(ps.phi>=0.95?"good":ps.phi<0.5?"bad":"");
+ const de=document.getElementById("disc");
+ de.textContent=ps.disc;
+ de.className="n mono "+(ps.disc===0?"good":ps.disc>5?"bad":"");
+ document.getElementById("phinote").innerHTML = ps.n
+  ? `n=${ps.n} called across OtherYHs + HetSpecies + NoHetSpecies &nbsp;\u00b7&nbsp; `+
+    `inv=1: <b>${ps.a}</b> carry / ${ps.a+ps.b} &nbsp;\u00b7&nbsp; inv=2: <b>${ps.c}</b> carry / ${ps.c+ps.d}`+
+    ` &nbsp;\u00b7&nbsp; sensitivity ${(ps.sens*100).toFixed(0)}% &nbsp;\u00b7&nbsp; specificity ${(ps.spec*100).toFixed(0)}%`+
+    (ps.disc ? ` &nbsp;\u00b7&nbsp; <b>${ps.missHet.length}</b> inv=1 without it, <b>${ps.extraHom.length}</b> inv=2 with it` : "")
+  : "no calls in the three informative categories at this threshold";
  document.getElementById("warn").innerHTML = v.lowmap
   ? `<div class="warnbar">This site sits in a low-mappability region. Most reads here have MQ 0, so genotypes rest on a small uniquely-mapping minority and no-calls are expected.</div>` : "";
  scorecard(vi);renderCats(vi);renderEv(vi);renderGroups(vi);
@@ -528,7 +578,7 @@ document.addEventListener("mouseover",e=>{
  const t=e.target.closest(".t,.mhb");
  if(t){const v=V[+t.dataset.i];
   tip.innerHTML=`<b>${v.pos.toLocaleString()}</b> ${v.type.toLowerCase()}${v.big?" · "+v.len+" bp":""}
-   <br><span style="color:#7E979B">${RHO[+t.dataset.i]}/6 criteria passed${v.lowmap?" · low mappability":""}</span>`;
+   <br><span style="color:#7E979B">\u03c6 = ${RHO[+t.dataset.i].toFixed(2)}${v.lowmap?" · low mappability":""}</span>`;
   tip.style.opacity=1;const w=tip.offsetWidth,h=tip.offsetHeight;
   tip.style.left=Math.min(innerWidth-w-8,Math.max(8,e.clientX+14))+"px";
   tip.style.top=Math.max(8,e.clientY-h-12)+"px";return;}
