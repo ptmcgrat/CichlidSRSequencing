@@ -225,7 +225,8 @@ def main():
             # This is the failure that used to pass silently. Diagnose it here,
             # while the BAM is still local, rather than making someone re-derive it.
             man.diagnostic = pc.diagnose_empty_genotyping(
-                fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile)
+                fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile,
+                expected=expected_sv, observed=observed_sv)
             ref_check = pc.check_reference_alleles(args.SV_VCF, fm_obj.localGenomeFile)
             man.diagnostic["reference_alleles"] = ref_check
             # Ask bcftools directly which allele casing it will accept, using this
@@ -394,7 +395,14 @@ def main():
             man.add_warning(f"{nocall}/{observed_out} sites are no-calls; "
                             f"mean depth {man.mean_depth}")
 
+        # Upload the VCF, its index, and the manifest together. The manifest is not
+        # optional bookkeeping: it records which sites were uncallable in this sample,
+        # which is what lets the browser distinguish "no data here" from "called as
+        # reference". Losing it would silently turn gaps into reference calls.
         fm_obj.uploadData(args.OUT_VCF)
+        for extra in (args.OUT_VCF + ".tbi", args.OUT_VCF + ".csi"):
+            if os.path.exists(extra):
+                fm_obj.uploadData(extra)
         man.status = "ok"
         log(f"{args.SampleID}: OK -- {observed_out} records, "
             f"mean depth {man.mean_depth}, genotypes {gt_counts}")
@@ -408,7 +416,11 @@ def main():
             cleanup_sample(fm_obj, args.SampleID, keep=args.keep_bams)
         sys.exit(1)
 
-    man.write(args.OUT_VCF + ".manifest.json")
+    man_path = man.write(args.OUT_VCF + ".manifest.json")
+    try:
+        fm_obj.uploadData(man_path)
+    except Exception as e:
+        warn(f"{args.SampleID}: manifest written locally but upload failed: {e}")
     cleanup_sample(fm_obj, args.SampleID, keep=args.keep_bams)
 
 

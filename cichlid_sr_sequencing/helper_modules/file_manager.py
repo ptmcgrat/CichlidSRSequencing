@@ -274,6 +274,7 @@ class FileManager():
 		elif self.genome_version == 'Mzebra_GT3_NCBI':
 			self.localGenomeFile = self.localGenomeDir + 'GCF_041146795.1_Mzebra_GT3a_genomic.fna'
 			self.localMinimapGenomeFile = self.localGenomeDir + 'GCF_041146795.1_Mzebra_GT3a_genomic.mmi'
+			self.localGTFFile = self.localGenomeDir + 'genomic.gtf'
 		elif self.genome_version == 'Mconophoros_GT1':
 			self.localGenomeFile = self.localGenomeDir + 'anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta'
 		else:

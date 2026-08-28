@@ -324,6 +324,9 @@ def missing_sites(sites_vcf, output_vcf, bam_file=None, max_report=None, min_mq=
                         mq0 += 1
                     if read.mapping_quality >= min_mq:
                         usable += 1
+                # Upper bound: mpileup additionally applies --min-BQ, BAQ, and
+                # duplicate/secondary filtering, so a site with a few "usable" reads
+                # here can still legitimately produce no record.
                 entry["depth_raw"] = raw
                 entry["depth_mq%d" % min_mq] = usable
                 entry["frac_mq0"] = round(mq0 / raw, 2) if raw else None
@@ -536,7 +539,8 @@ def contig_overlap(bam_path, ref_fasta):
 # The diagnostic that answers "why did I get zero records?"
 # ---------------------------------------------------------------------------
 
-def diagnose_empty_genotyping(bam_file, sites_vcf, ref_fasta, n_sites=5, region=None):
+def diagnose_empty_genotyping(bam_file, sites_vcf, ref_fasta, n_sites=5, region=None,
+                              expected=None, observed=None):
     """Run the same pileup with and without the -C alleles constraint.
 
     If the unconstrained run produces records and the constrained one does not,
@@ -573,11 +577,24 @@ def diagnose_empty_genotyping(bam_file, sites_vcf, ref_fasta, n_sites=5, region=
     except Exception as e:
         result["unconstrained_error"] = str(e)
 
-    result["interpretation"] = (
-        "constraint/targets is dropping the sites"
-        if result.get("unconstrained_records", 0) > 0
-        else "mpileup itself sees nothing here -- check BAM coverage, contig names, region"
-    )
+    # Compare the unconstrained count to what was REQUESTED, not to zero. A sample
+    # where mpileup returns 41 of 202 sites has a coverage problem; saying the
+    # constraint dropped them sends you chasing the wrong thing.
+    unc = result.get("unconstrained_records", 0)
+    if expected and unc < expected * 0.6:
+        result["interpretation"] = (
+            f"mpileup itself only produced {unc} of {expected} requested sites even "
+            f"with no allele constraint -- this region is poorly covered or poorly "
+            f"mapped in this sample, not a constraint problem")
+    elif observed is not None and unc - observed < max(3, expected * 0.05 if expected else 3):
+        result["interpretation"] = (
+            f"constrained ({observed}) and unconstrained ({unc}) counts are close -- "
+            f"the constraint is not what is losing sites; coverage is")
+    elif unc > 0:
+        result["interpretation"] = "constraint/targets is dropping the sites"
+    else:
+        result["interpretation"] = (
+            "mpileup itself sees nothing here -- check BAM coverage, contig names, region")
     return result
 
 

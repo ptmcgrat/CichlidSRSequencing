@@ -599,6 +599,15 @@ def main():
         }, fh, indent=2)
     log(f"summary written to {summary_path}")
 
+    # Push the whole candidate directory back to cloud storage: sites VCFs, the
+    # large-variant CSV, every per-sample VCF and manifest, and this summary.
+    # rclone copy is incremental, so re-running after a --resume pass is cheap.
+    try:
+        fm_obj.uploadData(out_dir.rstrip("/"))
+        log(f"uploaded {out_dir} to cloud storage")
+    except Exception as e:
+        log(f"upload of {out_dir} failed: {e}", "ERROR")
+
     sys.exit(1 if failures else 0)
 
 
