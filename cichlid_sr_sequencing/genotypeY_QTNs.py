@@ -48,9 +48,12 @@ def parse_args():
                         "Off by default -- BAMs average 10 GB and 370 of them is "
                         "roughly 4.8 TB.")
     p.add_argument("--max-missing", type=int, default=0,
-                   help="Per sample, tolerate up to this many requested small-variant "
-                        "sites being absent from the output. They are still recorded "
-                        "in each manifest. Default 0.")
+                   help="Per sample, tolerate up to this many UNEXPLAINED missing "
+                        "sites (had usable reads but produced no record). Sites with "
+                        "no usable reads are always tolerated and recorded. Default 0.")
+    p.add_argument("--resume", action="store_true",
+                   help="Skip samples that already have a verified manifest. Use this "
+                        "to re-run failures without repeating hours of downloads.")
     p.add_argument("--skip-smoke-test", action="store_true",
                    help="Skip the single-sample validation run. Not recommended.")
     p.add_argument("--preflight-only", action="store_true",
@@ -348,10 +351,11 @@ def check_manifest(out_vcf, sampleID, max_missing=0):
 
     expected = m["expected_sv"] + m["expected_lv"]
     n_missing = len(m.get("missing_sites", []))
+    n_unexplained = len(m.get("unexplained_missing", []))
 
-    if n_missing > max_missing:
-        return m, (f"{sampleID}: {n_missing} sites missing, above --max-missing "
-                   f"{max_missing}")
+    if n_unexplained > max_missing:
+        return m, (f"{sampleID}: {n_unexplained} unexplained missing sites, above "
+                   f"--max-missing {max_missing} ({n_missing} missing in total)")
     if m["observed_out"] + n_missing != expected:
         unexplained = expected - n_missing - m["observed_out"]
         return m, (f"{sampleID}: {m['observed_out']} records + {n_missing} recorded "
@@ -440,6 +444,21 @@ def main():
         if args.keep_bams:
             cmd.append("--keep-bams")
         return out_vcf, cmd
+
+    if args.resume:
+        already = []
+        for sampleID in list(aligned_samples):
+            out_vcf, _ = cmd_for(sampleID)
+            man, problem = check_manifest(out_vcf, sampleID, args.max_missing)
+            if man and not problem:
+                already.append(sampleID)
+        if already:
+            aligned_samples = [s for s in aligned_samples if s not in already]
+            log(f"--resume: skipping {len(already)} sample(s) with verified output; "
+                f"{len(aligned_samples)} to run")
+        if not aligned_samples:
+            log("nothing left to do")
+            sys.exit(0)
 
     # ---------------- smoke test ----------------
     if not args.skip_smoke_test:

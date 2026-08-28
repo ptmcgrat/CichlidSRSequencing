@@ -612,6 +612,7 @@ class Manifest:
     diagnostic: dict = field(default_factory=dict)
     missing_sites: list = field(default_factory=list)
     rerepresented_sites: list = field(default_factory=list)
+    unexplained_missing: list = field(default_factory=list)
 
     def add_warning(self, msg):
         self.warnings.append(msg)

@@ -38,10 +38,11 @@ def parse_args():
     p.add_argument("genome_version", type=str, help="Genome version key for FileManager")
     p.add_argument("SampleID", type=str, help="Sample to genotype")
     p.add_argument("--max-missing", type=int, default=0,
-                   help="Tolerate up to this many requested sites being absent from "
-                        "the small-variant output. Missing sites are always listed in "
-                        "the manifest so the browser can tell them from no-calls. "
-                        "Default 0.")
+                   help="Tolerate up to this many UNEXPLAINED missing sites -- ones "
+                        "that had reads passing --min-MQ yet still produced no record. "
+                        "Sites with no usable reads are always tolerated and recorded "
+                        "separately: a low-coverage sample missing sites it had no data "
+                        "for is not a pipeline failure. Default 0.")
     p.add_argument("--allow-partial", action="store_true",
                    help="Write output even when a stage produced fewer records than "
                         "expected. Off by default: a partial VCF that looks complete "
@@ -267,17 +268,33 @@ def main():
                             f"[{e['type']}] reads={e.get('depth_raw', '?')} "
                             f"usable(MQ>=20)={e.get('depth_mq20', '?')} "
                             f"MQ0={e.get('frac_mq0', '?')}")
+                nodata = [e for e in man.missing_sites if not e.get("depth_raw")]
                 unmappable = [e for e in man.missing_sites
                               if e.get("depth_mq20") == 0 and e.get("depth_raw", 0) > 0]
+                if nodata:
+                    msg += (f"\n  {len(nodata)} with no reads at all -- coverage gap "
+                            f"in this sample.")
                 if unmappable:
-                    msg += (f"\n  {len(unmappable)} of these have reads but none passing "
-                            f"--min-MQ 20: multi-mapping repeat sequence, not a caller "
-                            f"failure. Genuinely uncallable for this sample.")
+                    msg += (f"\n  {len(unmappable)} with reads but none passing "
+                            f"--min-MQ 20 -- multi-mapping repeat sequence, not a "
+                            f"caller failure.")
+                if man.unexplained_missing:
+                    msg += (f"\n  {len(man.unexplained_missing)} had usable reads and "
+                            f"still produced no record -- these are the ones worth "
+                            f"looking at.")
 
-            shortfall = expected_sv - observed_sv
-            if shortfall <= args.max_missing and observed_sv > 0:
-                man.add_warning(f"tolerating {shortfall} missing site(s) "
-                                f"(--max-missing {args.max_missing})\n" + msg)
+            # A site with no usable reads was never callable in this sample; that is
+            # a coverage fact, not a pipeline fault, and counting it against a fixed
+            # budget just penalises low-coverage samples for being low-coverage.
+            man.unexplained_missing = [e for e in man.missing_sites
+                                       if e.get("depth_mq20", 0) > 0]
+            n_unexplained = len(man.unexplained_missing)
+
+            if n_unexplained <= args.max_missing and observed_sv > 0:
+                man.add_warning(
+                    f"tolerating {len(man.missing_sites)} missing site(s), "
+                    f"{n_unexplained} of them unexplained "
+                    f"(--max-missing {args.max_missing})\n" + msg)
             elif not args.allow_partial:
                 raise PipelineError(msg)
             else:
