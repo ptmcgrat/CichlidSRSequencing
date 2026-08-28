@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Candidate QTN Browser — chr10 Y interval</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--abyss:#0B2028;--abyss2:#12333D;--abyss3:#1C4854;--paper:#EFF2EE;--card:#fff;
+--ink:#14232A;--muted:#6C7D81;--line:#D5DCD5;--soft:#E5EAE4;
+--ref:#D7DED5;--het:#79B0C4;--alt:#14576A;--none:#F0F1EE;
+--flag:#B23A48;--pass:#4E7A3C;--mark:#E0A32E;}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",monospace}
+.eyebrow{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.panel{background:var(--abyss);color:#D9E4E3;padding:0 18px 16px}
+.bar{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;padding:11px 0 13px;border-bottom:1px solid rgba(255,255,255,.09)}
+.bar h1{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:17px;font-weight:700;margin:0;color:#fff}
+.bar .sub{font-size:11.5px;color:#7E979B}.bar .sub b{color:#B9CBCC;font-weight:600}.bar .spacer{flex:1}
+.tw{padding-top:14px}.th{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.th .eyebrow{color:#6E888C}.th .rng{font-size:10.5px;color:#5E7679}
+.mh{position:relative;height:54px;border-bottom:1px solid rgba(255,255,255,.14)}
+.mhb{position:absolute;bottom:0;width:2px;margin-left:-1px;background:#33707F;border-radius:1px 1px 0 0;cursor:pointer}
+.mhb:hover{background:#8FD3E4}.mhb.cur{background:var(--mark);width:3px;margin-left:-1.5px}
+.tk{position:relative;height:19px;margin-top:1px}
+.t{position:absolute;top:2px;width:1px;height:9px;margin-left:-.5px;background:#4E7A85;cursor:pointer}
+.t.INSERTION,.t.DELETION{height:13px;width:2px;margin-left:-1px;background:#9FCBA6}
+.t.big{height:17px;width:3px;margin-left:-1.5px;background:#E0A32E}
+.t.lowmap{opacity:.42}
+.t.cur{background:var(--mark);width:3px;margin-left:-1.5px;height:19px;box-shadow:0 0 0 3px rgba(224,163,46,.18)}
+.gene{position:relative;margin-top:4px;min-height:0}
+.gene .in{position:absolute;height:1px}
+.gene .ex{position:absolute;height:7px;border-radius:1px}
+.gene .gn{position:absolute;font-size:9px;font-style:italic;white-space:nowrap;pointer-events:auto;cursor:default}
+.ax{position:relative;height:14px;margin-top:2px}.ax span{position:absolute;font-size:9px;color:#5E7679;transform:translateX(-50%)}
+.work{display:grid;grid-template-columns:288px minmax(0,1fr);gap:14px;padding:14px 18px 40px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:3px}.card+.card{margin-top:10px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid var(--soft);flex-wrap:wrap}
+.cb{padding:11px}
+.vid{padding:12px;border-bottom:1px solid var(--soft)}
+.vid .pos{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:27px;font-weight:700;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
+.vid .ch2{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted)}
+.chip{display:inline-block;padding:1.5px 6px;border-radius:2px;font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-family:"IBM Plex Sans Condensed",sans-serif}
+.chip.SUBSTITUTE{background:#E3EAEC;color:#3C6470}.chip.INSERTION,.chip.DELETION{background:#E3EEE5;color:#3D6A46}
+.chip.big{background:#F8EAD0;color:#8A6316}.chip.lm{background:#F3E1E3;color:#8C2F3C}
+dl.kv{margin:0;display:grid;grid-template-columns:70px minmax(0,1fr);gap:5px 8px}
+dl.kv dt{color:var(--muted);font-size:10px;letter-spacing:.09em;text-transform:uppercase;font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;padding-top:1px}
+dl.kv dd{margin:0;font-family:"IBM Plex Mono",monospace;font-size:11.5px;word-break:break-all}
+.allele{background:#F4F6F3;border:1px solid var(--soft);border-radius:2px;padding:3px 5px;display:block;font-size:11px;max-height:56px;overflow:auto}
+.sr{display:flex;gap:8px;padding:7px 0;border-bottom:1px dashed var(--soft)}.sr:last-child{border-bottom:0}
+.sr .mk{width:14px;flex:none;text-align:center;font-weight:700}
+.mk.y{color:var(--pass)}.mk.n{color:var(--flag)}.mk.q{color:var(--muted)}
+.sr .tx{font-size:11.5px;line-height:1.35}.sr .tx em{display:block;color:var(--muted);font-style:normal;font-size:10.5px;margin-top:1px}
+.ctl{display:flex;align-items:center;gap:6px}
+.ctl label{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600}
+select,button.btn{font-family:inherit;font-size:12px;background:#fff;border:1px solid var(--line);border-radius:2px;padding:3px 6px;cursor:pointer;color:var(--ink)}
+button.btn.on{background:var(--abyss2);border-color:var(--abyss2);color:#fff}
+input[type=range]{width:84px;accent-color:var(--abyss3)}
+.controls{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.nav{display:flex;align-items:center;gap:4px}
+button.nv{font-family:"IBM Plex Mono",monospace;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:2px;padding:5px 9px;cursor:pointer}
+.counter{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);padding:0 6px;font-variant-numeric:tabular-nums}
+.summary{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end}
+.stat .n{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.stat .l{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;margin-top:3px}
+.stat .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;border:1px solid rgba(0,0,0,.12)}
+.stat.big .n{font-size:23px}.n.good{color:var(--pass)}.n.bad{color:var(--flag)}
+/* inversion contingency */
+.cattab{display:grid;grid-template-columns:150px 38px repeat(3,minmax(70px,1fr)) 88px;gap:1px;background:var(--soft);border:1px solid var(--soft);border-radius:2px;overflow:hidden}
+.cattab>div{background:#fff;padding:5px 7px;font-size:11.5px}
+.cattab .hd{background:#F7F9F6;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600}
+.cattab .rl{background:#F7F9F6;font-size:11px;font-weight:600}
+.cattab .rl small{display:block;font-weight:400;color:var(--muted);font-size:9.5px;letter-spacing:.04em}
+.cattab .c{font-family:"IBM Plex Mono",monospace;text-align:right;font-variant-numeric:tabular-nums}
+.cattab .c.want{background:#E8F0EA}
+.cattab .c.viol{background:#F6E4E6;color:var(--flag);font-weight:600}
+.cattab .vd{font-size:10.5px;font-weight:600}
+.cattab .vd.y{color:var(--pass)}.cattab .vd.n{color:var(--flag)}
+.cattab .ignored{opacity:.5}
+/* group table */
+.gh,.gr{display:grid;grid-template-columns:188px 46px minmax(80px,1fr) minmax(80px,1fr) 96px 16px;gap:9px;align-items:center}
+.gh{padding:0 0 6px;border-bottom:1px solid var(--line);margin-bottom:2px}
+.gh div{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600}
+.gr{padding:3px 0;border-bottom:1px solid var(--soft);cursor:pointer}
+.gr:hover{background:#F7F9F6}
+.gr.l0{background:#F4F7F3}
+.gr.l0 .nm{font-weight:700;font-size:12px}
+.gr.l1 .nm{padding-left:14px}
+.gr.l2 .nm{padding-left:28px;font-size:11px;color:#3F5A61}
+.gr .nm .car{color:var(--muted);font-size:9px;margin-right:4px}
+.nm{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm b{font-weight:600}
+.gn2{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted);text-align:right}
+.pbar{display:flex;height:11px;border-radius:2px;overflow:hidden;background:var(--none);border:1px solid rgba(0,0,0,.07)}
+.pbar i{display:block;height:100%}
+.dbar{position:relative;height:11px;background:#F4F6F3;border-radius:2px;border:1px solid rgba(0,0,0,.06)}
+.dbar .z{position:absolute;left:50%;top:-1px;bottom:-1px;width:1px;background:#C3CCC4}
+.dbar i{position:absolute;top:0;bottom:0;background:var(--alt);border-radius:1px}.dbar i.neg{background:var(--flag)}
+.dbar b{position:absolute;right:3px;top:-1px;font-size:9px;font-family:"IBM Plex Mono",monospace;color:var(--muted);font-weight:400}
+.cells{display:flex;flex-wrap:wrap;gap:1.5px;padding:5px 0 9px 16px;border-bottom:1px solid var(--soft)}
+.cell{width:10px;height:10px;border-radius:1.5px;border:1px solid rgba(0,0,0,.10);cursor:pointer;flex:none}
+.cell.ref{background:var(--ref)}.cell.het{background:var(--het)}.cell.alt{background:var(--alt)}
+.cell.nc{background:var(--none);border-style:dashed;border-color:#C7CFC8}
+.cell.uc{background:repeating-linear-gradient(45deg,#E2E6E1,#E2E6E1 2px,#C3CCC4 2px,#C3CCC4 4px);border-color:#B9C2BA}
+.sexrow{display:flex;align-items:flex-start;gap:6px;margin-bottom:3px}
+.sexrow .sx{font-size:11px;color:var(--muted);width:34px;flex:none;font-family:"IBM Plex Mono",monospace}
+.ev{display:grid;grid-template-columns:minmax(0,1fr) 176px;gap:14px}
+#sc{width:100%;height:168px;display:block}
+.evs .r{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed var(--soft);font-size:11.5px}
+.evs .r:last-child{border-bottom:0}.evs .r span:first-child{color:var(--muted)}
+.evs .r span:last-child{font-family:"IBM Plex Mono",monospace}.evs .r.w span:last-child{color:var(--flag);font-weight:500}
+#tip{position:fixed;z-index:99;pointer-events:none;opacity:0;transition:opacity .08s;background:var(--abyss);color:#DCE7E6;border-radius:3px;padding:8px 10px;font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.28);max-width:280px}
+#tip b{color:#fff}#tip .r{display:flex;justify-content:space-between;gap:14px}#tip .r span:first-child{color:#7E979B}
+.hint{font-size:10.5px;color:var(--muted)}
+kbd{font-family:"IBM Plex Mono",monospace;font-size:10px;background:#E7ECE6;border:1px solid var(--line);border-bottom-width:2px;border-radius:2px;padding:0 3px}
+.warnbar{background:#FBF3E3;border:1px solid #E8D3A3;border-radius:2px;padding:6px 9px;font-size:11px;color:#7A5B14;margin-bottom:10px}
+@media(max-width:980px){.work{grid-template-columns:1fr}.ev{grid-template-columns:1fr}}
+</style></head><body>
+
+<div class="panel">
+ <div class="bar"><h1>Candidate QTN Browser</h1>
+  <div class="sub"><b id="nv"></b> candidates · <b id="ns"></b> samples · <b id="nsub"></b> subgroups · Mzebra_GT3_NCBI</div>
+  <div class="spacer"></div><div class="sub hint">real metadata · synthetic genotypes</div></div>
+ <div class="tw">
+  <div class="th"><div class="eyebrow">Scorecard criteria passed, per candidate</div><div class="rng mono" id="rng"></div></div>
+  <div class="mh" id="mh"></div><div class="tk" id="tk"></div>
+  <div class="gene" id="gene"></div><div class="ax" id="ax"></div>
+ </div>
+</div>
+
+<div class="work">
+ <div>
+  <div class="card">
+   <div class="vid">
+    <div class="mono" style="font-size:11px;color:var(--muted)" id="vname"></div>
+    <div class="pos mono" id="vpos"></div><div class="ch2" id="vchrom"></div>
+    <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+     <span class="chip" id="vtype"></span><span class="chip" id="vbig" style="display:none"></span>
+     <span class="chip lm" id="vlm" style="display:none">low mappability</span></div>
+   </div>
+   <div class="cb"><dl class="kv">
+    <dt>Ref</dt><dd><span class="allele mono" id="vref"></span></dd>
+    <dt>Alt</dt><dd><span class="allele mono" id="valt"></span></dd>
+    <dt>Context</dt><dd id="vctx"></dd><dt>Caller</dt><dd id="vcaller"></dd><dt>MSA Q</dt><dd id="vq"></dd></dl></div>
+  </div>
+  <div class="card"><div class="ch"><span class="eyebrow">Causality scorecard</span><span class="eyebrow" id="tally"></span></div>
+   <div class="cb" id="score"></div></div>
+  <div class="card"><div class="ch"><span class="eyebrow">Triage</span></div>
+   <div class="cb"><div style="display:flex;gap:6px;margin-bottom:8px">
+    <button class="btn" id="bk" style="flex:1">★ Shortlist</button>
+    <button class="btn" id="bd" style="flex:1">✕ Exclude</button></div>
+    <div class="hint" id="tst">No decision recorded.</div>
+    <div class="hint" style="margin-top:8px"><kbd>←</kbd> <kbd>→</kbd> page · <kbd>k</kbd> keep · <kbd>x</kbd> drop</div></div></div>
+ </div>
+
+ <div>
+  <div class="card"><div class="ch">
+   <div class="controls">
+    <div class="ctl"><label for="ord">Order</label><select id="ord">
+      <option value="delta">inv=1 − inv=2</option><option value="freq">Alt frequency</option>
+      <option value="name">Name</option></select></div>
+    <div class="ctl"><label for="dp">Min DP</label><input type="range" id="dp" min="0" max="30" value="6"><span class="mono" id="dpv">6</span></div>
+    <div class="ctl"><label for="gq">Min GQ</label><input type="range" id="gq" min="0" max="60" value="0" step="5"><span class="mono" id="gqv">0</span></div>
+    <button class="btn" id="exp">Expand all</button>
+   </div>
+   <div class="nav"><button class="nv" id="pv">←</button><span class="counter" id="cnt"></span><button class="nv" id="nx">→</button></div>
+  </div>
+  <div class="cb">
+   <div id="warn"></div>
+   <div class="summary">
+    <div class="stat"><div class="n" id="c0"></div><div class="l"><i class="sw" style="background:var(--ref)"></i>Ref</div></div>
+    <div class="stat"><div class="n" id="c1"></div><div class="l"><i class="sw" style="background:var(--het)"></i>Het</div></div>
+    <div class="stat"><div class="n" id="c2"></div><div class="l"><i class="sw" style="background:var(--alt)"></i>Alt</div></div>
+    <div class="stat"><div class="n" id="c3"></div><div class="l"><i class="sw" style="background:var(--none);border-style:dashed"></i>No call</div></div>
+    <div style="flex:1;min-width:80px"></div>
+    <div class="stat big"><div class="n mono" id="rho"></div><div class="l">Scorecard criteria passed</div></div>
+    <div class="stat big"><div class="n mono" id="pv2"></div><div class="l">Sex assoc. (n called)</div></div>
+   </div>
+  </div></div>
+
+  <div class="card"><div class="ch"><span class="eyebrow">Scored categories</span>
+    <span class="eyebrow">Y-linked expectation: het in carriers, never homozygous alt</span></div>
+   <div class="cb"><div class="cattab" id="cattab"></div>
+    <div class="hint" style="margin-top:7px" id="catnote"></div></div></div>
+
+  <div class="card"><div class="ch"><span class="eyebrow">Call evidence</span><span class="eyebrow">alt fraction × depth</span></div>
+   <div class="cb ev"><canvas id="sc"></canvas><div class="evs" id="evs"></div></div></div>
+
+  <div class="card"><div class="ch"><span class="eyebrow">Genotype by ecogroup — wild-caught only</span>
+    <span class="eyebrow" id="wildnote"></span></div>
+   <div class="cb">
+    <div class="gh"><div>Ecogroup / Subgroup / Category</div><div style="text-align:right">n</div>
+     <div>♂ genotypes</div><div>♀ genotypes</div><div>inv=1 − inv=2</div><div></div></div>
+    <div id="gt"></div></div></div>
+ </div>
+</div>
+<div id="tip"></div>
+<script>
+const D=__DATA__;
+const S=D.samples,V=D.variants,NS=S.length,NV=V.length;
+const GT=D.gt,DP=D.dp,ADA=D.ada,GQ=D.gq,UNC=D.unc||new Array(D.gt.length).fill(0);
+const P_LO=V[0].pos-3000,P_HI=V[NV-1].pos+3000;
+const St={cur:0,minDP:6,minGQ:0,ord:"delta",open:new Set(),all:false};
+const CLS=["ref","het","alt"],LBL=["0/0","0/1","1/1"];
+const call=(v,s)=>{const k=v*NS+s;return (UNC[k]===1||DP[k]<St.minDP||GQ[k]<St.minGQ)?-1:GT[k];};
+
+const SCORED=[
+ {k:"YH_Brood1",        rule:"inv", lab:"present in inv=1, absent in inv=2"},
+ {k:"YH_Brood2",        rule:"inv", lab:"present in inv=1, absent in inv=2"},
+ {k:"OtherYHs",         rule:"inv", lab:"present in inv=1, absent in inv=2"},
+ {k:"HetSpecies",       rule:"inv", lab:"present in inv=1, absent in inv=2"},
+ {k:"NoHetSpecies",     rule:"absent", lab:"absent in all"},
+ {k:"InformativeLabFish",rule:"absent", lab:"absent in all"},
+];
+const CATIDX={};SCORED.forEach(c=>CATIDX[c.k]=[]);
+S.forEach((s,i)=>{if(CATIDX[s.cat])CATIDX[s.cat].push(i);});
+
+// carriers / called, split by chr10 inversion state
+function byInv(vi,k){
+ const o={0:{c:0,n:0,t:0},1:{c:0,n:0,t:0},2:{c:0,n:0,t:0}};
+ CATIDX[k].forEach(i=>{const s=S[i];if(s.inv<0)return;const g=call(vi,i);
+  o[s.inv].t++;if(g<0)return;o[s.inv].n++;if(g>0)o[s.inv].c++;});
+ return o;
+}
+function verdicts(vi){
+ return SCORED.map(c=>{
+  const o=byInv(vi,c.k);let ok,why;
+  if(c.rule==="inv"){
+   const inHet=o[1].c, inHom=o[2].c;
+   ok = o[1].n>0 && inHet>0 && inHom===0;
+   why = inHom>0 ? `${inHom}/${o[2].n} inv=2 samples carry it — not restricted to the het haplotype`
+       : o[1].n===0 ? "no called inv=1 samples"
+       : inHet===0 ? `absent from all ${o[1].n} inv=1 samples`
+       : `${inHet}/${o[1].n} inv=1 carry it · 0/${o[2].n} inv=2`;
+  }else{
+   const carriers=o[0].c+o[1].c+o[2].c, called=o[0].n+o[1].n+o[2].n;
+   ok = called>0 && carriers===0;
+   why = carriers>0 ? `${carriers}/${called} carry it` : called===0 ? "no calls" : `0/${called} carry it`;
+  }
+  return {...c,o,ok,why};
+ });
+}
+const LF=[0];for(let i=1;i<=3000;i++)LF[i]=LF[i-1]+Math.log(i);
+const hy=(a,b,c,d)=>Math.exp(LF[a+b]+LF[c+d]+LF[a+c]+LF[b+d]-LF[a]-LF[b]-LF[c]-LF[d]-LF[a+b+c+d]);
+function fisher(a,b,c,d){const o=hy(a,b,c,d)*1.0000001,n=a+b+c+d,r=a+b,C=a+c;let p=0;
+ for(let x=Math.max(0,C-(n-r));x<=Math.min(r,C);x++){const q=hy(x,r-x,C-x,n-r-C+x);if(q<=o)p+=q;}return Math.min(1,p);}
+const fp=p=>p>=0.01?p.toFixed(3):((e)=>(p/Math.pow(10,e)).toFixed(1)+"e"+e)(Math.floor(Math.log10(p)));
+
+// concordance between genotype dosage and inversion dosage (Pearson r), inv-typed samples only
+function stats(vi){
+ const n=[0,0,0,0];let xs=[],ys=[],a=0,b=0,c=0,d=0;
+ const tab=[[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+ for(let s=0;s<NS;s++){
+   const g=call(vi,s),sm=S[s];
+   if(g<0)n[3]++;else n[g]++;
+   if(sm.inv>=0){const gg=g<0?3:g;tab[sm.inv][gg]++;}
+   if(g>=0&&sm.inv>=0){xs.push(sm.inv);ys.push(g);}
+   if(g>=0&&(sm.sex==="M"||sm.sex==="F")){const carr=g>0;
+     if(sm.sex==="M")carr?a++:b++;else carr?c++:d++;}
+ }
+ let r=0;
+ if(xs.length>2){const mx=xs.reduce((p,q)=>p+q,0)/xs.length,my=ys.reduce((p,q)=>p+q,0)/ys.length;
+  let sxy=0,sx=0,sy=0;for(let i=0;i<xs.length;i++){const dx=xs[i]-mx,dy=ys[i]-my;sxy+=dx*dy;sx+=dx*dx;sy+=dy*dy;}
+  r=(sx&&sy)?sxy/Math.sqrt(sx*sy):0;}
+ return {n,r,tab,p:(a+b&&c+d)?fisher(a,b,c,d):1,nsex:a+b+c+d};
+}
+const RHO=V.map((_,i)=>verdicts(i).filter(v=>v.ok).length);
+const RMAX=6;
+const pct=p=>((p-P_LO)/(P_HI-P_LO)*100);
+
+(function track(){
+ document.getElementById("nv").textContent=NV;
+ document.getElementById("ns").textContent=NS;
+ document.getElementById("nsub").textContent=new Set(S.map(s=>s.sub)).size;
+ document.getElementById("rng").textContent="NC_135176.1:"+P_LO.toLocaleString()+"–"+P_HI.toLocaleString();
+ const mh=document.getElementById("mh"),tk=document.getElementById("tk");
+ V.forEach((v,i)=>{
+  const b=document.createElement("div");b.className="mhb";b.dataset.i=i;
+  b.style.left=pct(v.pos)+"%";b.style.height=Math.max(2,RHO[i]/RMAX*50)+"px";mh.appendChild(b);
+  const t=document.createElement("div");
+  t.className="t "+v.type+(v.big?" big":"")+(v.lowmap?" lowmap":"");
+  t.dataset.i=i;t.style.left=pct(v.pos)+"%";tk.appendChild(t);});
+ renderGenes();
+ const ax=document.getElementById("ax");
+ for(let p=24780000;p<=24970000;p+=30000){const s=document.createElement("span");
+  s.style.left=pct(p)+"%";s.textContent=(p/1e6).toFixed(2)+" Mb";ax.appendChild(s);}
+})();
+
+// This panel shows wild-caught fish only (LabReared=0). Lab-reared broods carry
+// family structure that makes population-level frequencies misleading; the
+// scorecard above deliberately uses them, since the within-brood contrast is
+// exactly what those crosses are for.
+const WILD=S.map((s,i)=>i).filter(i=>S[i].lab===0);
+
+// ---- gene models -------------------------------------------------------
+// Genes are packed into lanes so overlapping models stack instead of colliding.
+// Each gene draws a thin intron line with exon blocks on top; strand is shown
+// by the caret after the name.
+function renderGenes(){
+ const host=document.getElementById("gene");
+ const genes=(D.genes||[]).slice().sort((a,b)=>a.start-b.start);
+ if(!genes.length){host.style.height="0px";return;}
+ const lanes=[];
+ genes.forEach(g=>{
+  const pad=(P_HI-P_LO)*0.06;                     // room for the label
+  let li=lanes.findIndex(L=>L<g.start-pad);
+  if(li<0){lanes.push(g.end);li=lanes.length-1;} else lanes[li]=g.end;
+  g._lane=li;
+ });
+ const LH=17;
+ host.style.height=(lanes.length*LH+4)+"px";
+ host.innerHTML=genes.map(g=>{
+  const L=pct(g.start),W=Math.max(0.15,pct(g.end)-pct(g.start)),top=g._lane*LH;
+  const col=g.biotype==="protein_coding"?"#41666E":g.biotype==="lncRNA"?"#8A6316":"#5B7A62";
+  const exons=(g.exons||[]).map(([a,b])=>
+    `<div class="ex" style="left:${pct(a)}%;width:${Math.max(.08,pct(b)-pct(a))}%;top:${top+5}px;background:${col}"></div>`).join("");
+  return `<div class="in" style="left:${L}%;width:${W}%;top:${top+10}px;background:${col}"></div>`+exons+
+   `<div class="gn" data-g="${g.name}" style="left:${L}%;top:${top-3}px;color:${col}">${g.name}${g.strand==="-"?" ◄":" ►"}</div>`;
+ }).join("");
+}
+function tree(){
+ const t={};
+ WILD.forEach(i=>{
+  const s=S[i], e=s.eco||"Unassigned", sb=s.sub||"Unassigned", c=s.cat||"(no Category)";
+  (t[e]||=(t[e]={ids:[],subs:{}})).ids.push(i);
+  const n=(t[e].subs[sb]||=(t[e].subs[sb]={ids:[],cats:{}}));
+  n.ids.push(i); (n.cats[c]||=(n.cats[c]=[])).push(i);
+ });
+ return t;
+}
+function tallyOf(vi,ids,sex){
+ const t=[0,0,0,0];
+ ids.forEach(i=>{if(sex&&S[i].sex!==sex)return;const g=call(vi,i);g<0?t[3]++:t[g]++;});
+ return t;
+}
+function carrierFreq(vi,ids,pred){
+ let c=0,n=0;ids.forEach(i=>{if(pred&&!pred(S[i]))return;const g=call(vi,i);if(g<0)return;n++;if(g>0)c++;});
+ return n?c/n:0;
+}
+// matches the scorecard test: carriers among inv=1 minus carriers among inv=2
+function invDelta(vi,ids){
+ return carrierFreq(vi,ids,s=>s.inv===1)-carrierFreq(vi,ids,s=>s.inv===2);
+}
+function hasInv(ids,v){return ids.some(i=>S[i].inv===v);}
+function bar(t){const n=Math.max(1,t[0]+t[1]+t[2]+t[3]);
+ return `<div class="pbar"><i style="background:var(--ref);width:${t[0]/n*100}%"></i>
+ <i style="background:var(--het);width:${t[1]/n*100}%"></i>
+ <i style="background:var(--alt);width:${t[2]/n*100}%"></i>
+ <i style="background:var(--none);width:${t[3]/n*100}%"></i></div>`;}
+
+function rowHTML(vi,label,ids,level,path,open,leaf){
+ const d=invDelta(vi,ids);
+ const comparable=hasInv(ids,1)&&hasInv(ids,2);
+ const dw=Math.abs(d)*48, dl=d>=0?50:50-dw;
+ const dcell = comparable
+  ? `<div class="dbar"><div class="z"></div><i class="${d<0?"neg":""}" style="left:${dl}%;width:${Math.max(dw,d?1:0)}%"></i>
+     <b>${d>0?"+":""}${d.toFixed(2)}</b></div>`
+  : `<div class="dbar" title="needs both inv=1 and inv=2 samples"><div class="z"></div>
+     <b style="right:auto;left:6px;color:#B9C2BA">n/a</b></div>`;
+ return `<div class="gr l${level}" data-p="${path}">
+  <div class="nm">${leaf?"":`<span class="car">${open?"▾":"▸"}</span>`}${label}</div>
+  <div class="gn2">${ids.length}</div>
+  ${bar(tallyOf(vi,ids,"M"))}${bar(tallyOf(vi,ids,"F"))}
+  ${dcell}<div></div></div>`;
+}
+function cellBlock(vi,ids){
+ const v=V[vi];
+ return `<div class="cells" style="display:block">`+[["\u2642 M","M"],["\u2640 F","F"],["? U",null]].map(([lab,sx])=>{
+  const list=ids.filter(i=>sx?S[i].sex===sx:!(S[i].sex==="M"||S[i].sex==="F"))
+   .sort((x,y)=>call(vi,y)-call(vi,x));
+  if(!list.length)return "";
+  return `<div class="sexrow"><div class="sx">${lab}</div><div style="display:flex;flex-wrap:wrap;gap:1.5px">`+
+   list.map(i=>{const g=call(vi,i),uc=UNC[vi*NS+i]===1;
+    return `<div class="cell ${uc?"uc":g<0?"nc":CLS[g]}" data-s="${i}"></div>`;}).join("")+`</div></div>`;
+ }).join("")+`</div>`;
+}
+function sortKeys(vi,entries){
+ if(St.ord==="delta")return entries.sort((a,b)=>invDelta(vi,b[1])-invDelta(vi,a[1]));
+ if(St.ord==="freq") return entries.sort((a,b)=>carrierFreq(vi,b[1])-carrierFreq(vi,a[1]));
+ return entries.sort((a,b)=>a[0].localeCompare(b[0]));
+}
+function renderGroups(vi){
+ const t=tree();
+ const wn=document.getElementById("wildnote");
+ if(wn)wn.textContent=WILD.length+" of "+NS+" samples · lab-reared excluded · click a row to expand";
+ const ecos=sortKeys(vi,Object.entries(t).map(([k,o])=>[k,o.ids])).map(([k])=>k);
+ let html="";
+ ecos.forEach(e=>{
+  const eo=t[e], eOpen=St.all||St.open.has(e);
+  html+=rowHTML(vi,e,eo.ids,0,e,eOpen,false);
+  if(!eOpen)return;
+  const subs=sortKeys(vi,Object.entries(eo.subs).map(([k,o])=>[k,o.ids])).map(([k])=>k);
+  subs.forEach(sb=>{
+   const so=eo.subs[sb], sPath=e+"/"+sb, sOpen=St.all||St.open.has(sPath);
+   html+=rowHTML(vi,sb,so.ids,1,sPath,sOpen,false);
+   if(!sOpen)return;
+   const cats=sortKeys(vi,Object.entries(so.cats)).map(([k])=>k);
+   cats.forEach(c=>{
+    const ids=so.cats[c], cPath=sPath+"/"+c, cOpen=St.all||St.open.has(cPath);
+    html+=rowHTML(vi,c,ids,2,cPath,cOpen,true===false?true:false);
+    if(cOpen)html+=cellBlock(vi,ids);
+   });
+  });
+ });
+ document.getElementById("gt").innerHTML=html;
+}
+function renderCats(vi){
+ const vs=verdicts(vi);
+ let h=`<div class="hd">Category</div><div class="hd">n</div>
+  <div class="hd">inv=1 carriers</div><div class="hd">inv=2 carriers</div>
+  <div class="hd">inv=0 carriers</div><div class="hd">Verdict</div>`;
+ vs.forEach(v=>{
+  const wantHet=v.rule==="inv";
+  const cell=(st,want)=>{
+   if(!st.t)return `<div class="c ignored">\u2014</div>`;
+   const viol = want==="present" ? false : st.c>0;
+   const good = want==="present" && st.c>0;
+   return `<div class="c${viol?" viol":good?" want":""}">${st.c}/${st.n}</div>`;};
+  h+=`<div class="rl">${v.k}<small>${v.lab}</small></div>
+   <div class="c">${CATIDX[v.k].length}</div>
+   ${cell(v.o[1], wantHet?"present":"absent")}
+   ${cell(v.o[2],"absent")}
+   ${cell(v.o[0],"absent")}
+   <div class="vd ${v.ok?"y":"n"}">${v.ok?"\u2713 pass":"\u2715 fail"}</div>`;
+ });
+ document.getElementById("cattab").innerHTML=h;
+ const scored=SCORED.reduce((a,c)=>a+CATIDX[c.k].length,0);
+ document.getElementById("catnote").textContent=
+  `carriers / called, split by chr10 inversion state. ${scored} of ${NS} samples scored; `+
+  `all other ecogroups and subgroups are shown below for context only and do not affect the verdict.`;
+}
+function scorecard(vi){
+ const vs=verdicts(vi);
+ document.getElementById("score").innerHTML=vs.map(v=>
+  `<div class="sr"><div class="mk ${v.ok?"y":"n"}">${v.ok?"\u2713":"\u2715"}</div>
+   <div class="tx">${v.k}<em>${v.why}</em></div></div>`).join("")
+  + `<div class="sr"><div class="mk ${V[vi].lowmap?"n":"y"}">${V[vi].lowmap?"\u2715":"\u2713"}</div>
+     <div class="tx">Mappability<em>${V[vi].lowmap?"low-MQ region \u2014 few uniquely mapping reads":"normal"}</em></div></div>`;
+ document.getElementById("tally").textContent=vs.filter(v=>v.ok).length+" / "+vs.length;
+}
+
+function renderEv(vi){
+ const cv=document.getElementById("sc"),dpr=devicePixelRatio||1,w=cv.clientWidth||420,h=168;
+ cv.width=w*dpr;cv.height=h*dpr;const x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
+ const L=34,R=8,T=8,B=24,pw=w-L-R,ph=h-T-B,MX=45;
+ x.strokeStyle="#E5EAE4";x.fillStyle="#6C7D81";x.font='10px "IBM Plex Mono",monospace';
+ [0,.25,.5,.75,1].forEach(f=>{const y=T+ph-f*ph;x.beginPath();x.moveTo(L,y+.5);x.lineTo(L+pw,y+.5);x.stroke();
+  x.textAlign="right";x.fillText(f.toFixed(2),L-6,y+3.5);});
+ const tx=L+Math.min(1,St.minDP/MX)*pw;
+ x.fillStyle="rgba(178,58,72,.07)";x.fillRect(L,T,tx-L,ph);
+ x.strokeStyle="rgba(178,58,72,.4)";x.beginPath();x.moveTo(tx+.5,T);x.lineTo(tx+.5,T+ph);x.stroke();
+ const col=["#B9C4B7","#79B0C4","#14576A"],base=vi*NS;
+ for(let s=0;s<NS;s++){const dp=DP[base+s];if(!dp)continue;
+  const fr=ADA[base+s]/dp,g=GT[base+s];
+  x.fillStyle=call(vi,s)<0?"rgba(150,160,150,.3)":col[g];x.globalAlpha=call(vi,s)<0?.5:.62;
+  x.beginPath();x.arc(L+Math.min(1,dp/MX)*pw,T+ph-fr*ph,2.1,0,6.284);x.fill();}
+ x.globalAlpha=1;x.fillStyle="#6C7D81";x.textAlign="center";x.fillText("depth (DP)",L+pw/2,h-6);
+ x.save();x.translate(11,T+ph/2);x.rotate(-Math.PI/2);x.textAlign="center";x.fillText("alt fraction",0,0);x.restore();
+
+ let hets=[],dps=[],nz=0;
+ for(let s=0;s<NS;s++){const dp=DP[base+s];dps.push(dp);if(!dp)nz++;
+  if(GT[base+s]===1&&dp>=St.minDP)hets.push(ADA[base+s]/dp);}
+ const med=A=>{if(!A.length)return 0;const b=A.slice().sort((p,q)=>p-q);return b[b.length>>1];};
+ const mu=hets.length?hets.reduce((a,b)=>a+b,0)/hets.length:0;
+ const sd=hets.length?Math.sqrt(hets.reduce((a,b)=>a+(b-mu)**2,0)/hets.length):0;
+ const v=V[vi];
+ const rows=[["Median DP",med(dps),med(dps)<10],["Zero-depth samples",nz,nz>NS*0.1],
+  ["Het allele balance",hets.length?mu.toFixed(3):"—",hets.length&&Math.abs(mu-0.5)>0.06],
+  ["Balance spread",hets.length?sd.toFixed(3):"—",sd>0.13],
+  ["Caller",v.big?"IndelReadClassifier":"bcftools",false],
+  ["FORMAT",v.big?"GT:AD:DP:GQ":"GT:PL:AD:DP:SP",false],
+  ["Mappability",v.lowmap?"LOW":"normal",v.lowmap]];
+ document.getElementById("evs").innerHTML=rows.map(([k,val,w])=>
+  `<div class="r${w?" w":""}"><span>${k}</span><span>${val}</span></div>`).join("");
+}
+
+function render(){
+ const vi=St.cur,v=V[vi],st=stats(vi);
+ document.getElementById("vname").textContent="candidate "+(vi+1);
+ document.getElementById("vpos").textContent=v.pos.toLocaleString();
+ document.getElementById("vchrom").textContent="NC_135176.1";
+ const ty=document.getElementById("vtype");ty.className="chip "+v.type;ty.textContent=v.type.toLowerCase();
+ const bg=document.getElementById("vbig");bg.style.display=v.big?"":"none";
+ bg.className="chip big";bg.textContent=v.len.toLocaleString()+" bp";
+ document.getElementById("vlm").style.display=v.lowmap?"":"none";
+ const trunc=s=>s.length<=54?s:s.slice(0,40)+"…"+s.slice(-8)+" ("+s.length+" bp)";
+ document.getElementById("vref").textContent=trunc(v.ref);
+ document.getElementById("valt").textContent=trunc(v.alt);
+ document.getElementById("vctx").textContent=v.ctx||"—";
+ document.getElementById("vcaller").textContent=v.big?"IndelReadClassifier":"bcftools";
+ document.getElementById("vq").textContent=v.q!=null?v.q:"—";
+ document.getElementById("cnt").textContent=(vi+1)+" / "+NV;
+ document.getElementById("c0").textContent=st.n[0];document.getElementById("c1").textContent=st.n[1];
+ document.getElementById("c2").textContent=st.n[2];document.getElementById("c3").textContent=st.n[3];
+ const nv=verdicts(vi).filter(v=>v.ok).length;
+ const rr=document.getElementById("rho");rr.textContent=nv+"/6";
+ rr.className="n mono "+(nv===6?"good":nv<=3?"bad":"");
+ document.getElementById("pv2").textContent=fp(st.p)+"  n="+st.nsex;
+ document.getElementById("warn").innerHTML = v.lowmap
+  ? `<div class="warnbar">This site sits in a low-mappability region. Most reads here have MQ 0, so genotypes rest on a small uniquely-mapping minority and no-calls are expected.</div>` : "";
+ scorecard(vi);renderCats(vi);renderEv(vi);renderGroups(vi);
+ document.querySelectorAll(".t").forEach(t=>t.classList.toggle("cur",+t.dataset.i===vi));
+ document.querySelectorAll(".mhb").forEach(t=>t.classList.toggle("cur",+t.dataset.i===vi));
+ const tr=V[vi].triage;
+ document.getElementById("tst").textContent=tr==="keep"?"★ Shortlisted.":tr==="drop"?"✕ Excluded.":"No decision recorded.";
+ document.getElementById("bk").classList.toggle("on",tr==="keep");
+ document.getElementById("bd").classList.toggle("on",tr==="drop");
+}
+
+const tip=document.getElementById("tip");
+document.addEventListener("mouseover",e=>{
+ const c=e.target.closest(".cell");
+ if(c){const i=+c.dataset.s,sm=S[i],k=St.cur*NS+i,g=call(St.cur,i);
+  tip.innerHTML=`<b>${sm.id}</b><br><span style="color:#7E979B">${sm.sp}</span>
+   <div style="height:6px"></div>
+   <div class="r"><span>Subgroup</span><span>${sm.sub}</span></div>
+   <div class="r"><span>Category</span><span>${sm.cat||"—"}</span></div>
+   <div class="r"><span>Sex</span><span>${sm.sex||"—"}</span></div>
+   <div class="r"><span>Inversion10</span><span>${sm.inv<0?"—":sm.inv}</span></div>
+   <div class="r"><span>GT</span><span>${g<0?"./.":LBL[g]}</span></div>
+   <div class="r"><span>AD</span><span>${DP[k]-ADA[k]},${ADA[k]}</span></div>
+   <div class="r"><span>DP / GQ</span><span>${DP[k]} / ${GQ[k]}</span></div>
+   <div class="r"><span>Coverage</span><span>${sm.cov}x</span></div>`;
+  tip.style.opacity=1;const w=tip.offsetWidth,h=tip.offsetHeight;
+  tip.style.left=Math.min(innerWidth-w-8,Math.max(8,e.clientX+14))+"px";
+  tip.style.top=Math.max(8,e.clientY-h-12)+"px";return;}
+ const t=e.target.closest(".t,.mhb");
+ if(t){const v=V[+t.dataset.i];
+  tip.innerHTML=`<b>${v.pos.toLocaleString()}</b> ${v.type.toLowerCase()}${v.big?" · "+v.len+" bp":""}
+   <br><span style="color:#7E979B">${RHO[+t.dataset.i]}/6 criteria passed${v.lowmap?" · low mappability":""}</span>`;
+  tip.style.opacity=1;const w=tip.offsetWidth,h=tip.offsetHeight;
+  tip.style.left=Math.min(innerWidth-w-8,Math.max(8,e.clientX+14))+"px";
+  tip.style.top=Math.max(8,e.clientY-h-12)+"px";return;}
+ tip.style.opacity=0;});
+
+document.addEventListener("click",e=>{
+ const t=e.target.closest(".t,.mhb");if(t){St.cur=+t.dataset.i;render();return;}
+ const g=e.target.closest(".gr");if(g&&g.dataset.p){const k=g.dataset.p;
+  if(St.all){St.all=false;document.getElementById("exp").classList.remove("on");
+   document.getElementById("exp").textContent="Expand all";}
+  St.open.has(k)?St.open.delete(k):St.open.add(k);renderGroups(St.cur);}});
+document.getElementById("pv").onclick=()=>{St.cur=(St.cur-1+NV)%NV;render()};
+document.getElementById("nx").onclick=()=>{St.cur=(St.cur+1)%NV;render()};
+document.getElementById("ord").onchange=e=>{St.ord=e.target.value;renderGroups(St.cur)};
+document.getElementById("dp").oninput=e=>{St.minDP=+e.target.value;document.getElementById("dpv").textContent=St.minDP;render()};
+document.getElementById("gq").oninput=e=>{St.minGQ=+e.target.value;document.getElementById("gqv").textContent=St.minGQ;render()};
+document.getElementById("exp").onclick=e=>{St.all=!St.all;St.open.clear();
+ e.target.classList.toggle("on",St.all);e.target.textContent=St.all?"Collapse all":"Expand all";renderGroups(St.cur)};
+const tri=t=>{const v=V[St.cur];v.triage=v.triage===t?null:t;render()};
+document.getElementById("bk").onclick=()=>tri("keep");
+document.getElementById("bd").onclick=()=>tri("drop");
+document.addEventListener("keydown",e=>{if(/SELECT|INPUT/.test(e.target.tagName))return;
+ if(e.key==="ArrowRight"){St.cur=(St.cur+1)%NV;render()}
+ else if(e.key==="ArrowLeft"){St.cur=(St.cur-1+NV)%NV;render()}
+ else if(e.key==="k")tri("keep");else if(e.key==="x")tri("drop");});
+addEventListener("resize",()=>renderEv(St.cur));
+St.cur=V.findIndex(v=>v.pos===24921178);if(St.cur<0)St.cur=0;
+St.open.add("Deep_Benthic");St.open.add("Deep_Benthic/True_Deeps");
+render();
+</script></body></html>
