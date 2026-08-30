@@ -60,6 +60,9 @@ def parse_args():
     p.add_argument("--resume", action="store_true",
                    help="Skip samples that already have a verified manifest. Use this "
                         "to re-run failures without repeating hours of downloads.")
+    p.add_argument("--recheck", action="store_true",
+                   help="With --resume, re-evaluate completed samples against the "
+                        "current --max-missing instead of accepting them as done.")
     p.add_argument("--no-sync", action="store_true",
                    help="Skip the initial download of existing results from cloud "
                         "storage. Only safe on a single-machine setup.")
@@ -392,6 +395,29 @@ def run_one(sampleID, command, error_file):
     return proc.returncode
 
 
+def already_done(out_vcf, sampleID):
+    """Did this sample complete successfully on some run, on any machine?
+
+    Deliberately NOT re-judged against the current --max-missing. The worker
+    already accepted this output under the threshold in force when it ran, and
+    the manifest records that. Re-scoring old manifests against a stricter
+    threshold silently re-runs work that is finished -- which on a second server
+    means re-genotyping the whole cohort. Use --recheck to force re-evaluation.
+    """
+    path = out_vcf + ".manifest.json"
+    if not os.path.exists(path) or not os.path.exists(out_vcf):
+        return False, None
+    try:
+        m = json.load(open(path))
+    except Exception:
+        return False, None
+    if m.get("status") != "ok":
+        return False, m
+    expected = m.get("expected_sv", 0) + m.get("expected_lv", 0)
+    accounted = m.get("observed_out", 0) + len(m.get("missing_sites", []))
+    return (expected and accounted == expected), m
+
+
 def check_manifest(out_vcf, sampleID, max_missing=0):
     """Read back what the worker actually produced. Exit codes are not enough --
     the original failure mode was a clean exit over an incomplete file.
@@ -506,12 +532,25 @@ def main():
         return out_vcf, cmd
 
     if args.resume:
-        already = []
+        already, thresh_differs = [], []
         for sampleID in list(aligned_samples):
             out_vcf, _ = cmd_for(sampleID)
-            man, problem = check_manifest(out_vcf, sampleID, args.max_missing)
-            if man and not problem:
+            if args.recheck:
+                man, problem = check_manifest(out_vcf, sampleID, args.max_missing)
+                done = man is not None and not problem
+            else:
+                done, man = already_done(out_vcf, sampleID)
+                if done and man:
+                    n_un = len(man.get("unexplained_missing", []))
+                    if n_un > args.max_missing:
+                        thresh_differs.append((sampleID, n_un))
+            if done:
                 already.append(sampleID)
+        if thresh_differs:
+            warn(f"{len(thresh_differs)} completed sample(s) have more unexplained "
+                 f"missing sites than the current --max-missing {args.max_missing} "
+                 f"(e.g. {thresh_differs[:3]}). Kept as done; pass --recheck to "
+                 f"re-run them against the current threshold.")
         if already:
             aligned_samples = [s for s in aligned_samples if s not in already]
             log(f"--resume: skipping {len(already)} sample(s) with verified output; "
