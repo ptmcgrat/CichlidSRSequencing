@@ -14,6 +14,7 @@ Structure:
 """
 
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -39,7 +40,12 @@ def parse_args():
                         "downloaded via FileManager. Pass a path to use a local file "
                         "instead (no download attempted).")
     p.add_argument("--genome-version", default="Mzebra_GT3_NCBI")
-    p.add_argument("--ecogroups", nargs="+", default=["Deep_Benthic", "Shallow_Benthic"])
+    p.add_argument("--ecogroups", nargs="+",
+                   default=["Deep_Benthic", "Shallow_Benthic", "Utaka",
+                            "Diplotaxodon", "Rhamphochromis"],
+                   help="Ecogroups to genotype. Groups with no aligned samples yet "
+                        "are simply skipped, so listing them here means they are "
+                        "picked up automatically as alignments appear.")
     p.add_argument("--threshold", type=int, default=10,
                    help="Ref/alt length at or below which a variant goes to bcftools")
     p.add_argument("--num-parallel", type=int, default=48)
@@ -54,6 +60,13 @@ def parse_args():
     p.add_argument("--resume", action="store_true",
                    help="Skip samples that already have a verified manifest. Use this "
                         "to re-run failures without repeating hours of downloads.")
+    p.add_argument("--no-sync", action="store_true",
+                   help="Skip the initial download of existing results from cloud "
+                        "storage. Only safe on a single-machine setup.")
+    p.add_argument("--shard", default=None, metavar="i/n",
+                   help="Process only shard i of n (1-based), e.g. --shard 2/3. Lets "
+                        "several servers work the same sample list without "
+                        "duplicating each other.")
     p.add_argument("--skip-smoke-test", action="store_true",
                    help="Skip the single-sample validation run. Not recommended.")
     p.add_argument("--preflight-only", action="store_true",
@@ -326,6 +339,52 @@ def preflight_disk(fm_obj, sample_ids, num_parallel, keep_bams):
     return cautions
 
 
+
+def sync_from_cloud(fm_obj, out_dir, skip=False):
+    """Pull existing results down before deciding what still needs running.
+
+    With more than one machine working the same cohort, the local directory is
+    only ever this server's own history. Cloud storage is the shared record, so
+    --resume is meaningless until it has been consulted. The VCFs and manifests
+    are small (a few MB in total), so fetching the whole directory is cheap
+    compared to re-genotyping even one sample.
+
+    Note this overwrites local copies with the cloud versions. Anything produced
+    here and not yet uploaded would be replaced -- which is why the driver uploads
+    at the end of every run.
+    """
+    if skip:
+        log("--no-sync: not consulting cloud storage; --resume sees local files only")
+        return
+    log("syncing existing results from cloud storage")
+    try:
+        fm_obj.downloadData(out_dir.rstrip("/"))
+    except FileNotFoundError:
+        log("nothing in cloud storage yet (first run for this candidate set)")
+        return
+    except Exception as e:
+        warn(f"sync failed ({e}); --resume will see local files only")
+        return
+    n_vcf = len(glob.glob(out_dir + "*_candidate_QTNs.vcf.gz"))
+    n_man = len(glob.glob(out_dir + "*.manifest.json"))
+    log(f"after sync: {n_vcf} VCFs, {n_man} manifests present locally")
+
+
+def apply_shard(samples, spec):
+    """Deterministically split the sample list so several servers can share it."""
+    if not spec:
+        return samples
+    try:
+        i, n = (int(x) for x in spec.split("/"))
+    except ValueError:
+        raise PipelineError(f"--shard must look like i/n, got {spec!r}")
+    if not (1 <= i <= n):
+        raise PipelineError(f"--shard {spec}: i must be between 1 and n")
+    picked = [s for k, s in enumerate(sorted(samples)) if k % n == i - 1]
+    log(f"--shard {i}/{n}: {len(picked)} of {len(samples)} samples on this server")
+    return picked
+
+
 def run_one(sampleID, command, error_file):
     """Run a single sample synchronously and return (returncode, manifest_or_None)."""
     with open(error_file, "w") as fp:
@@ -375,6 +434,7 @@ def main():
     out_dir = fm_obj.localNikeshDir + "QTG_Candidates/"
     os.makedirs(out_dir, exist_ok=True)
     os.makedirs(fm_obj.localErrorsDir, exist_ok=True)
+    sync_from_cloud(fm_obj, out_dir, skip=args.no_sync)
     ensure_reference(fm_obj)
 
     dt = load_candidates(fm_obj, args)
@@ -459,6 +519,11 @@ def main():
         if not aligned_samples:
             log("nothing left to do")
             sys.exit(0)
+
+    aligned_samples = apply_shard(aligned_samples, args.shard)
+    if not aligned_samples:
+        log("no samples in this shard")
+        sys.exit(0)
 
     # ---------------- smoke test ----------------
     if not args.skip_smoke_test:
