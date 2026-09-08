@@ -194,8 +194,10 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:10px;background:#E7ECE6;bord
     <div class="stat big"><div class="n mono" id="rho"></div><div class="l">Scorecard criteria passed</div></div>
     <div class="stat big"><div class="n mono" id="phi"></div><div class="l">\u03c6 &nbsp;inv=1 vs inv=2</div></div>
     <div class="stat big"><div class="n mono" id="disc"></div><div class="l">Discordant samples</div></div>
+    <div class="stat big"><div class="n mono" id="sexb"></div><div class="l">Sex bias, non-deep (strat. \u03c6)</div></div>
    </div>
    <div class="hint" id="phinote" style="margin-top:9px"></div>
+   <div class="hint" id="sexnote" style="margin-top:4px"></div>
   </div></div>
 
   <div class="card"><div class="ch"><span class="eyebrow">Scored categories</span>
@@ -293,6 +295,57 @@ function phiStat(vi){
          spec:(c+d)?d/(c+d):0,        // non-carriers correct among inv=2
          missHet,extraHom,
          disc:missHet.length+extraHom.length};
+}
+
+// ---- sex bias outside the deep benthics ---------------------------------
+// Stratified by species, never pooled. Allele frequency and sex ratio both vary
+// by species (M. conophoros is 18F/3M, F. rostratus 5F/9M), so a pooled 2x2 can
+// manufacture a sex association out of population structure alone. Cochran-
+// Mantel-Haenszel asks whether there is a CONSISTENT sex bias within species.
+//
+// Hybrid samples are excluded: the YHxMC F1 cross is a mapping cross where a
+// causal variant SHOULD track sex, so including it would invert the meaning of
+// this control. Deep benthics are excluded because that is where the chr10
+// system lives -- this metric is about everywhere else.
+const SEXIDX=S.map((s,i)=>i).filter(i=>{
+ const s=S[i];
+ return s.eco!=="Deep_Benthic" && s.eco!=="Hybrid" && (s.sex==="M"||s.sex==="F");
+});
+const SEXSTRATA={};
+SEXIDX.forEach(i=>{(SEXSTRATA[S[i].sp||"(unnamed)"] ||= []).push(i);});
+
+function erfc(x){                      // Abramowitz & Stegun 7.1.26
+ const z=Math.abs(x), t=1/(1+0.5*z);
+ const y=t*Math.exp(-z*z-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+
+  t*(-0.18628806+t*(0.27886807+t*(-1.13520398+t*(1.48851587+
+  t*(-0.82215223+t*0.17087277)))))))));
+ return x>=0?y:2-y;
+}
+const chi2p1=x=>x<=0?1:erfc(Math.sqrt(x/2));   // upper tail, 1 df
+
+function sexAssoc(vi){
+ let sumAE=0,sumV=0,n=0,nStrata=0,worst=null;
+ for(const sp in SEXSTRATA){
+  let a=0,b=0,c=0,d=0;                 // a: male carrier, b: male non, c: female carrier, d: female non
+  SEXSTRATA[sp].forEach(i=>{
+   const g=call(vi,i); if(g<0)return;
+   const male=S[i].sex==="M", carr=g>0;
+   if(male) carr?a++:b++; else carr?c++:d++;
+  });
+  const N=a+b+c+d;
+  if(N<2) continue;
+  const r1=a+b, c1=a+c;
+  if(r1===0||c1===0||r1===N||c1===N) {n+=N;continue;}   // no contrast in this stratum
+  nStrata++; n+=N;
+  sumAE += a - r1*c1/N;
+  sumV  += r1*(N-r1)*c1*(N-c1)/(N*N*(N-1));
+  const den=Math.sqrt(r1*(N-r1)*c1*(N-c1));
+  const ph=den>0?(a*d-b*c)/den:0;
+  if(!worst||Math.abs(ph)>Math.abs(worst.phi)) worst={sp,phi:ph,a,b,c,d,N};
+ }
+ const chi2 = sumV>0 ? Math.pow(Math.abs(sumAE)-0.5,2)/sumV : 0;
+ const phi  = (n>1&&sumV>0) ? Math.sign(sumAE)*Math.sqrt(Math.min(chi2,n)/n) : 0;
+ return {phi,chi2,p:chi2p1(chi2),n,nStrata,worst};
 }
 
 // ---- extra frequency tracks --------------------------------------------
@@ -637,6 +690,18 @@ function render(){
  const de=document.getElementById("disc");
  de.textContent=ps.disc;
  de.className="n mono "+(ps.disc===0?"good":ps.disc>5?"bad":"");
+ const sa=sexAssoc(vi);
+ const sb=document.getElementById("sexb");
+ sb.textContent=sa.nStrata?sa.phi.toFixed(2):"\u2014";
+ // Near zero is the expected, reassuring result here -- this is a control, so a
+ // strong value is the thing worth flagging, not a good score.
+ sb.className="n mono "+(!sa.nStrata?"":Math.abs(sa.phi)<0.2?"good":Math.abs(sa.phi)>0.4?"bad":"");
+ document.getElementById("sexnote").innerHTML = sa.nStrata
+  ? `stratified by species across ${sa.nStrata} informative species (${sa.n} sexed `+
+    `samples, deep benthics and hybrids excluded) \u00b7 CMH p = ${fp(sa.p)}`+
+    (sa.worst ? ` \u00b7 strongest: <i>${sa.worst.sp}</i> \u03c6=${sa.worst.phi.toFixed(2)} `+
+      `(\u2642 ${sa.worst.a}/${sa.worst.a+sa.worst.b} carry, \u2640 ${sa.worst.c}/${sa.worst.c+sa.worst.d})` : "")
+  : `no species outside the deep benthics has both sexes and a genotype contrast at this threshold`;
  document.getElementById("phinote").innerHTML = ps.n
   ? `n=${ps.n} called across OtherYHs + HetSpecies + NoHetSpecies &nbsp;\u00b7&nbsp; `+
     `inv=1: <b>${ps.a}</b> carry / ${ps.a+ps.b} &nbsp;\u00b7&nbsp; inv=2: <b>${ps.c}</b> carry / ${ps.c+ps.d}`+
