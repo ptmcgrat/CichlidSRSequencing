@@ -1,787 +1,450 @@
-"""Driver: genotype candidate QTNs across the full chr10 X/Y region.
+"""Genotype a large candidate-QTN set for a single sample (chr10 X/Y region).
 
-Sibling of genotypeY_QTNs.py, which stays pointed at the 200 kb fine-mapped
-interval and its QTG_Candidates/ output. This one is parameterised: it takes any
-candidate TSV from the cloud source folder and writes to its own output folder,
-so the two never share filenames and --resume can never confuse one run's output
-for another's.
+Fork of genotypeCandidates.py. Identical logic, plus a cap on how much per-site
+detail goes into the manifest: at tens of thousands of sites an uncapped missing
+list would be larger than the VCF it describes. Kept as a separate file so the
+200 kb pipeline, which has 367 verified samples behind it, stays untouched.
 
-Scale is the difference that matters. The 200 kb set is ~214 variants; a whole-
-region set is tens of thousands, which changes what thresholds and manifests can
-sensibly hold. Hence --max-missing-frac and the cap on per-site manifest detail.
+Two callers contribute to the output: bcftools force-calling for variants whose
+ref and alt are both short, and IndelReadClassifier for everything longer. Each
+stage now asserts that the number of records it produced equals the number of
+sites it was asked about, and the script exits non-zero with a diagnostic if not.
 
-Structure:
-  1. Preflight   -- validate the reference, the candidate table, and the sample
-                    database before launching anything.
-  2. Smoke test  -- run ONE sample to completion and check its manifest. If the
-                    pipeline is broken, this catches it in a few minutes instead
-                    of after several hundred parallel jobs have each produced a
-                    valid-looking, mostly-empty VCF.
-  3. Fan out     -- run the rest, reading each manifest back rather than trusting
-                    exit codes.
-  4. Report      -- write a run-level summary and keep the logs of anything that
-                    failed or came back short.
+Previously all three stages could produce a valid, indexed, empty VCF and the
+run would report success.
 """
 
 import argparse
-import glob
-import json
 import os
 import shutil
-import subprocess
 import sys
-import time
-from collections import Counter
-from types import SimpleNamespace
+import subprocess
 
+sys.path.append("..")
+
+import pysam
 import pandas as pd
 
 from helper_modules.file_manager import FileManager as FM
-from helper_modules.smallVariantGenotyper import normalize_sites
+from helper_modules.smallVariantGenotyper import genotype_at_sites, BcftoolsError
+from helper_modules.InsertionGenotyper import (
+    IndelReadClassifier, ClassifierCall, concat_sample_vcfs,
+)
 from helper_modules import pipeline_checks as pc
-from helper_modules.pipeline_checks import PipelineError, log, warn
+from helper_modules.pipeline_checks import Manifest, PipelineError, log, warn
 
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Genotype a large candidate-QTN set across the chr10 X/Y region.")
-    p.add_argument("--source-dir", default="QTG_Candidates",
-                   help="Cloud folder holding the candidate TSVs, relative to the "
-                        "Nikesh directory (default QTG_Candidates).")
-    p.add_argument("--run-name", default=None,
-                   help="Output folder, relative to the Nikesh directory. Defaults "
-                        "to the candidate table's filename stem, so each variant set "
-                        "lands in its own directory.")
-    p.add_argument("--max-missing-frac", type=float, default=None,
-                   help="Tolerate this FRACTION of sites as unexplained missing "
-                        "instead of an absolute count. At tens of thousands of sites "
-                        "a fixed count is meaningless (0.03 = 3%%).")
-    p.add_argument("--max-missing-report", type=int, default=200,
-                   help="Cap on how many missing sites are listed individually in "
-                        "each manifest. Counts stay complete; only the per-site "
-                        "detail is truncated (default 200).")
-    p.add_argument("--candidates", default=None,
-                   help="Master candidate table (TSV). Defaults to "
-                        "<localNikeshDir>/QTG_Candidates/candidateQTNs_all.tsv, "
-                        "downloaded via FileManager. Pass a path to use a local file "
-                        "instead (no download attempted).")
-    p.add_argument("--genome-version", default="Mzebra_GT3_NCBI")
-    p.add_argument("--ecogroups", nargs="+",
-                   default=["Deep_Benthic", "Shallow_Benthic", "Utaka",
-                            "Diplotaxodon", "Rhamphochromis"],
-                   help="Ecogroups to genotype. Groups with no aligned samples yet "
-                        "are simply skipped, so listing them here means they are "
-                        "picked up automatically as alignments appear.")
-    p.add_argument("--threshold", type=int, default=10,
-                   help="Ref/alt length at or below which a variant goes to bcftools")
-    p.add_argument("--num-parallel", type=int, default=48)
-    p.add_argument("--keep-bams", action="store_true",
-                   help="Keep each sample's downloaded BAM after it finishes. "
-                        "Off by default -- BAMs average 10 GB and 370 of them is "
-                        "roughly 4.8 TB.")
+        description="Genotype candidate QTNs (small + large variants) for one sample.")
+    p.add_argument("SV_VCF", type=str, help="Normalized, bgzipped, indexed VCF of small variants")
+    p.add_argument("LV_CSV", type=str, help="CSV of large variants")
+    p.add_argument("OUT_VCF", type=str, help="Output bgzipped VCF path")
+    p.add_argument("genome_version", type=str, help="Genome version key for FileManager")
+    p.add_argument("SampleID", type=str, help="Sample to genotype")
     p.add_argument("--max-missing", type=int, default=0,
-                   help="Per sample, tolerate up to this many UNEXPLAINED missing "
-                        "sites (had usable reads but produced no record). Sites with "
-                        "no usable reads are always tolerated and recorded. Default 0.")
-    p.add_argument("--resume", action="store_true",
-                   help="Skip samples that already have a verified manifest. Use this "
-                        "to re-run failures without repeating hours of downloads.")
-    p.add_argument("--recheck", action="store_true",
-                   help="With --resume, re-evaluate completed samples against the "
-                        "current --max-missing instead of accepting them as done.")
-    p.add_argument("--no-sync", action="store_true",
-                   help="Skip the initial download of existing results from cloud "
-                        "storage. Only safe on a single-machine setup.")
-    p.add_argument("--shard", default=None, metavar="i/n",
-                   help="Process only shard i of n (1-based), e.g. --shard 2/3. Lets "
-                        "several servers work the same sample list without "
-                        "duplicating each other.")
-    p.add_argument("--skip-smoke-test", action="store_true",
-                   help="Skip the single-sample validation run. Not recommended.")
-    p.add_argument("--preflight-only", action="store_true",
-                   help="Run the checks and exit without genotyping anything.")
-    p.add_argument("--force", action="store_true",
-                   help="Continue past preflight warnings that would otherwise stop the run.")
+                   help="Tolerate up to this many UNEXPLAINED missing sites -- ones "
+                        "that had reads passing --min-MQ yet still produced no record. "
+                        "Sites with no usable reads are always tolerated and recorded "
+                        "separately: a low-coverage sample missing sites it had no data "
+                        "for is not a pipeline failure. Default 0.")
+    p.add_argument("--allow-partial", action="store_true",
+                   help="Write output even when a stage produced fewer records than "
+                        "expected. Off by default: a partial VCF that looks complete "
+                        "is worse than no VCF.")
+    p.add_argument("--max-missing-report", type=int, default=200,
+                   help="Cap on per-site detail stored in the manifest. Counts stay "
+                        "complete; only the list is truncated. At 200k sites an "
+                        "uncapped list would make the manifest larger than the VCF.")
+    p.add_argument("--keep-bams", action="store_true",
+                   help="Keep the downloaded BAM and temp files after the sample "
+                        "finishes. Off by default: BAMs are ~10 GB each and 370 of "
+                        "them will not fit anywhere.")
+    p.add_argument("--min-mapped-reads", type=int, default=1000,
+                   help="Minimum reads in the candidate region before genotyping is "
+                        "considered meaningful (default 1000)")
     return p.parse_args()
 
 
-def load_candidates(fm_obj, args):
-    """Resolve and read the master candidate table.
+def write_classifier_vcf_v2(calls, sample_name, output_vcf, template_vcf):
+    """Write classifier calls with GT:AD:DP:GQ instead of GT:AD.
 
-    With no --candidates argument the canonical copy is pulled from cloud storage,
-    so every run starts from the same table rather than whatever happens to be in
-    the working directory. An explicit path is used as-is and never downloaded,
-    which is what you want when testing a modified table.
+    IndelReadClassifier already computes quality, n_equal and n_uninformative;
+    the original writer discarded all of it. Without GQ there is no way to tell
+    "12 ref pairs, 0 alt, 2 unresolvable" from "12 ref, 0 alt, 40 unresolvable" --
+    the two look identical downstream but mean very different things.
+
+    Alleles are uppercased here. The master TSV stores them lowercase, so mixing
+    these records with the uppercase bcftools records in one file would make
+    `bcftools norm -d` and any downstream merge treat g and G as distinct alleles.
     """
-    if args.candidates is None:
-        path = (fm_obj.localNikeshDir + args.source_dir.strip("/") +
-                "/candidateQTNs_all.tsv")
-        try:
-            fm_obj.downloadData(path)
-        except FileNotFoundError as e:
-            raise PipelineError(
-                f"could not download the candidate table: {e}. Pass --candidates "
-                f"to point at a local file instead.")
-        log(f"candidate table downloaded to {path}")
-    else:
-        # A bare filename or relative path is taken as living in the cloud source
-        # folder; an absolute path is used as-is and never downloaded.
-        if os.path.isabs(args.candidates):
-            path = args.candidates
-            pc.require_file(path, "candidate table")
-            log(f"using local candidate table {path}")
-        else:
-            rel = args.candidates
-            if "/" not in rel:
-                rel = args.source_dir.strip("/") + "/" + rel
-            path = fm_obj.localNikeshDir + rel
-            try:
-                fm_obj.downloadData(path)
-            except FileNotFoundError as e:
-                raise PipelineError(f"could not download {path}: {e}")
-            log(f"candidate table downloaded to {path}")
+    if not output_vcf.endswith(".vcf.gz"):
+        raise ValueError("output_vcf must end in .vcf.gz")
 
-    args.candidates = path
-    dt = pd.read_csv(path, sep="\t")
-    if dt.empty:
-        raise PipelineError(f"candidate table {path} has no rows")
-    return dt
+    header = subprocess.run(["bcftools", "view", "-h", template_vcf],
+                            capture_output=True, text=True, check=True)
+    contigs = [l for l in header.stdout.splitlines() if l.startswith("##contig=")]
+    if not contigs:
+        warn(f"template {template_vcf} contributed no ##contig lines; "
+             f"bcftools concat may reject the result")
+
+    calls = sorted(calls, key=lambda c: (c.chrom, c.pos))
+    raw_path = output_vcf[:-3]
+    with open(raw_path, "w") as f:
+        f.write("##fileformat=VCFv4.2\n")
+        for c in contigs:
+            f.write(c + "\n")
+        f.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+        f.write('##FORMAT=<ID=AD,Number=R,Type=Integer,'
+                'Description="Allelic depths (ref,alt), read pairs">\n')
+        f.write('##FORMAT=<ID=DP,Number=1,Type=Integer,'
+                'Description="Informative read pairs (ref+alt)">\n')
+        f.write('##FORMAT=<ID=GQ,Number=1,Type=Integer,'
+                'Description="Phred-scaled genotype quality">\n')
+        f.write('##INFO=<ID=SOURCE,Number=1,Type=String,Description="Caller of origin">\n')
+        f.write('##INFO=<ID=NEQUAL,Number=1,Type=Integer,'
+                'Description="Pairs aligning equally well to both alleles">\n')
+        f.write('##INFO=<ID=NUNINF,Number=1,Type=Integer,'
+                'Description="Pairs carrying no breakpoint information">\n')
+        f.write("#" + "\t".join(["CHROM", "POS", "ID", "REF", "ALT", "QUAL",
+                                 "FILTER", "INFO", "FORMAT", sample_name]) + "\n")
+        for c in calls:
+            dp = c.ad_ref + c.ad_alt
+            gq = int(round(getattr(c, "gq", 0) or 0))
+            f.write("\t".join([
+                c.chrom, str(c.pos), ".", c.ref.upper(), c.alt.upper(), ".", "PASS",
+                f"SOURCE=IndelReadClassifier;NEQUAL={getattr(c, 'n_equal', 0)};"
+                f"NUNINF={getattr(c, 'n_uninformative', 0)}",
+                "GT:AD:DP:GQ",
+                f"{c.gt}:{c.ad_ref},{c.ad_alt}:{dp}:{gq}",
+            ]) + "\n")
+
+    subprocess.run(["bgzip", "-f", raw_path], check=True)
+    subprocess.run(["tabix", "-f", "-p", "vcf", output_vcf], check=True)
 
 
-def ensure_reference(fm_obj):
-    """Download the reference and make sure its .fai is present.
+class RichCall(ClassifierCall):
+    """ClassifierCall plus the evidence fields the original tuple dropped."""
+    def __new__(cls, gq=0, n_equal=0, n_uninformative=0, **kwargs):
+        self = super().__new__(cls, **kwargs)
+        self.gq = gq
+        self.n_equal = n_equal
+        self.n_uninformative = n_uninformative
+        return self
 
-    FileManager.downloadData copies a single file, so asking for the FASTA does
-    not bring the index with it. Try the cloud copy first, then build one locally
-    -- faidx on an existing FASTA is cheap and deterministic.
+
+def cleanup_sample(fm_obj, sample_id, keep=False):
+    """Remove this sample's downloaded BAM and scratch directory.
+
+    Runs whether the sample succeeded or failed. A run that fails on 300 samples
+    while keeping every 10 GB BAM fills the disk just as effectively as one that
+    succeeds. Everything worth keeping -- the output VCF, the manifest, the error
+    log -- lives outside these directories.
     """
-    fm_obj.downloadData(fm_obj.localGenomeFile)
-    fai = fm_obj.localGenomeFile + ".fai"
-    if os.path.exists(fai):
+    if keep:
+        log(f"{sample_id}: keeping BAM and temp files (--keep-bams)")
         return
-    try:
-        fm_obj.downloadData(fai)
-        log("downloaded reference .fai")
-        return
-    except FileNotFoundError:
-        log("no .fai in cloud storage; building one locally with samtools faidx")
-    r = subprocess.run(["samtools", "faidx", fm_obj.localGenomeFile],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        raise PipelineError(f"samtools faidx failed: {r.stderr}")
-
-
-def print_sv(outfile, dt):
-    """Write the small-variant sites VCF.
-
-    Alleles are uppercased to match VCF convention. Note that the reference FASTA
-    may be soft-masked, in which case these uppercase alleles will not string-match
-    the lowercase genome under `bcftools call -C alleles`. Preflight checks for
-    exactly that.
-    """
-    with open(outfile, "w") as fp:
-        print("##fileformat=VCFv4.2", file=fp)
-        print("##source=MSAUniqueVariantCaller", file=fp)
-        print("##sample=Y_reg", file=fp)
-        print("##contig=<ID=NC_135176.1>", file=fp)
-        print('##INFO=<ID=TYPE,Number=1,Type=String,'
-              'Description="SUBSTITUTE, INSERTION, or DELETION">', file=fp)
-        print('##INFO=<ID=ALN_START,Number=1,Type=Integer,'
-              'Description="1-based alignment column where the variant starts">', file=fp)
-        print("\t".join(["#CHROM", "POS", "ID", "REF", "ALT",
-                         "QUAL", "FILTER", "INFO"]), file=fp)
-        for i, row in dt.iterrows():
-            name = row.Name if isinstance(row.Name, str) and row.Name.strip() else "."
-            print("\t".join([row.Chromosome, str(row.Position), name,
-                             row.Reference.upper(), row.Alt.upper(),
-                             str(row.Q), "PASS", row.Info]), file=fp)
-
-
-def preflight(args, fm_obj, dt):
-    """Everything that can be checked before a single BAM is touched."""
-    problems, cautions = [], []
-
-    log("=== preflight ===")
-    versions = pc.require_tools()
-    if not pc.mpileup_supports("--indels-2.0"):
-        cautions.append("bcftools build does not advertise --indels-2.0")
-
-    pc.require_file(fm_obj.localGenomeFile, "reference FASTA", min_bytes=1000)
-    pc.require_index(fm_obj.localGenomeFile, "reference FASTA")
-
-    # --- candidate table ---
-    log(f"candidate table: {len(dt)} rows")
-    if dt.Name.astype(str).str.strip().isin([".", "", "nan"]).all():
-        cautions.append("every candidate has Name='.', so records can only be joined "
-                        "back on chrom+pos+ref+alt after normalization")
-    dup_pos = dt.duplicated(subset=["Chromosome", "Position", "Reference", "Alt"]).sum()
-    if dup_pos:
-        problems.append(f"{dup_pos} duplicate rows in {args.candidates}")
-
-    # Several named variants can legitimately share a coordinate -- typically an X
-    # allele and a Y allele of the same event. bcftools emits one record per
-    # position, so only one of each group can be force-called in a single pass.
-    # Flagged as a caution, not a problem: the rest are unaffected and the manifests
-    # record by name which allele was not returned.
-    shared = dt.duplicated(subset=["Chromosome", "Position"], keep=False)
-    n_shared = int(shared.sum())
-    if n_shared:
-        n_pos = int(dt[shared].groupby(["Chromosome", "Position"]).ngroups)
-        cautions.append(
-            f"{n_shared} variants share {n_pos} coordinate(s) with another variant "
-            f"(usually paired X and Y alleles of one event). bcftools returns one "
-            f"record per position, so roughly {n_pos} of these will come back as "
-            f"missing -- about {n_pos / max(1, len(dt)) * 100:.1f}% of the set. To "
-            f"genotype both alleles they would need merging into multiallelic "
-            f"records, or running as two separate passes.")
-
-    for col in ["Chromosome", "Position", "Reference", "Alt", "Q", "Info"]:
-        if col not in dt.columns:
-            problems.append(f"candidate table is missing column {col}")
-    if dt.Reference.isna().any() or dt.Alt.isna().any():
-        problems.append("candidate table has null Reference or Alt values")
-
-    return problems, cautions, versions
-
-
-def preflight_sites(sv_norm_vcf_file, genome_file, n_input_sv):
-    """Checks that need the normalized sites VCF to exist."""
-    problems, cautions = [], []
-
-    n_norm = pc.count_vcf_records(sv_norm_vcf_file)
-    log(f"normalized sites VCF: {n_norm} records (from {n_input_sv} input rows)")
-    if n_norm != n_input_sv:
-        cautions.append(f"bcftools norm changed the record count: "
-                        f"{n_input_sv} in, {n_norm} out")
-
-    dups = pc.duplicate_keys(pc.vcf_keys(sv_norm_vcf_file))
-    if dups:
-        problems.append(f"normalized sites VCF has {len(dups)} duplicate records, "
-                        f"e.g. {dups[:3]}")
-
-    # The check that would have caught this run's failure before it started.
-    ref_check = pc.check_reference_alleles(sv_norm_vcf_file, genome_file)
-    log(f"sites REF vs genome: {ref_check['n_exact']} exact, "
-        f"{ref_check['n_case_only']} case-only, {ref_check['n_mismatch']} mismatched")
-
-    if ref_check["n_mismatch"]:
-        problems.append(
-            f"{ref_check['n_mismatch']} sites have REF alleles that disagree with the "
-            f"reference genome. Examples: {ref_check['examples'][:3]}. "
-            f"These will be dropped silently by `bcftools call -C alleles`.")
-
-    if ref_check["n_case_only"]:
-        problems.append(
-            f"{ref_check['n_case_only']} sites still disagree with the reference in case "
-            f"after case-matching. That should not happen -- inspect "
-            f"{sv_norm_vcf_file}.")
-
-    mask = pc.softmask_summary(sv_norm_vcf_file, genome_file)
-    log(f"candidate sites on masked sequence: {mask['masked']}/"
-        f"{mask['masked'] + mask['unmasked']}")
-
-    return problems, cautions
-
-
-def preflight_samples(fm_obj, ecogroups):
-    """Sample-database sanity. These are cautions, not blockers -- but they change
-    how the resulting genotypes can be interpreted, so they get reported loudly."""
-    cautions = []
-    sample_dt, alignment_dt = fm_obj.sample_dt, fm_obj.alignment_dt
-
-    dupes = sample_dt[sample_dt.SampleID.duplicated(keep=False)]
-    if len(dupes):
-        cautions.append(
-            f"{dupes.SampleID.nunique()} SampleID(s) appear more than once in the sample "
-            f"database with conflicting metadata: "
-            f"{sorted(dupes.SampleID.unique())[:5]}. Deduplicate before relying on "
-            f"Subgroup/Category groupings.")
-
-    in_scope = sample_dt[sample_dt.Ecogroup.isin(ecogroups)]
-    aligned = alignment_dt[alignment_dt.SampleID.isin(in_scope.SampleID)]
-    aligned_meta = in_scope[in_scope.SampleID.isin(aligned.SampleID)]
-
-    log(f"samples in scope: {len(in_scope)} in database, {len(aligned_meta)} with alignments")
-
-    for col in ["Subgroup", "Category"]:
-        if col not in sample_dt.columns:
-            cautions.append(f"sample database has no {col} column")
+    freed = 0
+    for d in (getattr(fm_obj, "localSampleBamDir", None),
+              getattr(fm_obj, "localSampleTempDir", None)):
+        if not d or not os.path.isdir(d):
             continue
-        missing = aligned_meta[col].isna().sum()
-        if missing:
-            cautions.append(f"{missing}/{len(aligned_meta)} aligned samples have no {col}")
-        log(f"{col}: {aligned_meta[col].nunique()} distinct values")
-
-    sexes = aligned_meta.Sex.fillna("(blank)").value_counts().to_dict()
-    usable = sum(v for k, v in sexes.items() if k in ("M", "F"))
-    log(f"sex: {sexes}")
-    if usable < len(aligned_meta) * 0.8:
-        cautions.append(
-            f"only {usable}/{len(aligned_meta)} aligned samples have a definite M/F sex. "
-            f"Any sex-association statistic will be computed on that subset, not the "
-            f"full cohort.")
-
-    # Sex recorded in the Sex column vs sex implied by a Category label.
-    if "Category" in aligned_meta.columns:
-        for cat, expected in [("YH_Males", "M"), ("YH_Females", "F"),
-                              ("MC_males", "M"), ("MC_females", "F"),
-                              ("CV_males", "M"), ("CV_females", "F")]:
-            sub = aligned_meta[aligned_meta.Category == cat]
-            bad = sub[sub.Sex.isin(["M", "F"]) & (sub.Sex != expected)]
-            if len(bad):
-                cautions.append(
-                    f"{len(bad)} sample(s) with Category={cat} have Sex="
-                    f"{sorted(bad.Sex.unique())}: {sorted(bad.SampleID)[:5]}")
-
-    missing_bam = set(aligned.SampleID) - set(alignment_dt.SampleID)
-    if missing_bam:
-        cautions.append(f"{len(missing_bam)} samples lack alignment records")
-
-    if "Coverage" in alignment_dt.columns:
-        cov = alignment_dt[alignment_dt.SampleID.isin(aligned_meta.SampleID)].Coverage
-        low = (cov < 5).sum()
-        log(f"coverage: median {cov.median():.1f}x, {low} samples below 5x")
-        if low:
-            cautions.append(f"{low} samples have coverage below 5x and will produce "
-                            f"mostly no-calls")
-
-    return sorted(aligned_meta.SampleID.unique()), cautions
-
-
-
-def preflight_disk(fm_obj, sample_ids, num_parallel, keep_bams):
-    """Will the concurrent BAM downloads fit on disk?
-
-    Each worker downloads its sample's BAM directory before genotyping, so peak
-    usage is roughly num_parallel BAMs at once -- and they are not uniform: the
-    largest in this cohort is six times the median. Sizing on the median is how
-    you fill a filesystem at 3am.
-    """
-    cautions = []
-    adt = fm_obj.alignment_dt
-    if "BamSize" not in adt.columns:
-        cautions.append("alignment database has no BamSize column; cannot estimate "
-                        "disk usage")
-        return cautions
-
-    sizes = pd.to_numeric(
-        adt[adt.SampleID.isin(sample_ids)].BamSize, errors="coerce").dropna()
-    if sizes.empty:
-        return cautions
-
-    target = fm_obj.localBamfilesDir
-    while target and not os.path.isdir(target):
-        target = os.path.dirname(target.rstrip("/"))
-    free = shutil.disk_usage(target or "/").free
-
-    # 1.35x covers the discordant BAM and indexes downloaded alongside the main one.
-    p90 = float(sizes.quantile(0.9)) * 1.35
-    peak = p90 * num_parallel
-    total = float(sizes.sum()) * 1.35
-
-    log(f"BAM sizes: median {sizes.median()/1e9:.1f} GB, "
-        f"max {sizes.max()/1e9:.1f} GB, {len(sizes)} samples")
-    log(f"disk free at {target}: {free/1e9:.0f} GB")
-    log(f"estimated peak usage with {num_parallel} concurrent: {peak/1e9:.0f} GB")
-
-    if keep_bams:
-        log(f"--keep-bams is set: total retained would be {total/1e12:.1f} TB")
-        if total > free:
-            cautions.append(
-                f"--keep-bams needs about {total/1e12:.1f} TB but only "
-                f"{free/1e9:.0f} GB is free. The run will fill the disk.")
-    elif peak > free * 0.8:
-        safe = max(1, int(free * 0.6 / p90))
-        cautions.append(
-            f"peak BAM usage (~{peak/1e9:.0f} GB with {num_parallel} concurrent) is "
-            f"close to or above the {free/1e9:.0f} GB free. Consider "
-            f"--num-parallel {safe}.")
-    return cautions
-
-
-
-def sync_from_cloud(fm_obj, out_dir, skip=False):
-    """Pull existing results down before deciding what still needs running.
-
-    With more than one machine working the same cohort, the local directory is
-    only ever this server's own history. Cloud storage is the shared record, so
-    --resume is meaningless until it has been consulted. The VCFs and manifests
-    are small (a few MB in total), so fetching the whole directory is cheap
-    compared to re-genotyping even one sample.
-
-    Note this overwrites local copies with the cloud versions. Anything produced
-    here and not yet uploaded would be replaced -- which is why the driver uploads
-    at the end of every run.
-    """
-    if skip:
-        log("--no-sync: not consulting cloud storage; --resume sees local files only")
-        return
-    log("syncing existing results from cloud storage")
-    try:
-        fm_obj.downloadData(out_dir.rstrip("/"))
-    except FileNotFoundError:
-        log("nothing in cloud storage yet (first run for this candidate set)")
-        return
-    except Exception as e:
-        warn(f"sync failed ({e}); --resume will see local files only")
-        return
-    n_vcf = len(glob.glob(out_dir + "*.vcf.gz"))
-    n_man = len(glob.glob(out_dir + "*.manifest.json"))
-    log(f"after sync: {n_vcf} VCFs, {n_man} manifests present locally")
-
-
-def apply_shard(samples, spec):
-    """Deterministically split the sample list so several servers can share it."""
-    if not spec:
-        return samples
-    try:
-        i, n = (int(x) for x in spec.split("/"))
-    except ValueError:
-        raise PipelineError(f"--shard must look like i/n, got {spec!r}")
-    if not (1 <= i <= n):
-        raise PipelineError(f"--shard {spec}: i must be between 1 and n")
-    picked = [s for k, s in enumerate(sorted(samples)) if k % n == i - 1]
-    log(f"--shard {i}/{n}: {len(picked)} of {len(samples)} samples on this server")
-    return picked
-
-
-def run_one(sampleID, command, error_file):
-    """Run a single sample synchronously and return (returncode, manifest_or_None)."""
-    with open(error_file, "w") as fp:
-        proc = subprocess.run(command, stderr=fp, stdout=subprocess.DEVNULL)
-    return proc.returncode
-
-
-def already_done(out_vcf, sampleID):
-    """Did this sample complete successfully on some run, on any machine?
-
-    Deliberately NOT re-judged against the current --max-missing. The worker
-    already accepted this output under the threshold in force when it ran, and
-    the manifest records that. Re-scoring old manifests against a stricter
-    threshold silently re-runs work that is finished -- which on a second server
-    means re-genotyping the whole cohort. Use --recheck to force re-evaluation.
-    """
-    path = out_vcf + ".manifest.json"
-    if not os.path.exists(path) or not os.path.exists(out_vcf):
-        return False, None
-    try:
-        m = json.load(open(path))
-    except Exception:
-        return False, None
-    if m.get("status") != "ok":
-        return False, m
-    expected = m.get("expected_sv", 0) + m.get("expected_lv", 0)
-    accounted = m.get("observed_out", 0) + len(m.get("missing_sites", []))
-    return (expected and accounted == expected), m
-
-
-def check_manifest(out_vcf, sampleID, max_missing=0):
-    """Read back what the worker actually produced. Exit codes are not enough --
-    the original failure mode was a clean exit over an incomplete file.
-
-    Sites the worker was told to tolerate are subtracted from the expected count,
-    otherwise the driver rejects exactly the output it authorised. What must still
-    hold is that every requested site is accounted for: written, or recorded as
-    missing. A record that is neither is unexplained loss.
-    """
-    path = out_vcf + ".manifest.json"
-    if not os.path.exists(path):
-        return None, f"{sampleID}: no manifest written"
-    m = json.load(open(path))
-    if m["status"] != "ok":
-        return m, f"{sampleID}: status={m['status']} errors={m['errors']}"
-
-    expected = m["expected_sv"] + m["expected_lv"]
-    n_missing = len(m.get("missing_sites", []))
-    n_unexplained = len(m.get("unexplained_missing", []))
-
-    if n_unexplained > max_missing:
-        return m, (f"{sampleID}: {n_unexplained} unexplained missing sites, above "
-                   f"--max-missing {max_missing} ({n_missing} missing in total)")
-    if m["observed_out"] + n_missing != expected:
-        unexplained = expected - n_missing - m["observed_out"]
-        return m, (f"{sampleID}: {m['observed_out']} records + {n_missing} recorded "
-                   f"missing != {expected} expected ({unexplained} unaccounted for)")
-    if m["duplicates"]:
-        return m, f"{sampleID}: {m['duplicates']} duplicate records"
-    return m, None
+        try:
+            for root, _, files in os.walk(d):
+                for fn in files:
+                    try:
+                        freed += os.path.getsize(os.path.join(root, fn))
+                    except OSError:
+                        pass
+            shutil.rmtree(d, ignore_errors=True)
+        except Exception as e:
+            warn(f"{sample_id}: could not remove {d}: {e}")
+    if freed:
+        log(f"{sample_id}: freed {freed / 1e9:.1f} GB")
 
 
 def main():
     args = parse_args()
+    man = Manifest(sample_id=args.SampleID)
+    fm_obj = None
 
-    fm_obj = FM(genome_version=args.genome_version)
-    fm_obj.readSampleDatabase()
-    fm_obj.readAlignmentDatabase()
-
-    stem = args.run_name
-    if stem is None:
-        src_name = args.candidates or "candidateQTNs_all.tsv"
-        stem = os.path.splitext(os.path.basename(src_name))[0]
-    stem = stem.strip("/")
-    out_dir = fm_obj.localNikeshDir + stem + "/"
-    log(f"output folder: {out_dir}")
-    os.makedirs(out_dir, exist_ok=True)
-    os.makedirs(fm_obj.localErrorsDir, exist_ok=True)
-    sync_from_cloud(fm_obj, out_dir, skip=args.no_sync)
-    ensure_reference(fm_obj)
-
-    dt = load_candidates(fm_obj, args)
-
-    problems, cautions, versions = preflight(args, fm_obj, dt)
-
-    # Build the two site files.
-    sv_vcf_file = out_dir + stem + "_sv.vcf"
-    sv_norm_vcf_file = out_dir + stem + "_sv.norm.vcf.gz"
-    lv_csv_file = out_dir + stem + "_lv.csv"
-
-    is_small = (dt.Alt.str.len() <= args.threshold) & (dt.Reference.str.len() <= args.threshold)
-    sv_dt, lv_dt = dt[is_small], dt[~is_small]
-    if len(sv_dt) + len(lv_dt) != len(dt):
-        problems.append("small/large partition does not cover the candidate table")
-    log(f"partition at threshold {args.threshold}: {len(sv_dt)} small, {len(lv_dt)} large")
-
-    print_sv(sv_vcf_file, sv_dt)
-    normalize_sites(sv_vcf_file, fm_obj.localGenomeFile, sv_norm_vcf_file)
-    lv_dt.to_csv(lv_csv_file, index=False)
-
-    # Match REF allele case to the reference before anything reads this file.
-    # The genome is soft-masked; a sites VCF written with .upper() disagrees with
-    # it at every repeat-masked position. Harmless if bcftools is case-insensitive,
-    # necessary if it is not -- so just do it rather than testing for it. The
-    # reference itself is never modified.
-    sv_cased_vcf_file = out_dir + stem + "_sv.norm.cased.vcf.gz"
-    case_stats = pc.case_match_sites(sv_norm_vcf_file, fm_obj.localGenomeFile,
-                                     sv_cased_vcf_file)
-    log(f"allele case vs reference: {case_stats['already_matching']} already matched, "
-        f"{case_stats['case_corrected']} corrected, "
-        f"{case_stats['true_mismatch']} genuinely mismatched")
-    sv_norm_vcf_file = sv_cased_vcf_file
-
-    if args.max_missing_frac is not None:
-        args.max_missing = max(1, int(round(args.max_missing_frac * len(sv_dt))))
-        log(f"--max-missing-frac {args.max_missing_frac} over {len(sv_dt)} small "
-            f"variants -> --max-missing {args.max_missing}")
-
-    p2, c2 = preflight_sites(sv_norm_vcf_file, fm_obj.localGenomeFile, len(sv_dt))
-    problems += p2
-    cautions += c2
-
-    aligned_samples, c3 = preflight_samples(fm_obj, args.ecogroups)
-    cautions += c3
-    cautions += preflight_disk(fm_obj, aligned_samples, args.num_parallel,
-                               args.keep_bams)
-
-    log("=== preflight summary ===")
-    for c in cautions:
-        warn(c)
-    for p in problems:
-        log(p, "ERROR")
-
-    if problems and not args.force:
-        log(f"{len(problems)} blocking problem(s). Fix them, or re-run with --force "
-            f"to proceed anyway.", "ERROR")
-        sys.exit(1)
-    if args.preflight_only:
-        log("preflight complete (--preflight-only)")
-        sys.exit(0)
-    if not aligned_samples:
-        log("no samples to genotype", "ERROR")
-        sys.exit(1)
-
-    def cmd_for(sampleID):
-        out_vcf = out_dir + sampleID + "_" + stem + ".vcf.gz"
-        cmd = ["python", "-m", "unit_scripts.genotypeXYCandidates",
-               sv_norm_vcf_file, lv_csv_file, out_vcf,
-               args.genome_version, sampleID,
-               "--max-missing", str(args.max_missing),
-               "--max-missing-report", str(args.max_missing_report)]
-        if args.keep_bams:
-            cmd.append("--keep-bams")
-        return out_vcf, cmd
-
-    if args.resume:
-        already, thresh_differs = [], []
-        for sampleID in list(aligned_samples):
-            out_vcf, _ = cmd_for(sampleID)
-            if args.recheck:
-                man, problem = check_manifest(out_vcf, sampleID, args.max_missing)
-                done = man is not None and not problem
-            else:
-                done, man = already_done(out_vcf, sampleID)
-                if done and man:
-                    n_un = len(man.get("unexplained_missing", []))
-                    if n_un > args.max_missing:
-                        thresh_differs.append((sampleID, n_un))
-            if done:
-                already.append(sampleID)
-        if thresh_differs:
-            warn(f"{len(thresh_differs)} completed sample(s) have more unexplained "
-                 f"missing sites than the current --max-missing {args.max_missing} "
-                 f"(e.g. {thresh_differs[:3]}). Kept as done; pass --recheck to "
-                 f"re-run them against the current threshold.")
-        if already:
-            aligned_samples = [s for s in aligned_samples if s not in already]
-            log(f"--resume: skipping {len(already)} sample(s) with verified output; "
-                f"{len(aligned_samples)} to run")
-        if not aligned_samples:
-            log("nothing left to do")
-            sys.exit(0)
-
-    aligned_samples = apply_shard(aligned_samples, args.shard)
-    if not aligned_samples:
-        log("no samples in this shard")
-        sys.exit(0)
-
-    # ---------------- smoke test ----------------
-    if not args.skip_smoke_test:
-        probe = aligned_samples[0]
-        log(f"=== smoke test on {probe} ===")
-        out_vcf, command = cmd_for(probe)
-        err = fm_obj.localErrorsDir + "QTGFinder_" + probe + "_errors.txt"
-        rc = run_one(probe, command, err)
-        man, problem = check_manifest(out_vcf, probe, args.max_missing)
-        if rc != 0 or problem:
-            log(f"smoke test failed: {problem or f'exit code {rc}'}", "ERROR")
-            log(f"worker stderr: {err}", "ERROR")
-            if man and man.get("status") != "ok" and man.get("diagnostic"):
-                log("diagnostic: " + json.dumps(man["diagnostic"], indent=2), "ERROR")
-            log("Not launching the remaining samples.", "ERROR")
-            sys.exit(1)
-        n_missing = len(man.get("missing_sites", []))
-        log(f"smoke test passed: {man['observed_out']} records "
-            f"({man['observed_sv']} small + {man['observed_lv']} large), "
-            f"mean depth {man['mean_depth']}"
-            + (f", {n_missing} site(s) uncallable and recorded" if n_missing else ""))
-        aligned_samples = aligned_samples[1:]
-
-    # ---------------- fan out ----------------
-    commands = []
-    for sampleID in aligned_samples:
-        out_vcf, command = cmd_for(sampleID)
-        commands.append(SimpleNamespace(
-            sampleID=sampleID, command=command, out_vcf=out_vcf,
-            error_file=fm_obj.localErrorsDir + "QTGFinder_" + sampleID + "_errors.txt",
-            process=None, error_fp=None))
-
-    pending = list(commands)
-    running, results, failures = [], {}, []
-    total = len(pending)
-    log(f"=== genotyping {total} samples, {args.num_parallel} at a time ===")
-
-    def launch(data):
-        data.error_fp = open(data.error_file, "w")
-        data.process = subprocess.Popen(data.command, stderr=data.error_fp,
-                                        stdout=subprocess.DEVNULL)
-        running.append(data)
-
-    while pending and len(running) < args.num_parallel:
-        launch(pending.pop(0))
-
-    done = 0
-    while running:
-        time.sleep(1)
-        for data in [x for x in running if x.process.poll() is not None]:
-            data.error_fp.close()
-            running.remove(data)
-            done += 1
-
-            man, problem = check_manifest(data.out_vcf, data.sampleID,
-                                          args.max_missing)
-            results[data.sampleID] = man
-            if data.process.returncode != 0 or problem:
-                failures.append(problem or f"{data.sampleID}: exit "
-                                           f"{data.process.returncode}")
-                log(f"[{done}/{total}] {data.sampleID} FAILED -- "
-                    f"{problem or data.process.returncode} (log: {data.error_file})",
-                    "ERROR")
-            else:
-                # Only discard the log when the output has been verified.
-                if os.path.exists(data.error_file):
-                    os.remove(data.error_file)
-                n_missing = len(man.get("missing_sites", []))
-                log(f"[{done}/{total}] {data.sampleID} ok "
-                    f"({man['observed_out']} records, depth {man['mean_depth']}"
-                    + (f", {n_missing} missing" if n_missing else "") + ")")
-
-            if pending:
-                launch(pending.pop(0))
-
-    # ---------------- report ----------------
-    ok = {k: v for k, v in results.items() if v and v.get("status") == "ok"}
-    log("=== run summary ===")
-    log(f"{len(ok)}/{total} samples produced verified output")
-
-    if ok:
-        counts = Counter(v["observed_out"] for v in ok.values())
-        log(f"record counts across samples: {dict(counts)}")
-        if len(counts) > 1:
-            warn("samples disagree on record count -- the matrix will be ragged")
-        depths = [v["mean_depth"] for v in ok.values()]
-        log(f"mean depth: min {min(depths):.1f}, median "
-            f"{sorted(depths)[len(depths) // 2]:.1f}, max {max(depths):.1f}")
-        nocall = [(k, v["genotype_counts"].get("./.", 0) / max(1, v["observed_out"]))
-                  for k, v in ok.items()]
-        bad = [k for k, f in nocall if f > 0.5]
-        if bad:
-            warn(f"{len(bad)} samples are more than half no-calls: {bad[:10]}")
-
-        # Which sites go missing, and in how many samples. A site missing
-        # everywhere is a property of the site; a site missing in a few samples
-        # is a property of those samples' coverage.
-        site_counts, rerep_counts = Counter(), Counter()
-        for v in ok.values():
-            for e in v.get("missing_sites", []):
-                site_counts[(e["chrom"], e["pos"], e["type"])] += 1
-            for e in v.get("rerepresented_sites", []):
-                rerep_counts[(e["chrom"], e["pos"], e["type"])] += 1
-
-        if rerep_counts:
-            log(f"{len(rerep_counts)} site(s) returned with re-anchored alleles "
-                f"(present in output; join on chrom+pos, not on alleles):")
-            for (c, p, t), n in rerep_counts.most_common(10):
-                log(f"    {c}:{p} [{t}] in {n}/{len(ok)} samples")
-
-        if site_counts:
-            log(f"{len(site_counts)} distinct site(s) ABSENT in at least one sample:")
-            for (c, p, t), n in site_counts.most_common(15):
-                log(f"    {c}:{p} [{t}] absent in {n}/{len(ok)} samples")
-            universal = [k for k, n in site_counts.items() if n == len(ok)]
-            if universal:
-                warn(f"{len(universal)} site(s) absent in EVERY sample -- uncallable by "
-                     f"this pipeline rather than sample-specific dropouts")
-
-    if failures:
-        log(f"{len(failures)} failures:", "ERROR")
-        for f in failures:
-            log("  " + f, "ERROR")
-        log(f"worker logs kept in {fm_obj.localErrorsDir}", "ERROR")
-
-    summary_path = out_dir + stem + "_run_summary.json"
-    with open(summary_path, "w") as fh:
-        json.dump({
-            "finished": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "tool_versions": versions,
-            "expected_records": len(sv_dt) + len(lv_dt),
-            "n_requested": total,
-            "n_ok": len(ok),
-            "failures": failures,
-            "preflight_problems": problems,
-            "preflight_cautions": cautions,
-            "samples": results,
-        }, fh, indent=2)
-    log(f"summary written to {summary_path}")
-
-    # Push the whole candidate directory back to cloud storage: sites VCFs, the
-    # large-variant CSV, every per-sample VCF and manifest, and this summary.
-    # rclone copy is incremental, so re-running after a --resume pass is cheap.
     try:
-        fm_obj.uploadData(out_dir.rstrip("/"))
-        log(f"uploaded {out_dir} to cloud storage")
-    except Exception as e:
-        log(f"upload of {out_dir} failed: {e}", "ERROR")
+        # ---------------- preflight ----------------
+        man.tool_versions = pc.require_tools()
+        # Detected once and passed explicitly, so every sample in a run uses the
+        # same indel model. Letting it default to True would make the run fail
+        # outright on a build without the flag; letting it silently default to
+        # False would change the calls without saying so.
+        use_indels_2 = pc.mpileup_supports("--indels-2.0")
+        if not use_indels_2:
+            man.add_warning("this bcftools build does not advertise --indels-2.0; "
+                            "falling back to the default indel model, which is less "
+                            "accurate for small indels in repeats")
 
-    sys.exit(1 if failures else 0)
+        fm_obj = FM(genome_version=args.genome_version)
+        fm_obj.createSampleFiles(args.SampleID, reads=False)
+
+        pc.require_file(fm_obj.localGenomeFile, "reference FASTA", min_bytes=1000)
+        pc.require_index(fm_obj.localGenomeFile, "reference FASTA")
+        pc.require_file(args.SV_VCF, "small-variant sites VCF")
+        pc.require_index(args.SV_VCF, "small-variant sites VCF")
+        pc.require_file(args.LV_CSV, "large-variant CSV")
+
+        fm_obj.downloadData(fm_obj.localSampleBamDir)
+
+        pc.require_file(fm_obj.localBamFile, "sample BAM", min_bytes=10000)
+        pc.require_index(fm_obj.localBamFile, "sample BAM")
+        if not os.path.exists(fm_obj.localDiscordantBamFile):
+            man.add_warning("discordant BAM missing; large-indel sensitivity will drop")
+
+        overlap = pc.contig_overlap(fm_obj.localBamFile, fm_obj.localGenomeFile)
+        if overlap["shared"] == 0:
+            raise PipelineError(
+                f"BAM and reference share no contig names. "
+                f"BAM has {overlap['bam_only']}, reference has {overlap['ref_only']}")
+
+        expected_sv = pc.count_vcf_records(args.SV_VCF)
+        lv_dt = pd.read_csv(args.LV_CSV)
+        expected_lv = len(lv_dt)
+        man.expected_sv, man.expected_lv = expected_sv, expected_lv
+        log(f"{args.SampleID}: expecting {expected_sv} small + {expected_lv} large "
+            f"= {expected_sv + expected_lv} records")
+
+        if expected_sv == 0:
+            raise PipelineError(f"sites VCF {args.SV_VCF} contains no records")
+        if expected_lv == 0:
+            man.add_warning(f"{args.LV_CSV} contains no large variants")
+
+        refObj = pysam.FastaFile(fm_obj.localGenomeFile)
+
+        # ---------------- stage 1: small variants ----------------
+        sv_temp_vcf = fm_obj.localSampleTempDir + args.SampleID + ".sv.vcf.gz"
+        try:
+            genotype_at_sites(fm_obj.localBamFile, args.SV_VCF,
+                              fm_obj.localGenomeFile, sv_temp_vcf,
+                              indels_2=use_indels_2)
+        except BcftoolsError as e:
+            raise PipelineError(f"small-variant genotyping raised: {e}")
+
+        observed_sv = pc.count_vcf_records(sv_temp_vcf)
+        man.observed_sv = observed_sv
+        log(f"{args.SampleID}: small-variant stage produced {observed_sv}/{expected_sv}")
+
+        if observed_sv != expected_sv:
+            # This is the failure that used to pass silently. Diagnose it here,
+            # while the BAM is still local, rather than making someone re-derive it.
+            man.diagnostic = pc.diagnose_empty_genotyping(
+                fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile,
+                expected=expected_sv, observed=observed_sv)
+            ref_check = pc.check_reference_alleles(args.SV_VCF, fm_obj.localGenomeFile)
+            man.diagnostic["reference_alleles"] = ref_check
+            # Ask bcftools directly which allele casing it will accept, using this
+            # sample's own BAM, rather than leaving it as a manual experiment.
+            man.diagnostic["allele_casing"] = pc.probe_allele_casing(
+                fm_obj.localBamFile, args.SV_VCF, fm_obj.localGenomeFile,
+                fm_obj.localSampleTempDir + "casing_probe/")
+            man.missing_sites, man.rerepresented_sites = pc.missing_sites(
+                args.SV_VCF, sv_temp_vcf, bam_file=fm_obj.localBamFile)
+            man.n_missing_total = len(man.missing_sites)
+            man.n_rerepresented_total = len(man.rerepresented_sites)
+            cap = args.max_missing_report
+            if cap and len(man.missing_sites) > cap:
+                warn(f"{len(man.missing_sites)} missing sites; storing detail for "
+                     f"the first {cap} (counts remain complete)")
+                man.missing_sites = man.missing_sites[:cap]
+            if cap and len(man.rerepresented_sites) > cap:
+                man.rerepresented_sites = man.rerepresented_sites[:cap]
+            msg = (f"small-variant stage produced {observed_sv} of {expected_sv} "
+                   f"expected records.\n"
+                   f"  unconstrained pileup at the same sites: "
+                   f"{man.diagnostic.get('unconstrained_records', 'n/a')} records\n"
+                   f"  interpretation: {man.diagnostic.get('interpretation')}\n"
+                   f"  sites VCF REF vs genome: {ref_check['n_exact']} exact, "
+                   f"{ref_check['n_case_only']} differ only in case, "
+                   f"{ref_check['n_mismatch']} genuinely mismatched\n"
+                   f"  targets file: {sv_temp_vcf}.targets.tsv.gz")
+            casing = man.diagnostic.get("allele_casing", {})
+            if casing.get("conclusion"):
+                msg += f"\n  allele casing probe: {casing['conclusion']}"
+                for mode in ("upper", "lower", "genome"):
+                    if mode in casing:
+                        msg += (f"\n    {mode:7s} -> {casing[mode]['records']}"
+                                f"/{casing[mode]['of']} records")
+            if man.rerepresented_sites:
+                msg += (f"\n  {len(man.rerepresented_sites)} site(s) returned with "
+                        f"different alleles than requested (present in the output, "
+                        f"joinable on chrom+pos):")
+                for e in man.rerepresented_sites[:5]:
+                    msg += (f"\n    {e['chrom']}:{e['pos']} asked {e['ref']}>{e['alt']} "
+                            f"[{e['type']}], got {','.join(e['output_alleles'])}")
+            if man.missing_sites:
+                by_type = {}
+                for e in man.missing_sites:
+                    by_type[e["type"]] = by_type.get(e["type"], 0) + 1
+                msg += f"\n  {len(man.missing_sites)} site(s) ABSENT, by type: {by_type}"
+                for e in man.missing_sites[:8]:
+                    msg += (f"\n    {e['chrom']}:{e['pos']} {e['ref']}>{e['alt']} "
+                            f"[{e['type']}] reads={e.get('depth_raw', '?')} "
+                            f"usable(MQ>=20)={e.get('depth_mq20', '?')} "
+                            f"MQ0={e.get('frac_mq0', '?')}")
+                nodata = [e for e in man.missing_sites if not e.get("depth_raw")]
+                unmappable = [e for e in man.missing_sites
+                              if e.get("depth_mq20") == 0 and e.get("depth_raw", 0) > 0]
+                if nodata:
+                    msg += (f"\n  {len(nodata)} with no reads at all -- coverage gap "
+                            f"in this sample.")
+                if unmappable:
+                    msg += (f"\n  {len(unmappable)} with reads but none passing "
+                            f"--min-MQ 20 -- multi-mapping repeat sequence, not a "
+                            f"caller failure.")
+                if man.unexplained_missing:
+                    msg += (f"\n  {len(man.unexplained_missing)} had usable reads and "
+                            f"still produced no record -- these are the ones worth "
+                            f"looking at.")
+
+            # A site with no usable reads was never callable in this sample; that is
+            # a coverage fact, not a pipeline fault, and counting it against a fixed
+            # budget just penalises low-coverage samples for being low-coverage.
+            man.unexplained_missing = [e for e in man.missing_sites
+                                       if e.get("depth_mq20", 0) > 0]
+            n_unexplained = len(man.unexplained_missing)
+            if cap and man.n_missing_total > cap:
+                # Scale the sampled rate up, so the threshold still means what it
+                # says when the detail list has been truncated.
+                n_unexplained = int(round(n_unexplained
+                                          * man.n_missing_total / len(man.missing_sites)))
+
+            if n_unexplained <= args.max_missing and observed_sv > 0:
+                man.add_warning(
+                    f"tolerating {len(man.missing_sites)} missing site(s), "
+                    f"{n_unexplained} of them unexplained "
+                    f"(--max-missing {args.max_missing})\n" + msg)
+            elif not args.allow_partial:
+                raise PipelineError(msg)
+            else:
+                man.add_warning(msg)
+
+        # ---------------- stage 2: large variants ----------------
+        lv_temp_vcf = fm_obj.localSampleTempDir + args.SampleID + ".lv.vcf.gz"
+        calls = []
+        for i, row in lv_dt.iterrows():
+            classifier = IndelReadClassifier.from_vcf_record(
+                ref_genome=refObj, chrom=row.Chromosome, position=row.Position,
+                ref=row.Reference.upper(), alt=row.Alt.upper(), flanking=250,
+            )
+            reads = classifier.fetch_reads_near_insertion(
+                bam=fm_obj.localBamFile,
+                discordant_bam=(fm_obj.localDiscordantBamFile
+                                if os.path.exists(fm_obj.localDiscordantBamFile) else None),
+            )
+            pair_results = classifier.classify_read_pairs(reads)
+            call = classifier.call_genotype(pair_results)
+            calls.append(RichCall(
+                chrom=row.Chromosome, pos=int(row.Position),
+                ref=str(row.Reference), alt=str(row.Alt),
+                gt=call.genotype, ad_ref=call.n_ref, ad_alt=call.n_alt,
+                gq=call.quality, n_equal=call.n_equal,
+                n_uninformative=call.n_uninformative,
+            ))
+
+        if len(calls) != expected_lv:
+            raise PipelineError(
+                f"built {len(calls)} classifier calls from {expected_lv} CSV rows")
+
+        write_classifier_vcf_v2(calls, args.SampleID, lv_temp_vcf,
+                                template_vcf=sv_temp_vcf)
+
+        observed_lv = pc.count_vcf_records(lv_temp_vcf)
+        man.observed_lv = observed_lv
+        if observed_lv != expected_lv:
+            raise PipelineError(
+                f"large-variant VCF has {observed_lv} records, expected {expected_lv}. "
+                f"Duplication or loss happened inside write_classifier_vcf_v2.")
+
+        # ---------------- stage 3: concat ----------------
+        sv_names = pc.vcf_sample_names(sv_temp_vcf)
+        lv_names = pc.vcf_sample_names(lv_temp_vcf)
+        if sv_names != lv_names:
+            raise PipelineError(
+                f"sample columns disagree before concat: small={sv_names}, "
+                f"large={lv_names}. bcftools concat will not combine them correctly.")
+
+        concat_sample_vcfs(sv_temp_vcf, lv_temp_vcf, args.OUT_VCF)
+
+        observed_out = pc.count_vcf_records(args.OUT_VCF)
+        man.observed_out = observed_out
+        expected_out = observed_sv + observed_lv
+
+        keys = pc.vcf_keys(args.OUT_VCF)
+        dups = pc.duplicate_keys(keys)
+        man.duplicates = len(dups)
+        man.format_fields = sorted(pc.format_fields(args.OUT_VCF))
+        man.sources = pc.info_sources(args.OUT_VCF)
+
+        if dups:
+            raise PipelineError(
+                f"output contains {len(dups)} duplicate (chrom,pos,ref,alt) records, "
+                f"e.g. {dups[:3]}. Inputs held {observed_sv} + {observed_lv} unique "
+                f"records, so concat is emitting each record more than once.")
+
+        if observed_out != expected_out:
+            raise PipelineError(
+                f"output has {observed_out} records but inputs held "
+                f"{observed_sv} + {observed_lv} = {expected_out}")
+
+        if len(man.sources) < 2 and expected_lv and observed_sv:
+            man.add_warning(f"output records all came from one caller: {man.sources}")
+
+        # ---------------- summary stats ----------------
+        gt_counts, depths = {}, []
+        with pc._open_maybe_gz(args.OUT_VCF) as fh:
+            for line in fh:
+                if line.startswith("#"):
+                    continue
+                f = line.rstrip("\n").split("\t")
+                fmt, val = f[8].split(":"), f[9].split(":")
+                d = dict(zip(fmt, val))
+                gt_counts[d.get("GT", "?")] = gt_counts.get(d.get("GT", "?"), 0) + 1
+                if "AD" in d and "," in d["AD"]:
+                    try:
+                        depths.append(sum(int(x) for x in d["AD"].split(",")))
+                    except ValueError:
+                        pass
+        man.genotype_counts = gt_counts
+        man.mean_depth = round(sum(depths) / len(depths), 2) if depths else 0.0
+
+        nocall = gt_counts.get("./.", 0)
+        if observed_out and nocall / observed_out > 0.5:
+            man.add_warning(f"{nocall}/{observed_out} sites are no-calls; "
+                            f"mean depth {man.mean_depth}")
+
+        # Upload the VCF, its index, and the manifest together. The manifest is not
+        # optional bookkeeping: it records which sites were uncallable in this sample,
+        # which is what lets the browser distinguish "no data here" from "called as
+        # reference". Losing it would silently turn gaps into reference calls.
+        fm_obj.uploadData(args.OUT_VCF)
+        for extra in (args.OUT_VCF + ".tbi", args.OUT_VCF + ".csi"):
+            if os.path.exists(extra):
+                fm_obj.uploadData(extra)
+        man.status = "ok"
+        log(f"{args.SampleID}: OK -- {observed_out} records, "
+            f"mean depth {man.mean_depth}, genotypes {gt_counts}")
+
+    except Exception as e:
+        man.status = "failed"
+        man.errors.append(f"{type(e).__name__}: {e}")
+        log(f"{args.SampleID}: FAILED -- {e}", "ERROR")
+        man.write(args.OUT_VCF + ".manifest.json")
+        if fm_obj is not None:
+            cleanup_sample(fm_obj, args.SampleID, keep=args.keep_bams)
+        sys.exit(1)
+
+    man_path = man.write(args.OUT_VCF + ".manifest.json")
+    try:
+        fm_obj.uploadData(man_path)
+    except Exception as e:
+        warn(f"{args.SampleID}: manifest written locally but upload failed: {e}")
+    cleanup_sample(fm_obj, args.SampleID, keep=args.keep_bams)
 
 
 if __name__ == "__main__":
