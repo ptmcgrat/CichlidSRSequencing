@@ -178,6 +178,23 @@ def preflight(args, fm_obj, dt):
     if dup_pos:
         problems.append(f"{dup_pos} duplicate rows in {args.candidates}")
 
+    # Several named variants can legitimately share a coordinate -- typically an X
+    # allele and a Y allele of the same event. bcftools emits one record per
+    # position, so only one of each group can be force-called in a single pass.
+    # Flagged as a caution, not a problem: the rest are unaffected and the manifests
+    # record by name which allele was not returned.
+    shared = dt.duplicated(subset=["Chromosome", "Position"], keep=False)
+    n_shared = int(shared.sum())
+    if n_shared:
+        n_pos = int(dt[shared].groupby(["Chromosome", "Position"]).ngroups)
+        cautions.append(
+            f"{n_shared} variants share {n_pos} coordinate(s) with another variant "
+            f"(usually paired X and Y alleles of one event). bcftools returns one "
+            f"record per position, so roughly {n_pos} of these will come back as "
+            f"missing -- about {n_pos / max(1, len(dt)) * 100:.1f}% of the set. To "
+            f"genotype both alleles they would need merging into multiallelic "
+            f"records, or running as two separate passes.")
+
     for col in ["Chromosome", "Position", "Reference", "Alt", "Q", "Info"]:
         if col not in dt.columns:
             problems.append(f"candidate table is missing column {col}")

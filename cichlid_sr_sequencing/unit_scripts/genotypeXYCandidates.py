@@ -1,4 +1,9 @@
-"""Genotype candidate QTNs for a single sample.
+"""Genotype a large candidate-QTN set for a single sample (chr10 X/Y region).
+
+Fork of genotypeCandidates.py. Identical logic, plus a cap on how much per-site
+detail goes into the manifest: at tens of thousands of sites an uncapped missing
+list would be larger than the VCF it describes. Kept as a separate file so the
+200 kb pipeline, which has 367 verified samples behind it, stays untouched.
 
 Two callers contribute to the output: bcftools force-calling for variants whose
 ref and alt are both short, and IndelReadClassifier for everything longer. Each
@@ -47,6 +52,10 @@ def parse_args():
                    help="Write output even when a stage produced fewer records than "
                         "expected. Off by default: a partial VCF that looks complete "
                         "is worse than no VCF.")
+    p.add_argument("--max-missing-report", type=int, default=200,
+                   help="Cap on per-site detail stored in the manifest. Counts stay "
+                        "complete; only the list is truncated. At 200k sites an "
+                        "uncapped list would make the manifest larger than the VCF.")
     p.add_argument("--keep-bams", action="store_true",
                    help="Keep the downloaded BAM and temp files after the sample "
                         "finishes. Off by default: BAMs are ~10 GB each and 370 of "
@@ -236,7 +245,15 @@ def main():
                 fm_obj.localSampleTempDir + "casing_probe/")
             man.missing_sites, man.rerepresented_sites = pc.missing_sites(
                 args.SV_VCF, sv_temp_vcf, bam_file=fm_obj.localBamFile)
-
+            man.n_missing_total = len(man.missing_sites)
+            man.n_rerepresented_total = len(man.rerepresented_sites)
+            cap = args.max_missing_report
+            if cap and len(man.missing_sites) > cap:
+                warn(f"{len(man.missing_sites)} missing sites; storing detail for "
+                     f"the first {cap} (counts remain complete)")
+                man.missing_sites = man.missing_sites[:cap]
+            if cap and len(man.rerepresented_sites) > cap:
+                man.rerepresented_sites = man.rerepresented_sites[:cap]
             msg = (f"small-variant stage produced {observed_sv} of {expected_sv} "
                    f"expected records.\n"
                    f"  unconstrained pileup at the same sites: "
@@ -291,6 +308,11 @@ def main():
             man.unexplained_missing = [e for e in man.missing_sites
                                        if e.get("depth_mq20", 0) > 0]
             n_unexplained = len(man.unexplained_missing)
+            if cap and man.n_missing_total > cap:
+                # Scale the sampled rate up, so the threshold still means what it
+                # says when the detail list has been truncated.
+                n_unexplained = int(round(n_unexplained
+                                          * man.n_missing_total / len(man.missing_sites)))
 
             if n_unexplained <= args.max_missing and observed_sv > 0:
                 man.add_warning(
