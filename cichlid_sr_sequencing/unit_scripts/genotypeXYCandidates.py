@@ -194,8 +194,6 @@ def main():
 
         pc.require_file(fm_obj.localBamFile, "sample BAM", min_bytes=10000)
         pc.require_index(fm_obj.localBamFile, "sample BAM")
-        if not os.path.exists(fm_obj.localDiscordantBamFile):
-            man.add_warning("discordant BAM missing; large-indel sensitivity will drop")
 
         overlap = pc.contig_overlap(fm_obj.localBamFile, fm_obj.localGenomeFile)
         if overlap["shared"] == 0:
@@ -326,6 +324,18 @@ def main():
 
         # ---------------- stage 2: large variants ----------------
         lv_temp_vcf = fm_obj.localSampleTempDir + args.SampleID + ".lv.vcf.gz"
+        # Open the BAM once for the whole sample. fetch_reads_near_insertion
+        # accepts an open handle, and opening a 10 GB BAM plus its index once
+        # per variant is pure waste at this variant count.
+        main_bam = pysam.AlignmentFile(fm_obj.localBamFile, "rb")
+
+        # The split BAMs are deliberately not used. The discordant file holds
+        # only inter-chromosomal pairs, which misses a transposon inserting near
+        # another copy of itself on the same chromosome, and the reads that
+        # matter most -- unmapped reads carrying the inserted sequence -- are in
+        # a different file again. Reading them from the main BAM with
+        # include_unmapped is both simpler and more complete.
+        disc_bam = None
         calls = []
         for i, row in lv_dt.iterrows():
             classifier = IndelReadClassifier.from_vcf_record(
@@ -333,9 +343,12 @@ def main():
                 ref=row.Reference.upper(), alt=row.Alt.upper(), flanking=250,
             )
             reads = classifier.fetch_reads_near_insertion(
-                bam=fm_obj.localBamFile,
-                discordant_bam=(fm_obj.localDiscordantBamFile
-                                if os.path.exists(fm_obj.localDiscordantBamFile) else None),
+                bam=main_bam,
+                discordant_bam=None,
+                # Unmapped reads sit at their mate's coordinate, so the region
+                # query already returns them; keeping them recovers the ALT
+                # evidence for insertions absent from the reference.
+                include_unmapped=True,
             )
             pair_results = classifier.classify_read_pairs(reads)
             call = classifier.call_genotype(pair_results)
@@ -346,6 +359,8 @@ def main():
                 gq=call.quality, n_equal=call.n_equal,
                 n_uninformative=call.n_uninformative,
             ))
+
+        main_bam.close()
 
         if len(calls) != expected_lv:
             raise PipelineError(

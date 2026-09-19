@@ -745,7 +745,8 @@ class IndelReadClassifier:
                                    *,
                                    window: int | None = None,
                                    min_mapq: int = 0,
-                                   disc_region_fetch: bool = False
+                                   disc_region_fetch: bool = False,
+                                   include_unmapped: bool = False
                                    ) -> list[tuple[str, str]]:
         """Pull reads from a BAM around the configured insertion site.
 
@@ -806,8 +807,23 @@ class IndelReadClassifier:
             collected: dict[str, str] = {}  # full_read_id -> sequence; dedupes
 
             # 1. Anchored reads in the window
+            #
+            # With include_unmapped, unmapped reads are kept as well. An aligner
+            # stores an unmapped read at its mapped mate's coordinate, so a
+            # region query returns them here already -- they were previously
+            # discarded by the mapping-quality filter. For an insertion absent
+            # from the reference these are the reads carrying the inserted
+            # sequence, i.e. the strongest ALT evidence available, so throwing
+            # them away biases calls toward the reference allele.
             for r in main_bam.fetch(self.contig, win_start, win_end):
-                if not self._keep_alignment(r, min_mapq):
+                if r.is_duplicate or r.is_secondary or r.is_supplementary:
+                    continue
+                if r.is_unmapped:
+                    # No meaningful mapping quality on an unmapped read, so the
+                    # min_mapq filter cannot apply to it.
+                    if not include_unmapped:
+                        continue
+                elif r.mapping_quality < min_mapq:
                     continue
                 if r.query_sequence is None:
                     continue   # no sequence stored
@@ -864,9 +880,13 @@ class IndelReadClassifier:
                     key = self._read_key(r)
                     if key not in collected:
                         collected[key] = r.query_sequence
-            else:
-                # Fallback: recover unmapped mates from the main BAM
-                # (slower but works without a separate file)
+            elif not include_unmapped:
+                # Fallback: recover unmapped mates from the main BAM.
+                #
+                # Only useful when include_unmapped is off, and even then it
+                # rarely fires: pysam's mate() raises ValueError precisely when
+                # the mate is unmapped, which is the case this loop is looking
+                # for. Kept so existing callers behave exactly as before.
                 for r in main_bam.fetch(self.contig, win_start, win_end):
                     if not self._keep_alignment(r, min_mapq):
                         continue
