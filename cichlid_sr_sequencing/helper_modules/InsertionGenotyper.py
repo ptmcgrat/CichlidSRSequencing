@@ -464,7 +464,11 @@ class IndelReadClassifier:
     # -- Internal alignment helper ------------------------------------------
 
     def _best_alignment(self, read: str, target: str):
-        """Align read in both orientations, return the better of the two."""
+        """Align read in both orientations, return the better of the two.
+
+        Kept for callers that want a traced alignment directly. classify_read
+        no longer uses it -- see _best_score / _trace_one.
+        """
         fwd = parasail.sw_trace_striped_16(
             read, target, self.gap_open, self.gap_extend, parasail.dnafull
         )
@@ -472,6 +476,28 @@ class IndelReadClassifier:
             revcomp(read), target, self.gap_open, self.gap_extend, parasail.dnafull
         )
         return fwd if fwd.score >= rev.score else rev
+
+    def _best_score(self, read: str, target: str) -> tuple[int, bool]:
+        """Best Smith-Waterman score over both orientations, without traceback.
+
+        sw_striped_16 allocates no traceback matrix, unlike sw_trace_striped_16
+        which allocates read x target bytes -- roughly 9 MB for a 60 kb
+        insertion, on every call. Returns (score, used_revcomp).
+        """
+        fwd = parasail.sw_striped_16(
+            read, target, self.gap_open, self.gap_extend, parasail.dnafull
+        )
+        rev = parasail.sw_striped_16(
+            revcomp(read), target, self.gap_open, self.gap_extend, parasail.dnafull
+        )
+        return (fwd.score, False) if fwd.score >= rev.score else (rev.score, True)
+
+    def _trace_one(self, read: str, target: str, use_revcomp: bool):
+        """Traceback alignment in one known orientation only."""
+        query = revcomp(read) if use_revcomp else read
+        return parasail.sw_trace_striped_16(
+            query, target, self.gap_open, self.gap_extend, parasail.dnafull
+        )
 
     # -- Per-read classification --------------------------------------------
 
@@ -481,20 +507,38 @@ class IndelReadClassifier:
             return ReadResult(read_id, Support.UNINFORMATIVE, 0, 0, None, None,
                               spans_breakpoint=False, note="empty sequence")
 
-        aln_ref = self._best_alignment(read_seq, self.ref_allele)
-        aln_alt = self._best_alignment(read_seq, self.alt_allele)
-        score_ref, score_alt = aln_ref.score, aln_alt.score
-        span_ref = _aligned_span_on_target(aln_ref)
-        span_alt = _aligned_span_on_target(aln_alt)
+        # Scores first, cheaply. A traceback is then computed only for the
+        # allele whose span the decision actually depends on, which is one
+        # alignment in the common case instead of four. The alignment that
+        # gets traced is the same one the old code would have used, so
+        # classifications are identical.
+        score_ref, rev_ref = self._best_score(read_seq, self.ref_allele)
+        score_alt, rev_alt = self._best_score(read_seq, self.alt_allele)
 
         min_score = self.min_score_frac * len(read_seq) * _DNAFULL_MATCH_SCORE
         if max(score_ref, score_alt) < min_score:
+            # Spans are recorded but never read downstream, and neither
+            # traceback would change the verdict.
             return ReadResult(read_id, Support.UNINFORMATIVE,
-                              score_ref, score_alt, span_ref, span_alt,
+                              score_ref, score_alt, None, None,
                               spans_breakpoint=False,
                               note="below min_score on both alleles")
 
         diff = score_ref - score_alt
+
+        if abs(diff) < self.score_margin:
+            span_ref = _aligned_span_on_target(
+                self._trace_one(read_seq, self.ref_allele, rev_ref))
+            span_alt = _aligned_span_on_target(
+                self._trace_one(read_seq, self.alt_allele, rev_alt))
+        elif diff > 0:
+            span_ref = _aligned_span_on_target(
+                self._trace_one(read_seq, self.ref_allele, rev_ref))
+            span_alt = None
+        else:
+            span_ref = None
+            span_alt = _aligned_span_on_target(
+                self._trace_one(read_seq, self.alt_allele, rev_alt))
 
         if abs(diff) < self.score_margin:
             spans_either = (
@@ -700,7 +744,8 @@ class IndelReadClassifier:
                                    discordant_bam=None,
                                    *,
                                    window: int | None = None,
-                                   min_mapq: int = 0
+                                   min_mapq: int = 0,
+                                   disc_region_fetch: bool = False
                                    ) -> list[tuple[str, str]]:
         """Pull reads from a BAM around the configured insertion site.
 
@@ -771,10 +816,27 @@ class IndelReadClassifier:
 
             # 2. Unmapped mates whose anchored mate is in the window
             if disc_bam is not None:
-                if not disc_bam.has_index():
-                    # Allow unindexed discordant BAM — just iterate it
-                    iterator = disc_bam.fetch(until_eof=True)
-                else:
+                # Both branches of the original if/else called
+                # fetch(until_eof=True), so every call scanned the whole
+                # discordant BAM. Fine for a handful of variants; ruinous for
+                # thousands, where it dominates the entire runtime.
+                #
+                # With disc_region_fetch, an indexed discordant BAM is queried
+                # by region instead. Unmapped reads are stored at their mate's
+                # coordinate, so the reads this function is looking for are
+                # found by a positional query. Mapped discordant reads whose
+                # own position lies outside the window are no longer seen --
+                # those carry sequence from elsewhere and score below
+                # min_score against the local alleles anyway.
+                iterator = None
+                if disc_region_fetch:
+                    try:
+                        if disc_bam.has_index():
+                            iterator = disc_bam.fetch(self.contig,
+                                                      win_start, win_end)
+                    except (ValueError, AttributeError):
+                        iterator = None
+                if iterator is None:
                     iterator = disc_bam.fetch(until_eof=True)
                 for r in iterator:
                     if r.is_duplicate or r.is_secondary or r.is_supplementary:
@@ -960,4 +1022,3 @@ def concat_sample_vcfs(
     ], check=True)
     subprocess.run(["tabix", "-f", "-p", "vcf", output_vcf], check=True)
     os.remove(tmp)
- 
