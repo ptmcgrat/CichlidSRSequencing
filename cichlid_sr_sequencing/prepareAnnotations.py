@@ -88,20 +88,34 @@ def filter_contig(src, contig, out_gz):
     raw = out_gz[:-3] if out_gz.endswith(".gz") else out_gz
     kinds = Counter()
     n_kept = n_total = 0
-    with open_maybe_gz(src) as fh, open(raw, "w") as out:
+    header, feats = [], []
+    with open_maybe_gz(src) as fh:
         for line in fh:
             if line.startswith("#"):
                 if line.startswith("##sequence-region"):
                     parts = line.split()
                     if len(parts) > 1 and parts[1] != contig:
                         continue
-                out.write(line)
+                header.append(line)
                 continue
             n_total += 1
-            if line.split("\t", 1)[0] != contig:
+            f = line.split("\t")
+            if f[0] != contig:
                 continue
             n_kept += 1
-            kinds[line.split("\t")[2]] += 1
+            kinds[f[2]] += 1
+            feats.append((int(f[3]), line))
+
+    # NCBI groups features by gene rather than by coordinate, so a later gene can
+    # start before an earlier gene's children end -- which tabix rejects. Sorting
+    # by start fixes it. Python's sort is stable, so features sharing a start keep
+    # their original gene -> mRNA -> exon -> CDS order. bcftools csq rebuilds the
+    # hierarchy from ID/Parent rather than from file order, so this is safe.
+    feats.sort(key=lambda t: t[0])
+
+    with open(raw, "w") as out:
+        out.writelines(header)
+        for _, line in feats:
             out.write(line)
 
     subprocess.run(["bgzip", "-f", raw], check=True)
