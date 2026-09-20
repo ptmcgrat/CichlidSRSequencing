@@ -135,6 +135,7 @@ def main():
     key_to_i = {int(p): i for i, p in enumerate(dt.Position)}
     names = dt.Name.tolist()
     positions = dt.Position.tolist()
+    classes = dt.Notes.str.extract(r"CLASS=([^;]+)")[0].fillna("unknown").tolist()
     NV = len(dt)
     log(f"{NV:,} variants in the candidate table")
 
@@ -149,6 +150,13 @@ def main():
     syy = [0.0] * NV
     sxy = [0.0] * NV
     n_corr = [0] * NV
+    # Carriers and called counts split by inversion state. This is the statistic
+    # the scorecard actually uses -- a Y-restricted variant is present in
+    # heterozygotes (inv=1) and absent from homozygotes (inv=2) -- and it is NOT
+    # a linear function of inversion dosage, so the Pearson r above cannot
+    # express it.
+    carr = [[0, 0, 0] for _ in range(NV)]
+    call_by_inv = [[0, 0, 0] for _ in range(NV)]
 
     for si, (sid, path) in enumerate(pairs, 1):
         inv_s = meta.get(sid, {}).get("inv", -1)
@@ -174,6 +182,9 @@ def main():
                 elif g == 2:
                     n_hom[i] += 1
                 if inv_s >= 0:
+                    call_by_inv[i][inv_s] += 1
+                    if g > 0:
+                        carr[i][inv_s] += 1
                     n_corr[i] += 1
                     sx[i] += inv_s; sy[i] += g
                     sxx[i] += inv_s * inv_s; syy[i] += g * g
@@ -193,32 +204,60 @@ def main():
         called = n_called[i]
         af = ((n_het[i] + 2 * n_hom[i]) / (2 * called)) if called else None
         hap = str(names[i]).split("_")[0]
-        # A Y-labelled variant should ride the inverted haplotype (positive r);
-        # an X-labelled one should be anti-correlated. XY sites carry a different
-        # allele on each haplotype, so no single expectation applies.
-        expected = 1 if hap == "Y" else -1 if hap == "X" else 0
-        agrees = None
-        if expected and abs(r) >= 0.3:
-            agrees = bool((r > 0) == (expected > 0))
+
+        # phi between "inversion heterozygote" and "carries the alt allele",
+        # over inv=1 and inv=2 samples only. phi = 1 means the variant is
+        # present in every heterozygote and absent from every homozygote --
+        # the Y-restricted pattern. Deliberately separate from inv_r: the two
+        # answer different questions and a variant can score high on one and
+        # low on the other.
+        a = carr[i][1]                      # inv=1 carriers
+        b = call_by_inv[i][1] - a           # inv=1 non-carriers
+        c = carr[i][2]                      # inv=2 carriers
+        d = call_by_inv[i][2] - c           # inv=2 non-carriers
+        den = math.sqrt(float((a + b) * (c + d) * (a + c) * (b + d)))
+        phi_het = ((a * d - b * c) / den) if den > 0 else 0.0
+
+        f1 = a / (a + b) if (a + b) else None
+        f2 = c / (c + d) if (c + d) else None
+        f0 = (carr[i][0] / call_by_inv[i][0]) if call_by_inv[i][0] else None
+
         rows.append({
             "name": names[i], "pos": positions[i], "hap": hap,
+            "cls": classes[i],
             "n_called": called, "n_het": n_het[i], "n_hom": n_hom[i],
             "af": round(af, 4) if af is not None else "",
             "inv_r": round(r, 4), "n_inv_typed": n,
-            "label_agrees": agrees,
+            "phi_het": round(phi_het, 4),
+            "freq_inv0": round(f0, 4) if f0 is not None else "",
+            "freq_inv1": round(f1, 4) if f1 is not None else "",
+            "freq_inv2": round(f2, 4) if f2 is not None else "",
+            "n_inv0": call_by_inv[i][0], "n_inv1": call_by_inv[i][1],
+            "n_inv2": call_by_inv[i][2],
         })
 
     df = pd.DataFrame(rows)
     log(f"call rate: median {df.n_called.median():.0f}/{len(pairs)} samples")
-    strong = df[df.inv_r.abs() >= 0.5]
-    log(f"{len(strong):,} variants correlate with inversion state at |r| >= 0.5")
-    disagree = df[df.label_agrees == False]
-    log(f"{len(disagree):,} variants have a correlation whose sign contradicts "
-        f"their X_/Y_ label")
+    log(f"{(df.inv_r.abs() >= 0.5).sum():,} variants track inversion DOSAGE "
+        f"at |r| >= 0.5")
+    log(f"{(df.phi_het >= 0.7).sum():,} variants show the het-restricted pattern "
+        f"at phi >= 0.7 (present in inv=1, absent from inv=2)")
+    log(f"{(df.phi_het >= 0.9).sum():,} at phi >= 0.9")
 
-    te = df[df.name.astype(str).str.contains("INS")]
-    log(f"insertions: {len(te):,}; "
-        f"{(te.inv_r.abs() >= 0.5).sum():,} with |r| >= 0.5")
+    for cls in ("TE_insertion", "large_indel", "SNV", "small_indel"):
+        sub = df[df.cls == cls]
+        if not len(sub):
+            continue
+        log(f"  {cls:14s} n={len(sub):6,}  "
+            f"|r|>=0.5: {(sub.inv_r.abs() >= 0.5).sum():5,}  "
+            f"phi>=0.7: {(sub.phi_het >= 0.7).sum():5,}")
+
+    # Where the haplotype label and the population data disagree, by class.
+    for cls in ("TE_insertion",):
+        sub = df[(df.cls == cls) & (df.phi_het >= 0.7)]
+        if len(sub):
+            log(f"  {cls} with phi>=0.7 by label: "
+                f"{dict(Counter(sub.hap))}")
 
     out = args.out or (fm_obj.localNikeshDir + "WebServer/"
                        + f"{args.contig}_variant_stats.tsv")
