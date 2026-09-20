@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chr10 X/Y Gene Browser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --abyss:#0B2028;--abyss2:#12333D;--paper:#EFF2EE;--card:#fff;--ink:#14232A;
+  --muted:#6C7D81;--line:#D5DCD5;--soft:#E5EAE4;
+  --snv:#4E7A85;--indel:#6E9E77;--te:#C8913A;--lind:#9A6FA8;
+  --x:#B5654A;--y:#2E6E8E;--xy:#7B6BA8;
+  --flag:#B23A48;--pass:#4E7A3C;--mark:#E0A32E;
+}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:13px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono",monospace}
+.eyebrow{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:10px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.panel{background:var(--abyss);color:#D9E4E3;padding:12px 18px}
+.panel h1{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:17px;font-weight:700;
+  margin:0;color:#fff;display:inline-block}
+.panel .sub{font-size:11.5px;color:#7E979B;margin-left:16px}
+.panel .sub b{color:#B9CBCC;font-weight:600}
+.wrap{padding:14px 18px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:3px}
+.card+.card{margin-top:10px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 12px;border-bottom:1px solid var(--soft);flex-wrap:wrap}
+.cb{padding:11px 12px}
+.controls{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+label.ctl{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--ink)}
+label.ctl span{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600}
+select,input[type=text],input[type=number]{font-family:inherit;font-size:12px;background:#fff;
+  border:1px solid var(--line);border-radius:2px;padding:3px 6px;color:var(--ink)}
+input[type=text]{width:150px}
+button{font-family:inherit;font-size:12px;background:#fff;border:1px solid var(--line);
+  border-radius:2px;padding:4px 9px;cursor:pointer;color:var(--ink)}
+button:hover{background:#F4F6F3}
+button.on{background:var(--abyss2);border-color:var(--abyss2);color:#fff}
+button.link{border:0;background:none;color:var(--abyss2);text-decoration:underline;padding:0}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;text-align:left;
+  padding:4px 7px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;
+  position:sticky;top:0;background:#fff;z-index:2}
+th.num,td.num{text-align:right}
+th:hover{color:var(--ink)}
+th .ar{color:var(--mark)}
+td{padding:3px 7px;border-bottom:1px solid var(--soft);white-space:nowrap}
+tr.gene{cursor:pointer}
+tr.gene:hover{background:#F4F7F3}
+.gname{font-weight:600}
+.gname.lnc{font-style:italic;color:#8A6316}
+.pill{display:inline-block;padding:0 5px;border-radius:2px;font-size:9.5px;font-weight:600;
+  letter-spacing:.06em;font-family:"IBM Plex Sans Condensed",sans-serif;color:#fff}
+.pill.snv{background:var(--snv)}.pill.small_indel{background:var(--indel)}
+.pill.TE_insertion{background:var(--te)}.pill.large_indel{background:var(--lind)}
+.pill.unknown{background:#9AA8A2}
+.hap{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600}
+.hap.X{color:var(--x)}.hap.Y{color:var(--y)}.hap.XY{color:var(--xy)}
+.bar{display:inline-block;height:9px;background:var(--abyss2);border-radius:1px;vertical-align:middle}
+.dim{color:var(--muted)}
+.scroll{max-height:62vh;overflow:auto}
+/* track */
+.track{position:relative;height:120px;border:1px solid var(--line);border-radius:3px;
+  background:#FBFCFA;overflow:hidden}
+.track .gm{position:absolute;height:9px;border-radius:1px;background:#41666E}
+.track .gi{position:absolute;height:1px;background:#41666E}
+.track .glab{position:absolute;font-size:9px;font-style:italic;color:#41666E;white-space:nowrap}
+.track .gm.focus,.track .gi.focus{background:var(--mark)}
+.track .glab.focus{color:#8A6316;font-weight:600}
+.track .lol{position:absolute;bottom:22px;width:2px;margin-left:-1px;background:var(--snv);cursor:pointer}
+.track .dot{position:absolute;width:5px;height:5px;border-radius:50%;margin-left:-2.5px;cursor:pointer}
+.track .ax{position:absolute;bottom:0;left:0;right:0;height:16px;border-top:1px solid var(--soft)}
+.track .ax span{position:absolute;font-size:9px;color:var(--muted);transform:translateX(-50%);top:2px}
+.badges{display:flex;gap:16px;flex-wrap:wrap}
+.badge .n{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:19px;font-weight:700;
+  line-height:1;font-variant-numeric:tabular-nums}
+.badge .l{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;margin-top:3px}
+.badge .n.good{color:var(--pass)}.badge .n.zero{color:var(--muted)}
+#tip{position:fixed;z-index:99;pointer-events:none;opacity:0;transition:opacity .08s;
+  background:var(--abyss);color:#DCE7E6;border-radius:3px;padding:7px 9px;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.5;
+  box-shadow:0 6px 20px rgba(0,0,0,.28);max-width:300px}
+#tip b{color:#fff}
+.hint{font-size:10.5px;color:var(--muted)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="panel">
+  <h1>chr10 X/Y Gene Browser</h1>
+  <span class="sub"><b id="ng"></b> genes · <b id="nv"></b> variants · <b id="nsamp"></b> samples · <span id="reg"></span></span>
+</div>
+
+<div class="wrap">
+  <!-- ============ landing ============ -->
+  <div id="landing">
+    <div class="card">
+      <div class="ch">
+        <div class="controls">
+          <label class="ctl"><span>Search</span><input type="text" id="q" placeholder="gene name"></label>
+          <label class="ctl"><span>Biotype</span><select id="bt">
+            <option value="">all</option><option value="protein_coding">protein_coding</option>
+            <option value="lncRNA">lncRNA</option></select></label>
+          <button id="fCode">Coding change</button>
+          <button id="fTE">Y-restricted TE</button>
+          <button id="fASE">ASE marker</button>
+          <label class="ctl"><span>Min &phi;</span>
+            <input type="number" id="minPhi" min="0" max="1" step="0.05" value="0" style="width:62px"></label>
+          <button id="reset">Reset</button>
+        </div>
+        <div class="eyebrow" id="shown"></div>
+      </div>
+      <div class="cb" style="padding:0">
+        <div class="scroll"><table id="gt"><thead><tr id="ghead"></tr></thead><tbody id="gbody"></tbody></table></div>
+      </div>
+    </div>
+    <div class="hint" style="margin-top:8px">
+      Counts marked <i>interval</i> span from the previous gene's end to the next gene's start, so a
+      variant between two genes counts for both. Coding change is counted on the gene body only.
+    </div>
+  </div>
+
+  <!-- ============ gene detail ============ -->
+  <div id="detail" class="hidden">
+    <div class="card">
+      <div class="ch">
+        <div>
+          <button class="link" id="back">&larr; all genes</button>
+          <span style="margin-left:14px;font-size:15px;font-weight:600" id="dName"></span>
+          <span class="mono dim" id="dPos" style="margin-left:10px"></span>
+        </div>
+        <div class="eyebrow" id="dIv"></div>
+      </div>
+      <div class="cb">
+        <div class="badges" id="dBadges"></div>
+        <div class="track" id="track" style="margin-top:12px"></div>
+        <div class="hint" style="margin-top:6px">
+          Lollipop height is &phi; (0 at the axis, 1 at the top). Colour is variant class;
+          the highlighted gene model is the one selected.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <span class="eyebrow">Variants in interval</span>
+        <div class="controls">
+          <button id="vExon">In transcript</button>
+          <button id="vAlt">Protein-altering</button>
+          <button id="vTE">TE only</button>
+          <label class="ctl"><span>Min &phi;</span>
+            <input type="number" id="vPhi" min="0" max="1" step="0.05" value="0" style="width:62px"></label>
+          <span class="eyebrow" id="vShown"></span>
+        </div>
+      </div>
+      <div class="cb" style="padding:0">
+        <div class="scroll"><table id="vt"><thead><tr id="vhead"></tr></thead><tbody id="vbody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+const D=__DATA__;
+const G=D.genes, V=D.variants, NV=V.pos.length;
+const CLS=D.cls_levels, CSQ=D.csq_levels, PHI=D.phi_cut;
+const HAP=["X","Y","XY","?"];
+
+document.getElementById("ng").textContent=G.length.toLocaleString();
+document.getElementById("nv").textContent=NV.toLocaleString();
+document.getElementById("nsamp").textContent=D.n_samples;
+document.getElementById("reg").textContent=
+  D.contig+":"+D.region[0].toLocaleString()+"-"+D.region[1].toLocaleString();
+
+// variants are position-sorted, so an interval is a contiguous slice
+function sliceFor(lo,hi){
+  let a=0,b=NV;
+  let l=0,r=NV; while(l<r){const m=(l+r)>>1; if(V.pos[m]<lo)l=m+1; else r=m;} a=l;
+  l=0;r=NV; while(l<r){const m=(l+r)>>1; if(V.pos[m]<=hi)l=m+1; else r=m;} b=l;
+  return [a,b];
+}
+
+/* ---------------- landing table ---------------- */
+const COLS=[
+ {k:"name",  t:"Gene",            f:g=>`<span class="gname ${g.biotype==="lncRNA"?"lnc":""}">${g.name}</span>`},
+ {k:"biotype",t:"Biotype",        f:g=>`<span class="dim">${g.biotype.replace("protein_coding","coding")}</span>`},
+ {k:"start", t:"Position",  num:1,f:g=>`<span class="mono dim">${(g.start/1e6).toFixed(2)} Mb</span>`},
+ {k:"n_body",t:"Var body",  num:1,f:g=>g.n_body},
+ {k:"n_interval",t:"Var interval",num:1,f:g=>g.n_interval},
+ {k:"protein_altering",t:"Coding",num:1,
+  f:g=>(g.protein_altering||0)?`<b>${g.protein_altering}</b>`:`<span class="dim">0</span>`},
+ {k:"ase_snv_markers",t:"ASE SNVs",num:1,
+  f:g=>g.ase_snv_markers?g.ase_snv_markers:`<span class="dim">0</span>`},
+ {k:"n_te_y_restricted",t:"Y-TE",num:1,
+  f:g=>g.n_te_y_restricted?`<b style="color:var(--te)">${g.n_te_y_restricted}</b>`:`<span class="dim">0</span>`},
+ {k:"n_y_restricted",t:"Y-restr",num:1,f:g=>g.n_y_restricted||0},
+ {k:"max_phi_interval",t:"Max \u03c6",num:1,
+  f:g=>{const v=g.max_phi_interval; if(v==null)return '<span class="dim">\u2014</span>';
+    return `<span class="mono">${v.toFixed(2)}</span> <i class="bar" style="width:${Math.max(0,v)*30}px"></i>`;}},
+];
+// Default order: the three annotations together, then by strength. Presence of
+// all three is rare (10% of genes), so it makes a meaningful first screen.
+function score(g){
+  return ((g.protein_altering||0)>0?1:0)+((g.ase_snv_markers||0)>0?1:0)
+       + ((g.n_te_y_restricted||0)>0?1:0);
+}
+let sortKey="__score", sortDir=-1;
+const F={q:"",bt:"",code:false,te:false,ase:false,minPhi:0};
+
+function filtered(){
+  return G.filter(g=>{
+    if(F.q && !g.name.toLowerCase().includes(F.q)) return false;
+    if(F.bt && g.biotype!==F.bt) return false;
+    if(F.code && !(g.protein_altering>0)) return false;
+    if(F.te && !(g.n_te_y_restricted>0)) return false;
+    if(F.ase && !(g.ase_snv_markers>0)) return false;
+    if(F.minPhi && !(g.max_phi_interval>=F.minPhi)) return false;
+    return true;
+  });
+}
+function renderGenes(){
+  const rows=filtered();
+  rows.sort((a,b)=>{
+    let x,y;
+    if(sortKey==="__score"){x=score(a)*100+(a.max_phi_interval||0);y=score(b)*100+(b.max_phi_interval||0);}
+    else {x=a[sortKey]; y=b[sortKey];}
+    if(typeof x==="string")return sortDir*x.localeCompare(y);
+    return sortDir*(((x==null?-1:x))-((y==null?-1:y)));
+  });
+  document.getElementById("ghead").innerHTML=
+    `<th data-k="__score">Rank${sortKey==="__score"?' <span class="ar">'+(sortDir<0?"\u25bc":"\u25b2")+'</span>':''}</th>`+
+    COLS.map(c=>`<th data-k="${c.k}" class="${c.num?"num":""}">${c.t}`+
+      (sortKey===c.k?' <span class="ar">'+(sortDir<0?"\u25bc":"\u25b2")+'</span>':'')+`</th>`).join("");
+  document.getElementById("gbody").innerHTML=rows.map((g,i)=>
+    `<tr class="gene" data-id="${g.id}"><td class="num dim">${i+1}</td>`+
+    COLS.map(c=>`<td class="${c.num?"num":""}">${c.f(g)}</td>`).join("")+`</tr>`).join("");
+  document.getElementById("shown").textContent=
+    `${rows.length} of ${G.length} genes`;
+}
+document.getElementById("ghead").addEventListener("click",e=>{
+  const th=e.target.closest("th"); if(!th)return;
+  const k=th.dataset.k;
+  if(sortKey===k)sortDir*=-1; else {sortKey=k;sortDir=(k==="name")?1:-1;}
+  renderGenes();
+});
+const bind=(id,fn)=>document.getElementById(id).addEventListener("input",fn);
+bind("q",e=>{F.q=e.target.value.toLowerCase();renderGenes();});
+bind("bt",e=>{F.bt=e.target.value;renderGenes();});
+bind("minPhi",e=>{F.minPhi=parseFloat(e.target.value)||0;renderGenes();});
+const toggle=(id,key)=>document.getElementById(id).addEventListener("click",e=>{
+  F[key]=!F[key];e.target.classList.toggle("on",F[key]);renderGenes();});
+toggle("fCode","code");toggle("fTE","te");toggle("fASE","ase");
+document.getElementById("reset").onclick=()=>{
+  Object.assign(F,{q:"",bt:"",code:false,te:false,ase:false,minPhi:0});
+  document.getElementById("q").value="";document.getElementById("bt").value="";
+  document.getElementById("minPhi").value=0;
+  ["fCode","fTE","fASE"].forEach(i=>document.getElementById(i).classList.remove("on"));
+  sortKey="__score";sortDir=-1;renderGenes();
+};
+
+/* ---------------- gene detail ---------------- */
+let cur=null;
+const VF={exon:false,alt:false,te:false,phi:0};
+
+document.getElementById("gbody").addEventListener("click",e=>{
+  const tr=e.target.closest("tr.gene"); if(!tr)return;
+  openGene(G.find(g=>g.id===tr.dataset.id));
+});
+document.getElementById("back").onclick=()=>{
+  document.getElementById("detail").classList.add("hidden");
+  document.getElementById("landing").classList.remove("hidden");
+};
+
+function openGene(g){
+  cur=g;
+  document.getElementById("landing").classList.add("hidden");
+  document.getElementById("detail").classList.remove("hidden");
+  document.getElementById("dName").textContent=g.name;
+  document.getElementById("dName").className=g.biotype==="lncRNA"?"gname lnc":"gname";
+  document.getElementById("dPos").textContent=
+    `${D.contig}:${g.start.toLocaleString()}-${g.end.toLocaleString()} (${g.strand}) \u00b7 ${g.biotype}`;
+  document.getElementById("dIv").textContent=
+    `interval ${g.disp_start.toLocaleString()}-${g.disp_end.toLocaleString()} `+
+    `(${((g.disp_end-g.disp_start)/1000).toFixed(1)} kb)`;
+  const b=[
+    ["Variants in interval",g.n_interval,false],
+    ["In gene body",g.n_body,false],
+    ["Coding change",g.protein_altering||0,true],
+    ["ASE SNV markers",g.ase_snv_markers||0,true],
+    ["Y-restricted TEs",g.n_te_y_restricted||0,true],
+    ["Y-restricted (any)",g.n_y_restricted||0,false],
+    ["Max \u03c6",g.max_phi_interval==null?"\u2014":g.max_phi_interval.toFixed(2),false],
+  ];
+  document.getElementById("dBadges").innerHTML=b.map(([l,n,hl])=>
+    `<div class="badge"><div class="n ${hl&&n?"good":(n===0?"zero":"")}">${n}</div>`+
+    `<div class="l">${l}</div></div>`).join("");
+  drawTrack(g); renderVariants();
+}
+
+function drawTrack(g){
+  const t=document.getElementById("track");
+  const lo=g.disp_start, hi=g.disp_end, span=Math.max(1,hi-lo);
+  const pct=p=>((p-lo)/span*100);
+  let h="";
+  // Gene models for every gene overlapping the interval; the selected one is
+  // highlighted so its neighbours are visible as context.
+  G.forEach(o=>{
+    if(o.end<lo||o.start>hi)return;
+    const f=o.id===g.id?" focus":"";
+    const L=Math.max(0,pct(o.start)), R=Math.min(100,pct(o.end));
+    h+=`<div class="gi${f}" style="left:${L}%;width:${Math.max(.1,R-L)}%;top:78px"></div>`;
+    (o.exons||[]).forEach(([a,b])=>{
+      if(b<lo||a>hi)return;
+      const x=Math.max(0,pct(a)), y=Math.min(100,pct(b));
+      h+=`<div class="gm${f}" style="left:${x}%;width:${Math.max(.12,y-x)}%;top:74px"></div>`;
+    });
+    h+=`<div class="glab${f}" style="left:${Math.max(0,pct(o.start))}%;top:90px">${o.name}</div>`;
+  });
+  const [a,b]=sliceFor(lo,hi);
+  for(let i=a;i<b;i++){
+    const phi=V.phi[i]==null?0:Math.max(0,V.phi[i]);
+    const x=pct(V.pos[i]);
+    const col=`var(--${CLS[V.cls[i]]==="SNV"?"snv":CLS[V.cls[i]]==="TE_insertion"?"te":
+                       CLS[V.cls[i]]==="large_indel"?"lind":"indel"})`;
+    const ht=6+phi*46;
+    h+=`<div class="lol" data-i="${i}" style="left:${x}%;height:${ht}px;background:${col};opacity:${.25+phi*.7}"></div>`;
+    h+=`<div class="dot" data-i="${i}" style="left:${x}%;bottom:${22+ht-2}px;background:${col}"></div>`;
+  }
+  h+=`<div class="ax">`;
+  for(let k=0;k<=4;k++){
+    const p=lo+span*k/4;
+    h+=`<span style="left:${k*25}%">${(p/1e6).toFixed(3)} Mb</span>`;
+  }
+  h+=`</div>`;
+  t.innerHTML=h;
+}
+
+const VCOLS=[
+ {t:"Variant",f:i=>`<span class="mono">${V.name[i]}</span>`},
+ {t:"Position",num:1,f:i=>`<span class="mono">${V.pos[i].toLocaleString()}</span>`},
+ {t:"Class",f:i=>`<span class="pill ${CLS[V.cls[i]]==="SNV"?"snv":CLS[V.cls[i]]}">${CLS[V.cls[i]].replace("_"," ")}</span>`},
+ {t:"Hap",f:i=>`<span class="hap ${HAP[V.hap[i]]}">${HAP[V.hap[i]]}</span>`},
+ {t:"Consequence",f:i=>V.csq[i]>=0?CSQ[V.csq[i]]:`<span class="dim">\u2014</span>`},
+ {t:"In mRNA",f:i=>V.exon[i]?"\u2713":`<span class="dim">\u00b7</span>`},
+ {t:"\u03c6",num:1,f:i=>V.phi[i]==null?`<span class="dim">\u2014</span>`:
+    `<span class="mono">${V.phi[i].toFixed(2)}</span>`},
+ {t:"r",num:1,f:i=>V.r[i]==null?`<span class="dim">\u2014</span>`:
+    `<span class="mono">${V.r[i].toFixed(2)}</span>`},
+ {t:"AF",num:1,f:i=>V.af[i]==null?`<span class="dim">\u2014</span>`:
+    `<span class="mono">${V.af[i].toFixed(3)}</span>`},
+ {t:"Called",num:1,f:i=>V.nc[i]},
+];
+let vSort=6, vDir=-1;
+function renderVariants(){
+  if(!cur)return;
+  const [a,b]=sliceFor(cur.disp_start,cur.disp_end);
+  let idx=[];
+  for(let i=a;i<b;i++){
+    if(VF.exon&&!V.exon[i])continue;
+    if(VF.alt&&!V.alt[i])continue;
+    if(VF.te&&CLS[V.cls[i]]!=="TE_insertion")continue;
+    if(VF.phi&&!(V.phi[i]>=VF.phi))continue;
+    idx.push(i);
+  }
+  const keyf=[i=>V.name[i],i=>V.pos[i],i=>CLS[V.cls[i]],i=>HAP[V.hap[i]],
+              i=>V.csq[i],i=>V.exon[i],i=>V.phi[i]??-1,i=>V.r[i]??-1,
+              i=>V.af[i]??-1,i=>V.nc[i]][vSort];
+  idx.sort((p,q)=>{const x=keyf(p),y=keyf(q);
+    return typeof x==="string"?vDir*x.localeCompare(y):vDir*(x-y);});
+  document.getElementById("vhead").innerHTML=VCOLS.map((c,i)=>
+    `<th data-i="${i}" class="${c.num?"num":""}">${c.t}`+
+    (vSort===i?' <span class="ar">'+(vDir<0?"\u25bc":"\u25b2")+'</span>':'')+`</th>`).join("");
+  const cap=idx.slice(0,600);
+  document.getElementById("vbody").innerHTML=cap.map(i=>
+    `<tr>`+VCOLS.map(c=>`<td class="${c.num?"num":""}">${c.f(i)}</td>`).join("")+`</tr>`).join("");
+  document.getElementById("vShown").textContent=
+    idx.length>cap.length?`showing ${cap.length} of ${idx.length}`:`${idx.length} variants`;
+}
+document.getElementById("vhead").addEventListener("click",e=>{
+  const th=e.target.closest("th"); if(!th)return;
+  const i=+th.dataset.i;
+  if(vSort===i)vDir*=-1; else {vSort=i;vDir=-1;}
+  renderVariants();
+});
+const vtoggle=(id,key)=>document.getElementById(id).addEventListener("click",e=>{
+  VF[key]=!VF[key];e.target.classList.toggle("on",VF[key]);renderVariants();});
+vtoggle("vExon","exon");vtoggle("vAlt","alt");vtoggle("vTE","te");
+document.getElementById("vPhi").addEventListener("input",e=>{
+  VF.phi=parseFloat(e.target.value)||0;renderVariants();});
+
+/* ---------------- tooltip ---------------- */
+const tip=document.getElementById("tip");
+document.addEventListener("mouseover",e=>{
+  const el=e.target.closest(".lol,.dot");
+  if(!el){tip.style.opacity=0;return;}
+  const i=+el.dataset.i;
+  tip.innerHTML=`<b>${V.name[i]}</b><br>`+
+    `<span style="color:#7E979B">${D.contig}:${V.pos[i].toLocaleString()}</span>`+
+    `<div style="height:5px"></div>`+
+    `${CLS[V.cls[i]]} \u00b7 ${HAP[V.hap[i]]} haplotype<br>`+
+    (V.csq[i]>=0?CSQ[V.csq[i]]+"<br>":"")+
+    (V.exon[i]?"inside a transcript<br>":"")+
+    `\u03c6 ${V.phi[i]==null?"\u2014":V.phi[i].toFixed(2)} \u00b7 `+
+    `r ${V.r[i]==null?"\u2014":V.r[i].toFixed(2)} \u00b7 `+
+    `AF ${V.af[i]==null?"\u2014":V.af[i].toFixed(3)} \u00b7 n=${V.nc[i]}`;
+  tip.style.opacity=1;
+  const w=tip.offsetWidth,h=tip.offsetHeight;
+  tip.style.left=Math.min(innerWidth-w-8,Math.max(8,e.clientX+14))+"px";
+  tip.style.top=Math.max(8,e.clientY-h-12)+"px";
+});
+
+renderGenes();
+</script>
+</body>
+</html>
