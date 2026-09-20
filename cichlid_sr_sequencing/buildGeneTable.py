@@ -201,6 +201,7 @@ def assign(genes, dt):
             "strand": g["strand"], "start": g["start"], "end": g["end"],
             "disp_start": disp_start, "disp_end": disp_end,
             "n_exons": len(g["exons"]),
+            "exons": g["exons"],
             "n_body": int(body_hi - body_lo),
             "n_interval": int(hi - lo),
             "by_class": dict(Counter(cls[lo:hi])),
