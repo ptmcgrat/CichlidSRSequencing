@@ -51,6 +51,10 @@ def parse_args():
     p.add_argument("--genome-version", default="Mzebra_GT3_NCBI")
     p.add_argument("--min-dp", type=int, default=6)
     p.add_argument("--out", default=None)
+    p.add_argument("--genotypes", action="store_true", default=True,
+                   help="Also write a packed genotype matrix for the browser's "
+                        "per-variant sample distribution (default on).")
+    p.add_argument("--no-genotypes", dest="genotypes", action="store_false")
     p.add_argument("--no-upload", action="store_true")
     return p.parse_args()
 
@@ -67,6 +71,7 @@ def load_samples(fm_obj):
             "cat": r.Category if pd.notna(r.get("Category")) else "",
             "sex": r.Sex if pd.notna(r.Sex) else "",
             "inv": int(r.Inversion10) if pd.notna(r.get("Inversion10")) else -1,
+            "lab": int(r.LabReared) if pd.notna(r.get("LabReared")) else -1,
         }
     return meta
 
@@ -114,7 +119,8 @@ def main():
         raise PipelineError(f"no verified sample VCFs in {vcf_dir}")
     log(f"{len(pairs)} verified sample VCF(s)")
 
-    meta = load_samples(fm_obj)
+    meta_all = load_samples(fm_obj)
+    meta = meta_all
     missing_meta = [s for s, _ in pairs if s not in meta]
     if missing_meta:
         warn(f"{len(missing_meta)} sample(s) have no database row: "
@@ -158,6 +164,20 @@ def main():
     carr = [[0, 0, 0] for _ in range(NV)]
     call_by_inv = [[0, 0, 0] for _ in range(NV)]
 
+    # Packed genotypes, two bits each: 0=0/0, 1=0/1, 2=1/1, 3=no call.
+    # 60,396 variants x 211 samples is 12.7M calls -- 3.2 MB packed, against
+    # 64 MB as one byte per field. Small enough to ship inside the browser.
+    NS = len(pairs)
+    import array
+    # 0xFF sets every 2-bit field to 3 (no call) in one go. Looping over 12.7M
+    # fields to do the same thing takes minutes.
+    gt_packed = array.array("B", b"\xff" * ((NV * NS + 3) // 4))
+
+    def set_gt(vi, si, code):
+        k = vi * NS + si
+        byte, shift = k >> 2, (k & 3) * 2
+        gt_packed[byte] = (gt_packed[byte] & ~(3 << shift)) | (code << shift)
+
     for si, (sid, path) in enumerate(pairs, 1):
         inv_s = meta.get(sid, {}).get("inv", -1)
         with gzip.open(path, "rt") as fh:
@@ -177,6 +197,8 @@ def main():
                 if dp.isdigit() and int(dp) < args.min_dp:
                     continue
                 n_called[i] += 1
+                if args.genotypes:
+                    set_gt(i, si - 1, g)
                 if g == 1:
                     n_het[i] += 1
                 elif g == 2:
@@ -259,6 +281,29 @@ def main():
             log(f"  {cls} with phi>=0.7 by label: "
                 f"{dict(Counter(sub.hap))}")
 
+    if args.genotypes:
+        gt_path = (fm_obj.localNikeshDir + "WebServer/"
+                   + f"{args.contig}_genotypes.bin")
+        os.makedirs(os.path.dirname(gt_path), exist_ok=True)
+        with open(gt_path, "wb") as fh:
+            gt_packed.tofile(fh)
+        meta = {
+            "n_variants": NV, "n_samples": NS,
+            "positions": [int(p) for p in positions],
+            "samples": [{"id": sid,
+                         "eco": meta_all.get(sid, {}).get("eco", ""),
+                         "sub": meta_all.get(sid, {}).get("sub", ""),
+                         "cat": meta_all.get(sid, {}).get("cat", ""),
+                         "sex": meta_all.get(sid, {}).get("sex", ""),
+                         "inv": meta_all.get(sid, {}).get("inv", -1),
+                         "lab": meta_all.get(sid, {}).get("lab", -1)}
+                        for sid, _ in pairs],
+        }
+        with open(gt_path.replace(".bin", "_samples.json"), "w") as fh:
+            json.dump(meta, fh)
+        log(f"wrote {gt_path} ({os.path.getsize(gt_path)/1e6:.1f} MB packed, "
+            f"{NV:,} x {NS})")
+
     out = args.out or (fm_obj.localNikeshDir + "WebServer/"
                        + f"{args.contig}_variant_stats.tsv")
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -268,6 +313,9 @@ def main():
     if not args.no_upload:
         try:
             fm_obj.uploadData(out)
+            if args.genotypes:
+                fm_obj.uploadData(gt_path)
+                fm_obj.uploadData(gt_path.replace(".bin", "_samples.json"))
             log("uploaded")
         except Exception as e:
             warn(f"upload failed: {e}")

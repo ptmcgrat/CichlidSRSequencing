@@ -103,7 +103,9 @@ def read_annotation(path, contig):
     """
     genes = {}
     rna_to_gene = {}
+    tx_strand = {}
     exons = defaultdict(list)
+    cds = defaultdict(list)
 
     with open_maybe_gz(path) as fh:
         for line in fh:
@@ -123,23 +125,44 @@ def read_annotation(path, contig):
                     "name": attr(a, "Name") or attr(a, "gene") or gid,
                     "biotype": attr(a, "gene_biotype") or "",
                     "start": start, "end": end, "strand": strand,
-                    "exons": [],
+                    "exons": [], "transcripts": [],
                 }
             elif kind in ("mRNA", "transcript", "lncRNA", "tRNA", "ncRNA",
                           "snoRNA", "snRNA", "rRNA", "primary_transcript"):
                 rid, parent = attr(a, "ID"), attr(a, "Parent")
                 if rid and parent:
                     rna_to_gene[rid] = parent
+                    tx_strand[rid] = strand
             elif kind == "exon":
                 parent = attr(a, "Parent")
                 if parent:
                     exons[parent].append((start, end))
+            elif kind == "CDS":
+                parent = attr(a, "Parent")
+                if parent:
+                    cds[parent].append((start, end))
 
-    # Attach exons to genes via their transcript parents.
-    for rid, spans in exons.items():
+    # Per-transcript structure, kept separate from the merged per-gene exon set.
+    # The browser draws transcripts individually -- isoforms differ, and which
+    # exon a variant lands in depends on which transcript you are looking at.
+    for rid in set(list(exons) + list(cds)):
         gid = rna_to_gene.get(rid)
-        if gid and gid in genes:
-            genes[gid]["exons"].extend(spans)
+        if not gid or gid not in genes:
+            continue
+        ex = sorted(exons.get(rid, []))
+        cd = sorted(cds.get(rid, []))
+        # Protein length from total coding bases: CDS/3 minus the stop codon.
+        cds_bp = sum(b - a + 1 for a, b in cd)
+        aa = max(0, cds_bp // 3 - 1) if cds_bp else 0
+        genes[gid]["transcripts"].append({
+            "id": rid, "strand": tx_strand.get(rid, genes[gid]["strand"]),
+            "exons": [[a, b] for a, b in ex],
+            "cds": [[a, b] for a, b in cd],
+            "aa": aa,
+            "start": min([a for a, _ in ex] or [genes[gid]["start"]]),
+            "end": max([b for _, b in ex] or [genes[gid]["end"]]),
+        })
+        genes[gid]["exons"].extend(ex)
 
     for g in genes.values():
         merged = []
@@ -149,6 +172,12 @@ def read_annotation(path, contig):
             else:
                 merged.append([a_, b_])
         g["exons"] = merged
+        g["transcripts"].sort(key=lambda t: (-t["aa"], t["id"]))
+        # The longest-coding isoform stands in for the gene's protein.
+        g["aa"] = g["transcripts"][0]["aa"] if g["transcripts"] else 0
+        g["gene_bp"] = g["end"] - g["start"] + 1
+        g["mrna_bp"] = sum(b - a + 1 for a, b in g["exons"])
+        g["n_tx"] = len(g["transcripts"])
     return list(genes.values())
 
 
@@ -202,6 +231,11 @@ def assign(genes, dt):
             "disp_start": disp_start, "disp_end": disp_end,
             "n_exons": len(g["exons"]),
             "exons": g["exons"],
+            "transcripts": g.get("transcripts", []),
+            "aa": g.get("aa", 0),
+            "n_tx": g.get("n_tx", 0),
+            "gene_bp": g.get("gene_bp", g["end"] - g["start"] + 1),
+            "mrna_bp": g.get("mrna_bp", 0),
             "n_body": int(body_hi - body_lo),
             "n_interval": int(hi - lo),
             "by_class": dict(Counter(cls[lo:hi])),

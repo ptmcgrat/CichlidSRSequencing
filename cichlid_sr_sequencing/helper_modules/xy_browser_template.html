@@ -67,7 +67,14 @@ tr.gene:hover{background:#F4F7F3}
 .bar{display:inline-block;height:9px;background:var(--abyss2);border-radius:1px;vertical-align:middle}
 .dim{color:var(--muted)}
 .scroll{max-height:62vh;overflow:auto}
-/* track */
+/* tracks */
+.tracks{border:1px solid var(--line);border-radius:3px;background:#FBFCFA;overflow:hidden}
+.trow{position:relative;border-bottom:1px solid var(--soft)}
+.trow:last-child{border-bottom:0}
+.tlab{position:absolute;left:6px;top:4px;font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);font-family:"IBM Plex Sans Condensed",sans-serif;
+  font-weight:600;z-index:3;background:rgba(251,252,250,.85);padding:0 4px}
+.trow .base{position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--soft)}
 .track{position:relative;height:120px;border:1px solid var(--line);border-radius:3px;
   background:#FBFCFA;overflow:hidden}
 .track .gm{position:absolute;height:9px;border-radius:1px;background:#41666E}
@@ -75,8 +82,34 @@ tr.gene:hover{background:#F4F7F3}
 .track .glab{position:absolute;font-size:9px;font-style:italic;color:#41666E;white-space:nowrap}
 .track .gm.focus,.track .gi.focus{background:var(--mark)}
 .track .glab.focus{color:#8A6316;font-weight:600}
-.track .lol{position:absolute;bottom:22px;width:2px;margin-left:-1px;background:var(--snv);cursor:pointer}
-.track .dot{position:absolute;width:5px;height:5px;border-radius:50%;margin-left:-2.5px;cursor:pointer}
+.lol{position:absolute;bottom:0;width:2px;margin-left:-1px;cursor:pointer}
+.dot{position:absolute;width:5px;height:5px;border-radius:50%;margin-left:-2.5px;cursor:pointer}
+.lol.dimmed,.dot.dimmed{opacity:.08!important}
+.lol.sel,.dot.sel{outline:2px solid var(--mark);z-index:4}
+.txrow{position:relative;height:13px}
+.txrow .ti{position:absolute;top:6px;height:1px;background:#41666E}
+.txrow .te{position:absolute;top:3px;height:7px;background:#7A9AA3;border-radius:1px}
+.txrow .tc{position:absolute;top:1px;height:11px;background:#41666E;border-radius:1px}
+.txrow .tn{position:absolute;font-size:8.5px;color:var(--muted);white-space:nowrap;top:1px}
+.txrow.focus .tc{background:var(--mark)}
+.txrow.focus .te{background:#E6C88A}
+.txrow.focus .tn{color:#8A6316;font-weight:600}
+.infobox{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;
+  border:1px solid var(--soft);border-radius:3px;padding:9px 11px;background:#F7F9F6}
+.infobox .k{font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600}
+.infobox .v{font-family:"IBM Plex Mono",monospace;font-size:12.5px;margin-top:2px}
+/* per-variant sample distribution */
+.dist .grp{border-bottom:1px solid var(--soft);padding:6px 0}
+.dist .grp:last-child{border-bottom:0}
+.dist .gh{display:flex;align-items:baseline;gap:9px;margin-bottom:3px}
+.dist .gh .nm{font-size:11.5px;font-weight:600}
+.dist .gh .meta{font-size:10px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+.cells{display:flex;flex-wrap:wrap;gap:1.5px}
+.cell{width:10px;height:10px;border-radius:1.5px;border:1px solid rgba(0,0,0,.10);flex:none}
+.cell.g0{background:#D7DED5}.cell.g1{background:#79B0C4}.cell.g2{background:#14576A}
+.cell.g3{background:#F0F1EE;border-style:dashed;border-color:#C7CFC8}
+.cell:hover{transform:scale(1.5)}
 .track .ax{position:absolute;bottom:0;left:0;right:0;height:16px;border-top:1px solid var(--soft)}
 .track .ax span{position:absolute;font-size:9px;color:var(--muted);transform:translateX(-50%);top:2px}
 .badges{display:flex;gap:16px;flex-wrap:wrap}
@@ -141,14 +174,33 @@ tr.gene:hover{background:#F4F7F3}
         <div class="eyebrow" id="dIv"></div>
       </div>
       <div class="cb">
-        <div class="badges" id="dBadges"></div>
-        <div class="track" id="track" style="margin-top:12px"></div>
+        <div class="infobox" id="dInfo"></div>
+        <div class="badges" id="dBadges" style="margin-top:12px"></div>
+        <div class="tracks" id="tracks" style="margin-top:12px"></div>
         <div class="hint" style="margin-top:6px">
-          Lollipop height is &phi; (0 at the axis, 1 at the top). Colour is variant class;
-          the highlighted gene model is the one selected.
+          Lollipop height is &phi;. Top track is X-haplotype variants, middle is Y,
+          bottom is transcript structure &mdash; thick blocks are CDS, thin are UTR.
+          Variants excluded by the filters below are faded rather than removed.
         </div>
       </div>
     </div>
+    <div class="card hidden" id="distCard">
+      <div class="ch">
+        <span class="eyebrow">Sample distribution</span>
+        <div class="controls">
+          <button id="dWild" class="on">Wild only</button>
+          <label class="ctl"><span>Group</span><select id="dGroup">
+            <option value="inv">Inversion10</option>
+            <option value="cat">Category</option>
+            <option value="sub">Subgroup</option>
+            <option value="eco">Ecogroup</option>
+          </select></label>
+          <span class="eyebrow" id="dVar"></span>
+        </div>
+      </div>
+      <div class="cb dist" id="distBody"></div>
+    </div>
+
     <div class="card">
       <div class="ch">
         <span class="eyebrow">Variants in interval</span>
@@ -174,6 +226,20 @@ const D=__DATA__;
 const G=D.genes, V=D.variants, NV=V.pos.length;
 const CLS=D.cls_levels, CSQ=D.csq_levels, PHI=D.phi_cut;
 const HAP=["X","Y","XY","?"];
+
+// Packed genotypes: two bits per call, 0=0/0 1=0/1 2=1/1 3=no call.
+let GT=null;
+if(D.gt_b64){
+ const bin=atob(D.gt_b64);
+ GT=new Uint8Array(bin.length);
+ for(let i=0;i<bin.length;i++)GT[i]=bin.charCodeAt(i);
+}
+const GNS=D.gt_n_samples||0, GS=D.gt_samples||[];
+function gtOf(vi,si){
+ if(!GT)return 3;
+ const k=vi*GNS+si, b=k>>2, sh=(k&3)*2;
+ return (GT[b]>>sh)&3;
+}
 
 document.getElementById("ng").textContent=G.length.toLocaleString();
 document.getElementById("nv").textContent=NV.toLocaleString();
@@ -280,6 +346,15 @@ document.getElementById("back").onclick=()=>{
   document.getElementById("landing").classList.remove("hidden");
 };
 
+// One gene left and one right, so the selected gene sits in context rather
+// than filling the frame.
+function viewSpan(g){
+  const i=G.findIndex(x=>x.id===g.id);
+  const lo=(i>0?G[i-1].start:g.disp_start);
+  const hi=(i+1<G.length?G[i+1].end:g.disp_end);
+  return [Math.min(lo,g.disp_start),Math.max(hi,g.disp_end)];
+}
+
 function openGene(g){
   cur=g;
   document.getElementById("landing").classList.add("hidden");
@@ -303,10 +378,94 @@ function openGene(g){
   document.getElementById("dBadges").innerHTML=b.map(([l,n,hl])=>
     `<div class="badge"><div class="n ${hl&&n?"good":(n===0?"zero":"")}">${n}</div>`+
     `<div class="l">${l}</div></div>`).join("");
-  drawTrack(g); renderVariants();
+  const [vlo,vhi]=viewSpan(g);
+  document.getElementById("dInfo").innerHTML=[
+    ["Gene span",(g.gene_bp||(g.end-g.start+1)).toLocaleString()+" bp"],
+    ["mRNA (exonic)",(g.mrna_bp||0).toLocaleString()+" bp"],
+    ["Protein",(g.aa||0)?g.aa.toLocaleString()+" aa":"\u2014"],
+    ["Transcripts",g.n_tx||0],
+    ["Exons (merged)",g.n_exons||0],
+    ["Strand",g.strand],
+  ].map(([k,v])=>`<div><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  selVar=null;
+  document.getElementById("distCard").classList.add("hidden");
+  drawTracks(g,vlo,vhi); renderVariants();
 }
 
-function drawTrack(g){
+function passesVF(i){
+  if(VF.exon&&!V.exon[i])return false;
+  if(VF.alt&&!V.alt[i])return false;
+  if(VF.te&&CLS[V.cls[i]]!=="TE_insertion")return false;
+  if(VF.phi&&!(V.phi[i]>=VF.phi))return false;
+  return true;
+}
+function clsColor(i){
+  const c=CLS[V.cls[i]];
+  return `var(--${c==="SNV"?"snv":c==="TE_insertion"?"te":c==="large_indel"?"lind":"indel"})`;
+}
+
+function drawTracks(g,lo,hi){
+  const span=Math.max(1,hi-lo), pct=p=>((p-lo)/span*100);
+  const H=58;                            // height of each variant track
+  let h="";
+  // --- X and Y haplotype variant tracks ---
+  [["X",0],["Y",1]].forEach(([lab,code])=>{
+    h+=`<div class="trow" style="height:${H}px"><div class="tlab">${lab} haplotype</div>`;
+    const [a,b]=sliceFor(lo,hi);
+    for(let i=a;i<b;i++){
+      // XY variants differ on both haplotypes, so they belong in both tracks.
+      if(V.hap[i]!==code && V.hap[i]!==2)continue;
+      const phi=V.phi[i]==null?0:Math.max(0,V.phi[i]);
+      const ht=4+phi*(H-14);
+      const dim=passesVF(i)?"":" dimmed";
+      h+=`<div class="lol${dim}" data-i="${i}" style="left:${pct(V.pos[i])}%;`+
+         `height:${ht}px;background:${clsColor(i)};opacity:${.3+phi*.65}"></div>`;
+      h+=`<div class="dot${dim}" data-i="${i}" style="left:${pct(V.pos[i])}%;`+
+         `bottom:${ht-2}px;background:${clsColor(i)}"></div>`;
+    }
+    h+=`<div class="base"></div></div>`;
+  });
+  // --- transcript track ---
+  const rows=[];
+  G.forEach(o=>{
+    if(o.end<lo||o.start>hi)return;
+    (o.transcripts&&o.transcripts.length?o.transcripts:[{id:o.name,exons:o.exons||[],cds:[],
+      start:o.start,end:o.end,strand:o.strand,aa:0}]).forEach(t=>{
+      rows.push({gene:o,tx:t});
+    });
+  });
+  const TH=Math.max(30,rows.length*13+18);
+  h+=`<div class="trow" style="height:${TH}px"><div class="tlab">transcripts</div>`;
+  rows.forEach((r,k)=>{
+    const f=r.gene.id===g.id?" focus":"";
+    const L=Math.max(0,pct(r.tx.start)), R=Math.min(100,pct(r.tx.end));
+    h+=`<div class="txrow${f}" style="position:absolute;left:0;right:0;top:${14+k*13}px;height:13px">`;
+    h+=`<div class="ti" style="left:${L}%;width:${Math.max(.1,R-L)}%"></div>`;
+    (r.tx.exons||[]).forEach(([a,b])=>{
+      if(b<lo||a>hi)return;
+      const x=Math.max(0,pct(a)),y=Math.min(100,pct(b));
+      h+=`<div class="te" style="left:${x}%;width:${Math.max(.1,y-x)}%"></div>`;});
+    (r.tx.cds||[]).forEach(([a,b])=>{
+      if(b<lo||a>hi)return;
+      const x=Math.max(0,pct(a)),y=Math.min(100,pct(b));
+      h+=`<div class="tc" style="left:${x}%;width:${Math.max(.1,y-x)}%"></div>`;});
+    h+=`<div class="tn" style="left:${Math.min(96,Math.max(0,R))}%;padding-left:4px">`+
+       `${r.gene.name}${r.tx.aa?" \u00b7 "+r.tx.aa+" aa":""}</div>`;
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  // --- axis ---
+  h+=`<div class="trow" style="height:16px">`;
+  for(let k=0;k<=4;k++){
+    h+=`<span style="position:absolute;left:${k*25}%;font-size:9px;color:var(--muted);`+
+       `transform:translateX(-50%);top:2px">${((lo+span*k/4)/1e6).toFixed(3)} Mb</span>`;
+  }
+  h+=`</div>`;
+  document.getElementById("tracks").innerHTML=h;
+  if(selVar!=null)markSelected();
+}
+
+function drawTrackLegacy(g){
   const t=document.getElementById("track");
   const lo=g.disp_start, hi=g.disp_end, span=Math.max(1,hi-lo);
   const pct=p=>((p-lo)/span*100);
@@ -359,18 +518,62 @@ const VCOLS=[
     `<span class="mono">${V.af[i].toFixed(3)}</span>`},
  {t:"Called",num:1,f:i=>V.nc[i]},
 ];
-let vSort=6, vDir=-1;
+let vSort=6, vDir=-1, selVar=null;
+
+function markSelected(){
+  document.querySelectorAll(".lol.sel,.dot.sel").forEach(e=>e.classList.remove("sel"));
+  if(selVar==null)return;
+  document.querySelectorAll(`.lol[data-i="${selVar}"],.dot[data-i="${selVar}"]`)
+    .forEach(e=>e.classList.add("sel"));
+}
+
+// Per-variant genotype distribution across the genotyped samples.
+const DV={wild:true,group:"inv"};
+const INVLAB={0:"Inversion10 = 0",1:"Inversion10 = 1 (het)",2:"Inversion10 = 2 (hom)",
+              "-1":"Inversion10 not called"};
+function showDistribution(i){
+  selVar=i; markSelected();
+  const card=document.getElementById("distCard");
+  if(!GT||!GNS){card.classList.add("hidden");return;}
+  card.classList.remove("hidden");
+  document.getElementById("dVar").textContent=
+    `${V.name[i]} \u00b7 ${D.contig}:${V.pos[i].toLocaleString()} \u00b7 `+
+    `\u03c6 ${V.phi[i]==null?"\u2014":V.phi[i].toFixed(2)}`;
+  const groups={};
+  for(let s=0;s<GNS;s++){
+    const sm=GS[s];
+    if(DV.wild && sm.lab!==0) continue;
+    let key;
+    if(DV.group==="inv") key=INVLAB[sm.inv]||("Inversion10 = "+sm.inv);
+    else key=sm[DV.group]||"(none)";
+    (groups[key]||=(groups[key]=[])).push(s);
+  }
+  const order=Object.keys(groups).sort();
+  document.getElementById("distBody").innerHTML=order.map(k=>{
+    const ids=groups[k].slice().sort((a,b)=>gtOf(i,b)-gtOf(i,a));
+    const c=[0,0,0,0]; ids.forEach(s=>c[gtOf(i,s)]++);
+    const called=c[0]+c[1]+c[2];
+    const af=called?((c[1]+2*c[2])/(2*called)).toFixed(3):"\u2014";
+    return `<div class="grp"><div class="gh"><span class="nm">${k}</span>`+
+      `<span class="meta">n=${ids.length} \u00b7 ref ${c[0]} het ${c[1]} hom ${c[2]} `+
+      `no-call ${c[3]} \u00b7 AF ${af}</span></div>`+
+      `<div class="cells">`+ids.map(s=>
+        `<div class="cell g${gtOf(i,s)}" title="${GS[s].id} \u00b7 ${GS[s].sp||""}`+
+        ` \u00b7 ${["0/0","0/1","1/1","./."][gtOf(i,s)]}"></div>`).join("")+
+      `</div></div>`;
+  }).join("");
+}
+document.getElementById("dWild").addEventListener("click",e=>{
+  DV.wild=!DV.wild;e.target.classList.toggle("on",DV.wild);
+  if(selVar!=null)showDistribution(selVar);});
+document.getElementById("dGroup").addEventListener("change",e=>{
+  DV.group=e.target.value; if(selVar!=null)showDistribution(selVar);});
 function renderVariants(){
   if(!cur)return;
-  const [a,b]=sliceFor(cur.disp_start,cur.disp_end);
+  const [vl,vh]=viewSpan(cur);
+  const [a,b]=sliceFor(vl,vh);
   let idx=[];
-  for(let i=a;i<b;i++){
-    if(VF.exon&&!V.exon[i])continue;
-    if(VF.alt&&!V.alt[i])continue;
-    if(VF.te&&CLS[V.cls[i]]!=="TE_insertion")continue;
-    if(VF.phi&&!(V.phi[i]>=VF.phi))continue;
-    idx.push(i);
-  }
+  for(let i=a;i<b;i++) if(passesVF(i)) idx.push(i);
   const keyf=[i=>V.name[i],i=>V.pos[i],i=>CLS[V.cls[i]],i=>HAP[V.hap[i]],
               i=>V.csq[i],i=>V.exon[i],i=>V.phi[i]??-1,i=>V.r[i]??-1,
               i=>V.af[i]??-1,i=>V.nc[i]][vSort];
@@ -381,7 +584,8 @@ function renderVariants(){
     (vSort===i?' <span class="ar">'+(vDir<0?"\u25bc":"\u25b2")+'</span>':'')+`</th>`).join("");
   const cap=idx.slice(0,600);
   document.getElementById("vbody").innerHTML=cap.map(i=>
-    `<tr>`+VCOLS.map(c=>`<td class="${c.num?"num":""}">${c.f(i)}</td>`).join("")+`</tr>`).join("");
+    `<tr class="vrow" data-i="${i}" style="cursor:pointer">`+
+    VCOLS.map(c=>`<td class="${c.num?"num":""}">${c.f(i)}</td>`).join("")+`</tr>`).join("");
   document.getElementById("vShown").textContent=
     idx.length>cap.length?`showing ${cap.length} of ${idx.length}`:`${idx.length} variants`;
 }
@@ -391,11 +595,22 @@ document.getElementById("vhead").addEventListener("click",e=>{
   if(vSort===i)vDir*=-1; else {vSort=i;vDir=-1;}
   renderVariants();
 });
+function refreshDetail(){
+  renderVariants();
+  if(cur){const [a,b]=viewSpan(cur); drawTracks(cur,a,b);}
+}
 const vtoggle=(id,key)=>document.getElementById(id).addEventListener("click",e=>{
-  VF[key]=!VF[key];e.target.classList.toggle("on",VF[key]);renderVariants();});
+  VF[key]=!VF[key];e.target.classList.toggle("on",VF[key]);refreshDetail();});
 vtoggle("vExon","exon");vtoggle("vAlt","alt");vtoggle("vTE","te");
 document.getElementById("vPhi").addEventListener("input",e=>{
-  VF.phi=parseFloat(e.target.value)||0;renderVariants();});
+  VF.phi=parseFloat(e.target.value)||0;refreshDetail();});
+
+document.addEventListener("click",e=>{
+  const el=e.target.closest(".lol,.dot");
+  if(el&&el.dataset.i!==undefined){showDistribution(+el.dataset.i);return;}
+  const tr=e.target.closest("tr.vrow");
+  if(tr)showDistribution(+tr.dataset.i);
+});
 
 /* ---------------- tooltip ---------------- */
 const tip=document.getElementById("tip");
