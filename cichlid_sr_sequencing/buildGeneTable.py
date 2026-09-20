@@ -57,6 +57,15 @@ def parse_args():
                    help="Use local copies only.")
     p.add_argument("--no-upload", action="store_true",
                    help="Do not push the result back to cloud storage.")
+    p.add_argument("--consequences", default=None,
+                   help="Per-variant consequence TSV from buildConsequences.py. "
+                        "Default: <NikeshDir>/WebServer/<contig>_consequences.tsv")
+    p.add_argument("--variant-stats", default=None,
+                   help="Per-variant statistics TSV from buildVariantStats.py. "
+                        "Default: <NikeshDir>/WebServer/<contig>_variant_stats.tsv")
+    p.add_argument("--phi-cut", type=float, default=0.7,
+                   help="phi_het at or above which a variant counts as "
+                        "Y-restricted (default 0.7).")
     p.add_argument("--contig", default="NC_135176.1")
     p.add_argument("--region", default=None,
                    help="start-end to restrict the OUTPUT to. Genes just outside "
@@ -250,6 +259,71 @@ def fetch_inputs(fm_obj, args):
     return gff, var
 
 
+def optional_table(fm_obj, explicit, default_name, what):
+    """Load an optional annotation TSV, fetching it from cloud storage if needed."""
+    path = explicit or (fm_obj.localNikeshDir + "WebServer/" + default_name)
+    if not os.path.exists(path):
+        try:
+            fm_obj.downloadData(path)
+        except Exception:
+            pass
+    if not os.path.exists(path):
+        warn(f"no {what} at {path}; those fields stay empty")
+        return None
+    log(f"{what}: {path}")
+    return pd.read_csv(path, sep="\t")
+
+
+def enrich(recs, dt, csq, stats, phi_cut):
+    """Attach consequence and genotype annotations to each gene record.
+
+    Both are joined on variant, then aggregated over the gene's DISPLAY interval
+    -- so an intergenic variant contributes to both flanking genes, consistent
+    with how the intervals are drawn.
+    """
+    pos_of = dict(zip(dt.Name.astype(str), dt.Position))
+    cls_of = dict(zip(dt.Name.astype(str),
+                      dt.Notes.str.extract(r"CLASS=([^;]+)")[0].fillna("unknown")))
+
+    altering_pos, altering_by_gene = set(), Counter()
+    if csq is not None and len(csq):
+        alt = csq[csq.altering == True] if "altering" in csq.columns else csq.iloc[0:0]
+        for _, r in alt.iterrows():
+            p = pos_of.get(str(r["name"]))
+            if p is not None:
+                altering_pos.add(int(p))
+            if isinstance(r.get("gene"), str) and r["gene"]:
+                altering_by_gene[r["gene"]] += 1
+
+    phi_pos, te_phi_pos, best_phi = {}, set(), {}
+    if stats is not None and len(stats):
+        for _, r in stats.iterrows():
+            p = int(r["pos"])
+            phi = float(r.get("phi_het") or 0)
+            best_phi[p] = max(best_phi.get(p, -1.0), phi)
+            if phi >= phi_cut:
+                phi_pos[p] = phi
+                if str(r.get("cls")) == "TE_insertion":
+                    te_phi_pos.add(p)
+
+    for rec in recs:
+        lo, hi = rec["disp_start"], rec["disp_end"]
+        blo, bhi = rec["start"], rec["end"]
+        in_iv = [p for p in phi_pos if lo <= p <= hi]
+        rec["n_y_restricted"] = len(in_iv)
+        rec["n_te_y_restricted"] = sum(1 for p in in_iv if p in te_phi_pos)
+        body_phis = [v for p, v in best_phi.items() if blo <= p <= bhi]
+        iv_phis = [v for p, v in best_phi.items() if lo <= p <= hi]
+        rec["max_phi_body"] = round(max(body_phis), 3) if body_phis else None
+        rec["max_phi_interval"] = round(max(iv_phis), 3) if iv_phis else None
+        # Consequences are counted on the gene BODY: a coding change only makes
+        # sense inside the transcript it alters, unlike the interval-wide counts.
+        rec["protein_altering"] = (altering_by_gene.get(rec["name"], 0)
+                                   if altering_by_gene else None)
+        rec["te_haplotype_correlated"] = rec["n_te_y_restricted"]
+    return recs
+
+
 def main():
     args = parse_args()
 
@@ -285,6 +359,27 @@ def main():
     recs = assign(genes, dt)
     in_region = [r for r in recs if r["end"] >= lo and r["start"] <= hi]
     print(f"{len(in_region)} genes in region")
+
+    csq = optional_table(fm_obj, args.consequences,
+                         f"{args.contig}_consequences.tsv", "consequences")
+    stats = optional_table(fm_obj, args.variant_stats,
+                           f"{args.contig}_variant_stats.tsv", "variant statistics")
+    in_region = enrich(in_region, dt, csq, stats, args.phi_cut)
+
+    if csq is not None:
+        n = sum(1 for r in in_region if (r["protein_altering"] or 0) > 0)
+        print(f"{n} genes have >=1 protein-altering variant")
+    if stats is not None:
+        n = sum(1 for r in in_region if r["n_y_restricted"] > 0)
+        t = sum(1 for r in in_region if r["n_te_y_restricted"] > 0)
+        print(f"{n} genes have >=1 Y-restricted variant "
+              f"(phi >= {args.phi_cut}); {t} have a Y-restricted TE insertion")
+        three = sum(1 for r in in_region
+                    if (r["protein_altering"] or 0) > 0
+                    and r["ase_snv_markers"] > 0
+                    and r["n_te_y_restricted"] > 0)
+        print(f"{three} genes have all three: coding change, an ASE marker, "
+              f"and a Y-restricted TE")
 
     with_ase = [r for r in in_region if r["ase_markers"]]
     print(f"{len(with_ase)} genes have >=1 ASE marker inside a transcript")
