@@ -189,11 +189,10 @@ tr.gene:hover{background:#F4F7F3}
         <span class="eyebrow">Sample distribution</span>
         <div class="controls">
           <button id="dWild" class="on">Wild only</button>
-          <label class="ctl"><span>Group</span><select id="dGroup">
+          <label class="ctl"><span>Split each by</span><select id="dGroup">
             <option value="inv">Inversion10</option>
-            <option value="cat">Category</option>
-            <option value="sub">Subgroup</option>
-            <option value="eco">Ecogroup</option>
+            <option value="sex">Sex</option>
+            <option value="none">nothing</option>
           </select></label>
           <span class="eyebrow" id="dVar"></span>
         </div>
@@ -529,8 +528,36 @@ function markSelected(){
 
 // Per-variant genotype distribution across the genotyped samples.
 const DV={wild:true,group:"inv"};
-const INVLAB={0:"Inversion10 = 0",1:"Inversion10 = 1 (het)",2:"Inversion10 = 2 (hom)",
-              "-1":"Inversion10 not called"};
+const INVLAB={0:"inv=0",1:"inv=1 (het)",2:"inv=2 (hom)","-1":"inv not called"};
+
+// Fixed, ordered groups. Each sample joins the FIRST group it matches, so the
+// partition is exact -- a YH brood member is not also counted under True_Deeps.
+// The order runs from the most informative comparison outward: the two broods
+// and OtherYHs are sibling sets split by inversion state, then the wild True
+// Deeps categories, then the clades used as exclusions.
+const GROUPS=[
+ {label:"YH Brood 1",        test:s=>s.cat==="YH_Brood1"},
+ {label:"YH Brood 2",        test:s=>s.cat==="YH_Brood2"},
+ {label:"Other YHs",         test:s=>s.cat==="OtherYHs"},
+ {label:"HetSpecies",        test:s=>s.cat==="HetSpecies"},
+ {label:"NoHetSpecies",      test:s=>s.cat==="NoHetSpecies"},
+ {label:"InformativeLabFish",test:s=>s.cat==="InformativeLabFish"},
+ {label:"True Deeps (other)",test:s=>s.sub==="True_Deeps"},
+ {label:"Rocky Aulonocara",  test:s=>s.sub==="Rocky_Aulonocara"},
+ {label:"Shallow Benthic",   test:s=>s.eco==="Shallow_Benthic"},
+ {label:"Utaka",             test:s=>s.eco==="Utaka"},
+ {label:"Other",             test:s=>true},
+];
+// Lab-reared groups are exempt from the wild-only filter: the broods exist
+// precisely to provide the within-family contrast, so hiding them would remove
+// the most informative comparison in the panel.
+const ALWAYS=new Set(["YH Brood 1","YH Brood 2","Other YHs","InformativeLabFish"]);
+
+function groupOf(sm){
+  for(const g of GROUPS) if(g.test(sm)) return g.label;
+  return "Other";
+}
+
 function showDistribution(i){
   selVar=i; markSelected();
   const card=document.getElementById("distCard");
@@ -539,29 +566,60 @@ function showDistribution(i){
   document.getElementById("dVar").textContent=
     `${V.name[i]} \u00b7 ${D.contig}:${V.pos[i].toLocaleString()} \u00b7 `+
     `\u03c6 ${V.phi[i]==null?"\u2014":V.phi[i].toFixed(2)}`;
-  const groups={};
+
+  const buckets={};
   for(let s=0;s<GNS;s++){
-    const sm=GS[s];
-    if(DV.wild && sm.lab!==0) continue;
-    let key;
-    if(DV.group==="inv") key=INVLAB[sm.inv]||("Inversion10 = "+sm.inv);
-    else key=sm[DV.group]||"(none)";
-    (groups[key]||=(groups[key]=[])).push(s);
+    const sm=GS[s], key=groupOf(sm);
+    if(DV.wild && sm.lab!==0 && !ALWAYS.has(key)) continue;
+    (buckets[key]||=(buckets[key]=[])).push(s);
   }
-  const order=Object.keys(groups).sort();
-  document.getElementById("distBody").innerHTML=order.map(k=>{
-    const ids=groups[k].slice().sort((a,b)=>gtOf(i,b)-gtOf(i,a));
+
+  const cells=ids=>{
+    const s2=ids.slice().sort((a,b)=>gtOf(i,b)-gtOf(i,a));
+    return `<div class="cells">`+s2.map(s=>
+      `<div class="cell g${gtOf(i,s)}" title="${GS[s].id} \u00b7 ${GS[s].sp||""}`+
+      ` \u00b7 ${GS[s].cat||"no category"} \u00b7 inv ${GS[s].inv}`+
+      ` \u00b7 ${["0/0","0/1","1/1","./."][gtOf(i,s)]}"></div>`).join("")+`</div>`;
+  };
+  const stat=ids=>{
     const c=[0,0,0,0]; ids.forEach(s=>c[gtOf(i,s)]++);
     const called=c[0]+c[1]+c[2];
     const af=called?((c[1]+2*c[2])/(2*called)).toFixed(3):"\u2014";
-    return `<div class="grp"><div class="gh"><span class="nm">${k}</span>`+
-      `<span class="meta">n=${ids.length} \u00b7 ref ${c[0]} het ${c[1]} hom ${c[2]} `+
-      `no-call ${c[3]} \u00b7 AF ${af}</span></div>`+
-      `<div class="cells">`+ids.map(s=>
-        `<div class="cell g${gtOf(i,s)}" title="${GS[s].id} \u00b7 ${GS[s].sp||""}`+
-        ` \u00b7 ${["0/0","0/1","1/1","./."][gtOf(i,s)]}"></div>`).join("")+
-      `</div></div>`;
-  }).join("");
+    return `n=${ids.length} \u00b7 ref ${c[0]} het ${c[1]} hom ${c[2]} `+
+           `no-call ${c[3]} \u00b7 AF ${af}`;
+  };
+
+  let html="";
+  GROUPS.forEach(g=>{
+    const ids=buckets[g.label];
+    if(!ids||!ids.length)return;
+    html+=`<div class="grp"><div class="gh"><span class="nm">${g.label}</span>`+
+          `<span class="meta">${stat(ids)}</span>`+
+          (ALWAYS.has(g.label)?`<span class="meta" style="color:var(--te)">lab</span>`:"")+
+          `</div>`;
+    if(DV.group==="none"){
+      html+=cells(ids);
+    }else if(DV.group==="sex"){
+      [["\u2642 M","M"],["\u2640 F","F"],["? U",null]].forEach(([lab,sx])=>{
+        const sub=ids.filter(s=>sx?GS[s].sex===sx:!(GS[s].sex==="M"||GS[s].sex==="F"));
+        if(!sub.length)return;
+        html+=`<div style="display:flex;gap:7px;align-items:flex-start;margin:2px 0">`+
+              `<span class="meta" style="width:52px;flex:none">${lab} ${sub.length}</span>`+
+              cells(sub)+`</div>`;
+      });
+    }else{
+      [1,2,0,-1].forEach(inv=>{
+        const sub=ids.filter(s=>GS[s].inv===inv);
+        if(!sub.length)return;
+        html+=`<div style="display:flex;gap:7px;align-items:flex-start;margin:2px 0">`+
+              `<span class="meta" style="width:96px;flex:none">${INVLAB[inv]} ${sub.length}</span>`+
+              cells(sub)+`</div>`;
+      });
+    }
+    html+=`</div>`;
+  });
+  document.getElementById("distBody").innerHTML=html||
+    `<div class="hint">no samples match the current filter</div>`;
 }
 document.getElementById("dWild").addEventListener("click",e=>{
   DV.wild=!DV.wild;e.target.classList.toggle("on",DV.wild);

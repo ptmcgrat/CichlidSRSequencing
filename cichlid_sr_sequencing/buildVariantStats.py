@@ -65,10 +65,16 @@ def load_samples(fm_obj):
     sdt = fm_obj.sample_dt
     meta = {}
     for _, r in sdt.iterrows():
+        cat = r.Category if pd.notna(r.get("Category")) else ""
+        # Yellow Head samples left uncategorised are the OtherYHs group -- the
+        # third YH category alongside the two broods.
+        if not cat and isinstance(r.Species, str) and "yellow head" in r.Species.lower():
+            cat = "OtherYHs"
         meta[r.SampleID] = {
+            "sp": r.Species if pd.notna(r.Species) else "",
             "eco": r.Ecogroup if pd.notna(r.Ecogroup) else "",
             "sub": r.Subgroup if pd.notna(r.get("Subgroup")) else "",
-            "cat": r.Category if pd.notna(r.get("Category")) else "",
+            "cat": cat,
             "sex": r.Sex if pd.notna(r.Sex) else "",
             "inv": int(r.Inversion10) if pd.notna(r.get("Inversion10")) else -1,
             "lab": int(r.LabReared) if pd.notna(r.get("LabReared")) else -1,
@@ -291,6 +297,7 @@ def main():
             "n_variants": NV, "n_samples": NS,
             "positions": [int(p) for p in positions],
             "samples": [{"id": sid,
+                         "sp": meta_all.get(sid, {}).get("sp", ""),
                          "eco": meta_all.get(sid, {}).get("eco", ""),
                          "sub": meta_all.get(sid, {}).get("sub", ""),
                          "cat": meta_all.get(sid, {}).get("cat", ""),
