@@ -169,6 +169,8 @@ def main():
     # express it.
     carr = [[0, 0, 0] for _ in range(NV)]
     call_by_inv = [[0, 0, 0] for _ in range(NV)]
+    het_by_inv = [[0, 0, 0] for _ in range(NV)]
+    hom_by_inv = [[0, 0, 0] for _ in range(NV)]
 
     # Packed genotypes, two bits each: 0=0/0, 1=0/1, 2=1/1, 3=no call.
     # 60,396 variants x 211 samples is 12.7M calls -- 3.2 MB packed, against
@@ -213,6 +215,10 @@ def main():
                     call_by_inv[i][inv_s] += 1
                     if g > 0:
                         carr[i][inv_s] += 1
+                    if g == 1:
+                        het_by_inv[i][inv_s] += 1
+                    elif g == 2:
+                        hom_by_inv[i][inv_s] += 1
                     n_corr[i] += 1
                     sx[i] += inv_s; sy[i] += g
                     sxx[i] += inv_s * inv_s; syy[i] += g * g
@@ -250,6 +256,24 @@ def main():
         f2 = c / (c + d) if (c + d) else None
         f0 = (carr[i][0] / call_by_inv[i][0]) if call_by_inv[i][0] else None
 
+        # X-haplotype score, the mirror of phi_het.
+        #
+        # inv=1 samples carry one X and one Y; inv=2 carry two X. So an
+        # X-specific allele should read heterozygous in inv=1 and homozygous
+        # ALT in inv=2 -- where a Y-specific allele reads heterozygous in inv=1
+        # and homozygous REF in inv=2. The two differ only in what inv=2 should
+        # look like, which is why phi_het alone cannot rank X variants.
+        #
+        # Scored as the product of the two fractions, so both conditions have to
+        # hold: 1.0 means every inv=1 sample is het AND every inv=2 sample is
+        # hom alt. The fractions are reported separately so a low score can be
+        # attributed to whichever half failed.
+        n1 = call_by_inv[i][1]
+        n2 = call_by_inv[i][2]
+        het1 = (het_by_inv[i][1] / n1) if n1 else None
+        hom2 = (hom_by_inv[i][2] / n2) if n2 else None
+        x_score = (het1 * hom2) if (het1 is not None and hom2 is not None) else 0.0
+
         rows.append({
             "name": names[i], "pos": positions[i], "hap": hap,
             "cls": classes[i],
@@ -257,6 +281,9 @@ def main():
             "af": round(af, 4) if af is not None else "",
             "inv_r": round(r, 4), "n_inv_typed": n,
             "phi_het": round(phi_het, 4),
+            "x_score": round(x_score, 4),
+            "frac_het_inv1": round(het1, 4) if het1 is not None else "",
+            "frac_hom_inv2": round(hom2, 4) if hom2 is not None else "",
             "freq_inv0": round(f0, 4) if f0 is not None else "",
             "freq_inv1": round(f1, 4) if f1 is not None else "",
             "freq_inv2": round(f2, 4) if f2 is not None else "",
@@ -271,14 +298,20 @@ def main():
     log(f"{(df.phi_het >= 0.7).sum():,} variants show the het-restricted pattern "
         f"at phi >= 0.7 (present in inv=1, absent from inv=2)")
     log(f"{(df.phi_het >= 0.9).sum():,} at phi >= 0.9")
+    log(f"{(df.x_score >= 0.7).sum():,} variants show the X pattern at "
+        f"x_score >= 0.7 (het in inv=1, hom alt in inv=2)")
+    log(f"{(df.x_score >= 0.9).sum():,} at x_score >= 0.9")
+    both = df[(df.phi_het >= 0.7) & (df.x_score >= 0.7)]
+    log(f"{len(both):,} score high on both (should be near zero -- the two "
+        f"patterns are mutually exclusive at inv=2)")
 
     for cls in ("TE_insertion", "large_indel", "SNV", "small_indel"):
         sub = df[df.cls == cls]
         if not len(sub):
             continue
         log(f"  {cls:14s} n={len(sub):6,}  "
-            f"|r|>=0.5: {(sub.inv_r.abs() >= 0.5).sum():5,}  "
-            f"phi>=0.7: {(sub.phi_het >= 0.7).sum():5,}")
+            f"phi_Y>=0.7: {(sub.phi_het >= 0.7).sum():5,}  "
+            f"x_score>=0.7: {(sub.x_score >= 0.7).sum():5,}")
 
     # Where the haplotype label and the population data disagree, by class.
     for cls in ("TE_insertion",):

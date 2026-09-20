@@ -140,8 +140,8 @@ def main():
 
     # Parallel arrays: markedly smaller than an array of objects once repeated
     # keys are gone, and the browser indexes them directly.
-    V = {"pos": [], "name": [], "cls": [], "hap": [], "phi": [], "r": [],
-         "af": [], "nc": [], "csq": [], "exon": [], "alt": []}
+    V = {"pos": [], "name": [], "cls": [], "hap": [], "phi": [], "xs": [],
+         "r": [], "af": [], "nc": [], "csq": [], "exon": [], "alt": []}
     for row in dt.itertuples():
         n = str(row.Name)
         s = st.loc[n] if n in st.index else None
@@ -150,6 +150,8 @@ def main():
         V["cls"].append(cls_idx[row.cls])
         V["hap"].append({"X": 0, "Y": 1, "XY": 2}.get(row.hap, 3))
         V["phi"].append(round(float(s["phi_het"]), 3) if s is not None else None)
+        V["xs"].append(round(float(s["x_score"]), 3)
+                       if (s is not None and "x_score" in s.index) else None)
         V["r"].append(round(float(s["inv_r"]), 3) if s is not None else None)
         V["af"].append(round(float(s["af"]), 3)
                        if s is not None and str(s["af"]) != "nan" else None)

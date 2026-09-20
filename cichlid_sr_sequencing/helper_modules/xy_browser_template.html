@@ -395,7 +395,12 @@ function passesVF(i){
   if(VF.exon&&!V.exon[i])return false;
   if(VF.alt&&!V.alt[i])return false;
   if(VF.te&&CLS[V.cls[i]]!=="TE_insertion")return false;
-  if(VF.phi&&!(V.phi[i]>=VF.phi))return false;
+  // Match on whichever haplotype score is higher, so the filter does not hide
+  // strong X variants when it is set for Y.
+  if(VF.phi){
+    const best=Math.max(V.phi[i]||0,(V.xs?V.xs[i]:0)||0);
+    if(!(best>=VF.phi))return false;
+  }
   return true;
 }
 function clsColor(i){
@@ -408,13 +413,20 @@ function drawTracks(g,lo,hi){
   const H=58;                            // height of each variant track
   let h="";
   // --- X and Y haplotype variant tracks ---
-  [["X",0],["Y",1]].forEach(([lab,code])=>{
-    h+=`<div class="trow" style="height:${H}px"><div class="tlab">${lab} haplotype</div>`;
+  // Each track is scored by its own statistic. The Y track uses phi_het
+  // (het in inv=1, hom REF in inv=2); the X track uses x_score (het in inv=1,
+  // hom ALT in inv=2). A variant can only satisfy one of them, so a tall bar in
+  // one track and a flat one in the other is the expected reading.
+  [["X",0,"xs","het in inv=1, hom ALT in inv=2"],
+   ["Y",1,"phi","het in inv=1, hom REF in inv=2"]].forEach(([lab,code,stat,desc])=>{
+    h+=`<div class="trow" style="height:${H}px"><div class="tlab" title="${desc}">`+
+       `${lab} haplotype \u00b7 ${lab==="X"?"x-score":"\u03c6"}</div>`;
     const [a,b]=sliceFor(lo,hi);
     for(let i=a;i<b;i++){
       // XY variants differ on both haplotypes, so they belong in both tracks.
       if(V.hap[i]!==code && V.hap[i]!==2)continue;
-      const phi=V.phi[i]==null?0:Math.max(0,V.phi[i]);
+      const raw=V[stat]?V[stat][i]:null;
+      const phi=raw==null?0:Math.max(0,raw);
       const ht=4+phi*(H-14);
       const dim=passesVF(i)?"":" dimmed";
       h+=`<div class="lol${dim}" data-i="${i}" style="left:${pct(V.pos[i])}%;`+
@@ -509,8 +521,10 @@ const VCOLS=[
  {t:"Hap",f:i=>`<span class="hap ${HAP[V.hap[i]]}">${HAP[V.hap[i]]}</span>`},
  {t:"Consequence",f:i=>V.csq[i]>=0?CSQ[V.csq[i]]:`<span class="dim">\u2014</span>`},
  {t:"In mRNA",f:i=>V.exon[i]?"\u2713":`<span class="dim">\u00b7</span>`},
- {t:"\u03c6",num:1,f:i=>V.phi[i]==null?`<span class="dim">\u2014</span>`:
+ {t:"\u03c6 Y",num:1,f:i=>V.phi[i]==null?`<span class="dim">\u2014</span>`:
     `<span class="mono">${V.phi[i].toFixed(2)}</span>`},
+ {t:"X score",num:1,f:i=>(!V.xs||V.xs[i]==null)?`<span class="dim">\u2014</span>`:
+    `<span class="mono">${V.xs[i].toFixed(2)}</span>`},
  {t:"r",num:1,f:i=>V.r[i]==null?`<span class="dim">\u2014</span>`:
     `<span class="mono">${V.r[i].toFixed(2)}</span>`},
  {t:"AF",num:1,f:i=>V.af[i]==null?`<span class="dim">\u2014</span>`:
@@ -633,8 +647,9 @@ function renderVariants(){
   let idx=[];
   for(let i=a;i<b;i++) if(passesVF(i)) idx.push(i);
   const keyf=[i=>V.name[i],i=>V.pos[i],i=>CLS[V.cls[i]],i=>HAP[V.hap[i]],
-              i=>V.csq[i],i=>V.exon[i],i=>V.phi[i]??-1,i=>V.r[i]??-1,
-              i=>V.af[i]??-1,i=>V.nc[i]][vSort];
+              i=>V.csq[i],i=>V.exon[i],i=>V.phi[i]??-1,
+              i=>(V.xs?V.xs[i]:null)??-1,
+              i=>V.r[i]??-1,i=>V.af[i]??-1,i=>V.nc[i]][vSort];
   idx.sort((p,q)=>{const x=keyf(p),y=keyf(q);
     return typeof x==="string"?vDir*x.localeCompare(y):vDir*(x-y);});
   document.getElementById("vhead").innerHTML=VCOLS.map((c,i)=>
@@ -682,7 +697,8 @@ document.addEventListener("mouseover",e=>{
     `${CLS[V.cls[i]]} \u00b7 ${HAP[V.hap[i]]} haplotype<br>`+
     (V.csq[i]>=0?CSQ[V.csq[i]]+"<br>":"")+
     (V.exon[i]?"inside a transcript<br>":"")+
-    `\u03c6 ${V.phi[i]==null?"\u2014":V.phi[i].toFixed(2)} \u00b7 `+
+    `\u03c6 Y ${V.phi[i]==null?"\u2014":V.phi[i].toFixed(2)} \u00b7 `+
+    `X ${(!V.xs||V.xs[i]==null)?"\u2014":V.xs[i].toFixed(2)} \u00b7 `+
     `r ${V.r[i]==null?"\u2014":V.r[i].toFixed(2)} \u00b7 `+
     `AF ${V.af[i]==null?"\u2014":V.af[i].toFixed(3)} \u00b7 n=${V.nc[i]}`;
   tip.style.opacity=1;
