@@ -40,7 +40,7 @@ All dependencies were installed and managed using conda. Please refer to the Met
 
 If you use any of this code, please cite:
 
-> Kumar et al. Large inversions in Lake Malawi cichlids are associated with habitat preference, lineage, and sex determination. *eLife* (2025). https://doi.org/10.7554/eLife.104923
+> Kumar et al. Large inversions in Lake Malawi cichlids are associated with habitat, lineage, and sex determination. *eLife* (2025). https://doi.org/10.7554/eLife.104923
 
 ## License
 
