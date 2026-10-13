@@ -1,200 +1,193 @@
-import argparse, pdb, glob, shlex, os, datetime, time
+"""
+process_vcf.py  (Oct 2026 rewrite for the per-analysis folder layout)
+
+Takes the concatenated VCF that callVariants.py wrote for an analysis and produces the PASS-variants VCF used by pca_maker.py.
+Concatenation and indexing now happen in callVariants.py (--concat_and_index), so the old --merge / --compress_and_index
+options are gone.
+
+Files (all located through nikesh_file_manager.createAnalysisIDFiles):
+    input   Outputs/<genome>/<analysis>/vcf_concat_output/<analysis>.vcf.gz
+    output  Outputs/<genome>/<analysis>/vcf_filtering/<analysis>_filtered.vcf.gz          every variant, FILTER column filled in
+            Outputs/<genome>/<analysis>/vcf_concat_output/<analysis>_pass_variants.vcf.gz  PASS biallelic SNPs (+ .tbi)
+            Outputs/<genome>/<analysis>/filtering_stats/                                   vcftools stats, filter summary, per-sample missingness
+    logs    logs/<date_time>_process_vcf_<genome>_<analysis>.log / .err   (next to this script, one pair per run)
+
+Usage:
+    python3 process_vcf.py Mzebra_GT3_NCBI --analysis_id new_aulonocara --vcf_stats      # optional: stats on the raw VCF
+    python3 process_vcf.py Mzebra_GT3_NCBI --analysis_id new_aulonocara --filter
+"""
+import argparse, os, sys, re, subprocess, datetime, platform, atexit, statistics
 from helper_modules.nikesh_file_manager import FileManager as FM
-import subprocess
-from multiprocessing import Process
 
-parser = argparse.ArgumentParser(usage = 'Once VCF files per chromosomes have been generated, this script will combine the VCFs per LG into one file then optionally perfform compression, filtering, etc.')
-parser.add_argument('genome', help = 'name of reference genome used in the creation of the VCF files')
-parser.add_argument('-m', '--merge', help = 'this flag will merge the VCF outputs into a master file', action = 'store_true')
-parser.add_argument('-c', '--compress_and_index', help = 'call this flag to compress and index the output vcf file using bgzip, then tabix', action = 'store_true')
-parser.add_argument('-v', '--vcf_stats', help = 'this flag will run vcftools to generate vcf stats for a zipped vcf file', action = 'store_true')
-parser.add_argument('-p', '--prefix', help = 'define a prefix for filtering stats files', default = ['cohort_stats'], nargs = 1, type = str)
-parser.add_argument('-u', '--utaka', help = 'use this flag when concatenating on the Utaka server and the individual files are stored in the /Output directory', action = 'store_true')
-parser.add_argument('-f', '--filter', help = 'this flag will invoke filtering of the merged vcf file', action = 'store_true')
-parser.add_argument('--local_test', help = 'call this flag to predefine variables for testing on local machine', action='store_true')
+parser = argparse.ArgumentParser(usage = 'python3 process_vcf.py <genome> --analysis_id <name> [--vcf_stats] [--filter]')
+parser.add_argument('genome', help = 'genome version used by callVariants.py (e.g. Mzebra_GT3_NCBI)')
+parser.add_argument('--analysis_id', required = True, help = 'analysis name used by callVariants.py (e.g. new_aulonocara)')
+parser.add_argument('--input_vcf', help = 'use this VCF instead of Outputs/<genome>/<analysis>/vcf_concat_output/<analysis>.vcf.gz (e.g. a _2.vcf.gz re-run)')
+parser.add_argument('-v', '--vcf_stats', action = 'store_true', help = 'run vcftools stats (depth, quality, missingness, het, allele freq) on the input VCF')
+parser.add_argument('-f', '--filter', action = 'store_true', help = 'run GATK VariantFiltration + SelectVariants to make the PASS-variants VCF')
+parser.add_argument('--min_dp', type = int, help = 'site depth (INFO/DP) lower cut-off. Default: half the median site depth of the input VCF')
+parser.add_argument('--max_dp', type = int, help = 'site depth (INFO/DP) upper cut-off. Default: twice the median site depth of the input VCF')
+parser.add_argument('--overwrite', action = 'store_true', help = 'replace existing filtered / pass-variants files for this analysis')
 args = parser.parse_args()
+if not (args.vcf_stats or args.filter):
+    parser.error('nothing to do: give --vcf_stats and/or --filter')
 
-"""
-TODO: 
-This script will ideally take the output from the callVariants.py pipeline and perform concatenation, compression, indexing, stats generation, and filtering.
-Ideally it will incorporate the rclone uploading as well.
+# Hard filters (GATK JEXL on INFO fields). Same as the lab's previous filtering except the depth cut-offs, which now scale with
+# the cohort (the old fixed DP 85-300 was tuned for a much smaller cohort) and the no-call cut-off, which scales with sample number.
+MIN_AF = 0.05               # allele frequency across all samples in the VCF
+MIN_INBREEDING = -0.6       # strongly negative = excess heterozygosity (collapsed paralogs)
+MIN_QD = 2.0                # quality by depth
+MAX_FS = 40.0               # Fisher strand bias
+MIN_MQ = 50.0               # mapping quality
+MAX_NOCALL_FRACTION = 0.10  # NCC (number of no-called samples) may be at most this fraction of samples
 
-- implement gatk VariantFiltration
-- implement rclone uploads at the end of every piece of the pipeline, but use a flag to dictate whether the upload will happen
-    - be sure to implement chunker uplaods for massive output files.
-- I believe a final pass_variant file indexing step is needed. 
 
-time python process_vcf.py -m -c -v
-time python process_vcf.py Mzebra_GT3 -p hyplotype_analysis -v 2> error_stats_250227.txt 1> log_stats_250227.txt
-"""
+def start_run_logs():
+    # One .log (stdout) / .err (stderr) pair per run in logs/ next to this script, at the file-descriptor level so gatk,
+    # bcftools and vcftools output is captured too. Same approach as callVariants.py.
+    log_dir = os.path.dirname(os.path.abspath(__file__)) + '/logs/'
+    os.makedirs(log_dir, exist_ok = True)
+    start = datetime.datetime.now()
+    base = log_dir + f"{start:%Y-%m-%d_%H-%M-%S}_process_vcf_{args.genome}_{re.sub(r'[^A-Za-z0-9._-]+', '_', args.analysis_id)}"
+    print(f"process_vcf.py started {start:%Y-%m-%d %H:%M:%S}. Output is being written to:\n  stdout: {base}.log\n  stderr: {base}.err")
+    print(f"Follow progress with: tail -f {base}.log")
+    sys.stdout.flush(); sys.stderr.flush()
+    log_fh, err_fh = open(base + '.log', 'w'), open(base + '.err', 'w')
+    os.dup2(log_fh.fileno(), sys.stdout.fileno()); os.dup2(err_fh.fileno(), sys.stderr.fileno())
+    sys.stdout.reconfigure(line_buffering = True); sys.stderr.reconfigure(line_buffering = True)
+    header = (f"==== process_vcf.py run started {start:%Y-%m-%d %H:%M:%S}\ncommand : python3 {' '.join(sys.argv)}\n"
+              f"host    : {platform.node()} (user {os.getenv('USER')})\ncwd     : {os.getcwd()}\n")
+    print(header); print(header, file = sys.stderr)
+    state = {'done': False}
+    def finish():
+        end = datetime.datetime.now()
+        line = f"\n==== {'RUN COMPLETE' if state['done'] else 'STOPPED BEFORE COMPLETION (see the .err file)'} | finished {end:%Y-%m-%d %H:%M:%S} | elapsed {str(end - start).split('.')[0]}"
+        print(line); print(line, file = sys.stderr)
+    atexit.register(finish)
+    return state
+
+
+def run(command, **kwargs):
+    # Run a command, stop the script if it fails
+    print(f"[{datetime.datetime.now():%H:%M:%S}] " + ' '.join(command))
+    result = subprocess.run(command, **kwargs)
+    if result.returncode != 0:
+        sys.exit(f"Command failed (exit {result.returncode}): {' '.join(command)}")
+    return result
+
 
 class VCFProcessor:
-    def __init__(self, genome):
-        self.genome = genome
-        self.fm_obj = FM(self.genome)
-        self.master_file = self.fm_obj.localOutputDir + 'vcf_concat_output/YH_MC_F1s.vcf.gz' # please type the directory of master VCF
-        self.stats_dir = self.fm_obj.localOutputDir + 'filtering_stats/YH_MC_F1s' # type the directory to produce the stat file
-        intervals = list(range(1,97))
-        self.intervals = list(map(str, intervals))
-        self.current_time = datetime.datetime.now()
+    def __init__(self):
+        self.fm = FM(args.genome)
+        self.fm.createAnalysisIDFiles(args.analysis_id)
+        self.input_vcf = args.input_vcf or self.fm.localAnalysisVCFFile
+        if not os.path.exists(self.input_vcf) or not os.path.exists(self.input_vcf + '.tbi'):
+            sys.exit(f"Input VCF or its .tbi index not found: {self.input_vcf}")
+        if not os.path.exists(self.fm.localGenomeFile):
+            sys.exit(f"Reference fasta not found: {self.fm.localGenomeFile} (run make_intervals.py {args.genome} on this server first)")
+        for directory in [self.fm.localAnalysisFilteringDir, self.fm.localAnalysisStatsDir]:
+            os.makedirs(directory, exist_ok = True)
+        self.samples = run(['bcftools', 'query', '-l', self.input_vcf], capture_output = True, encoding = 'utf-8').stdout.split()
+        self.prefix = self.fm.localAnalysisStatsDir + args.analysis_id
+        print(f"Input VCF: {self.input_vcf} ({len(self.samples)} samples, {self.record_count(self.input_vcf):,} variant records)")
 
-        if args.local_test:
-            self.linkage_groups = ['NC_036787.1', 'NC_036788.1', 'NC_036798.1'] # old code based on LG based file processing. Now, even for local_test, intervals will get processed. 
+    def record_count(self, vcf):
+        # number of records, read from the .tbi index (instant)
+        out = subprocess.run(['bcftools', 'index', '-n', vcf], capture_output = True, encoding = 'utf-8').stdout.strip()
+        return int(out) if out.isdigit() else -1
 
-    def _make_file_structure(self):
-        # check if vcf_concat_output dir exists and make if it doesn't exist 
-        try:
-            os.makedirs(self.fm_obj.localOutputDir + 'vcf_concat_output/') # make a vcf_concat_output directory 
-        except FileExistsError:
-            pass
-        # check if filtering_stats dir exists and make if it doesnt't exist
-        try:
-            os.makedirs(self.stats_dir)
-        except FileExistsError:
-            pass
-        self.vcfConcatDir = self.fm_obj.localOutputDir + 'vcf_concat_output/'
-        self.file_num = 0
-        for file in os.listdir(self.vcfConcatDir):
-            if file.endswith('vcf'): # added so any index or zipped files in self.vcfConcatDir do no increment the counter
-                self.file_num += 1
-
-    def merge_vcfs(self):
-        print(f"VCF Master File concatenation started at {self.current_time}")
-    #### if no master file exists, run through the code normally and name the file "master_file.vcf"
-        if self.file_num == 0:
-            with open(f"{self.vcfConcatDir}master_file.vcf", 'w+') as f1: # open the master list file if the vcf_concat_output dir is empty
-                for interval in self.intervals:
-                    print(f"Concatenation of interval {interval} started at {self.current_time}")
-                    if args.utaka:
-                        file_to_write = self.fm_obj.StorageOutputDir + interval + '_output.vcf'
-                    else:
-                        file_to_write = self.fm_obj.localOutputDir + interval + '_output.vcf'
-                    if os.path.getsize(f"{self.vcfConcatDir}master_file.vcf") == 0: # if the master file is empty, take the file and write the whole contents. This will write the header
-                        f1.write(subprocess.check_output(shlex.split(f"cat {file_to_write}"), encoding='utf-8')) # the newline is needed at the end
-                    else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file.
-                        with open(file_to_write, 'r') as f2:
-                            for line in f2:
-                                if not line.startswith('#'): # avoids writing header information from all subsequent files 
-                                    f1.write(line)
-                    print(f"Concatenation of interval {interval} cpmplete at {self.current_time}")
-        else: # if the master file exists, create a new file so that the data in previous iterations will be preserved to prevent overwrite of an existing file 
-            with open(f"{self.vcfConcatDir}master_file{self.file_num}.vcf", 'w+') as f1: # open a new master_file.vcf with a new file_num if one already exists
-                for interval in self.intervals:
-                    print(f"Concatenation of interval {interval} started at {self.current_time}")
-                    if args.utaka:
-                        file_to_write = self.fm_obj.StorageOutputDir + interval + '_output.vcf'
-                    else:
-                        file_to_write = file_to_write = self.fm_obj.localOutputDir + interval + '_output.vcf'
-                    if os.path.getsize(f"{self.vcfConcatDir}master_file{self.file_num}.vcf") == 0: # if the master file is empty, take the file and write the whole contents. This will write the header
-                        f1.write(subprocess.check_output(shlex.split(f"cat {file_to_write}"), encoding='utf-8')) # the newline is needed at the end
-                    else: # if file has contents, open the file in read mode then go through each line. If it doesnt start with a "#" then write it to the master file.
-                        with open(file_to_write, 'r') as f2:
-                            for line in f2:
-                                if not line.startswith('#'): # avoids writing header information from all subsequent files 
-                                    f1.write(line)
-                    print(f"Concatenation of interval {interval} complete at {self.current_time}")
-        print(f"VCF Master File concatenation complete at {self.current_time}")
-
-    def compress_and_index_vcf(self):
-        print(f"master_file.vcf compression staretd at {self.current_time}")
-        if self.file_num == 0:
-            with open(f"{self.vcfConcatDir}master_file.vcf.gz", 'w+') as f1:
-                # I've confirmed that the below command gives a zipped file that can be unzipped and has the same data as the original using the diff command and using ls -l and confirming that the bytes are the same
-                subprocess.call(shlex.split(f"bgzip -c {self.vcfConcatDir}master_file.vcf"), stdout=f1)
-        else:
-            with open(f"{self.vcfConcatDir}master_file{self.file_num}.vcf.gz", 'w') as f2:
-                subprocess.call(shlex.split(f"bgzip -c {self.vcfConcatDir}master_file.vcf"), stdout=f2)
-        print(f"master_file.vcf compression complete at {self.current_time}")
-
-        #Below code can easily just be written into its own function if ever needed
-        print(f"master_file.vcf indexing staretd at {self.current_time}")
-        if self.file_num == 0:
-            subprocess.run(shlex.split(f"tabix -p vcf {self.vcfConcatDir}master_file.vcf.gz"))
-        else:
-            subprocess.run(shlex.split(f"tabix -p vcf {self.vcfConcatDir}master_file{self.file_num}.vcf.gz"))
-        print(f"master_file.vcf indexing complete at {self.current_time}")
+    def largest_contig(self):
+        # contig with the most records (from the index), used for quick per-contig summaries instead of reading the whole
+        # genome. Falls back to the first contig if the index has no record counts.
+        out = subprocess.run(['bcftools', 'index', '-s', self.input_vcf], capture_output = True, encoding = 'utf-8')
+        rows = [l.split('\t') for l in out.stdout.splitlines() if l.strip()]
+        if out.returncode == 0 and rows:
+            return max(rows, key = lambda f: int(f[2]))[0]
+        return run(['tabix', '-l', self.input_vcf], capture_output = True, encoding = 'utf-8').stdout.split()[0]
 
     def generate_stats(self):
-        print('Generating stats for master_file.vcf...')
-        command1 = shlex.split(f'vcftools --gzvcf {self.master_file} --freq2 --max-alleles 2 --out {self.stats_dir}/{args.prefix[0]} ') # allele freq
-        command2 = shlex.split(f'vcftools --gzvcf {self.master_file} --depth --out {self.stats_dir}/{args.prefix[0]}') # depth per sample 
-        command3 = shlex.split(f'vcftools --gzvcf {self.master_file} --site-mean-depth --out {self.stats_dir}/{args.prefix[0]}') # mean depth per variant site
-        command4 = shlex.split(f'vcftools --gzvcf {self.master_file} --site-depth --out {self.stats_dir}/{args.prefix[0]}') # depth at every variant site
-        command5 = shlex.split(f'vcftools --gzvcf {self.master_file} --site-quality --out {self.stats_dir}/{args.prefix[0]}') # quality per variant site
-        command6 = shlex.split(f'vcftools --gzvcf {self.master_file} --missing-indv --out {self.stats_dir}/{args.prefix[0]}') # fraction of missing data by sample
-        command7 = shlex.split(f'vcftools --gzvcf {self.master_file} --missing-site --out {self.stats_dir}/{args.prefix[0]}') # fraction of missing data per variant site
-        command8 = shlex.split(f'vcftools --gzvcf {self.master_file} --het --out {self.stats_dir}/{args.prefix[0]}') # het & inbreeding coefficient
-        commands = [command1, command2, command3, command4, command5, command6, command7, command8]
+        # vcftools summaries of the input VCF, run in parallel (each reads the whole file)
+        print('Generating vcftools stats for the input VCF ...')
+        base = ['vcftools', '--gzvcf', self.input_vcf, '--out', self.prefix]
+        stats = [['--freq2', '--max-alleles', '2'], ['--depth'], ['--site-mean-depth'], ['--site-quality'], ['--missing-indv'], ['--missing-site'], ['--het']]
+        procs = [subprocess.Popen(base + s) for s in stats]
+        failed = [' '.join(s) for s, p in zip(stats, procs) if p.wait() != 0]
+        if failed:
+            sys.exit('vcftools failed for: ' + ', '.join(failed))
+        print(f"vcftools stats written to {self.fm.localAnalysisStatsDir}")
 
-        procs = [subprocess.Popen(i) for i in commands]
-        for p in procs:
-            print(f"starting process at {self.current_time}")
-            p.wait()
-        print(f"Stat calculation for vcf file complete at {self.current_time}")
+    def depth_cutoffs(self):
+        # Site depth (INFO/DP) is summed over all samples, so sensible cut-offs depend on cohort size and coverage.
+        # Default: half and twice the median site depth, measured on the contig with the most records.
+        if args.min_dp and args.max_dp:
+            return args.min_dp, args.max_dp
+        contig = self.largest_contig()
+        values = [int(v) for v in run(['bcftools', 'query', '-r', contig, '-f', '%INFO/DP\n', self.input_vcf], capture_output = True, encoding = 'utf-8').stdout.split() if v.isdigit()]
+        median = statistics.median(values)
+        min_dp, max_dp = args.min_dp or int(median / 2), args.max_dp or int(median * 2)
+        print(f"Median site depth (INFO/DP) on {contig}: {median:,.0f} over {len(values):,} sites -> min_DP {min_dp}, max_DP {max_dp}")
+        return min_dp, max_dp
 
     def filter_variants(self):
-        print('RUNNING VARIANT FILTERING')
-        self.filtered_file = self.fm_obj.localOutputDir + 'YH_MC_F1s_filtered.vcf.gz' # type the name of output filtered VCF
-        self.pass_file = self.fm_obj.localOutputDir + 'vcf_concat_output/YH_MC_F1s_pass_variants.vcf.gz' # type the name of output passed VCF
-        subprocess.run(shlex.split(f"gatk VariantFiltration \
-                                    -R {self.fm_obj.localGenomeFile} \
-                                    -V {self.master_file} \
-                                    -O {self.filtered_file} \
-                                    --filter-name 'allele_freq' \
-                                    --filter-expression 'AF < 0.05' \
-                                    --filter-name 'inbreeding_test' \
-                                    --filter-expression 'InbreedingCoeff < -0.6' \
-                                    --filter-name 'depth_Qual' \
-                                    --filter-expression 'QD < 2.0' \
-                                    --filter-name 'max_DP' \
-                                    --filter-expression 'DP > 300' \
-                                    --filter-name 'min_DP' \
-                                    --filter-expression 'DP < 85' \
-                                    --filter-name 'strand_bias' \
-                                    --filter-expression 'FS > 40.0' \
-                                    --filter-name 'mapping_quality' \
-                                    --filter-expression 'MQ < 50.0' \
-                                    --filter-name 'no_calls' \
-                                    --filter-expression 'NCC > 6' \
-                                    --verbosity ERROR"))
-        print('FILTERING COMPLETE... EXTRACTING ONLY PASS VARIANTS')
-        # NOTE: The --select-type-to-include SNP means no indels will survive this selection. be sure to remove if indels are desired. 
-        subprocess.run(['gatk', 'SelectVariants', '-V', self.filtered_file, '--exclude-filtered', '--select-type-to-include', 'SNP', '-O', self.pass_file])
-        print('INDEXING PASS VARIANTS FILE...')
-        subprocess.run(shlex.split(f"tabix -p vcf {self.pass_file}"))
-        print('PASS VARIANT FILE GENERATED')
+        filtered, passed = self.fm.localAnalysisFilteredVCFFile, self.fm.localAnalysisPassVCFFile
+        if (os.path.exists(filtered) or os.path.exists(passed)) and not args.overwrite:
+            sys.exit(f"Filtered/pass files already exist for {args.analysis_id}. Use --overwrite to replace them:\n  {filtered}\n  {passed}")
+        min_dp, max_dp = self.depth_cutoffs()
+        max_ncc = round(MAX_NOCALL_FRACTION * len(self.samples))
+        filters = [('allele_freq', f'AF < {MIN_AF}'), ('inbreeding_test', f'InbreedingCoeff < {MIN_INBREEDING}'), ('depth_Qual', f'QD < {MIN_QD}'),
+                   ('max_DP', f'DP > {max_dp}'), ('min_DP', f'DP < {min_dp}'), ('strand_bias', f'FS > {MAX_FS}'),
+                   ('mapping_quality', f'MQ < {MIN_MQ}'), ('no_calls', f'NCC > {max_ncc}')]
+        print('Filters:\n' + '\n'.join(f"  {name:16s} {expr}" for name, expr in filters))
 
-    def run_methods(self):
-        self._make_file_structure()
-        if args.merge:
-            self.merge_vcfs()
-        if args.compress_and_index:
-            self.compress_and_index_vcf()
-        if args.vcf_stats:
-            self.generate_stats()
-        if args.filter:
-            self.filter_variants()
+        print('RUNNING VARIANT FILTRATION ...')
+        command = ['gatk', 'VariantFiltration', '-R', self.fm.localGenomeFile, '-V', self.input_vcf, '-O', filtered, '--verbosity', 'ERROR']
+        for name, expr in filters:
+            command += ['--filter-name', name, '--filter-expression', expr]
+        run(command)
 
-if __name__ == "__main__":
-    vcf_processor_obj = VCFProcessor(args.genome)
-    vcf_processor_obj.run_methods()
-    print('Pipeline Run Successful')
+        # Keep PASS sites that are biallelic SNPs (indels and multiallelic sites removed; pca_maker uses biallelic SNPs only)
+        print('EXTRACTING PASS BIALLELIC SNPs ...')
+        run(['gatk', 'SelectVariants', '-V', filtered, '--exclude-filtered', '--select-type-to-include', 'SNP', '--restrict-alleles-to', 'BIALLELIC', '-O', passed])
+        run(['tabix', '-f', '-p', 'vcf', passed]) # re-index with htslib so bcftools can read record counts from the index
 
-    
+        self.summarize(filtered, passed, filters)
 
+    def summarize(self, filtered, passed, filters):
+        # Record counts + which filters removed sites (on the largest contig) + per-sample missingness in the PASS file
+        n_in, n_pass = self.record_count(self.input_vcf), self.record_count(passed)
+        contig = self.largest_contig()
+        flags = run(['bcftools', 'query', '-r', contig, '-f', '%FILTER\n', filtered], capture_output = True, encoding = 'utf-8').stdout.split()
+        total = len(flags)
+        summary = [f"Input records: {n_in:,}", f"PASS biallelic SNPs: {n_pass:,} ({100 * n_pass / max(n_in, 1):.1f}% of input)",
+                   f"\nSites failing each filter on {contig} (a site can fail several; {total:,} sites):"]
+        for name, expr in filters:
+            n = sum(1 for f in flags if name in f.split(';'))
+            summary.append(f"  {name:16s} {expr:28s} {n:>12,} ({100 * n / max(total, 1):.1f}%)")
+        summary.append(f"  {'PASS':16s} {'':28s} {flags.count('PASS'):>12,} ({100 * flags.count('PASS') / max(total, 1):.1f}%)")
 
-"""
-NOTE:
-Find filtering stats notes in the "VCF Filtering" notebook on Dropbox
+        run(['vcftools', '--gzvcf', passed, '--missing-indv', '--out', self.prefix + '_pass'])
+        missing = []
+        with open(self.prefix + '_pass.imiss') as fh:
+            next(fh)
+            for line in fh:
+                fields = line.split()
+                missing.append((fields[0], float(fields[4])))
+        missing.sort(key = lambda m: -m[1])
+        summary.append(f"\nPer-sample missing genotypes in the PASS file (highest 15 of {len(missing)}; full table: {self.prefix}_pass.imiss):")
+        summary += [f"  {sample:22s} {frac:.3f}" for sample, frac in missing[:15]]
 
-time python process_vcf.py Mzebra_GT3 --filter 2> error_filter_gt3_master_file_240712.txt 1> log_filter_gt3_master_file_240712.txt
-
-time python process_vcf.py Mzebra_UMD2a --merge --compress_and_index --vcf_stats --prefix 419_cohort 2> vcf_pipeline_logs/error_419cohort_concat_24.01.19.txt 1> vcf_pipeline_logs/log_419cohort_concat_24.01.19.txt
-
-time python process_vcf.py Mzebra_GT3 --merge --compress_and_index
+        text = '\n'.join(summary)
+        print('\n' + text)
+        with open(self.prefix + '_filter_summary.txt', 'w') as fh:
+            fh.write(text + '\n')
+        print(f"\nPASS variants file: {passed}")
 
 
-time python process_vcf.py Mzebra_GT3 --filter 2> error_filter_gt3_master_file_240723.txt 1> log_filter_gt3_master_file_240723.txt
-
-time python process_vcf.py Mzebra_GT3 --filter
-"""
+if __name__ == '__main__':
+    state = start_run_logs()
+    processor = VCFProcessor()
+    if args.vcf_stats:
+        processor.generate_stats()
+    if args.filter:
+        processor.filter_variants()
+    state['done'] = True
