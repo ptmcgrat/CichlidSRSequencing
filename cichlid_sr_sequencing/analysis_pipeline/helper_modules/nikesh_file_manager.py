@@ -148,6 +148,7 @@ class FileManager():
 		#   Outputs/<genome>/<analysisID>/vcf_concat_output/     final VCF: <analysisID>.vcf.gz (+ <analysisID>_pass_variants.vcf.gz after process_vcf.py)
 		#   Outputs/<genome>/<analysisID>/vcf_filtering/         <analysisID>_filtered.vcf.gz (all variants with FILTER set)
 		#   Outputs/<genome>/<analysisID>/filtering_stats/       vcftools stats + filter summaries
+		#   Outputs/<genome>/<analysisID>/pca/<core_set>/        pca_maker.py outputs
 		#   Databases/<genome>/<analysisID>/                     GenomicsDB workspaces
 		self.analysisID = analysisID
 		self.localAnalysisFile = self.localAnalysisDir + analysisID + '.csv'
@@ -164,8 +165,10 @@ class FileManager():
 		# Filtering outputs (process_vcf.py). The pass-variants file is the input for pca_maker.py.
 		self.localAnalysisFilteringDir = self.localAnalysisOutputDir + 'vcf_filtering/'
 		self.localAnalysisFilteredVCFFile = self.localAnalysisFilteringDir + analysisID + '_filtered.vcf.gz' # every variant, FILTER column filled in
-		self.localAnalysisPassVCFFile = self.localAnalysisConcatDir + analysisID + '_pass_variants.vcf.gz' # PASS biallelic SNPs only
+		self.localAnalysisPassVCFFile = self.localAnalysisConcatDir + analysisID + '_pass_variants.vcf.gz' # PASS SNPs only (multiallelic SNPs included)
 		self.localAnalysisStatsDir = self.localAnalysisOutputDir + 'filtering_stats/'
+		# PCA outputs (pca_maker.py): one sub-folder per core set, e.g. pca/CORE_PCA/
+		self.localAnalysisPCADir = self.localAnalysisOutputDir + 'pca/'
 
 	def analysisIDExists(self, analysisID):
 		# True if either folder of this analysis already exists for self.genome_version
