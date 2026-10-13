@@ -145,7 +145,9 @@ class FileManager():
 		# Layout:
 		#   Outputs/<genome>/<analysisID>/                       frozen sample list, sample map, command log
 		#   Outputs/<genome>/<analysisID>/interval_vcfs/         per-interval VCFs from GenotypeGVCFs
-		#   Outputs/<genome>/<analysisID>/vcf_concat_output/     final VCF: <analysisID>.vcf.gz
+		#   Outputs/<genome>/<analysisID>/vcf_concat_output/     final VCF: <analysisID>.vcf.gz (+ <analysisID>_pass_variants.vcf.gz after process_vcf.py)
+		#   Outputs/<genome>/<analysisID>/vcf_filtering/         <analysisID>_filtered.vcf.gz (all variants with FILTER set)
+		#   Outputs/<genome>/<analysisID>/filtering_stats/       vcftools stats + filter summaries
 		#   Databases/<genome>/<analysisID>/                     GenomicsDB workspaces
 		self.analysisID = analysisID
 		self.localAnalysisFile = self.localAnalysisDir + analysisID + '.csv'
@@ -159,6 +161,11 @@ class FileManager():
 		self.localCommandsLogFile = self.localAnalysisOutputDir + 'commands_log.txt'
 		self.localMissingGVCFsFile = self.localAnalysisOutputDir + 'missing_gvcfs.txt'
 		self.localAnalysisVCFFile = self.localAnalysisConcatDir + analysisID + '.vcf.gz' # a re-run of -c writes <analysisID>_2.vcf.gz etc. next to it
+		# Filtering outputs (process_vcf.py). The pass-variants file is the input for pca_maker.py.
+		self.localAnalysisFilteringDir = self.localAnalysisOutputDir + 'vcf_filtering/'
+		self.localAnalysisFilteredVCFFile = self.localAnalysisFilteringDir + analysisID + '_filtered.vcf.gz' # every variant, FILTER column filled in
+		self.localAnalysisPassVCFFile = self.localAnalysisConcatDir + analysisID + '_pass_variants.vcf.gz' # PASS biallelic SNPs only
+		self.localAnalysisStatsDir = self.localAnalysisOutputDir + 'filtering_stats/'
 
 	def analysisIDExists(self, analysisID):
 		# True if either folder of this analysis already exists for self.genome_version
