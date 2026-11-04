@@ -16,22 +16,27 @@ TOOLS = {'samtools': 'samtools --version', 'bcftools': 'bcftools --version', 'ga
 
 def git_state(path):
     """(commit, dirty) for the run record.
-    1. DEPLOYED_FROM.txt (written by scripts/deploy_to_utaka.sh on the laptop) is authoritative: commit + dirty flag at deploy time.
-    2. Otherwise, if the package files are tracked by the git repo that contains them, use that repo's HEAD and dirty state.
-    3. Otherwise (e.g. unzipped into a clone that does not track it) report the package version from VERSION.txt, never an unrelated HEAD."""
+    1. If the package files are tracked by the git clone that contains them (utaka after `git pull`, or the laptop) and the tree is clean, git is authoritative.
+    2. Otherwise DEPLOYED_FROM.txt (written by scripts/deploy_to_utaka.sh) is used if present: commit + dirty flag at deploy time.
+    3. Otherwise, if tracked but dirty, report git HEAD with dirty=True.
+    4. Otherwise (an unzipped copy that no repo tracks) report the package version from VERSION.txt, never an unrelated HEAD."""
     from .common_light import PKG_ROOT
+    git = None
+    try:
+        if sh(['git', '-C', PKG_ROOT, 'ls-files', '--', 'config/paper.yaml']).stdout.strip():
+            commit = sh(['git', '-C', PKG_ROOT, 'rev-parse', '--short', 'HEAD']).stdout.strip()
+            dirty = bool(sh(['git', '-C', PKG_ROOT, 'status', '--porcelain', '--', PKG_ROOT]).stdout.strip())
+            git = (commit, dirty)
+    except Exception:
+        git = None
+    if git and not git[1]:
+        return git
     dep = os.path.join(PKG_ROOT, 'DEPLOYED_FROM.txt')
     if os.path.exists(dep):
         kv = dict(l.strip().split(': ', 1) for l in open(dep) if ': ' in l)
         return kv.get('commit', 'nogit'), (kv.get('dirty', '0') == '1')
-    try:
-        tracked = sh(['git', '-C', PKG_ROOT, 'ls-files', '--', 'config/paper.yaml']).stdout.strip()
-        if tracked:
-            commit = sh(['git', '-C', PKG_ROOT, 'rev-parse', '--short', 'HEAD']).stdout.strip()
-            dirty = bool(sh(['git', '-C', PKG_ROOT, 'status', '--porcelain', '--', PKG_ROOT]).stdout.strip())
-            return commit, dirty
-    except Exception:
-        pass
+    if git:
+        return git
     ver = os.path.join(PKG_ROOT, 'VERSION.txt')
     if os.path.exists(ver):
         for l in open(ver):

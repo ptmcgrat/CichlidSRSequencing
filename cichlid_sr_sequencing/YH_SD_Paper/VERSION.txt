@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v8_20261104-1150.zip
-version  : v8
-built    : 20261104-1150
-changes  : git is done on the laptop; scripts/deploy_to_utaka.sh copies the committed folder to utaka; run records take the commit from DEPLOYED_FROM.txt.
+zip name : YH_SD_Paper_v9_20261104-1157.zip
+version  : v9
+built    : 20261104-1157
+changes  : run records: git authoritative when the pulled tree is clean (DEPLOYED_FROM.txt only for untracked/dirty copies); README workflow = laptop commits, utaka git pull.

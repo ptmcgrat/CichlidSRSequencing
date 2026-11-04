@@ -22,13 +22,27 @@ Later steps read the latest run, pulling it from Dropbox if it is not on local d
 `--no-upload` disables this; `--test` runs write to `YH_SD_Paper_test/` and never upload. BC working directories (`v2/`, `original/`, `qc/`)
 are published as snapshots after each step.
 
-## A. Put the zip into the repo and create the branch
-    scp ~/Downloads/YH_SD_Paper_branch.zip mcgrath-lab@utaka.biosci.gatech.edu:~/     # from your laptop
-    cd ~/CichlidSRSequencing && git status                  # should be clean
-    git fetch origin && git checkout mcgrath_dev && git pull origin mcgrath_dev
-    git checkout -b YH_SD_Paper
-    cd cichlid_sr_sequencing && unzip ~/YH_SD_Paper_branch.zip
-    cd YH_SD_Paper                  # run every command below from here
+## A. Workflow: the laptop does git, utaka does `git pull`
+Run commands on utaka from `~/CichlidSRSequencing/cichlid_sr_sequencing/YH_SD_Paper/`. Never commit on utaka; it only pulls.
+
+Laptop, for every new zip (use the exact new file name each time):
+    cd ~/CichlidSRSequencing/cichlid_sr_sequencing
+    git checkout YH_SD_Paper
+    rm -rf YH_SD_Paper && unzip ~/Downloads/<zip name>.zip
+    git add YH_SD_Paper && git commit -m "<message>" && git push -u origin YH_SD_Paper
+utaka, to receive it:
+    cd ~/CichlidSRSequencing && git pull --ff-only origin YH_SD_Paper
+    cat cichlid_sr_sequencing/YH_SD_Paper/VERSION.txt
+To pick up lab-wide changes to helper_modules, merge on the LAPTOP (`git checkout YH_SD_Paper && git merge mcgrath_dev && git push`), then pull on utaka.
+Alternative without git on utaka: `bash YH_SD_Paper/scripts/deploy_to_utaka.sh` on the laptop (rsync + selftest). Do not mix the two on the same checkout.
+
+### One-time: make utaka's branch an exact mirror of origin (if it still has the old unzipped folder or an upstream-less local branch)
+    cd ~/CichlidSRSequencing
+    git status --short | head; git branch -vv; git log origin/YH_SD_Paper..YH_SD_Paper --oneline     # local-only commits? back them up:
+    git branch backup_utaka_YH_SD_Paper                          # only if the last command listed commits
+    mv cichlid_sr_sequencing/YH_SD_Paper ~/YH_SD_Paper_old_unzipped      # untracked copy would block the checkout
+    git fetch origin && git checkout -B YH_SD_Paper origin/YH_SD_Paper
+    git branch --set-upstream-to=origin/YH_SD_Paper YH_SD_Paper
 
 ## B. Environment and tests
     conda env create -f environment.yml && conda activate yh_sd_paper
@@ -87,10 +101,6 @@ Table S7 coding: 0 non-inverted, 1 het, 2 inverted.
     python -m yhsd bc_genotyping validate && python -m yhsd bc_genotyping compare
 Use `tmux` for long runs.
 
-## E. Commit and sync to GitHub
-    cd ~/CichlidSRSequencing
-    git status --short                         # only YH_SD_Paper files; no .bam/.vcf.gz/.csv
-    git add cichlid_sr_sequencing/YH_SD_Paper
-    git commit -m "YH_SD_Paper: restructure; callset builder, runner, parental sex-region analysis"
-    git push -u origin YH_SD_Paper
-Tag the submission commit (`git tag paper-v1 && git push origin paper-v1`) and archive it to Zenodo.
+## E. Submission
+Tag the submission commit on the laptop (`git tag paper-v1 && git push origin paper-v1`) and archive it to Zenodo.
+Run records store the git commit: on utaka it comes from the pulled checkout (clean tree), else from DEPLOYED_FROM.txt, else VERSION.txt.
