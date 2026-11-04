@@ -5,8 +5,8 @@ FileNotFoundError kill the run (leaving the already started rclone processes beh
   * at most `max_parallel` downloads run at a time (the rest wait in a queue);
   * every file is tracked (a sample with several uBams is no longer judged by its last file only);
   * a failed start ('Cant find file' raised while launching), a non-zero exit or a file that fails the check is retried with exponential backoff;
-  * a downloaded file must pass `samtools quickcheck` (header + EOF marker, so a truncated BAM is caught); a bad file is deleted before the retry,
-    because rclone would otherwise skip a same-size corrupt file;
+  * a downloaded file must end with the BGZF EOF marker and pass `gzip -t` (truncated or corrupt BAMs are caught; samtools quickcheck is not used because it rejects
+    unmapped BAMs); a bad file is deleted before the retry, because rclone would otherwise skip a same-size corrupt file;
   * files that are already complete are not downloaded again (a rerun only fetches what is missing);
   * on Ctrl-C or any error every running rclone (and its children) is terminated;
   * failures are returned per sample instead of raised."""
@@ -58,17 +58,32 @@ def kill_tree(p, grace=5):
         pass
 
 
-def bam_check(path):
-    """(ok, reason). Exists, not empty, and `samtools quickcheck` passes (skipped, with ok=True, if samtools is not installed)."""
+# A BAM file is BGZF: a series of gzip members that must END with this fixed 28-byte empty block. A truncated download has no (or a cut) marker.
+BGZF_EOF = bytes.fromhex('1f8b08040000000000ff0600424302001b0003000000000000000000')
+
+
+def bam_check(path, full=True):
+    """(ok, reason). Works for unmapped BAMs too: `samtools quickcheck` is NOT used because it demands at least one @SQ reference line in the header and so rejects every uBAM.
+    1) exists and is not empty;  2) ends with the BGZF EOF marker (catches truncation, also at a block boundary);
+    3) if full: `gzip -t` reads the whole file and verifies every block's CRC (catches corruption). Skipped, with ok=True and a warning reason, if gzip is not installed."""
     if not os.path.exists(path):
         return False, 'file missing after download'
-    if os.path.getsize(path) == 0:
+    size = os.path.getsize(path)
+    if size == 0:
         return False, 'empty file'
+    if size < len(BGZF_EOF):
+        return False, 'file too short to be a BAM'
+    with open(path, 'rb') as f:
+        f.seek(-len(BGZF_EOF), 2)
+        if f.read(len(BGZF_EOF)) != BGZF_EOF:
+            return False, 'BGZF end-of-file marker missing (truncated download)'
+    if not full:
+        return True, ''
     try:
-        r = subprocess.run(['samtools', 'quickcheck', '-q', path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        r = subprocess.run(['gzip', '-t', path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except FileNotFoundError:
-        return True, 'samtools not available: integrity not checked'
-    return (r.returncode == 0), ('' if r.returncode == 0 else 'samtools quickcheck failed (truncated or corrupt BAM)')
+        return True, 'gzip not available: file contents not verified (end-of-file marker only)'
+    return (r.returncode == 0), ('' if r.returncode == 0 else 'gzip -t failed (corrupt BAM)')
 
 
 def _log(msg):

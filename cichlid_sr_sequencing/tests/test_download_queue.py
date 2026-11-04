@@ -116,12 +116,29 @@ class T(unittest.TestCase):
         eff = dq.configure_rclone_env()
         self.assertEqual(eff['RCLONE_TRANSFERS'], '5'); self.assertEqual(eff['RCLONE_MULTI_THREAD_STREAMS'], '1')
 
-    def test_bam_check_flags_missing_empty_and_garbage(self):
-        p = self.d + 'x.bam'
-        self.assertFalse(dq.bam_check(p)[0])
-        open(p, 'wb').write(b''); self.assertFalse(dq.bam_check(p)[0])
-        open(p, 'wb').write(b'not a bam'); ok, why = dq.bam_check(p)
-        self.assertTrue((not ok) or 'not available' in why)          # without samtools the check is skipped (ok=True, with that reason)
+    def test_bam_check_on_real_bgzf_files(self):
+        """Real BGZF files built by hand (no samtools needed). A uBAM has no @SQ lines: it must still pass."""
+        import struct, zlib
+        def block(data):
+            c = zlib.compressobj(6, zlib.DEFLATED, -15); cd = c.compress(data) + c.flush()
+            return (b'\x1f\x8b\x08\x04' + b'\x00' * 4 + b'\x00\xff' + struct.pack('<H', 6) + b'BC' + struct.pack('<H', 2) + struct.pack('<H', len(cd) + 25)
+                    + cd + struct.pack('<II', zlib.crc32(data) & 0xffffffff, len(data)))
+        self.assertEqual(block(b''), dq.BGZF_EOF)
+        good = block(os.urandom(20000)) + block(os.urandom(20000)) + block(b'')          # incompressible payloads: a byte offset inside a block is unambiguous
+        p = self.d + 'u.bam'
+        def put(data):
+            with open(p, 'wb') as f: f.write(data)
+        self.assertFalse(dq.bam_check(p)[0])                                         # missing
+        put(b''); self.assertEqual(dq.bam_check(p), (False, 'empty file'))
+        put(good); self.assertEqual(dq.bam_check(p), (True, ''))                      # complete BAM passes (no @SQ lines needed)
+        put(good[:len(good) // 2]); ok, why = dq.bam_check(p)                         # truncated mid-file
+        self.assertFalse(ok); self.assertIn('end-of-file marker', why)
+        put(good[:-28]); self.assertFalse(dq.bam_check(p)[0])                         # cut exactly at a block boundary: only the EOF marker tells
+        bad = bytearray(good); bad[10000] ^= 0xFF                                     # a flipped byte inside a block's payload: only gzip -t tells
+        put(bytes(bad)); ok, why = dq.bam_check(p)
+        self.assertFalse(ok); self.assertIn('gzip -t', why)
+        self.assertTrue(dq.bam_check(p, full=False)[0])                               # (the fast check alone cannot see it)
+        put(b'x' * 100); self.assertFalse(dq.bam_check(p)[0])                         # not a BAM at all
 
 
 class RealProcessTree(unittest.TestCase):
