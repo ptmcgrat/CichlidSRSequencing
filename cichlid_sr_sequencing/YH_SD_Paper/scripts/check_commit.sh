@@ -4,7 +4,7 @@
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IGN="$(git -C "$HERE" status --porcelain --ignored -- "$HERE" 2>/dev/null | grep '^!!' | grep -v -E '__pycache__|DEPLOYED_FROM\.txt|\.pyc$' || true)"
 MISSING=""
-for f in yhsd/__init__.py yhsd/__main__.py config/paper.yaml; do
+for f in yhsd/cli.py yhsd/common.py config/paper.yaml; do
   [ -f "$HERE/$f" ] || MISSING="$MISSING $f"
 done
 if [ -n "$MISSING" ]; then echo "ERROR: missing from the folder:$MISSING"; exit 2; fi

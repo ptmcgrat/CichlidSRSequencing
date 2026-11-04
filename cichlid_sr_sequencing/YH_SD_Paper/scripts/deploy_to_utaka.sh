@@ -29,4 +29,4 @@ else
   tar -C "$HERE" --exclude '__pycache__' --exclude '*.pyc' -cf - . | ssh "$REMOTE" "mkdir -p '$DEST' && tar -C '$DEST' -xf -"
 fi
 echo "Copied to $REMOTE:~/$DEST"
-ssh "$REMOTE" "bash -lc 'source ~/$CONDA_SH && conda activate $ENV_NAME && cd ~/$DEST && cat DEPLOYED_FROM.txt | head -2 && python -m yhsd selftest 2>&1 | tail -1'"
+ssh "$REMOTE" "bash -lc 'source ~/$CONDA_SH && conda activate $ENV_NAME && cd ~/$DEST && cat DEPLOYED_FROM.txt | head -2 && python -m yhsd.cli selftest 2>&1 | tail -1'"

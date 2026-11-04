@@ -46,25 +46,25 @@ Alternative without git on utaka: `bash YH_SD_Paper/scripts/deploy_to_utaka.sh` 
 
 ## B. Environment and tests
     conda env create -f environment.yml && conda activate yh_sd_paper
-    python -m yhsd selftest        # synthetic tests, no data needed; must end with ALL SELFTESTS PASSED
-    python -m yhsd chroms          # RefSeq <-> LG table for Mzebra_GT3_NCBI; CHECK the LG labels
-    python -m yhsd bc_genotyping provenance
+    python -m yhsd.cli selftest        # synthetic tests, no data needed; must end with ALL SELFTESTS PASSED
+    python -m yhsd.cli chroms          # RefSeq <-> LG table for Mzebra_GT3_NCBI; CHECK the LG labels
+    python -m yhsd.cli bc_genotyping provenance
 
 ### Trial on real data (writes to YH_SD_Paper_test/, never uploads)
     T="--test --chroms LG10"
-    python -m yhsd callset build yh_broods --dry-run        # lists the samples that would be genotyped
-    python -m yhsd $T callset build yh_broods
-    python -m yhsd $T parental_sex_region scan --species YH
-    python -m yhsd $T parental_sex_region summarize --species YH
+    python -m yhsd.cli callset build yh_broods --dry-run        # lists the samples that would be genotyped
+    python -m yhsd.cli $T callset build yh_broods
+    python -m yhsd.cli $T parental_sex_region scan --species YH
+    python -m yhsd.cli $T parental_sex_region summarize --species YH
 Send me any traceback. Untested here (no GATK/bcftools/rclone/mosdepth in the build environment): `callset`, `depth`, VCF loading in
 `scan`, and all BAM-level BC steps. Tested by `selftest`: HMM, inheritance/Fst/heterozygosity/depth-ratio statistics at your real depths,
 region calling, sample selection, genotype-class logic, and the runner (manifest, upload, verify, restore) against a fake rclone.
 
 ## C. Parental-species analysis (YH and MC broods)
-    python -m yhsd parental_sex_region callset      # GATK callsets yh_broods, mc_broods
-    python -m yhsd parental_sex_region depth        # mosdepth windows -> male/female depth ratio
-    python -m yhsd parental_sex_region scan
-    python -m yhsd parental_sex_region summarize    # candidate regions (>= 2 independent signals) + genome-scan figures
+    python -m yhsd.cli parental_sex_region callset      # GATK callsets yh_broods, mc_broods
+    python -m yhsd.cli parental_sex_region depth        # mosdepth windows -> male/female depth ratio
+    python -m yhsd.cli parental_sex_region scan
+    python -m yhsd.cli parental_sex_region summarize    # candidate regions (>= 2 independent signals) + genome-scan figures
 Interpretation notes: 24 meioses per family localise an XY locus only to roughly +/-5-10 Mb at ~1 cM/Mb (simulated at your depths;
 depth is not the limit, the number of meioses is). In YH the X carries the chr10 inversion, so expect a plateau across the inversion.
 Fst/heterozygosity are computed within a small number of families: treat family replication as the main evidence.
@@ -73,9 +73,9 @@ Fst/heterozygosity are computed within a small number of families: treat family 
 Put Table_S1.tsv, Table_S7.tsv, Data_S1.nwk and Data_S2.nwk in one folder on utaka (e.g. `~/blumer2025/`). The BC genotype grid is the
 `OutputGenotypes.csv` from the first analysis (Mconophoros_GT1 coordinates; use `--bc-legacy-mc`) or, later, `v2/OutputPosteriors.csv` /
 `original/OutputGenotypes_original.csv` from the Mzebra_GT3_NCBI run (drop `--bc-legacy-mc`).
-    python -m yhsd sample_table inversions --blumer-dir ~/blumer2025 \
+    python -m yhsd.cli sample_table inversions --blumer-dir ~/blumer2025 \
         --bc-genotypes legacy --bc-legacy-mc        # dry run, sheet untouched; downloads 2026_Nikesh/OutputGenotypes.csv via the FileManager if needed
-    python -m yhsd sample_table inversions --blumer-dir ~/blumer2025 --bc-genotypes legacy --bc-legacy-mc --write-sheet  # then append to the sheet
+    python -m yhsd.cli sample_table inversions --blumer-dir ~/blumer2025 --bc-genotypes legacy --bc-legacy-mc --write-sheet  # then append to the sheet
 BC fish: the F1 sires are heterozygous across the chr2 and chr13 inversions, so each fish carries one F1 haplotype across the recombination-free block.
 With MC non-inverted (Kumar 2025 Table 1; Blumer Table S7) the YH haplotype is the inverted one: YH haplotype -> Inversion = 1, MC haplotype -> 0.
 Fish whose haplotype is not constant across the block (consistency < 0.95) are left blank. Config: `bc_inversions` in config/paper.yaml.
@@ -92,13 +92,13 @@ remaining rows (set InversionSource to e.g. `lab_PCA`). Do not use FileManager.s
 Table S7 coding: 0 non-inverted, 1 het, 2 inverted.
 
 ## D. BC analysis
-    python -m yhsd callset build bc_family                  # 7-sample GATK family VCF
-    python -m yhsd bc_genotyping flagstat                   # downloads BAMs, flagstat, MAPQ by chromosome
-    python -m yhsd bc_genotyping original-vcfs && python -m yhsd bc_genotyping original
-    python -m yhsd bc_genotyping v2-sites                   # bcftools cross-check + extra-MC-female recount
-    python -m yhsd bc_genotyping v2-counts && python -m yhsd bc_genotyping v2-hmm
-    python -m yhsd bc_genotyping v2-hmm --rho 5e-9 --tag _rho5e-9      # sensitivity (also 2e-8, 5e-8)
-    python -m yhsd bc_genotyping validate && python -m yhsd bc_genotyping compare
+    python -m yhsd.cli callset build bc_family                  # 7-sample GATK family VCF
+    python -m yhsd.cli bc_genotyping flagstat                   # downloads BAMs, flagstat, MAPQ by chromosome
+    python -m yhsd.cli bc_genotyping original-vcfs && python -m yhsd.cli bc_genotyping original
+    python -m yhsd.cli bc_genotyping v2-sites                   # bcftools cross-check + extra-MC-female recount
+    python -m yhsd.cli bc_genotyping v2-counts && python -m yhsd.cli bc_genotyping v2-hmm
+    python -m yhsd.cli bc_genotyping v2-hmm --rho 5e-9 --tag _rho5e-9      # sensitivity (also 2e-8, 5e-8)
+    python -m yhsd.cli bc_genotyping validate && python -m yhsd.cli bc_genotyping compare
 Use `tmux` for long runs.
 
 ## E. Submission
