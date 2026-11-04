@@ -8,3 +8,7 @@
 __pycache__/
 *.pyc
 DEPLOYED_FROM.txt
+
+# keep package entry points even if a parent or global ignore rule (e.g. '__*') matches them
+!__init__.py
+!__main__.py

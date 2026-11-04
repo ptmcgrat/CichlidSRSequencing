@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v9_20261104-1157.zip
-version  : v9
-built    : 20261104-1157
-changes  : run records: git authoritative when the pulled tree is clean (DEPLOYED_FROM.txt only for untracked/dirty copies); README workflow = laptop commits, utaka git pull.
+zip name : YH_SD_Paper_v10_20261104-1228.zip
+version  : v10
+built    : 20261104-1228
+changes  : .gitignore keeps __init__.py/__main__.py even under a '__*' ignore rule; scripts/check_commit.sh warns about package files git would skip.
