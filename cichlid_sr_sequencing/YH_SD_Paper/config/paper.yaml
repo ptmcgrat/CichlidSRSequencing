@@ -1,0 +1,71 @@
+# ---- everything runs against ONE genome version; outputs go to CichlidSequencingData/YH_SD_Paper/<genome_version>/
+project_dir_name: YH_SD_Paper
+genome_version: Mzebra_GT3_NCBI
+cores: 96                            # utaka
+workers:                             # parallel jobs per step (96 cores; bounded by disk/network and GATK memory)
+  flagstat: 32
+  gvcf: 24                           # GATK HaplotypeCaller, only used if a GVCF is missing
+  joint: 22                          # one process per chromosome
+  pileup: 22                         # one process per chromosome
+  count: 64
+  hmm: 90
+gatk_mem_gb: 8
+
+# chromosome table: built from <genome>.fai + NCBI assembly report (…_assembly_report.txt in the genome dir, or give a path).
+# If neither is available, edit <project>/<genome>/qc/chromosomes.tsv by hand after running `python -m yhsd chroms`.
+assembly_report: null
+chrom_to_lg: null                    # optional explicit {RefSeq accession: 'LG10', ...} override
+sex_lg: LG10
+
+pheno_sheet_csv: "https://docs.google.com/spreadsheets/d/1BovaQm-FaOzchci9By71xTh3MzKCqMSpK3DCWB9sGiE/export?gid=1566739159&format=csv"
+bc_species: "YHxMC x MC BC"
+broods: [MCYH-BC1-24-01-10-1, MCYH-BC1-24-03-17-1, MCYH-BC1-24-03-11-1, MCYH-BC1-24-04-22-1, MCYH-BC1-24-03-27-1]
+bc_dams: [MC-3R6R-f, MC-1G2G-f, MC-5G11G-f]
+yh_sire: YH_008_m
+f1_dam: MC-1R6R-f
+f1_sire_names: {MCYH-F1-002m: MCYHF1-002, MCYH-F1-003m: MCYHF1-003}   # Parents column -> sample ID
+mc_panel: [MC-1R6R-f, MC-3R6R-f, MC-1G2G-f, MC-5G11G-f, MC-5B6B-f, MC-2P4P-f, MC-2G8G-f, MC-2B4B-f, MC-3P6P-f, MC-4O5O-f]
+# independent F1 family (YH_005_m x MC-3R6R-f); NOT siblings of 002/003. Off by default.
+extra_f1_family: {yh_sire: YH_005_m, f1: [MCYHF1_010_m, MCYHF1_011_m, MCYHF1_012_m, MCYHF1_013_m, MCYHF1_014_f, MCYHF1_015_f, MCYHF1_016_f, MCYHF1_017_f]}
+use_extra_family_in_sites: false
+
+original:          # the original ALGORITHM, re-run on fresh VCFs for this genome
+  polarity: both   # 'alt_only' = exactly the old site rule (YH hom-alt & MC hom-ref). With a non-MC reference that
+                   # discards every site where MC carries the alt allele, so 'both' (flip obs at MC-alt sites) is the default.
+  min_dp: 12       # parents' depth filter (old: DP > 12)
+  mpileup_q: 0     # old: -Q 0
+  window_size: 200
+  trans_prob: 1.0e-22
+  emission: [[0.97, 0.03], [0.6, 0.4]]
+  seed: 1
+  engine: hmmlearn        # or 'numpy' (own Viterbi, identical model)
+  grid_step: 100000
+
+v2:
+  mapq: 20
+  baseq: 20
+  cap: 2
+  rho: 1.0e-8             # crossovers/bp; sensitivity: 0.5e-8, 2e-8, 5e-8
+  min_dp_frac: 0.6
+  max_dp_frac: 1.6
+  ab_lo: 0.35
+  ab_hi: 0.65
+  panel_max_alt_frac: 0.005   # fraction of panel reads allowed to carry the non-MC allele
+  panel_min_dp: 8
+  panel_min_samples: 4        # the 4 MC females inside the 7-sample family VCF (extra females are recounted separately)
+  repeat_mask_bed: null   # BED of repeats / low mappability for THIS genome (all chromosomes)
+  grid_step: 100000
+  validation: {min_cov: 5.0, target_cov: [0.3, 0.5, 1.0], seeds: [1, 2, 3]}
+
+# Inference of BC inversion genotypes from haplotype calls (sample_table inversions --bc-genotypes ...)
+bc_inversions:
+  lgs: [LG2, LG13]
+  mc_inverted: {LG2: false, LG13: false}     # Mchenga conophoros is non-inverted on chr2 and chr13 (Kumar 2025 Table 1; Blumer 2025 Table S7)
+  max_rate: 0.03                             # block = longest stretch with <= this many crossovers per 100 kb interval summed over all fish (normal for 266 fish ~0.27)
+  min_block_mb: 10
+  min_consistency: 0.95                      # fish whose haplotype is not constant across the block are left blank
+  expected:                                  # pedigree-based expectation for BC fish (NOT data-derived); filled only if the data show no suppressed block there
+    Inversion9: 2                            # MC and Aulonocara both inverted (Kumar Table 1; Blumer: 70/70 Aulonocara) -> homozygous inverted
+    Inversion10: 0                           # F1 sires carry no chr10 inversion (Y and MC10 are non-inverted) -> homozygous non-inverted
+    Inversion11: 2
+  expected_lgs: {Inversion9: LG9, Inversion10: LG10, Inversion11: LG11}

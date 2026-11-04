@@ -1,0 +1,10 @@
+# data live in CichlidSequencingData (cloud + server), never in git
+*.bam
+*.bai
+*.vcf.gz
+*.tbi
+*.csv
+*.npz
+__pycache__/
+*.pyc
+DEPLOYED_FROM.txt

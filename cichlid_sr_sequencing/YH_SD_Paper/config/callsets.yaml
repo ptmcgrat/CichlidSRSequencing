@@ -1,0 +1,49 @@
+# Named callsets. Every VCF in the paper is built from an entry here by yhsd.callset.build (GATK joint calling + documented filters).
+# Calling follows Kumar et al. 2025 eLife. CHECK `annotations` against the script in the Kumar_eLife branch of CichlidSRSequencing.
+defaults:
+  gatk:
+    heterozygosity: 0.00175
+    annotations: [DepthPerAlleleBySample, Coverage, GenotypeSummaries, TandemRepeat, StrandBiasBySample, ReadPosRankSumTest,
+                  AS_ReadPosRankSumTest, AS_QualByDepth, AS_StrandOddsRatio, AS_MappingQualityRankSumTest, QualByDepth,
+                  RMSMappingQuality, FisherStrand, DepthPerSampleHC]
+    annotation_groups: [StandardAnnotation, AS_StandardAnnotation, StandardHCAnnotation]
+  filters:                 # site filters (Kumar; GBE sex-chromosome paper); genotype filters; indel gap (Feller)
+    qd: 2.0
+    fs: 40
+    sor: 9
+    mq: 40
+    mqranksum: -12.5
+    readposranksum: -8
+    min_dp: 3              # per-sample genotype set to missing below this depth (AD is kept in the VCF)
+    min_gq: 20
+    snpgap: 10
+
+callsets:
+  # BC analysis: the 7 samples that define informative sites (extra MC females are used only in the bcftools cross-check)
+  bc_family:
+    description: YH_008 x MC-1R6R F1 family plus BC dams
+    samples: [YH_008_m, MC-1R6R-f, MC-3R6R-f, MC-1G2G-f, MC-5G11G-f, MCYHF1-002, MCYHF1-003]
+
+  # Parental-species broods (24 offspring each: 12 M / 12 F), with their parents
+  yh_broods:
+    description: two unrelated YH families (YH_005_m x YH_010_f; YH_011_m x YH_006_f)
+    species: Aulonocara Nhkata Yellow Head
+    broods: [YH-22-09-06, YH-23-02-27]
+    include_parents: true
+  mc_broods:
+    description: two MC half-sib families sharing STR_MC_M_001
+    species: Mchenga conophoros
+    broods: [MC-24-11-23-1, MC-24-11-26-1]
+    include_parents: true
+
+  # Optional extended arms: add deep sexed adults (SampleDatabase Category) for population-level signals
+  yh_broods_plus_adults:
+    species: Aulonocara Nhkata Yellow Head
+    broods: [YH-22-09-06, YH-23-02-27]
+    include_parents: true
+    categories: [OtherYHs]
+  mc_broods_plus_adults:
+    species: Mchenga conophoros
+    broods: [MC-24-11-23-1, MC-24-11-26-1]
+    include_parents: true
+    categories: [InformativeLabFish]

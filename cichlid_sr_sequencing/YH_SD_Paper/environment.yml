@@ -1,0 +1,28 @@
+# conda env create -f environment.yml && conda activate yh_sd_paper
+# NOTE: written without being solved on your server; run `conda env create` and tell me about any conflicts.
+name: yh_sd_paper
+channels: [conda-forge, bioconda, defaults]
+dependencies:
+  - python=3.10            # hmmlearn / scikit-allel are happiest here
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - seaborn
+  - pyyaml
+  - scikit-allel
+  - hmmlearn               # original approach uses CategoricalHMM (needs a recent version, >=0.3)
+  - pysam
+  - samtools=1.19
+  - bcftools=1.19
+  - htslib=1.19            # bgzip, tabix
+  - bedtools
+  - mosdepth               # window depth for male/female depth ratios
+  - gatk4                  # only for joint genotyping of the deep samples
+  - openjdk=17
+  - rclone
+  - pip
+  - pip:
+      - gspread
+      - gspread-dataframe
+      - google-auth
