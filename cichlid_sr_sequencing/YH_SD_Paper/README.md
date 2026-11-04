@@ -91,6 +91,44 @@ InversionSource) and refuses to run if they exist or the target cells are not em
 remaining rows (set InversionSource to e.g. `lab_PCA`). Do not use FileManager.setSampleDatabase (it rewrites the whole sheet).
 Table S7 coding: 0 non-inverted, 1 het, 2 inverted.
 
+## C3. Sex-association tests (Fisher): is each allele / inversion a sex determiner in each clade?
+Uses SampleDatabase columns: gsdf copy number (`gsdf number`), the gsdf TE insertion genotype, `Inversion9/10/11` and the LG5 genotype. Edit the column names and the
+carrier definitions in `config/sex_association.yaml` (two lines are marked CHECK). For every marker x clade it builds carrier/non-carrier x expected-sex/other-sex and
+reports counts, odds ratio, Fisher p, Benjamini-Hochberg q and a STATUS: 'not testable' (no variation / too few individuals), 'underpowered' (cannot reach the FDR even
+with perfect association, usually too few females) or 'tested'. Lab-reared and wild samples are tested separately, offspring of known broods are left out, uncertain sexes
+('M?', 'F?') and pedigree/BC-inferred inversion genotypes are excluded. A hit means association with sex, not mechanism: check relatedness in lab cohorts.
+    python -m yhsd.cli sex_association fisher                                   # from the Google sheet (FileManager); uploads a run folder to Dropbox
+    python -m yhsd.cli sex_association fisher --table SampleDatabase.tsv --out ./sex_association_out   # offline on any tab-separated table
+    python -m yhsd.cli sex_association fisher --group-by species                # one test per species instead of per clade
+Outputs: fisher_results.tsv, sample_flow.tsv (why samples were dropped), summary_matrix.tsv, sex_association_matrix.svg/png (rows in the order of the intro figure).
+Intro figure script: `figures/fig_intro_sex_determination.py` (literature only; `--with-this-study` adds this-study markers).
+
+## C4. Genomes folder, repeat annotation, inversion breakpoints (LG2, 5, 10, 13) and centromeres
+All genomes of the project live in ONE folder, `<CichlidSequencingData>/YH_SD_Paper/genomes/<key>/` (and on Dropbox), registered in `config/genomes.yaml` with a manifest per genome
+(accession, md5, contig stats). Linked from the FileManager (Dropbox, never copied): Mzebra_GT3_NCBI (reference), Mconophoros_GT1, YH (NCBI GCF_057382095.1, male GT1.1, inverted
+homozygous on chr2/10/13, X haplotype of chr10; md5sum.txt checked) and the hifiasm chr10 haplotypes YH_X_hifiasm (h1tg000012l, 28,074,903 bp, reverse-complemented) and
+YH_Y_hifiasm (h2tg000014l, 27,689,011 bp), whose md5s are in the config (for the separate X-versus-Y analysis, not used for breakpoints). Downloaded from NCBI and md5-verified:
+LatrZW (ASM4766397v1) and MezeOBm (ASM4771593v1). Repeat annotations sit next to their genome in `genomes/<key>/annotation/`.
+    conda install -n yh_sd_paper -c bioconda -c conda-forge minimap2         # once
+    python -m yhsd.cli genomes fetch                                          # registers/downloads all genomes; lists any that still need input
+    python -m yhsd.cli genomes annotate --only Mzebra_GT3_NCBI                # copies the GT3a RepeatMasker files, maps names, records version/library, uploads to Dropbox
+    python -m yhsd.cli inversion_breakpoints align                            # minimap2 (asm5) of each registered assembly to the reference
+    python -m yhsd.cli inversion_breakpoints call                             # breakpoints per chromosome, consensus, polarity, dotplots, BED
+    python -m yhsd.cli centromeres scan                                       # satellite-density centromere calls for every genome with a registered annotation
+    python -m yhsd.cli inversion_breakpoints figure                           # overview table + draft diagram (inversions and centromeres)
+Annotation import (GT3a now; YH and the orange-blotch genomes when the student's RepeatMasker runs finish): fill `annotation:` of the genome in config/genomes.yaml
+(`source_dir`, `files`, `main`, `lengths_from`, `compare_to: Mzebra_GT3_NCBI`) and run `genomes annotate --only <key>`. The importer maps annotation names to the genome (identity, LG label,
+or unique length: scaffold01 -> NW_...), refuses the annotation if a chromosome is missing or has a different length, tolerates unmapped scaffolds and the mitochondrion (reported), and
+reads RepeatMasker version, rmblastn version and library name from the .tbl, warning if they differ from GT3a (4.1.2-p1, rmblastn 2.14.1+, cichlid_merged_lib.fa).
+Inversions: LG5 from LatrZW + MezeOBm; LG2, LG10 and LG13 from the NCBI YH chromosomes. Calls do not depend on the strand of a contig: a contig and its reverse complement give the same
+breakpoints. Methods (reference coordinates): A = flank / inverted segment / flank inside one contig; B = windows covered on both strands by different haplotigs (needs two haplotypes);
+A-half and C = the contig ends at a breakpoint or is only the inverted segment (low confidence, flagged strand_dependent because they assume the reference orientation). `reference_is_standard`
+in the config says what the inverted strand means (true for LG2/10/13, unknown for LG5). Breakpoints are intervals; inv_q_start / inv_q_end give the segment's coordinates in the assembly.
+Check every `*_dotplot.png` by eye before using a coordinate. Assemblies that are not registered yet are skipped with a message.
+Centromeres: satellite-repeat density per 50 kb window from the registered annotation, smoothed; one call per chromosome with a confidence class (high / medium / low / none; 'low' and
+'none' mean not located) and its evidence. Non-reference genomes (YH) are lifted to the reference by the nearest alignable flanks. Cichlid centromeres are often poorly assembled: an
+unassembled array is reported as not located, never guessed.
+
 ## D. BC analysis
     python -m yhsd.cli callset build bc_family                  # 7-sample GATK family VCF
     python -m yhsd.cli bc_genotyping flagstat                   # downloads BAMs, flagstat, MAPQ by chromosome

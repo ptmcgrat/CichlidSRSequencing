@@ -17,6 +17,7 @@ dependencies:
   - bcftools=1.19
   - htslib=1.19            # bgzip, tabix
   - bedtools
+  - minimap2                 # genome alignments for inversion breakpoints
   - mosdepth               # window depth for male/female depth ratios
   - gatk4                  # only for joint genotyping of the deep samples
   - openjdk=17

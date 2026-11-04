@@ -74,7 +74,11 @@ class Project:
         self.fm.setGenome(cfg['genome_version'])
         self.genome = cfg['genome_version']
         self.cores = cfg.get('cores') or os.cpu_count()
-        base = self.fm.localMasterDir + cfg['project_dir_name'] + '/' + self.genome + '/'
+        proj_root = self.fm.localMasterDir + cfg['project_dir_name'] + '/'
+        base = proj_root + self.genome + '/'
+        self.genomes_dir = proj_root + 'genomes/'                              # every genome used in this project (shared by all analyses)
+        self.cloud_genomes_dir = self.fm.cloudMasterDir + cfg['project_dir_name'] + '/genomes/'
+        os.makedirs(self.genomes_dir, exist_ok=True)
         self.root = base
         self.cloud_root = self.fm.cloudMasterDir + cfg['project_dir_name'] + '/' + self.genome + '/'
         self.dirs = {k: base + k + '/' for k in ['qc', 'original', 'v2', 'comparison', 'logs', 'tmp']}

@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v11_20261104-1232.zip
-version  : v11
-built    : 20261104-1232
-changes  : new entry point 'python -m yhsd.cli' (needs no __init__.py/__main__.py, so it works even if git drops double-underscore files); all docs use it.
+zip name : YH_SD_Paper_v16_20261104-2004.zip
+version  : v16
+built    : 20261104-2004
+changes  : YH registered from the FileManager (Dropbox); hifiasm chr10 X/Y registered with md5s; annotation import maps LG/scaffold names and records RepeatMasker provenance; strand-independent inversion calling; RepeatMasker wrapper removed. Synthetic tests only.

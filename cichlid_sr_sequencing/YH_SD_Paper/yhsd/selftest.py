@@ -174,6 +174,48 @@ def main():
         ok_err = True
     _ok('resolve_bc_genotypes gives a clear error outside the master directory', ok_err)
 
+    # --- sex_association: planted XY (gsdf dup in Mbuna), planted ZW (LG5 in Mbuna), fixed marker, underpowered clade, brood and uncertain-sex exclusions
+    from .analyses.sex_association import steps as sa
+    rg = np.random.default_rng(3)
+    def mk(group, n_m, n_f, car_m, car_f, col, val_car, val_non, extra=None):
+        rows = []
+        for sx, n, nc in (('M', n_m, car_m), ('F', n_f, car_f)):
+            for i in range(n):
+                rows.append({'SampleID': f'{group}{sx}{i}', 'Sex': sx, 'Subgroup': group, col: val_car if i < nc else val_non, **(extra or {})})
+        return pd.DataFrame(rows)
+    d1 = mk('Mbuna', 20, 20, 18, 1, 'gsdf number', 3.0, 2.0)                       # carriers male: should be supported
+    d2 = mk('Utaka', 20, 20, 0, 0, 'gsdf number', 3.0, 2.0)                        # no carriers: not testable
+    d3 = mk('Eukambuzi', 3, 3, 3, 0, 'gsdf number', 3.0, 2.0)                      # tiny: cannot reach significance
+    d4 = mk('SB_Other', 20, 20, 10, 10, 'gsdf number', 3.0, 2.0)                   # carriers unrelated to sex: no evidence
+    tab = pd.concat([d1, d2, d3, d4], ignore_index=True)
+    tab['Ecogroup'] = ''
+    z = mk('Mbuna', 20, 20, 1, 18, 'Inversion5', 1.0, 0.0)                         # W-like carriers female: LG5
+    z2 = tab[tab.Subgroup == 'Mbuna'].reset_index(drop=True).copy()
+    tab['Inversion5'] = np.nan; tab.loc[tab.Subgroup == 'Mbuna', 'Inversion5'] = z['Inversion5'].values
+    extra = mk('Mbuna', 10, 0, 10, 0, 'gsdf number', 3.0, 2.0); extra['BroodID'] = 'B1'; extra['SampleID'] = ['b' + str(i) for i in range(len(extra))]   # lab siblings: excluded
+    unc = mk('Mbuna', 0, 5, 0, 5, 'gsdf number', 3.0, 2.0); unc['Sex'] = 'F?'; unc['SampleID'] = ['u' + str(i) for i in range(len(unc))]                 # uncertain sex: excluded
+    full = pd.concat([tab, extra, unc], ignore_index=True)
+    cfg = sa.load_config(); cfg['markers'] = {k: v for k, v in cfg['markers'].items() if k in ('gsdf_dup', 'lg5')}
+    res, flow = sa.run_tests(full, cfg)
+    g = lambda m, grp: res[(res.marker == m) & (res.group == grp)].iloc[0]
+    _ok('sex_association: planted XY marker is supported (FDR)', g('gsdf_dup', 'Mbuna').evidence == 'supports sex determiner' and g('gsdf_dup', 'Mbuna').n_used == 40, f"q={g('gsdf_dup', 'Mbuna').q:.1e}")
+    _ok('sex_association: no carriers -> not testable', g('gsdf_dup', 'Utaka').status == 'not testable: no variation')
+    _ok('sex_association: tiny group is flagged, not claimed', g('gsdf_dup', 'Eukambuzi').status.startswith('not testable') or g('gsdf_dup', 'Eukambuzi').status == 'underpowered')
+    _ok('sex_association: unrelated marker shows no evidence', g('gsdf_dup', 'Other shallow benthics').evidence.startswith('no evidence'))
+    _ok('sex_association: ZW marker (W carriers female) is supported', g('lg5', 'Mbuna').evidence == 'supports sex determiner' and g('lg5', 'Mbuna').carrier_sex_expected == 'F')
+    _ok('sex_association: sibling offspring and uncertain sexes are excluded and counted', set(flow[flow.marker == 'gsdf_dup'].dropped_because) >= {'sex not M/F', 'lab-reared offspring (BroodID set)'}
+        and int(flow[(flow.marker == 'gsdf_dup') & (flow.dropped_because == 'lab-reared offspring (BroodID set)')].n_samples.iloc[0]) == 10)
+    sp = full.copy(); sp['LabReared'] = np.where(sp.SampleID.str.contains('F1|F2|F3|F4|F5'), 1, np.nan)
+    cfg2 = dict(cfg, split_lab_wild=True); res2, _ = sa.run_tests(sp, cfg2)
+    _ok('sex_association: lab and wild samples are tested separately', {'Mbuna (lab)', 'Mbuna (wild)'} <= set(res2.group), str(sorted(set(res2.group))[:4]))
+    gt = sa.to_number(pd.Series(['0/0', '0/1', '1/1', './.', np.nan, '0|1']), 'gt')
+    _ok('sex_association: genotype strings -> alt dosage', list(gt.fillna(-1)) == [0, 1, 2, -1, -1, 1])
+    _ok('sex_association: BH q-values are monotone and <= 1', (lambda q: np.all(np.diff(q[np.argsort([0.001, 0.01, 0.04, 0.5])]) >= -1e-12) and q.max() <= 1)(sa.bh([0.001, 0.01, 0.04, 0.5])))
+
+    # --- genome registry helpers and the inversion-breakpoint pipeline on synthetic alignments
+    from . import selftest_breakpoints
+    selftest_breakpoints.run()
+
     # --- callset helpers
     _ok('classify_counts', list(classify_counts([20, 10, 0, 15, 3], [0, 10, 20, 2, 0])) == [0, 1, 2, -1, -1])
     dt = pd.DataFrame(dict(SampleID=['o1', 'o2', 'o3', 'p1', 'p2'], Species=['YH'] * 5, BroodID=['B1', 'B1', 'B2', None, None],

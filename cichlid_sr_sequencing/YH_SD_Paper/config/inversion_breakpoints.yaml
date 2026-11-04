@@ -1,0 +1,19 @@
+# Inversion breakpoints with respect to the reference (Mzebra_GT3_NCBI), from long-read assemblies aligned to it.
+reference: Mzebra_GT3_NCBI
+# One entry per chromosome. assemblies = the assemblies that carry the inversion (heterozygous or inverted). reference_is_standard says whether the REFERENCE
+# has the standard (non-inverted) orientation: true for chr2, 10, 13 (the reference shows these as inversions in the aligned deep-benthic genome, Kumar et al. 2025 Fig. 3);
+# null for LG5 where it is not established, in which case only the strand relative to the reference is reported.
+inversions:
+  LG5:  {assemblies: [LatrZW, MezeOBm], reference_is_standard: null, label: LG5 (W / orange blotch)}
+  LG2:  {assemblies: [YH], reference_is_standard: true, label: LG2}
+  LG10: {assemblies: [YH], reference_is_standard: true, label: LG10}      # the NCBI YH chromosome carries the inverted X; the hifiasm X/Y contigs are for the separate QTN analysis
+  LG13: {assemblies: [YH], reference_is_standard: true, label: LG13}
+minimap2:
+  preset: asm5
+  extra: []                       # e.g. ['--secondary=no']; threads come from `cores` in paper.yaml
+calling:
+  min_block: 20000                # ignore alignment blocks shorter than this (repeat noise)
+  min_inversion: 500000           # smallest inversion to report (bp)
+  window: 10000                   # resolution of the orientation-discordance map
+  min_window_bp: 2000
+  consensus_tolerance: 150000     # breakpoints from different assemblies/methods within this distance are merged

@@ -1,0 +1,31 @@
+# Analysis: where is there evidence that an allele / inversion acts as a sex determiner in a clade?  (Fisher exact tests on the SampleDatabase columns)
+# Run offline on any table:  python -m yhsd.cli sex_association fisher --table SampleDatabase_with_inversions.tsv --out ./sex_association_out
+# Or from the Google sheet (through the FileManager):  python -m yhsd.cli sex_association fisher
+
+group_by: clade                     # 'clade' (SampleDatabase Subgroup, falling back to Ecogroup) or 'species'
+min_per_sex: 3                      # a group needs at least this many males AND females with a usable genotype
+min_per_class: 2                    # ... and at least this many carriers AND non-carriers
+fdr: 0.05                           # Benjamini-Hochberg across all tested marker x group combinations
+include_uncertain_sex: false        # 'M?' / 'F?' are excluded unless true
+split_lab_wild: true               # test lab-reared (LabReared == 1) and wild-caught samples separately: lab cohorts of unknown relatedness can inflate Fisher tests
+exclude_offspring_with_brood: true  # lab-reared offspring (BroodID set) are siblings: analysed in the family analysis, not here
+exclude_source_patterns: [pedigree_expected, inferred_BC]   # InversionSource values that are not observed genotypes
+
+# Carrier / non-carrier definition per marker. carrier_sex = the sex expected to carry the allele if it is a sex determiner:
+#   XY systems: carriers of the Y-like allele are male; ZW (LG5, W = inverted haplotype): carriers are female.
+# Inversion codes (Blumer Table S7): 0 non-inverted, 1 heterozygous, 2 inverted. For chr9/10/11 the XY signature is heterozygote (non-inverted Y-like + inverted X)
+# versus inverted homozygote; non-inverted homozygotes are left out (they come from lineages fixed for the other orientation).
+markers:
+  gsdf_dup:  {label: gsdf duplication,         column: gsdf number, coding: number, carrier: ['>=3'], noncarrier: ['==2'], carrier_sex: M}
+  gsdf_ins:  {label: gsdf TE insertion,        column: TE1,         coding: gt,     carrier: ['>=1'], noncarrier: ['==0'], carrier_sex: M}   # CHECK: which column holds the chr7 (gsdf) insertion genotype?
+  inv9:      {label: chr9 inversion,           column: Inversion9,  coding: number, carrier: ['==1'], noncarrier: ['==2'], carrier_sex: M}
+  inv10:     {label: chr10 inversion,          column: Inversion10, coding: number, carrier: ['==1'], noncarrier: ['==2'], carrier_sex: M}
+  inv11:     {label: chr11 inversion,          column: Inversion11, coding: number, carrier: ['==1'], noncarrier: ['==2'], carrier_sex: M}
+  lg5:       {label: LG5 inversion (W),        column: Inversion5,  coding: number, carrier: ['>=1'], noncarrier: ['==0'], carrier_sex: F}   # CHECK: column name for the LG5 genotype (0/1/2, inverted = W)
+
+# canonical group names, in the row order of the intro figure
+group_order: [A. calliptera, Mbuna, Utaka, True deeps, Rocky Aulonocara, Shallow Lethrinops, Other shallow benthics, Eukambuzi, Diplotaxodon, Rhamphochromis]
+subgroup_map: {AC: A. calliptera, AstCal: A. calliptera, Mbuna: Mbuna, Utaka: Utaka, True_Deeps: True deeps, Rocky_Aulonocara: Rocky Aulonocara,
+               Shallow_Lethrinops: Shallow Lethrinops, SB_Other: Other shallow benthics, Eukambuzi: Eukambuzi,
+               Diplotaxodon: Diplotaxodon, Diplo: Diplotaxodon, Rhamphochromis: Rhamphochromis, Rhampho: Rhamphochromis}
+ecogroup_map: {Mbuna: Mbuna, Utaka: Utaka, Diplotaxodon: Diplotaxodon, Rhamphochromis: Rhamphochromis}
