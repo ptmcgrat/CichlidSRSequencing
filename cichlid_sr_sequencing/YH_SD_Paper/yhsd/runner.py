@@ -101,11 +101,25 @@ class Run:
         self.dir = f'{self.base}{self.run_id}/'
         self.inputs = []
 
+    def _inside_project(self, path):
+        base = os.path.dirname(self.proj.root.rstrip('/'))                     # <data>/YH_SD_Paper : files already in the project are not copied again
+        return os.path.abspath(path).startswith(os.path.abspath(base) + os.sep)
+
     def add_input(self, path):
-        if os.path.exists(path):
-            self.inputs.append(file_record(path))
-        else:
-            self.inputs.append({'path': path, 'missing': True})
+        """Record an input (size, md5). Small files that live OUTSIDE the project folder are also copied into <run>/inputs/ so the run folder is self-contained
+        (config runner.archive_inputs / archive_max_mb); big files (BAMs, VCFs) are referenced by md5 only."""
+        if not os.path.exists(path):
+            self.inputs.append({'path': path, 'missing': True}); return
+        rec = file_record(path)
+        rcfg = self.proj.cfg.get('runner', {})
+        if rcfg.get('archive_inputs', True) and rec['size'] <= rcfg.get('archive_max_mb', 300) * 1e6 and not self._inside_project(path):
+            os.makedirs(self.dir + 'inputs/', exist_ok=True)
+            dst = self.dir + 'inputs/' + os.path.basename(path)
+            if os.path.exists(dst) and file_record(dst).get('md5') != rec.get('md5'):
+                dst = self.dir + 'inputs/' + rec.get('md5', 'x')[:8] + '_' + os.path.basename(path)
+            shutil.copy2(path, dst)
+            rec['archived'] = dst[len(self.dir):]
+        self.inputs.append(rec)
 
     def __enter__(self):
         os.makedirs(self.dir, exist_ok=True)

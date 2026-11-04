@@ -237,3 +237,32 @@ def run():
     open(fa5 + '.fai', 'w').write(''.join(f'{k}\t4\t0\t4\t5\n' for k in list(lens_gt3)[:3]))
     tab = gm.build(fa5, ftmp, {}, ftmp + 'chromosomes.tsv')
     _ok('chromosome table builds from the headers when there is no assembly report or config entry', list(tab.LG) == ['LG1', 'LG2', 'LG3'])
+
+    # ---------------- the project folder is the archive: genomes are real, verified copies; links from earlier versions are converted; small run inputs are kept
+    mf3 = json.load(open(gr.entry_dir(fp3, 'YH_Y_hifiasm') + 'manifest.json'))
+    cp = mf3['fasta']
+    _ok('FileManager genome is COPIED into the project folder (real file, same md5, index present), not linked',
+        cp.startswith(fp3.genomes_dir) and not os.path.islink(cp) and gr.md5_of(cp) == gr.md5_of(gf) and os.path.exists(cp + '.fai') and mf3['copied_from'] == gf and 'linked_from' not in mf3)
+    # a registration made by v16 (symlink + linked_from) is converted by materialize
+    old_dir = gr.entry_dir(fp3, 'OldLinked'); os.makedirs(old_dir)
+    os.symlink(gf, old_dir + 'YH_Y.fasta')
+    json.dump({'key': 'OldLinked', 'fasta': gf, 'linked_from': gf, 'md5_fasta': gr.md5_of(gf)}, open(old_dir + 'manifest.json', 'w'))
+    mm2 = gr.materialize(fp3, 'OldLinked')
+    _ok('a symlinked registration from an earlier version is converted into a real, verified copy', not os.path.islink(old_dir + 'YH_Y.fasta') and os.path.isfile(old_dir + 'YH_Y.fasta')
+        and mm2['fasta'] == old_dir + 'YH_Y.fasta' and 'linked_from' not in mm2 and gr.md5_of(old_dir + 'YH_Y.fasta') == gr.md5_of(gf))
+    open(old_dir + 'YH_Y.fasta.part', 'w').write('x')
+    try:
+        gr.copy_verified(gf, old_dir + 'bad.fa', expect_md5='0' * 32); refused = False
+    except RuntimeError:
+        refused = True
+    _ok('a copy whose md5 differs from the expected one is refused and leaves no half-written file', refused and not os.path.exists(old_dir + 'bad.fa'))
+    # runner archives small inputs from outside the project, not files already inside it, not big files
+    pr = types.SimpleNamespace(fm=types.SimpleNamespace(localMasterDir=loc, cloudMasterDir=loc + 'cloud/'), root=loc + 'ARCH/G/', genome=ref, cfg={'runner': {'upload': False, 'archive_max_mb': 1}}, run=None)
+    ext = tempfile.mkdtemp() + '/'; open(ext + 'small.tsv', 'w').write('a\tb\n1\t2\n'); open(ext + 'big.bin', 'wb').write(b'0' * 1_500_000)
+    os.makedirs(loc + 'ARCH/G/', exist_ok=True); open(loc + 'ARCH/G/already_here.txt', 'w').write('x')
+    with Run(pr, 'toy', 'archive') as r:
+        r.add_input(ext + 'small.tsv'); r.add_input(ext + 'big.bin'); r.add_input(loc + 'ARCH/G/already_here.txt'); r.add_input(ext + 'missing.txt')
+        rd2 = r.dir
+    recs = {os.path.basename(x['path']): x for x in r.inputs}
+    _ok('runner copies small outside inputs into <run>/inputs/, skips big files and files already in the project, flags missing ones',
+        recs['small.tsv'].get('archived') == 'inputs/small.tsv' and os.path.exists(rd2 + 'inputs/small.tsv') and 'archived' not in recs['big.bin'] and 'archived' not in recs['already_here.txt'] and recs['missing.txt'].get('missing'))

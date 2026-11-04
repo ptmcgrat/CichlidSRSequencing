@@ -103,12 +103,20 @@ with perfect association, usually too few females) or 'tested'. Lab-reared and w
 Outputs: fisher_results.tsv, sample_flow.tsv (why samples were dropped), summary_matrix.tsv, sex_association_matrix.svg/png (rows in the order of the intro figure).
 Intro figure script: `figures/fig_intro_sex_determination.py` (literature only; `--with-this-study` adds this-study markers).
 
+## Archive: what the folder YH_SD_Paper/ contains
+- `genomes/<key>/`: the FASTA (+ .fai, manifest with md5s) of every genome used, and `annotation/` (RepeatMasker files, name map, manifest with version and library).
+- `<genome>/<analysis>/<step>/<run>/`: outputs, `manifest.json` (git commit, parameters, tool versions, md5 of every input) and `inputs/` (copies of small external inputs, up to
+  `runner.archive_max_mb` = 300 MB: the Blumer tables and trees, the BC genotype grid, sample-table snapshots).
+- NOT in the folder: read alignments (BAMs) and per-sample GVCFs/VCFs managed by the FileManager (hundreds of GB). Runs reference them by path and size (md5 when <= 300 MB);
+  the FileManager copy on Dropbox stays the source for those.
+
 ## C4. Genomes folder, repeat annotation, inversion breakpoints (LG2, 5, 10, 13) and centromeres
 All genomes of the project live in ONE folder, `<CichlidSequencingData>/YH_SD_Paper/genomes/<key>/` (and on Dropbox), registered in `config/genomes.yaml` with a manifest per genome
-(accession, md5, contig stats). Linked from the FileManager (Dropbox, never copied): Mzebra_GT3_NCBI (reference), Mconophoros_GT1, YH (NCBI GCF_057382095.1, male GT1.1, inverted
-homozygous on chr2/10/13, X haplotype of chr10; md5sum.txt checked) and the hifiasm chr10 haplotypes YH_X_hifiasm (h1tg000012l, 28,074,903 bp, reverse-complemented) and
-YH_Y_hifiasm (h2tg000014l, 27,689,011 bp), whose md5s are in the config (for the separate X-versus-Y analysis, not used for breakpoints). Downloaded from NCBI and md5-verified:
-LatrZW (ASM4766397v1) and MezeOBm (ASM4771593v1). Repeat annotations sit next to their genome in `genomes/<key>/annotation/`.
+(accession, md5, contig stats). Every genome is a REAL, md5-verified copy inside the project folder (the folder is the archive; nothing is a link): Mzebra_GT3_NCBI (reference),
+Mconophoros_GT1, YH (NCBI GCF_057382095.1, male GT1.1, inverted homozygous on chr2/10/13, X haplotype of chr10; the md5sum.txt of the NCBI package is checked) and the hifiasm chr10
+haplotypes YH_X_hifiasm (h1tg000012l, 28,074,903 bp, reverse-complemented) and YH_Y_hifiasm (h2tg000014l, 27,689,011 bp), whose md5s are in the config (for the separate X-versus-Y
+analysis, not used for breakpoints); plus LatrZW (ASM4766397v1) and MezeOBm (ASM4771593v1), downloaded from NCBI and md5-verified. Repeat annotations sit next to their genome in
+`genomes/<key>/annotation/`. `genomes fetch` also converts a registration made by v16 (symlink) into a real copy.
     conda install -n yh_sd_paper -c bioconda -c conda-forge minimap2         # once
     python -m yhsd.cli genomes fetch                                          # registers/downloads all genomes; lists any that still need input
     python -m yhsd.cli genomes annotate --only Mzebra_GT3_NCBI                # copies the GT3a RepeatMasker files, maps names, records version/library, uploads to Dropbox

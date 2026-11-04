@@ -69,3 +69,7 @@ bc_inversions:
     Inversion10: 0                           # F1 sires carry no chr10 inversion (Y and MC10 are non-inverted) -> homozygous non-inverted
     Inversion11: 2
   expected_lgs: {Inversion9: LG9, Inversion10: LG10, Inversion11: LG11}
+
+runner:
+  archive_inputs: true            # copy small input files that live outside the project into <run>/inputs/ (big ones: md5 only)
+  archive_max_mb: 300

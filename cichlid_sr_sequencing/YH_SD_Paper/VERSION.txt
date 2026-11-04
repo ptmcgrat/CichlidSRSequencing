@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v17_20261104-2025.zip
-version  : v17
-built    : 20261104-2025
-changes  : chromosome -> LG labels are read from the RefSeq FASTA headers when there is no assembly report or config entry (fixes 'Cannot determine chromosome -> LG mapping' for Mzebra_GT3_NCBI).
+zip name : YH_SD_Paper_v18_20261104-2046.zip
+version  : v18
+built    : 20261104-2046
+changes  : genomes are real md5-verified copies in the project folder (links from v16 are converted by genomes fetch); every run archives small external inputs in <run>/inputs/.

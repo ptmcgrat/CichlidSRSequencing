@@ -150,9 +150,28 @@ def _manifest(proj, key, entry, fasta, **extra):
     return m
 
 
+def copy_verified(src, dst, expect_md5=None):
+    """Real copy of src to dst (replacing a symlink), md5-verified against the source; an identical existing copy is kept. Returns the md5."""
+    md5_src = expect_md5 or md5_of(src)
+    if os.path.islink(dst):
+        os.unlink(dst)
+    if not (os.path.exists(dst) and os.path.getsize(dst) == os.path.getsize(src) and md5_of(dst) == md5_src):
+        tmp = dst + '.part'
+        shutil.copyfile(src, tmp)
+        if md5_of(tmp) != md5_src:
+            os.remove(tmp); raise RuntimeError(f'copy verification failed for {src}')
+        os.replace(tmp, dst)
+    fai = src + '.fai'
+    if os.path.exists(fai):
+        shutil.copyfile(fai, dst + '.fai')                      # identical sequence -> identical index
+    else:
+        sh(['samtools', 'faidx', dst])
+    return md5_src
+
+
 def register_filemanager(proj, key, entry):
-    """Genome already managed by the lab FileManager (on Dropbox): either a genome folder (genome_version + filemanager_file) or any file under the master
-    directory (master_path). Linked, not copied; checked against an expected md5 (config `md5`) and the md5sum.txt next to it."""
+    """Genome managed by the lab FileManager (on Dropbox): either a genome folder (genome_version + filemanager_file) or any file under the master directory
+    (master_path). It is COPIED into genomes/<key>/ (the project folder is the archive), md5-verified against the source, the md5 in config (`md5`) and the md5sum.txt next to it."""
     d = entry_dir(proj, key); os.makedirs(d, exist_ok=True)
     if entry.get('master_path'):
         src = proj.fm.localMasterDir + entry['master_path']; fetch_target = src
@@ -164,17 +183,29 @@ def register_filemanager(proj, key, entry):
     if not os.path.exists(src):
         raise FileNotFoundError(f'{src} not found (FileManager download failed?)')
     verified = verify_against_md5sum_file(src)
+    md5_src = md5_of(src)
     if entry.get('md5'):
-        got = md5_of(src)
-        if got != entry['md5']:
-            raise RuntimeError(f"md5 mismatch for {src}: {got} != expected {entry['md5']}")
+        if md5_src != entry['md5']:
+            raise RuntimeError(f"md5 mismatch for {src}: {md5_src} != expected {entry['md5']}")
         verified = True
-    link = d + os.path.basename(src)
-    if not os.path.lexists(link):
-        os.symlink(src, link)
-    if not os.path.exists(src + '.fai'):
-        sh(['samtools', 'faidx', src])
-    return _manifest(proj, key, entry, src, linked_from=src, md5_verified=verified)
+    dst = d + os.path.basename(src)
+    copy_verified(src, dst, md5_src)
+    return _manifest(proj, key, entry, dst, copied_from=src, md5_verified=verified)
+
+
+def materialize(proj, key):
+    """Turn a genome registered by an earlier version as a symlink into a real copy inside the project folder."""
+    mf = entry_dir(proj, key) + 'manifest.json'
+    m = json.load(open(mf))
+    src = m.get('linked_from')
+    if not src:
+        return m
+    dst = entry_dir(proj, key) + os.path.basename(src)
+    print(f'[genomes] {key}: converting the link to a real copy ({os.path.getsize(src) / 1e9:.2f} GB) ...')
+    md5 = copy_verified(src, dst, m.get('md5_fasta'))
+    m.update(fasta=dst, copied_from=src, md5_fasta=md5); m.pop('linked_from', None)
+    json.dump(m, open(mf, 'w'), indent=1)
+    return m
 
 
 def verify_against_md5sum_file(path):
@@ -376,7 +407,11 @@ def fetch(proj, only=None, upload=True):
             continue
         mf = entry_dir(proj, key) + 'manifest.json'
         if os.path.exists(mf):
-            m = json.load(open(mf)); print(f'[genomes] {key}: already registered ({m["fasta"]})'); rows.append(m); continue
+            m = json.load(open(mf))
+            if m.get('linked_from'):
+                try: m = materialize(proj, key)
+                except Exception as e: problems.append((key, f'could not convert the link to a copy: {str(e)[:200]}'))
+            print(f'[genomes] {key}: already registered ({m["fasta"]})'); rows.append(m); continue
         if entry['source'] == 'local' and not entry.get('path'):
             problems.append((key, 'no path set: fill `path:` in config/genomes.yaml')); print(f'[genomes] {key}: skipped (no path set)'); continue
         try:
@@ -390,7 +425,7 @@ def fetch(proj, only=None, upload=True):
     write_table(proj)
     if upload and proj.cfg.get('runner', {}).get('upload', True):
         for m in rows:
-            sync(proj, entry_dir(proj, m['key']))       # linked FileManager genomes: only the manifest is uploaded (symlinks are not followed)
+            sync(proj, entry_dir(proj, m['key']))
         sync(proj, proj.genomes_dir + 'genomes.tsv')
     if problems:
         print('\nNeeds attention:'); [print(f'  {k}: {why}') for k, why in problems]

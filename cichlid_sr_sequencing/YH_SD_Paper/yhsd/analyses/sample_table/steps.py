@@ -96,10 +96,7 @@ def inversions_step(proj, blumer_dir, write_sheet=False, bc_genotypes=None, bc_l
     with proj.run('sample_table', 'inversions', params=dict(blumer_dir=blumer_dir, write_sheet=write_sheet, bc_genotypes=bc_genotypes, bc_legacy_mc=bc_legacy_mc)) as run:
         for f in EXTERNAL:                                         # permanent copy of the external inputs, with md5 in the manifest
             src = os.path.join(blumer_dir, f)
-            run.add_input(src)
-            if os.path.exists(src):
-                os.makedirs(run.dir + 'external/', exist_ok=True)
-                shutil.copy2(src, run.dir + 'external/' + f)
+            run.add_input(src)                                       # copied into <run>/inputs/ by the runner (small files), md5 in the manifest
         proj.fm.readSampleDatabase()
         db = proj.fm.sample_dt.copy()
         s1 = pd.read_csv(os.path.join(blumer_dir, 'Table_S1.tsv'), sep='\t')
