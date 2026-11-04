@@ -220,3 +220,20 @@ def run():
     except RuntimeError:
         wrong = True
     _ok('FileManager genome registered by path with md5 verified; a wrong expected md5 is refused', m3['md5_verified'] is True and m3['n_contigs'] == 1 and wrong)
+
+    # ---------------- LG labels read from the FASTA headers of the GT3 RefSeq assembly (headers as pasted from utaka)
+    from . import genome as gm
+    hdr = [f'>NC_{135167 + i}.1 Maylandia zebra isolate NMK-2024a linkage group LG{lgn}, Mzebra_GT3a, whole genome shotgun sequence' for i, lgn in enumerate(list(range(1, 21)) + [22, 23])]
+    hdr += ['>NW_027490031.1 Maylandia zebra isolate NMK-2024a unplaced genomic scaffold, Mzebra_GT3a, whole genome shotgun sequence', '>NW_027490032.1 Maylandia zebra isolate NMK-2024a unplaced genomic scaffold, Mzebra_GT3a']
+    lens_gt3 = {f'NC_{135167 + i}.1': 30 * M for i in range(22)}; lens_gt3.update({'NW_027490031.1': 2_700_000, 'NW_027490032.1': 4_400_000})
+    lgm = gm.lg_from_headers(hdr, lens_gt3)
+    _ok('LG labels read from RefSeq FASTA headers (22 chromosomes, no LG21, scaffolds skipped)', len(lgm) == 22 and lgm['NC_135176.1'] == 'LG10' and lgm['NC_135187.1'] == 'LG22' and lgm['NC_135188.1'] == 'LG23'
+        and 'LG21' not in lgm.values() and not any(k.startswith('NW_') for k in lgm))
+    _ok('headers whose sequences are not in the .fai, or that repeat a label, are ignored', gm.lg_from_headers(hdr + ['>NC_999.1 x linkage group LG5, y'], lens_gt3).get('NC_999.1') is None and
+        gm.lg_from_headers(['>a x linkage group LG1, y', '>b x linkage group LG1, y'], {'a': 1, 'b': 1}) == {})
+    ftmp = tempfile.mkdtemp() + '/'; fa5 = ftmp + 'g.fna'
+    with open(fa5, 'w') as fh:
+        for h in hdr[:3]: fh.write(h + '\nACGT\n')
+    open(fa5 + '.fai', 'w').write(''.join(f'{k}\t4\t0\t4\t5\n' for k in list(lens_gt3)[:3]))
+    tab = gm.build(fa5, ftmp, {}, ftmp + 'chromosomes.tsv')
+    _ok('chromosome table builds from the headers when there is no assembly report or config entry', list(tab.LG) == ['LG1', 'LG2', 'LG3'])

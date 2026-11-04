@@ -120,6 +120,7 @@ Annotation import (GT3a now; YH and the orange-blotch genomes when the student's
 (`source_dir`, `files`, `main`, `lengths_from`, `compare_to: Mzebra_GT3_NCBI`) and run `genomes annotate --only <key>`. The importer maps annotation names to the genome (identity, LG label,
 or unique length: scaffold01 -> NW_...), refuses the annotation if a chromosome is missing or has a different length, tolerates unmapped scaffolds and the mitochondrion (reported), and
 reads RepeatMasker version, rmblastn version and library name from the .tbl, warning if they differ from GT3a (4.1.2-p1, rmblastn 2.14.1+, cichlid_merged_lib.fa).
+Chromosome-to-LG labels for a genome come from `chrom_to_lg` in config/paper.yaml, else the NCBI assembly report, else the FASTA headers ("linkage group LG10"); `python -m yhsd.cli chroms` prints the table.
 Inversions: LG5 from LatrZW + MezeOBm; LG2, LG10 and LG13 from the NCBI YH chromosomes. Calls do not depend on the strand of a contig: a contig and its reverse complement give the same
 breakpoints. Methods (reference coordinates): A = flank / inverted segment / flank inside one contig; B = windows covered on both strands by different haplotigs (needs two haplotypes);
 A-half and C = the contig ends at a breakpoint or is only the inverted segment (low confidence, flagged strand_dependent because they assume the reference orientation). `reference_is_standard`
