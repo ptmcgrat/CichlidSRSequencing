@@ -13,6 +13,7 @@ parser.add_argument('-c', '--Species', nargs = '+', metavar = '', choices = fm_o
 parser.add_argument('-p', '--ProjectIDs', nargs = '+', metavar = '', choices = fm_obj.returnOptions('ProjectIDs'), help = 'Restrict analysis to a specific ProjectIDs: ' + ','.join(fm_obj.returnOptions('ProjectIDs')))
 parser.add_argument('-e', '--Ecogroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Ecogroups'), help = 'Restrict analysis to a specific Ecogroup: ' + ','.join(fm_obj.returnOptions('Ecogroups')))
 parser.add_argument('-u', '--Subgroups', nargs = '+', metavar = '', choices = fm_obj.returnOptions('Subgroups'), help = 'Restrict analysis to a specific Subgroup: ' + ','.join(fm_obj.returnOptions('Subgroups')))
+parser.add_argument('-d', '--MaxDownloads', type = int, default = 6, help = 'Maximum number of uBam downloads running at the same time (the rest wait in a queue). Lower this if Dropbox returns errors')
 parser.add_argument('-r', '--Rerun', action = 'store_true', help = 'Default behavior is to not rerun alignment if already completed. Use this to force realignment')
 args = parser.parse_args()
 
@@ -39,7 +40,7 @@ timer.stop()
 aw_obj = AW(args.Genome, fm_obj, check_size = False)
 
 timer.start('  Parallel Downloading uBams files')
-bad_samples = aw_obj.downloadReadData()
+bad_samples = aw_obj.downloadReadData(max_parallel = args.MaxDownloads)
 if bad_samples != []:
 	print('Error downloading the following samples: ' + ','.join(bad_samples))
 	fm_obj.removeSamples(bad_samples)
@@ -81,9 +82,6 @@ timer.stop()
 timer.start('  Uploading and updating database')
 bad_samples = aw_obj.uploadAndUpdateDatabase()
 if bad_samples != []:
-	try:
-		print('Error uploading data for the following samples: ' + ','.join(bad_samples))
-	except:
-		pdb.set_trace()
+	print('Error uploading data for the following samples: ' + ','.join(str(x) for x in bad_samples))
 timer.stop()
 

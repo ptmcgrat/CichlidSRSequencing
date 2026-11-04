@@ -1,8 +1,9 @@
-import subprocess, os, pdb, psutil, shutil
+import subprocess, os, pdb, psutil, shutil, time
 import pysam
 import pandas as pd
 from helper_modules.file_manager import FileManager as FM
 from helper_modules.Timer import Timer
+from helper_modules.download_queue import DownloadQueue, configure_rclone_env
 from multiprocessing import cpu_count
 from types import SimpleNamespace
 
@@ -82,24 +83,31 @@ class AlignmentWorker():
 				if next_command is not None:
 					next_command.error_fp = open(next_command.error_file, 'w')
 					next_command.process = subprocess.Popen(next_command.command, stderr = next_command.error_fp, stdout = subprocess.DEVNULL)
+			if command_list:
+				time.sleep(1) # this loop used to spin without sleeping, holding a core at 100% for the whole run
 
 		return bad_samples
 
-	def downloadReadData(self):
-		processes = {}
-		bad_samples = []
-		# Loop through all of the runs for a sample
+	def downloadReadData(self, max_parallel = 6, attempts = 4, backoff = 30):
+		# Download every uBam with at most max_parallel rclone processes at a time (the old code started all of them at once). Failed downloads are retried
+		# with exponential backoff, every downloaded file is checked with samtools quickcheck, files that are already complete are skipped, and all rclone
+		# processes are terminated if this is interrupted. Returns the samples that still have a failed file (same contract as before).
+		print('  rclone settings for this run: ' + str(configure_rclone_env()) + ', at most ' + str(max_parallel) + ' downloads at a time')
+		jobs = []
 		for sample in self.samples:
-			fm_obj = self.fm_obj
-			fm_obj.createSampleFiles(sample)
+			self.fm_obj.createSampleFiles(sample)
 			for uBam_file in self.uBam_files[sample]:
-				processes[sample] = fm_obj.downloadData(uBam_file, parallel = True)
-				
-		for sample, p in processes.items():
-			p.communicate()
-			if p.returncode != 0:
-				bad_samples.append(sample)
-		return bad_samples
+				jobs.append((sample, uBam_file))
+
+		def start(job):
+			self.fm_obj.createSampleFiles(job.key)  # downloadData may depend on the current sample's file names
+			return self.fm_obj.downloadData(job.path, parallel = True)
+
+		queue = DownloadQueue(start, max_parallel = max_parallel, attempts = attempts, backoff = backoff)
+		self.download_failures = queue.run(jobs)
+		for sample, messages in self.download_failures.items():
+			print('  Download failed for ' + sample + ': ' + ' | '.join(messages))
+		return sorted(self.download_failures)
 
 	def delete_read_data(self):
 		subprocess.run(['rm', '-f'] + self.downloaded_files)

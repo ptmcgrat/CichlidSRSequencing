@@ -1,4 +1,4 @@
-import platform, os, pdb, gspread, subprocess
+import platform, os, pdb, gspread, subprocess, time
 import pandas as pd
 
 from gspread_dataframe import get_as_dataframe
@@ -283,13 +283,34 @@ class FileManager():
 			raise FileNotFoundError(self.genome_version + ' not an option')
 
 
+	def _cloudObjects(self, cloud_path, must_contain = None, attempts = 3, ttl = 600):
+		# Names (files, and directories with a trailing /) in a cloud folder. This used to be an unchecked `rclone lsf`, so ANY rclone failure (network unreachable, Dropbox 500,
+		# throttling) returned an empty list and downloadData reported 'Cant find file' for files that exist. Now: the return code is checked, a failed listing is retried with
+		# backoff and finally raised as a RuntimeError (never as 'not found'), exit code 3 (rclone: directory not found) really means absent, and each folder is listed once
+		# per `ttl` seconds instead of once per file. If a cached listing lacks every name in must_contain it is refreshed once (it may predate an upload).
+		cache = self.__dict__.setdefault('_lsf_cache', {})
+		if cloud_path in cache and time.time() - cache[cloud_path][0] < ttl:
+			if must_contain is None or any(x in cache[cloud_path][1] for x in must_contain):
+				return cache[cloud_path][1]
+		for attempt in range(attempts):
+			output = subprocess.run(['rclone', 'lsf', cloud_path], capture_output = True, encoding = 'utf-8')
+			if output.returncode == 0:
+				objects = output.stdout.splitlines()
+				cache[cloud_path] = (time.time(), objects)
+				return objects
+			if output.returncode == 3:
+				return []
+			if attempt < attempts - 1:
+				time.sleep(5 * 3 ** attempt)
+		raise RuntimeError('rclone could not list ' + cloud_path + ' after ' + str(attempts) + ' attempts (exit code ' + str(output.returncode) + '): ' + output.stderr.strip()[-300:])
+
 	def downloadData(self, local_data, tarred = False, tarred_subdirs = False, parallel = False, rclone=False):
 
 		relative_name = local_data.rstrip('/').split('/')[-1] + '.tar' if tarred else local_data.rstrip('/').split('/')[-1]
 		local_path = local_data.split(local_data.rstrip('/').split('/')[-1])[0]
 		cloud_path = local_path.replace(self.localMasterDir, self.cloudMasterDir)
 
-		cloud_objects = subprocess.run(['rclone', 'lsf', cloud_path], capture_output = True, encoding = 'utf-8').stdout.split()
+		cloud_objects = self._cloudObjects(cloud_path, must_contain = [relative_name, relative_name + '/'])
 
 		if relative_name + '/' in cloud_objects: #directory
 			output = subprocess.run(['rclone', 'copy', cloud_path + relative_name, local_path + relative_name], capture_output = True, encoding = 'utf-8')
