@@ -198,6 +198,34 @@ def arrays_for_genome(name, fa, annotation, cfg, name_map=None, exclude=None):
     return pd.DataFrame(calls), pd.DataFrame(allrows)
 
 
+def compare_calls(calls, pub, scan, inv):
+    """Add, to the array calls of the REFERENCE genome, the published (lifted) interval, the satellite-scan interval and the relation to the inversion of the same chromosome.
+    Sequences without an LG label (unplaced scaffolds, lg = NaN) are left alone: NaN must never be matched against the tables (a NaN row in the scan table once crashed the step)."""
+    calls = calls.copy()
+    for col in ('published_start', 'published_end', 'scan_start', 'scan_end', 'inversion_start', 'inversion_end'):
+        calls[col] = np.nan
+    calls['array_vs_published'] = ''
+    calls['relation_to_inversion'] = ''
+    pub_by = pub[pub.lg.notna()].drop_duplicates('lg').set_index('lg') if pub is not None and len(pub) else None
+    scan_by = scan[scan.lg.notna()].drop_duplicates('lg').set_index('lg') if scan is not None and len(scan) else None
+    for i, r in calls.iterrows():
+        if pd.isna(r.lg) or pd.isna(r.start):
+            continue
+        if pub_by is not None and r.lg in pub_by.index:
+            p_ = pub_by.loc[r.lg]
+            ps, pe = (p_.gt3_start, p_.gt3_end) if pd.notna(p_.gt3_start) else (p_.get('bounded_start', np.nan), p_.get('bounded_end', np.nan))
+            if pd.notna(ps):
+                gap = max(0.0, max(r.start, ps) - min(r.end, pe))
+                calls.loc[i, ['published_start', 'published_end']] = [ps, pe]
+                calls.loc[i, 'array_vs_published'] = 'overlaps' if gap == 0 else f'{gap / 1e6:.2f} Mb apart'
+        if scan_by is not None and r.lg in scan_by.index:
+            calls.loc[i, ['scan_start', 'scan_end']] = [scan_by.loc[r.lg, 'start'], scan_by.loc[r.lg, 'end']]
+        if r.lg in inv:
+            calls.loc[i, ['inversion_start', 'inversion_end']] = [inv[r.lg][0], inv[r.lg][1]]
+            calls.loc[i, 'relation_to_inversion'] = cen.relation_to_inversion(r.start, r.end, inv[r.lg][0], inv[r.lg][1])
+    return calls
+
+
 def arrays_step(proj, align_dir=None):
     """centromeres arrays: the centromere is the largest array of the satellite family (config arrays.family) more than 500 kb from either chromosome end, at feature resolution.
     Compared with the published lifted intervals and the satellite scan, and classified against each inversion (pericentric / paracentric)."""
@@ -240,17 +268,8 @@ def arrays_step(proj, align_dir=None):
             calls['lg'] = calls.sequence.map(proj.lg) if key == ref else np.nan
             if key != ref:
                 print(f'[arrays] {key}: arrays are reported in the genome\'s own coordinates (lift to the reference is done by `centromeres scan` for annotated non-reference genomes)')
-            for i, r in calls.iterrows():                                         # compare with the other two methods and the inversion
-                if key == ref and pub is not None and r.lg in set(pub.lg) and pd.notna(r.start):
-                    p_ = pub[pub.lg == r.lg].iloc[0]; ps, pe = (p_.gt3_start, p_.gt3_end) if pd.notna(p_.gt3_start) else (p_.get('bounded_start', np.nan), p_.get('bounded_end', np.nan))
-                    if pd.notna(ps):
-                        gap = max(0.0, max(r.start, ps) - min(r.end, pe))
-                        calls.loc[i, ['published_start', 'published_end']] = [ps, pe]; calls.loc[i, 'array_vs_published'] = 'overlaps' if gap == 0 else f'{gap / 1e6:.2f} Mb apart'
-                if key == ref and scan is not None and r.lg in set(scan.lg):
-                    s_r = scan[scan.lg == r.lg].iloc[0]; calls.loc[i, ['scan_start', 'scan_end']] = [s_r.start, s_r.end]
-                if key == ref and r.lg in inv and pd.notna(r.start):
-                    calls.loc[i, ['inversion_start', 'inversion_end']] = [inv[r.lg][0], inv[r.lg][1]]
-                    calls.loc[i, 'relation_to_inversion'] = cen.relation_to_inversion(r.start, r.end, inv[r.lg][0], inv[r.lg][1])
+            if key == ref:
+                calls = compare_calls(calls, pub, scan, inv)                                # published lift, satellite scan and inversion
             out.append(calls)
             allarr.to_csv(f'{run.dir}{key}_satellite_arrays.tsv', sep='\t', index=False)
             show = calls[['sequence', 'lg', 'start', 'end', 'size', 'end_distance', 'n_internal_arrays', 'ambiguous', 'largest_array_is_terminal']].copy()

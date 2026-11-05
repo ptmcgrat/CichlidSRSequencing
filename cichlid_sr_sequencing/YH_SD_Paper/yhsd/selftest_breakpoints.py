@@ -534,3 +534,15 @@ def run():
     r9q = paf.call_method_AC(d9, TQ)
     big = r9q[(r9q.right_hi.astype(float) - r9q.left_lo.astype(float)) > 10 * M] if len(r9q) else r9q
     _ok('fLetChi2-like data: the big 18 Mb inversion is called despite the stray forward block in the right flank', len(big) == 1 and abs(big.left_lo.iloc[0] - 14.62 * M) < 50_000 and abs(big.right_lo.iloc[0] - 32.69 * M) < 50_000, str(r9q[['method', 'left_lo', 'left_hi', 'right_lo', 'right_hi']].values.tolist()))
+
+    # ---------------- the comparison step on a reference WITH an unplaced scaffold (lg = NaN in the calls and in the scan table): this crashed `centromeres arrays` on the real genome
+    calls_t = pd.DataFrame([dict(sequence='NC_135168.1', lg='LG2', start=27_130_000, end=27_600_000), dict(sequence='NC_135176.1', lg='LG10', start=7_000_000, end=7_420_000),
+                            dict(sequence='NW_027490041.1', lg=np.nan, start=np.nan, end=np.nan), dict(sequence='NW_027490042.1', lg=np.nan, start=1_000_000, end=1_400_000)])
+    scan_t = pd.DataFrame([dict(lg='LG2', start=26_900_000, end=27_900_000), dict(lg='LG10', start=0, end=300_000), dict(lg=np.nan, start=np.nan, end=np.nan)])             # the scan has a NaN row too
+    pub_t = pd.DataFrame([dict(lg='LG2', gt3_start=27_129_591, gt3_end=27_702_624), dict(lg='LG13', gt3_start=np.nan, gt3_end=np.nan, bounded_start=32_490_569, bounded_end=35_759_951)])
+    cmp_ = csteps.compare_calls(calls_t, pub_t, scan_t, {'LG2': (19_800_671, 43_549_813), 'LG10': (11_774_878, 29_891_917)}).set_index('sequence')
+    _ok('compare_calls survives unplaced scaffolds (NaN lg) in the calls, the scan table and the published table',
+        cmp_.loc['NC_135168.1', 'array_vs_published'] == 'overlaps' and cmp_.loc['NC_135168.1', 'scan_start'] == 26_900_000 and cmp_.loc['NC_135168.1', 'relation_to_inversion'] == 'pericentric'
+        and cmp_.loc['NC_135176.1', 'relation_to_inversion'] == 'paracentric' and cmp_.loc['NC_135176.1', 'scan_end'] == 300_000 and np.isnan(cmp_.loc['NC_135176.1', 'published_start'])
+        and cmp_.loc['NW_027490041.1', 'relation_to_inversion'] == '' and np.isnan(cmp_.loc['NW_027490042.1', 'scan_start']), str(cmp_[['array_vs_published', 'scan_start', 'relation_to_inversion']].to_dict('index')))
+    _ok('...and with no published table and no scan table at all', len(csteps.compare_calls(calls_t, None, None, {})) == 4)

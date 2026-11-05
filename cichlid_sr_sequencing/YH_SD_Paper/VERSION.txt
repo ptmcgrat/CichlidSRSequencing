@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v28_20261105-1333.zip
-version  : v28
-built    : 20261105-1333
-changes  : consensus breakpoint = intersection of the assemblies' breakpoint intervals (union kept as outer bound; shared interval columns); fLetChi2 restored as an LG9 source (it carries the LG9 inversion; v27 wrongly removed it), kept out of LG11 (collinear there).
+zip name : YH_SD_Paper_v29_20261105-1344.zip
+version  : v29
+built    : 20261105-1344
+changes  : centromeres arrays no longer crashes on unplaced scaffolds (lg = NaN matched NaN in the scan table); comparison moved into a tested function (compare_calls). Includes v28 (shared-interval consensus, fLetChi2 on LG9) and v27 (LG11 double inversion).
