@@ -50,6 +50,7 @@ new_dt = new_dt.rename(columns = remapper)[remapper.values()]
 
 # Loop through runs and download data and convert to uBam
 commands = []
+already_run = set()
 for index, row in new_dt.iterrows():
 	if row['LibraryLayout'] != 'PAIRED':
 		print('Error on ' + row.RunID + ': Can only handle paired end data. Library layout is: ' + layout, file = sys.stderr)
@@ -65,7 +66,8 @@ for index, row in new_dt.iterrows():
 
 	# Make sure we this run hasn't already been added to the sample database
 	if data.runID in set(fm_obj.reads_dt['RunID']):
-		print('Error on ' + data.runID + ': Run already added to sample database', file = sys.stderr)
+		already_run.add(data.runID)
+		#print('Error on ' + data.runID + ': Run already added to sample database', file = sys.stderr)
 		continue
 
 	existing_bamfiles = set([x.split('.')[0] for x in fm_obj.returnCloudFiles(fm_obj.localReadsDir + row['ProjectID'] + '/')])
@@ -114,7 +116,7 @@ for index, row in new_dt.iterrows():
 	data.command = command
 	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
 	commands.append(data)
-	
+print(','.join(already_run) + ' have been already added')	
 for i,data in enumerate(commands):
 	data.process = None
 	if i < 4:
