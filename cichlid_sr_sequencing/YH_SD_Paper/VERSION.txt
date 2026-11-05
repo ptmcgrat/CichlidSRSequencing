@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v21_20261105-0058.zip
-version  : v21
-built    : 20261105-0058
-changes  : centromeres lift ignores alignments to other chromosomes (cross-chromosome satellite hits broke the flanks for LG3, LG7, LG13, LG20); rerun 'centromeres lift' and 'inversion_breakpoints figure' only.
+zip name : YH_SD_Paper_v22_20261105-0106.zip
+version  : v22
+built    : 20261105-0106
+changes  : centromeres lift reports where each flank lands (left/right_flank_ref and strand) even when the flanks lie on opposite strands (LG13). Rerun 'centromeres lift' only.

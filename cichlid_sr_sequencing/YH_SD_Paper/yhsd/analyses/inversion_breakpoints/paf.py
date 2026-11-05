@@ -276,8 +276,8 @@ def lift_interval(df, qname, start, end, step=25_000, max_scan=3_000_000):
     if left is None or right is None:
         return None
     (tl, pl, sl, _), (tr, pr, sr, _) = left[0], right[0]
+    where = dict(left_ref=pl, left_strand=sl, right_ref=pr, right_strand=sr, left_flank_distance=start - left[1], right_flank_distance=right[1] - end)   # where each alignable flank lands
     if tl != tr:
-        return dict(status='flanks map to different chromosomes', tname_left=tl, tname_right=tr)
+        return dict(status='flanks map to different chromosomes', tname_left=tl, tname_right=tr, **where)
     lo, hi = sorted((pl, pr))
-    return dict(status='ok' if sl == sr else 'flanks on opposite strands (interval straddles an inversion breakpoint)', tname=tl, tstart=lo, tend=hi, strand=sl,
-                left_flank_distance=start - left[1], right_flank_distance=right[1] - end)
+    return dict(status='ok' if sl == sr else 'flanks on opposite strands (interval straddles an inversion breakpoint)', tname=tl, tstart=lo, tend=hi, strand=sl, **where)

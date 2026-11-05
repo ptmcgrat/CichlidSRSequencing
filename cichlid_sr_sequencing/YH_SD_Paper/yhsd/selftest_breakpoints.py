@@ -364,7 +364,9 @@ def run():
     _ok('LG10: an unalignable centromere array is bounded by its alignable flanks (7.2-8.1 Mb)', r10.lift_status == 'ok' and abs(r10.gt3_start - 7.2 * M) < 30_000 and abs(r10.gt3_end - 8.1 * M) < 30_000, f'{r10.lift_status} {r10.gt3_start}-{r10.gt3_end}')
     straddle = paf.parse_paf([line(NEW10, 35.0 * M, 0, 7.2 * M, '+', NT10, 35.0 * M, 0, 7.2 * M, f'{int(7.2 * M)}M'), line(NEW10, 35.0 * M, 8.1 * M, 35.0 * M, '-', NT10, 35.0 * M, 0.5 * M, 27.4 * M, f'{int(26.9 * M)}M')])
     rs = pb.lift_all(straddle, tb, mp, lg2c, 3_000_000).query("lg == 'LG10'").iloc[0]
-    _ok('flanks on opposite strands (an interval across a breakpoint): flagged and NO coordinates are reported', 'opposite strands' in rs.lift_status and pd.isna(rs.gt3_start))
+    _ok('flanks on opposite strands (an interval across a breakpoint): flagged and NO interval coordinates are reported, but the position and strand each flank lands on are',
+        'opposite strands' in rs.lift_status and pd.isna(rs.gt3_start) and rs.left_flank_strand == '+' and rs.right_flank_strand == '-' and abs(rs.left_flank_ref - 7.2 * M) < 30_000 and abs(rs.right_flank_ref - 27.4 * M) < 60_000,
+        f'{rs.left_flank_ref}{rs.left_flank_strand} {rs.right_flank_ref}{rs.right_flank_strand}')
     scan_df = pd.DataFrame([dict(lg='LG2', start=26_900_000, end=27_900_000, confidence='high'), dict(lg='LG10', start=0, end=300_000, confidence='low')])
     cmp_ = pb.compare_with_scan(lifted, scan_df, 1_000_000)
     _ok('comparison with the satellite scan: LG2 agrees (after the chunk is accounted for), LG10 (scan at 0-0.3 Mb) disagrees', cmp_[cmp_.lg == 'LG2'].scan_vs_published.iloc[0] == 'agrees' and cmp_[cmp_.lg == 'LG10'].scan_vs_published.iloc[0].startswith('disagrees'))

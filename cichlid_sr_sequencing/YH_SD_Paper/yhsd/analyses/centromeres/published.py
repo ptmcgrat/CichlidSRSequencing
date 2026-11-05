@@ -42,7 +42,7 @@ def lift_all(paf_df, tbl, mapping, lg_to_chrom, window=3_000_000):
         row = dict(lg=r.lg, published_chr=r.chr, published_start=int(r.start), published_end=int(r.end), centroid1=r.centroid1, centroid2=r.centroid2, t2t=r.t2t,
                    gap_in_centromere=r.gap_in_centromere, reference_chrom=lg_to_chrom.get(r.lg), assembly_sequence=None, sequence_share=np.nan,
                    gt3_start=np.nan, gt3_end=np.nan, gt3_width=np.nan, strand='', lift_status='', left_flank_distance=np.nan, right_flank_distance=np.nan,
-                   centroid1_ref=np.nan, centroid2_ref=np.nan)
+                   centroid1_ref=np.nan, centroid2_ref=np.nan, left_flank_ref=np.nan, left_flank_strand='', right_flank_ref=np.nan, right_flank_strand='')
         if m is None:
             row['lift_status'] = 'no assembly sequence aligns to this chromosome'; rows.append(row); continue
         row.update(assembly_sequence=m['seq'], sequence_share=m['share'])
@@ -54,6 +54,7 @@ def lift_all(paf_df, tbl, mapping, lg_to_chrom, window=3_000_000):
             row['lift_status'] = 'no alignable flanks within the search window'
         else:
             row['lift_status'] = lf['status']
+            row.update(left_flank_ref=lf.get('left_ref', np.nan), left_flank_strand=lf.get('left_strand', ''), right_flank_ref=lf.get('right_ref', np.nan), right_flank_strand=lf.get('right_strand', ''))
             if lf['status'] == 'ok':                                    # an interval whose flanks lie on opposite strands straddles a breakpoint: no coordinates
                 if lf['tname'] != row['reference_chrom']:
                     row['lift_status'] = f"lifts to {lf['tname']}, expected {row['reference_chrom']}"
