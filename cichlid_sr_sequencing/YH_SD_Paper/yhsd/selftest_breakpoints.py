@@ -368,3 +368,13 @@ def run():
     scan_df = pd.DataFrame([dict(lg='LG2', start=26_900_000, end=27_900_000, confidence='high'), dict(lg='LG10', start=0, end=300_000, confidence='low')])
     cmp_ = pb.compare_with_scan(lifted, scan_df, 1_000_000)
     _ok('comparison with the satellite scan: LG2 agrees (after the chunk is accounted for), LG10 (scan at 0-0.3 Mb) disagrees', cmp_[cmp_.lg == 'LG2'].scan_vs_published.iloc[0] == 'agrees' and cmp_[cmp_.lg == 'LG10'].scan_vs_published.iloc[0].startswith('disagrees'))
+
+    # a satellite hit on ANOTHER chromosome right next to the centromere must not be used as a flank (LG3, LG7, LG13, LG20 failed this way on the real data)
+    NT3, NT9, NEW3 = 'NC_135169.1', 'NC_135175.1', 'OZ_chr3'
+    tb3 = pd.DataFrame([dict(chr='chr3', lg='LG3', start=29_500_000, end=30_000_000, size=500_000, centroid1=np.nan, centroid2=np.nan, gap_in_centromere='No', t2t=False)])
+    pl3 = [line(NEW3, 40 * M, 0, 29.0 * M, '+', NT3, 60 * M, 0, 29.0 * M, f'{int(29.0 * M)}M'), line(NEW3, 40 * M, 29.1 * M, 29.4 * M, '+', NT9, 37 * M, 5.0 * M, 5.3 * M, f'{int(0.3 * M)}M'),
+           line(NEW3, 40 * M, 30.5 * M, 40 * M, '+', NT3, 60 * M, 30.5 * M, 40 * M, f'{int(9.5 * M)}M')]
+    cm3 = pd.DataFrame([(NEW3, NT3, int(39 * M), 0.98)], columns=['contig', 'reference_chrom', 'aligned_bp', 'share'])
+    l3 = pb.lift_all(paf.parse_paf(pl3), tb3, pb.map_published_chr(cm3, {'LG3': NT3}, ['LG3']), {'LG3': NT3}, 3_000_000).iloc[0]
+    _ok('lift ignores alignments to other chromosomes next to the centromere (cross-chromosome satellite hits no longer break the flanks)',
+        l3.lift_status == 'ok' and abs(l3.gt3_start - 29.0 * M) < 30_000 and abs(l3.gt3_end - 30.5 * M) < 30_000, f'{l3.lift_status} {l3.gt3_start}-{l3.gt3_end}')

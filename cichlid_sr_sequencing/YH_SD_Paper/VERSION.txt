@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v20_20261105-0004.zip
-version  : v20
-built    : 20261105-0004
-changes  : reference misassembly (LG2 4.0-14.4 Mb) ignored by breakpoint calling and masked in the centromere scan; published M. zebra centromeres (Table 3) lifted into the reference (centromeres lift); overview prefers them.
+zip name : YH_SD_Paper_v21_20261105-0058.zip
+version  : v21
+built    : 20261105-0058
+changes  : centromeres lift ignores alignments to other chromosomes (cross-chromosome satellite hits broke the flanks for LG3, LG7, LG13, LG20); rerun 'centromeres lift' and 'inversion_breakpoints figure' only.

@@ -46,7 +46,10 @@ def lift_all(paf_df, tbl, mapping, lg_to_chrom, window=3_000_000):
         if m is None:
             row['lift_status'] = 'no assembly sequence aligns to this chromosome'; rows.append(row); continue
         row.update(assembly_sequence=m['seq'], sequence_share=m['share'])
-        lf = P.lift_interval(paf_df, m['seq'], int(r.start), int(r.end), max_scan=window)
+        # only alignments to the chromosome this LG should lift to: every centromere carries the same satellite family, so the nearest aligned block next to a satellite array
+        # is often a repeat hit on ANOTHER chromosome ('flanks map to different chromosomes'); those are ignored
+        own = paf_df[paf_df.tname == row['reference_chrom']]
+        lf = P.lift_interval(own, m['seq'], int(r.start), int(r.end), max_scan=window)
         if lf is None:
             row['lift_status'] = 'no alignable flanks within the search window'
         else:
