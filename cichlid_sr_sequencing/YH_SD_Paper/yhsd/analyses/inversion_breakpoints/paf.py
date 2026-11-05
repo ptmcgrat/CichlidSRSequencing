@@ -109,6 +109,26 @@ def inversion_segments(run, jump_tol=100_000, min_seg=300_000, min_block=100_000
     return out
 
 
+def core_extent(run, offset_tol=1_000_000):
+    """Reference extent of a FLANK run measured on its colinear core. A flank is one diagonal, but repeats and breakpoint homology scatter stray blocks of the same strand far away
+    (LG11: a forward block at 18.43 Mb, the internal breakpoint of the double inversion, was absorbed into the left flank that really ends at 8.30 Mb, stretching it by 10 Mb so that
+    the flank no longer 'ended' where the inversion starts). Every block is placed on its diagonal ('+': tstart - qstart, '-': tend + qstart, constant along a collinear alignment);
+    the length-weighted median diagonal is the core; blocks more than offset_tol off it are ignored."""
+    bl = run['blocks']
+    if len(bl) < 3:
+        return run['tmin'], run['tmax']
+    key = (lambda b: b[0] - b[2]) if run['strand'] == '+' else (lambda b: b[1] + b[2])
+    items = sorted((key(b), b[1] - b[0]) for b in bl)
+    half, acc, med = sum(w for _, w in items) / 2, 0, items[0][0]
+    for k, w in items:
+        acc += w
+        if acc >= half:
+            med = k
+            break
+    keep = [b for b in bl if abs(key(b) - med) <= offset_tol]
+    return min(b[0] for b in keep), max(b[1] for b in keep)
+
+
 def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_tol=500_000, despeckle=300_000, max_interval=1_000_000):
     """Inversions inside one contig, independent of which strand the contig has relative to the reference.
     A (full): the MIDDLE run of a triplet whose two neighbours share the opposite strand and sit on either side of it in the reference
@@ -131,13 +151,15 @@ def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_
             continue
         # the flank strand must agree with where the flanks lie: '+' flanks run left -> right in the reference, '-' flanks right -> left. A '+' run between two '-' runs that are
         # in the wrong places is a translocation or an assembly join, not a simple inversion.
-        if p['strand'] == '+' and p['tmax'] <= r['tmin'] + adjacent_tol and n['tmin'] >= r['tmax'] - adjacent_tol:        # flanks '+', inversion '-'
-            low, high = p, n
-        elif p['strand'] == '-' and n['tmax'] <= r['tmin'] + adjacent_tol and p['tmin'] >= r['tmax'] - adjacent_tol:      # contig reverse-complemented: flanks '-', inversion '+'
-            low, high = n, p
+        pmin, pmax = core_extent(p)
+        nmin, nmax = core_extent(n)
+        if p['strand'] == '+' and pmax <= r['tmin'] + adjacent_tol and nmin >= r['tmax'] - adjacent_tol:        # flanks '+', inversion '-'
+            low_max, high_min = pmax, nmin
+        elif p['strand'] == '-' and nmax <= r['tmin'] + adjacent_tol and pmin >= r['tmax'] - adjacent_tol:      # contig reverse-complemented: flanks '-', inversion '+'
+            low_max, high_min = nmax, pmin
         else:
             continue
-        left, right = tuple(sorted((low['tmax'], r['tmin']))), tuple(sorted((r['tmax'], high['tmin'])))
+        left, right = tuple(sorted((low_max, r['tmin']))), tuple(sorted((r['tmax'], high_min)))
         if left[1] - left[0] > max_interval or right[1] - right[0] > max_interval:                   # a 'breakpoint' that is megabases wide is not a breakpoint
             continue
         out.append(row('A', left, right, r, ('flank', 'flank'), False))
@@ -220,16 +242,26 @@ def discordance_regions(df, tname, tlen, window=10_000, min_window_bp=2_000, min
 METHOD_RANK = {'A': 0, 'B': 1, 'A-half': 2, 'C': 3}     # a call with both flanks beats a haplotig comparison, which beats calls that assume the reference orientation
 
 
-def consensus(calls, tol=150_000):
-    """calls: DataFrame with columns assembly, method, left_lo/hi, right_lo/hi. Cluster left and right midpoints within `tol`; returns one row per cluster pair,
-    ranked by the best method in the cluster (A > B > A-half > C), then by the number of supporting calls, then by length. confidence: high (has an A call), medium (B only), low."""
+def _gap(lo, hi, elo, ehi):
+    """Distance between the interval [lo, hi] and the extent [elo, ehi] (0 when they overlap)."""
+    return max(0.0, max(lo, elo) - min(hi, ehi))
+
+
+def consensus(calls, tol=150_000, gap=100_000):
+    """calls: DataFrame with columns assembly, method, left_lo/hi, right_lo/hi. Calls are the same inversion when BOTH breakpoints agree: their midpoints are within `tol` of the previous
+    call of the cluster, OR their breakpoint intervals lie within `gap` of the cluster's (so three assemblies whose intervals overlap are one inversion even if two midpoints are
+    180 kb apart: wide intervals are honest uncertainty, not disagreement). Returns one row per cluster, ranked by the best method in the cluster (A > B > A-half > C), then by the
+    number of supporting calls, then by length. confidence: high (has an A call), medium (B only), low."""
     if not len(calls):
         return pd.DataFrame()
     c = calls.copy(); c['left_mid'] = (c.left_lo + c.left_hi) / 2; c['right_mid'] = (c.right_lo + c.right_hi) / 2
     c = c.sort_values('left_mid').reset_index(drop=True)
     cl, cur = [], [0]
     for i in range(1, len(c)):
-        if abs(c.left_mid[i] - c.left_mid[cur[-1]]) <= tol and abs(c.right_mid[i] - c.right_mid[cur[-1]]) <= tol:
+        near = abs(c.left_mid[i] - c.left_mid[cur[-1]]) <= tol and abs(c.right_mid[i] - c.right_mid[cur[-1]]) <= tol
+        ext = c.loc[cur]
+        overlap = (_gap(c.left_lo[i], c.left_hi[i], ext.left_lo.min(), ext.left_hi.max()) <= gap and _gap(c.right_lo[i], c.right_hi[i], ext.right_lo.min(), ext.right_hi.max()) <= gap)
+        if near or overlap:
             cur.append(i)
         else:
             cl.append(cur); cur = [i]
@@ -242,9 +274,18 @@ def consensus(calls, tol=150_000):
         conf = 'high' if 'A' in methods else ('medium' if 'B' in methods else 'low')       # low = only calls that assume the reference orientation (A-half, C)
         sg = s[s.method == 'A'] if 'A' in methods else s
         sg = sg.iloc[0]
-        rows.append(dict(left_breakpoint=int(s.left_mid.median()), left_min=int(s.left_lo.min()), left_max=int(s.left_hi.max()),
-                         right_breakpoint=int(s.right_mid.median()), right_min=int(s.right_lo.min()), right_max=int(s.right_hi.max()),
-                         inversion_length=int(s.right_mid.median() - s.left_mid.median()), n_calls=len(ix), confidence=conf, _rank=best,
+        # Every assembly's interval must contain the true breakpoint, so with several calls the INTERSECTION of their intervals is the best estimate (LG9: four assemblies, the union of
+        # their left intervals is 466 kb wide, the intersection 37 kb; the right ones meet at a single position). Empty intersection = the calls disagree: fall back to the median
+        # midpoint and say so. left_min/left_max (right_min/right_max) stay the union: the outer bound.
+        li_lo, li_hi, ri_lo, ri_hi = s.left_lo.max(), s.left_hi.min(), s.right_lo.max(), s.right_hi.min()
+        left_ok, right_ok = len(ix) > 1 and li_lo <= li_hi, len(ix) > 1 and ri_lo <= ri_hi
+        lbp = int((li_lo + li_hi) / 2) if left_ok else int(s.left_mid.median())
+        rbp = int((ri_lo + ri_hi) / 2) if right_ok else int(s.right_mid.median())
+        rows.append(dict(left_breakpoint=lbp, left_min=int(s.left_lo.min()), left_max=int(s.left_hi.max()),
+                         right_breakpoint=rbp, right_min=int(s.right_lo.min()), right_max=int(s.right_hi.max()),
+                         left_shared_min=int(li_lo) if left_ok else np.nan, left_shared_max=int(li_hi) if left_ok else np.nan,
+                         right_shared_min=int(ri_lo) if right_ok else np.nan, right_shared_max=int(ri_hi) if right_ok else np.nan,
+                         inversion_length=rbp - lbp, n_calls=len(ix), confidence=conf, _rank=best,
                          n_segments=int(sg['n_segments']) if pd.notna(sg.get('n_segments', np.nan)) else 1, segments=sg.get('segments', '') if isinstance(sg.get('segments', ''), str) else '',
                          internal_breakpoints=sg.get('internal_breakpoints', '') if isinstance(sg.get('internal_breakpoints', ''), str) else '',
                          sources=';'.join(sorted(set(s.assembly + ':' + s.method)))))

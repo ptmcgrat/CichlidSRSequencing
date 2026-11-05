@@ -7,10 +7,12 @@ inversions:
   LG2:  {assemblies: [YH], reference_is_standard: true, label: LG2}
   LG5:  {assemblies: [LatrZW, MezeOBm], reference_is_standard: null, label: LG5 (W / orange blotch)}
   # the two sex-linked XY inversions of the benthic radiation. All 118 True Deeps (YH), all Rocky Aulonocara, Shallow Lethrinops and Diplotaxodon are homozygous INVERTED on both, all 539 Mbuna are
-  # non-inverted (Blumer et al. 2025, Table S7), so GT3 (M. zebra) is the standard orientation. chr11 is a tandem (double) inversion: the caller reports its segments and internal breakpoint.
+  # non-inverted (Blumer et al. 2025, Table S7), so GT3 (M. zebra) is the standard orientation. fLetChi2 (Lethrinops sp. 'Chilingali') carries the LG9 inversion (all four assemblies show the
+  # same 18.1 Mb reverse segment) but is collinear with the reference on LG11 (one unbroken diagonal), so it is a source of LG9 breakpoints and a negative control for LG11.
+  # chr11 is a tandem (double) inversion: the caller reports its segments and internal breakpoint.
   LG9:  {assemblies: [YH, fAulStu2, fDipLim2, fLetChi2], reference_is_standard: true, label: LG9}
   LG10: {assemblies: [YH], reference_is_standard: true, label: LG10}      # the NCBI YH chromosome carries the inverted X; the hifiasm X/Y contigs are for the separate QTN analysis
-  LG11: {assemblies: [YH, fAulStu2, fDipLim2, fLetChi2], reference_is_standard: true, label: LG11}
+  LG11: {assemblies: [YH, fAulStu2, fDipLim2], reference_is_standard: true, label: LG11}
   LG13: {assemblies: [YH], reference_is_standard: true, label: LG13}
 minimap2:
   preset: asm5
@@ -20,6 +22,7 @@ calling:
   min_inversion: 500000           # smallest inversion to report (bp)
   window: 10000                   # resolution of the orientation-discordance map
   min_window_bp: 2000
+  consensus_gap: 100000                # calls whose breakpoint INTERVALS are within this distance of the cluster's are the same inversion, even if their midpoints are farther apart than consensus_tolerance
   consensus_tolerance: 150000     # breakpoints from different assemblies/methods within this distance are merged
   despeckle_run: 300000           # a strand run shorter than this between two runs of the other strand is absorbed (repeat-driven specks along a diagonal)
   max_breakpoint_interval: 1000000   # a breakpoint interval wider than this is not a breakpoint: the call is rejected

@@ -467,3 +467,70 @@ def run():
     rc = sp.run([sy.executable, os.path.join(PKG_ROOT, 'figures', 'fig_inversions_to_scale.py'), '--overview', tsv, '--out', os.path.dirname(tsv) + '/fig'], capture_output=True, text=True)
     svg = open(os.path.dirname(tsv) + '/fig.svg', encoding='utf-8').read() if rc.returncode == 0 else ''
     _ok('figure script draws a double inversion as two segments with its label', rc.returncode == 0 and '2 segments' in svg and 'double inversion' in svg, rc.stderr[-200:])
+
+    # ---------------- LG11 as it really looked: a forward flank whose extent is stretched by a stray block, then a double inversion joined by another stray block
+    TL, LL = 'NC_T11b', 40 * M
+    lg11 = [line('q11', 41 * M, 0.07 * M, 4.0 * M, '+', TL, LL, 0.25 * M, 4.18 * M), line('q11', 41 * M, 4.0 * M, 8.12 * M, '+', TL, LL, 4.18 * M, 8.30 * M),
+            line('q11', 41 * M, 8.12 * M, 8.20 * M, '+', TL, LL, 18.40 * M, 18.48 * M),                         # stray forward block: the internal-breakpoint homology, absorbed into the left flank
+            line('q11', 41 * M, 8.2 * M, 13.2 * M, '-', TL, LL, 13.4 * M, 18.4 * M), line('q11', 41 * M, 13.2 * M, 18.3 * M, '-', TL, LL, 8.3 * M, 13.4 * M),
+            line('q11', 41 * M, 18.3 * M, 18.35 * M, '+', TL, LL, 18.40 * M, 18.45 * M),                         # the dot between the two inverted halves
+            line('q11', 41 * M, 18.4 * M, 24.4 * M, '-', TL, LL, 24.4 * M, 30.4 * M), line('q11', 41 * M, 24.4 * M, 30.4 * M, '-', TL, LL, 18.4 * M, 24.4 * M),
+            line('q11', 41 * M, 30.5 * M, 40.6 * M, '+', TL, LL, 30.4 * M, 40.5 * M)]
+    d11 = paf.parse_paf(lg11)
+    runs11 = paf.strand_runs(paf.blocks_for_contig(d11, 'q11', TL, 20_000), 300_000)
+    _ok('LG11 geometry: the left forward flank really is stretched to 18.48 Mb by the stray block (the reason the caller dropped the inversion)', runs11[0]['strand'] == '+' and runs11[0]['tmax'] > 18 * M, str([(r['strand'], r['tmin'], r['tmax']) for r in runs11]))
+    _core = paf.core_extent(runs11[0])
+    _ok('core_extent measures the flank on its colinear core: 0.25-8.30 Mb', abs(_core[0] - 0.25 * M) < 1000 and abs(_core[1] - 8.30 * M) < 1000, str(_core))
+    r11 = paf.call_method_AC(d11, TL)
+    segs11 = [tuple(int(v) for v in x.split('-')) for x in r11.segments.iloc[0].split(';')] if len(r11) else []
+    _ok('LG11 double inversion is now called: ONE inversion 8.30-30.40 Mb, TWO segments, internal breakpoint 18.4 Mb',
+        len(r11) == 1 and r11.method.iloc[0] == 'A' and int(r11.n_segments.iloc[0]) == 2 and abs(r11.left_hi.iloc[0] - 8.30 * M) < 20_000 and abs(r11.right_lo.iloc[0] - 30.40 * M) < 20_000
+        and abs(int(r11.internal_breakpoints.iloc[0]) - 18.4 * M) < 100_000 and abs(segs11[0][1] - 18.4 * M) < 100_000, str(r11[['method', 'n_segments', 'left_lo', 'left_hi', 'right_lo', 'right_hi', 'internal_breakpoints']].values.tolist()))
+    _orig_core = paf.core_extent
+    paf.core_extent = lambda run, offset_tol=1_000_000: (run['tmin'], run['tmax'])                      # the previous behaviour: every block counts
+    try:
+        _ok('without the core extent the same data gives NO call (what happened on the real LG11)', len(paf.call_method_AC(d11, TL)) == 0)
+    finally:
+        paf.core_extent = _orig_core
+    fl2 = [(0.25 * M, 0.25 * M + 4 * M, 0.07 * M, 4.07 * M), (0.25 * M + 4 * M, 0.25 * M + 8 * M, 4.07 * M, 8.07 * M)]
+    rev = dict(strand='-', tmin=1, tmax=2, blocks=[(10 * M, 11 * M, 5 * M, 6 * M), (9 * M, 10 * M, 6 * M, 7 * M), (30 * M, 30.05 * M, 6.9 * M, 6.95 * M)])      # '-' flank with one stray block 20 Mb away
+    _ce = paf.core_extent(rev)
+    _ok("core_extent also works for '-' flanks (anti-diagonal) and drops the stray block", (_ce[0], _ce[1]) == (9 * M, 11 * M), str(_ce))
+    _ok('core_extent leaves short runs (fewer than 3 blocks) alone', paf.core_extent(dict(strand='+', tmin=5, tmax=9, blocks=[(5, 6, 0, 1), (8, 9, 3, 4)])) == (5, 9))
+
+    # ---------------- LG9: three assemblies whose breakpoint intervals overlap are ONE inversion even if two midpoints are 181 kb apart
+    lg9 = pd.DataFrame([dict(assembly='fDipLim2', method='A', left_lo=14_511_484, left_hi=14_622_365, right_lo=32_763_232, right_hi=32_878_069, n_segments=1, segments='15313086-32161792', internal_breakpoints=''),
+                        dict(assembly='YH', method='A', left_lo=14_584_786, left_hi=14_912_159, right_lo=32_763_232, right_hi=32_775_869, n_segments=1, segments='15554102-31239177', internal_breakpoints=''),
+                        dict(assembly='fAulStu2', method='A', left_lo=14_585_294, left_hi=14_977_232, right_lo=32_390_715, right_hi=32_763_232, n_segments=1, segments='15291930-31238831', internal_breakpoints=''),
+                        dict(assembly='fLetChi2', method='A', left_lo=9_703_206, left_hi=9_713_388, right_lo=12_301_319, right_hi=12_350_695, n_segments=1, segments='', internal_breakpoints='')])
+    c9 = paf.consensus(lg9)
+    _ok('LG9: the three overlapping calls form one consensus (3 calls, honest interval = their union); the unrelated 2.6 Mb call stays separate',
+        len(c9) == 2 and c9.n_calls.iloc[0] == 3 and c9.left_min.iloc[0] == 14_511_484 and c9.left_max.iloc[0] == 14_977_232 and c9.right_min.iloc[0] == 32_390_715 and c9.right_max.iloc[0] == 32_878_069
+        and c9.n_calls.iloc[1] == 1, str(c9[['left_breakpoint', 'right_breakpoint', 'n_calls']].values.tolist()))
+    _ok('...whereas midpoint-only clustering (the previous behaviour) split them into three rows', len(paf.consensus(lg9, 150_000, gap=-1)) == 4)
+
+    # ---------------- LG9 with the real per-assembly intervals: the shared interval, not the union, is the estimate
+    real9 = pd.DataFrame([dict(assembly='fDipLim2', method='A', left_lo=14_511_484, left_hi=14_622_365, right_lo=32_763_232, right_hi=32_878_069),
+                          dict(assembly='YH', method='A', left_lo=14_584_786, left_hi=14_912_159, right_lo=32_763_232, right_hi=32_775_869),
+                          dict(assembly='fAulStu2', method='A', left_lo=14_585_294, left_hi=14_977_232, right_lo=32_390_715, right_hi=32_763_232)])
+    r9 = paf.consensus(real9).iloc[0]
+    _ok('LG9 (three real assemblies): left breakpoint = middle of the 37 kb shared interval, right = the single shared position; the union is kept as the outer bound',
+        (r9.left_shared_min, r9.left_shared_max) == (14_585_294, 14_622_365) and r9.left_breakpoint == 14_603_829 and (r9.right_shared_min, r9.right_shared_max) == (32_763_232, 32_763_232)
+        and r9.right_breakpoint == 32_763_232 and (r9.left_min, r9.left_max, r9.right_min, r9.right_max) == (14_511_484, 14_977_232, 32_390_715, 32_878_069) and r9.n_calls == 3, str(r9.to_dict()))
+    split = pd.DataFrame([dict(assembly='A1', method='A', left_lo=1_000_000, left_hi=1_050_000, right_lo=9_000_000, right_hi=9_050_000),
+                          dict(assembly='A2', method='A', left_lo=1_080_000, left_hi=1_120_000, right_lo=9_000_000, right_hi=9_050_000)])           # within gap but NOT overlapping on the left
+    rs = paf.consensus(split).iloc[0]
+    _ok('calls that are close but whose intervals do not intersect fall back to the median midpoint and report no shared interval (the assemblies disagree)',
+        rs.n_calls == 2 and np.isnan(rs.left_shared_min) and rs.left_breakpoint == 1_062_500 and rs.right_breakpoint == 9_025_000 and (rs.right_shared_min, rs.right_shared_max) == (9_000_000, 9_050_000), str(rs.to_dict()))
+    one = paf.consensus(real9.iloc[[0]]).iloc[0]
+    _ok('a single call is unchanged: its own midpoint, no shared interval', one.left_breakpoint == 14_566_924 and np.isnan(one.left_shared_min))
+    # the fLetChi2 failure: a stray forward block 22 Mb away stretched the RIGHT flank to 15.0 Mb, so the big inversion was dropped and a small 2.6 Mb piece was called instead
+    TQ, LQ = 'NC_T9b', 38 * M
+    lg9q = [line('c', 38 * M, 0.35 * M, 9.70 * M, '+', TQ, LQ, 0.35 * M, 9.70 * M), line('c', 38 * M, 9.72 * M, 11.0 * M, '-', TQ, LQ, 11.0 * M, 12.3 * M),
+            line('c', 38 * M, 11.0 * M, 13.63 * M, '+', TQ, LQ, 12.35 * M, 14.98 * M), line('c', 38 * M, 13.66 * M, 31.73 * M, '-', TQ, LQ, 14.62 * M, 32.69 * M),
+            line('c', 38 * M, 31.76 * M, 31.90 * M, '+', TQ, LQ, 32.8 * M, 32.94 * M), line('c', 38 * M, 31.9 * M, 37.7 * M, '+', TQ, LQ, 32.94 * M, 38.0 * M),
+            line('c', 38 * M, 37.70 * M, 37.78 * M, '+', TQ, LQ, 15.0 * M, 15.08 * M)]                           # the stray forward block (ref 15.0 Mb, near the contig end)
+    d9 = paf.parse_paf(lg9q)
+    r9q = paf.call_method_AC(d9, TQ)
+    big = r9q[(r9q.right_hi.astype(float) - r9q.left_lo.astype(float)) > 10 * M] if len(r9q) else r9q
+    _ok('fLetChi2-like data: the big 18 Mb inversion is called despite the stray forward block in the right flank', len(big) == 1 and abs(big.left_lo.iloc[0] - 14.62 * M) < 50_000 and abs(big.right_lo.iloc[0] - 32.69 * M) < 50_000, str(r9q[['method', 'left_lo', 'left_hi', 'right_lo', 'right_hi']].values.tolist()))

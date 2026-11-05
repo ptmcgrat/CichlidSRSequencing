@@ -147,10 +147,10 @@ def call_step(proj, align_dir=None):
                     top = df.groupby('qname').alen.sum().sort_values(ascending=False).index[:6].tolist()
                     rt = P.runs_table(df, tname, top, cc['min_block'], cc.get('despeckle_run', 300000)); rt.insert(0, 'assembly', q); run_rows.append(rt)
             if run_rows: pd.concat(run_rows).to_csv(f'{run.dir}{lg}_strand_runs.tsv', sep='\t', index=False)      # what the caller sees: strand runs per contig after despeckling
-            cons = P.consensus(calls, cc['consensus_tolerance']) if len(calls) else pd.DataFrame()
+            cons = P.consensus(calls, cc['consensus_tolerance'], cc.get('consensus_gap', 100_000)) if len(calls) else pd.DataFrame()
             cons.to_csv(f'{run.dir}{lg}_consensus_breakpoints.tsv', sep='\t', index=False)
             info = dict(lg=lg, reference_chrom=tname, assemblies=spec['assemblies'], n_consensus=int(len(cons)),
-                        reference_is_standard=spec.get('reference_is_standard'), polarity=P.strand_polarity(spec.get('reference_is_standard')))
+                        reference_is_standard=spec.get('reference_is_standard'), polarity=(P.strand_polarity(spec.get('reference_is_standard')) if len(cons) else 'no inversion called: polarity not applicable'))
             json.dump(info, open(f'{run.dir}{lg}_polarity.json', 'w'), indent=1, default=str)
             with open(f'{run.dir}{lg}_breakpoint_regions.bed', 'w') as b1, open(f'{run.dir}{lg}_breakpoint_flanks_50kb.bed', 'w') as b2:
                 for i, c in enumerate(cons.itertuples() if len(cons) else []):
