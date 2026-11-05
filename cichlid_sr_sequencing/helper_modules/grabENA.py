@@ -45,11 +45,13 @@ else:
 			print('  Failed downloading ' + args.RunID + ', Time:' + str(datetime.datetime.now()))	
 			with open(args.Temp_directory + args.RunID + 'Errors.txt','w') as f:
 				print(output.stderr.decode(), file = f)
-			sys.exit()
+			raise Exception
 		#print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 	for i in range(3):
+		print(' '.join(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/.aspera/sdk/aspera_bypass_rsa.pem', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory]))
 		output = subprocess.run(['/home/mcgrath-lab/bin/ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/.aspera/sdk/aspera_bypass_rsa.pem', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
+		
 		#output = subprocess.run(['ascp', '-QT', '-l', '1000m', '-P', '33001', '-i', os.getenv('HOME') + '/miniconda3/envs/phase/etc/asperaweb_id_dsa.openssh', args.fq2.replace('ftp.sra.ebi.ac.uk/','era-fasp@fasp.sra.ebi.ac.uk:'),target_directory], capture_output = True)
 
 		if output.returncode == 0:
@@ -59,7 +61,7 @@ else:
 			with open(args.Temp_directory + args.RunID + 'Errors.txt','w') as f:
 				print(output.stderr.decode(), file = f)
 
-			sys.exit()
+			raise Exception
 		#print('Redownloading ' + args.RunID + ' try ' + str(i + 1))
 
 # Convert fastq files to unmapped bam
