@@ -116,7 +116,7 @@ for index, row in new_dt.iterrows():
 	data.command = command
 	data.fileLocations = data.projectID + '/' + data.runID + '.unmapped_marked_adapters.bam'
 	commands.append(data)
-print(','.join(already_run) ' have already been added')	
+print(','.join(already_run) + ' have already been added')	
 for i,data in enumerate(commands):
 	data.process = None
 	if i < 4:
