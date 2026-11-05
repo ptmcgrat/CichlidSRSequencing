@@ -11,6 +11,7 @@ from ...common_light import sh, config_path
 from ...genomes_registry import fasta_path, entry_dir, excluded_regions
 from ...runner import latest_dir
 from . import paf as P
+from ..centromeres import cen as cenmod
 
 
 def cfg_of():
@@ -174,12 +175,14 @@ def overview_table(proj_lengths, lg_to_chrom, cons_by_lg, centromeres, order, ex
         chrom = lg_to_chrom[lg]; r = dict(lg=lg, chrom=chrom, length=int(proj_lengths[chrom]))
         c = cons_by_lg.get(lg)
         if c is not None and len(c):
-            top = c.iloc[0]; r.update(inv_start=int(top.left_breakpoint), inv_end=int(top.right_breakpoint), inv_left_min=int(top.left_min), inv_left_max=int(top.left_max),
+            top = c.iloc[0]; r.update(inv_n_segments=int(top.get('n_segments', 1)), inv_segments=top.get('segments', '') if isinstance(top.get('segments', ''), str) else '', inv_start=int(top.left_breakpoint), inv_end=int(top.right_breakpoint), inv_left_min=int(top.left_min), inv_left_max=int(top.left_max),
                                       inv_right_min=int(top.right_min), inv_right_max=int(top.right_max), inv_n_calls=int(top.n_calls), inv_sources=top.sources)
         if centromeres is not None and len(centromeres):
             m = centromeres[centromeres.lg == lg]
             if len(m):
-                m = m.iloc[0]; r.update(cen_start=int(m.ref_start), cen_end=int(m.ref_end), cen_confidence=m.confidence)
+                m = m.iloc[0]; r.update(cen_start=int(m.ref_start), cen_end=int(m.ref_end), cen_confidence=m.confidence, cen_size=m.get('size', np.nan))
+                if 'inv_start' in r:
+                    r['cen_relation'] = cenmod.relation_to_inversion(r['cen_start'], r['cen_end'], r['inv_start'], r['inv_end'])
         for s, e in (excluded or {}).get(chrom, [])[:1]:
             r.update(excl_start=int(s), excl_end=int(e))
         rows.append(r)
@@ -204,6 +207,8 @@ def draw_overview(ov, path_base, label_of=None):
             ax.text((r.inv_start + r.inv_end) / 2e6, i - 0.28, f'{(r.inv_end - r.inv_start) / 1e6:.1f} Mb', ha='center', va='bottom', fontsize=5.5)
         if hasattr(r, 'cen_start') and not pd.isna(r.cen_start):
             x = (r.cen_start + r.cen_end) / 2e6
+            if (r.cen_end - r.cen_start) > 150_000:                              # the interval itself (the triangle marks its middle)
+                ax.add_patch(Rectangle((r.cen_start / 1e6, i + 0.12), (r.cen_end - r.cen_start) / 1e6, 0.07, fc='#333333', ec='none', alpha=0.55))
             ax.add_patch(Polygon([[x - 0.6, i + 0.38], [x + 0.6, i + 0.38], [x, i + 0.14]], closed=True, fc='#333333', ec='none'))
     ax.text(0, len(ov) - 0.1, 'orange: inversion (consensus breakpoints, reference coordinates)    black triangle: centromere    hatched: reference misassembly (ignored)', fontsize=5.5, color='#555555', va='top')
     for ext in ('svg', 'png'):
@@ -233,9 +238,22 @@ def figure_step(proj, call_dir=None):
         print('[figure] no centromere scan found')
     try:                                                                                  # published centromeres lifted into the reference win over the satellite scan
         pub = pd.read_csv(latest_dir(proj, 'centromeres', 'lift') + 'published_centromeres_lifted.tsv', sep='\t')
-        pub = pub[pub.lift_status == 'ok'].rename(columns={'gt3_start': 'ref_start', 'gt3_end': 'ref_end'})[['lg', 'ref_start', 'ref_end']].assign(confidence='published', genome='published')
+        for c_ in ('bounded_start', 'bounded_end'):
+            if c_ not in pub: pub[c_] = np.nan                                                  # lift tables from before v23 have no bounded columns
+        pub['ref_start'] = pub.gt3_start.fillna(pub.bounded_start); pub['ref_end'] = pub.gt3_end.fillna(pub.bounded_end)           # clean lift, else the region between the flank landings
+        pub = pub[pub.ref_start.notna()][['lg', 'ref_start', 'ref_end', 'lift_status']].assign(confidence=lambda d: np.where(d.lift_status == 'ok', 'published', 'published-bounded'), genome='published').drop(columns='lift_status')
         cen = pd.concat([pub, cen[~cen.lg.isin(pub.lg)]], ignore_index=True) if cen is not None else pub
         print(f'[figure] {len(pub)} centromeres from the published assembly (lifted), the rest from the satellite scan')
+    except (FileNotFoundError, KeyError):
+        pass
+    try:                                                                                  # the array-level call (largest family array > 500 kb from both ends) is the primary definition
+        arr = pd.read_csv(latest_dir(proj, 'centromeres', 'arrays') + 'centromeres_arrays.tsv', sep='\t')
+        arr = arr[(arr.genome == cfg['reference']) & arr.start.notna() & arr.lg.notna()].copy()
+        arr['ref_start'] = arr.start; arr['ref_end'] = arr.end; arr['genome'] = 'arrays'
+        arr['confidence'] = np.where(arr.ambiguous == True, 'array-ambiguous', 'array')
+        arr = arr[['lg', 'ref_start', 'ref_end', 'confidence', 'genome', 'size']]
+        cen = pd.concat([arr, cen[~cen.lg.isin(arr.lg)]], ignore_index=True) if cen is not None else arr
+        print(f'[figure] {len(arr)} centromeres from the satellite-array call; the rest from the published lift / scan')
     except (FileNotFoundError, KeyError):
         pass
     if cen is None:

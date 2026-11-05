@@ -4,9 +4,13 @@ reference: Mzebra_GT3_NCBI
 # has the standard (non-inverted) orientation: true for chr2, 10, 13 (the reference shows these as inversions in the aligned deep-benthic genome, Kumar et al. 2025 Fig. 3);
 # null for LG5 where it is not established, in which case only the strand relative to the reference is reported.
 inversions:
-  LG5:  {assemblies: [LatrZW, MezeOBm], reference_is_standard: null, label: LG5 (W / orange blotch)}
   LG2:  {assemblies: [YH], reference_is_standard: true, label: LG2}
+  LG5:  {assemblies: [LatrZW, MezeOBm], reference_is_standard: null, label: LG5 (W / orange blotch)}
+  # the two sex-linked XY inversions of the benthic radiation. All 118 True Deeps (YH), all Rocky Aulonocara, Shallow Lethrinops and Diplotaxodon are homozygous INVERTED on both, all 539 Mbuna are
+  # non-inverted (Blumer et al. 2025, Table S7), so GT3 (M. zebra) is the standard orientation. chr11 is a tandem (double) inversion: the caller reports its segments and internal breakpoint.
+  LG9:  {assemblies: [YH, fAulStu2, fDipLim2, fLetChi2], reference_is_standard: true, label: LG9}
   LG10: {assemblies: [YH], reference_is_standard: true, label: LG10}      # the NCBI YH chromosome carries the inverted X; the hifiasm X/Y contigs are for the separate QTN analysis
+  LG11: {assemblies: [YH, fAulStu2, fDipLim2, fLetChi2], reference_is_standard: true, label: LG11}
   LG13: {assemblies: [YH], reference_is_standard: true, label: LG13}
 minimap2:
   preset: asm5

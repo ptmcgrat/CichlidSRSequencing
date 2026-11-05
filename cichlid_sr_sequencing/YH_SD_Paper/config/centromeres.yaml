@@ -19,3 +19,8 @@ published:                         # centromere annotation of a published near-c
   assembly: Mzebra_fMayZeb221                # registry key of the published assembly (config/genomes.yaml)
   window: 3000000                            # how far from a centromere interval the alignment is searched for alignable flanks
   agree_distance: 1000000                    # a satellite-scan call within this distance of the lifted interval counts as agreeing
+arrays:                            # `centromeres arrays`: the centromere = the largest array of ONE satellite family that lies > min_end_distance from both chromosome ends
+  family: rnd-4_family-47          # the satellite family that tops every centromere interval in the GT3a RepeatMasker run (cichlid_merged_lib.fa, class Satellite)
+  max_gap: 50000                   # features of the family closer than this belong to the same array
+  min_end_distance: 500000         # arrays closer than this to either chromosome end are terminal/subterminal and are never chosen
+  min_array: 100000                # smaller arrays are ignored

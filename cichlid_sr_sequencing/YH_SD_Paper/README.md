@@ -101,6 +101,7 @@ with perfect association, usually too few females) or 'tested'. Lab-reared and w
     python -m yhsd.cli sex_association fisher --table SampleDatabase.tsv --out ./sex_association_out   # offline on any tab-separated table
     python -m yhsd.cli sex_association fisher --group-by species                # one test per species instead of per clade
 Outputs: fisher_results.tsv, sample_flow.tsv (why samples were dropped), summary_matrix.tsv, sex_association_matrix.svg/png (rows in the order of the intro figure).
+To-scale inversion + centromere figure: `figures/fig_inversions_to_scale.py [--overview inversion_overview.tsv] [--short-arm-left]` (values of the 2026-11-04 runs are embedded; pass the table written by `inversion_breakpoints figure` to redraw from a new run).
 Intro figure script: `figures/fig_intro_sex_determination.py` (literature only; `--with-this-study` adds this-study markers).
 
 ## Archive: what the folder YH_SD_Paper/ contains
@@ -129,6 +130,10 @@ Annotation import (GT3a now; YH and the orange-blotch genomes when the student's
 or unique length: scaffold01 -> NW_...), refuses the annotation if a chromosome is missing or has a different length, tolerates unmapped scaffolds and the mitochondrion (reported), and
 reads RepeatMasker version, rmblastn version and library name from the .tbl, warning if they differ from GT3a (4.1.2-p1, rmblastn 2.14.1+, cichlid_merged_lib.fa).
 Chromosome-to-LG labels for a genome come from `chrom_to_lg` in config/paper.yaml, else the NCBI assembly report, else the FASTA headers ("linkage group LG10"); `python -m yhsd.cli chroms` prints the table.
+LG9 and LG11 (the two sex-linked XY inversions of the benthic radiation) are called from YH (homozygous inverted on both; Blumer et al. 2025 Table S7) and, as independent checks, from three assemblies of the
+Chromosome Research 2026 paper: fAulStu2 (Aulonocara stuartgranti), fDipLim2 (Diplotaxodon limnothrissa) and fLetChi2 (Lethrinops sp. 'Chilingali'), registered by accession. chr11 is a tandem (double) inversion:
+the consensus reports one inversion with `n_segments`, `segments` and `internal_breakpoints` (a rise of the reference coordinate inside one inverted run starts a new segment; small or overlapping blocks are ignored).
+Reference points for sanity checks, NOT inputs (fAstCal1.2 coordinates, Blumer Table S8): chr9 12.03-28.86 Mb (Kumar: 16.6 Mb), chr11 6.77-28.71 Mb (Kumar: 21.6 Mb, double).
 Inversions: LG5 from LatrZW + MezeOBm; LG2, LG10 and LG13 from the NCBI YH chromosomes. Calls do not depend on the strand of a contig: a contig and its reverse complement give the same
 breakpoints. Methods (reference coordinates): A = flank / inverted segment / flank inside one contig; B = windows covered on both strands by different haplotigs (needs two haplotypes);
 A-half and C = the contig ends at a breakpoint or is only the inverted segment (low confidence, flagged strand_dependent because they assume the reference orientation). `reference_is_standard`
@@ -143,7 +148,12 @@ The breakpoint caller drops alignment blocks lying mostly inside it (the dotplot
 Published centromeres: `python -m yhsd.cli centromeres lift --table 10577_2026_9819_MOESM2_ESM.xlsx` aligns the published near-complete M. zebra assembly (Mzebra_fMayZeb221, GCA_988222425.1; Table 3 of the
 Chromosome Research 2026 paper) to the reference and lifts each published centromere interval and centroid core into reference coordinates (bounded by the nearest alignable flanks; an interval whose flanks lie on
 opposite strands gets no coordinates). `published_centromeres_lifted.tsv` also compares each with the satellite scan; the overview figure prefers the published (lifted) centromeres. The workbook is archived in the run's inputs/.
-Centromeres: satellite-repeat density per 50 kb window from the registered annotation, smoothed; one call per chromosome with a confidence class (high / medium / low / none; 'low' and
+Centromeres, array-level definition (`python -m yhsd.cli centromeres arrays`): features of ONE satellite family (config `arrays.family`, rnd-4_family-47, class Satellite in the GT3a RepeatMasker run) are merged into arrays
+(gap <= 50 kb) and the centromere is the LARGEST array more than 500 kb from both chromosome ends, at annotation resolution (no windows, no smoothing). Terminal arrays are reported but never chosen; chromosomes whose largest
+array is terminal are listed. Each call is compared with the published lifted interval and the scan, flagged `ambiguous` when a second internal array is at least half as large, and classified against each inversion
+(pericentric = centromere inside the inversion, paracentric = outside). The overview figure prefers this call, then the published lift, then the scan. Note: in the published M. zebra assembly Table 4 lists 0 centroids on chr13,
+so the LG13 call is the least supported of the four figure chromosomes.
+Centromeres, scan: satellite-repeat density per 50 kb window from the registered annotation, smoothed; one call per chromosome with a confidence class (high / medium / low / none; 'low' and
 'none' mean not located) and its evidence. Non-reference genomes (YH) are lifted to the reference by the nearest alignable flanks. Cichlid centromeres are often poorly assembled: an
 unassembled array is reported as not located, never guessed.
 

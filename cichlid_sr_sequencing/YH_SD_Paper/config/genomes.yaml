@@ -66,3 +66,21 @@ genomes:
     species: Maylandia zebra, male (fMayZeb221), near-complete assembly from the Chromosome Research 2026 centromere / rDNA paper
     role: published_centromeres
     note: Table 3 of that paper gives its centromere intervals and centroid cores; lifted to the reference by `centromeres lift`
+  fAulStu2:
+    source: ncbi
+    accession: GCA_988222655.1
+    species: Aulonocara stuartgranti, male (fAulStu2)
+    role: query
+    note: shallow rocky Aulonocara; inverted on chr9 and chr11 (double), NOT on chr2/10/13 (Blumer et al. 2025; Kumar et al. 2025). Independent check of LG9 and LG11.
+  fDipLim2:
+    source: ncbi
+    accession: GCA_988222685.1
+    species: Diplotaxodon limnothrissa, male (fDipLim2)
+    role: query
+    note: fixed inverted on chr9, chr11 (and chr20); non-inverted on chr2/10/13. Independent check of LG9 and LG11.
+  fLetChi2:
+    source: ncbi
+    accession: GCA_988222475.1
+    species: Lethrinops sp. 'Chilingali', male (fLetChi2)
+    role: query
+    note: Shallow Lethrinops group (all inverted on chr9 and chr11 in Blumer Table S7). Independent check of LG9 and LG11.

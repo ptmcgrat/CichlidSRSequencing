@@ -364,6 +364,8 @@ def run():
     _ok('LG10: an unalignable centromere array is bounded by its alignable flanks (7.2-8.1 Mb)', r10.lift_status == 'ok' and abs(r10.gt3_start - 7.2 * M) < 30_000 and abs(r10.gt3_end - 8.1 * M) < 30_000, f'{r10.lift_status} {r10.gt3_start}-{r10.gt3_end}')
     straddle = paf.parse_paf([line(NEW10, 35.0 * M, 0, 7.2 * M, '+', NT10, 35.0 * M, 0, 7.2 * M, f'{int(7.2 * M)}M'), line(NEW10, 35.0 * M, 8.1 * M, 35.0 * M, '-', NT10, 35.0 * M, 0.5 * M, 27.4 * M, f'{int(26.9 * M)}M')])
     rs = pb.lift_all(straddle, tb, mp, lg2c, 3_000_000).query("lg == 'LG10'").iloc[0]
+    _ok('opposite-strand flanks on the expected chromosome still give the region BETWEEN the flank landings (LG13: 32.49-35.76 Mb)', abs(rs.bounded_start - 7.2 * M) < 30_000 and abs(rs.bounded_end - 27.4 * M) < 60_000 and pd.isna(rs.gt3_start))
+    _ok('a clean lift has bounded == lifted interval', abs(r10.bounded_start - r10.gt3_start) < 1 and abs(r10.bounded_end - r10.gt3_end) < 1)
     _ok('flanks on opposite strands (an interval across a breakpoint): flagged and NO interval coordinates are reported, but the position and strand each flank lands on are',
         'opposite strands' in rs.lift_status and pd.isna(rs.gt3_start) and rs.left_flank_strand == '+' and rs.right_flank_strand == '-' and abs(rs.left_flank_ref - 7.2 * M) < 30_000 and abs(rs.right_flank_ref - 27.4 * M) < 60_000,
         f'{rs.left_flank_ref}{rs.left_flank_strand} {rs.right_flank_ref}{rs.right_flank_strand}')
@@ -380,3 +382,88 @@ def run():
     l3 = pb.lift_all(paf.parse_paf(pl3), tb3, pb.map_published_chr(cm3, {'LG3': NT3}, ['LG3']), {'LG3': NT3}, 3_000_000).iloc[0]
     _ok('lift ignores alignments to other chromosomes next to the centromere (cross-chromosome satellite hits no longer break the flanks)',
         l3.lift_status == 'ok' and abs(l3.gt3_start - 29.0 * M) < 30_000 and abs(l3.gt3_end - 30.5 * M) < 30_000, f'{l3.lift_status} {l3.gt3_start}-{l3.gt3_end}')
+
+    # figure: a published centromere that lifts cleanly is drawn from the lifted interval; one with opposite-strand flanks from the region between the flanks; an OLD lift table (no bounded columns) still works
+    def lift_run(df):
+        with Run(proj, 'centromeres', 'lift') as r_:
+            df.to_csv(r_.dir + 'published_centromeres_lifted.tsv', sep='\t', index=False)
+    base = dict(lg=['LG2', 'LG5'], gt3_start=[27_129_591, np.nan], gt3_end=[27_702_624, np.nan], lift_status=['ok', 'flanks on opposite strands (interval straddles an inversion breakpoint)'])
+    lift_run(pd.DataFrame(dict(base, bounded_start=[27_129_591, 32_490_569], bounded_end=[27_702_624, 35_759_951])))
+    steps.figure_step(proj)
+    ovb = pd.read_csv(last('inversion_breakpoints', 'figure') + 'inversion_overview.tsv', sep='\t').set_index('lg')
+    _ok('overview: clean lift -> published; opposite-strand flanks -> published-bounded interval between the flank landings',
+        ovb.loc['LG2', 'cen_start'] == 27_129_591 and ovb.loc['LG2', 'cen_confidence'] == 'published' and ovb.loc['LG5', 'cen_start'] == 32_490_569 and ovb.loc['LG5', 'cen_end'] == 35_759_951 and ovb.loc['LG5', 'cen_confidence'] == 'published-bounded')
+    lift_run(pd.DataFrame(base))                                                                  # a table from an older version: no bounded columns
+    steps.figure_step(proj)
+    _ok('an older lift table without bounded columns does not break the figure step', True)
+
+    # ---------------- array-level centromere definition: largest array of ONE family more than 500 kb from both ends
+    ar = cen.merge_arrays([100_000, 130_000, 200_000, 900_000, 905_000, 20_000_000, 20_040_000, 20_120_000, 20_130_000, 31_000_000], [120_000, 160_000, 260_000, 905_000, 910_000, 20_030_000, 20_100_000, 20_125_000, 20_450_000, 31_050_000], 50_000)
+    _ok('features of a family are merged into arrays by a gap threshold; covered bp excludes gaps', [(a, b, c, n) for a, b, c, n in ar] == [(100_000, 260_000, 110_000, 3), (900_000, 910_000, 10_000, 2), (20_000_000, 20_450_000, 415_000, 4), (31_000_000, 31_050_000, 50_000, 1)], str(ar))
+    L40 = 40_000_000
+    res = cen.call_by_arrays([(0, 700_000, 650_000, 9), (18_000_000, 18_450_000, 420_000, 12), (30_000_000, 30_120_000, 110_000, 3), (39_700_000, 39_950_000, 240_000, 5)], L40, 500_000, 100_000)
+    _ok('the centromere is the largest INTERNAL array; a bigger terminal array (here 650 kb at the chromosome start) is reported but never chosen',
+        res['best']['start'] == 18_000_000 and res['best']['size'] == 420_000 and res['best_overall']['start'] == 0 and res['overall_is_terminal'] and res['n_internal'] == 2 and not res['ambiguous'])
+    res2 = cen.call_by_arrays([(10_000_000, 10_400_000, 380_000, 6), (25_000_000, 25_350_000, 330_000, 5)], L40)
+    _ok('two comparable internal arrays are flagged ambiguous', res2['ambiguous'] and res2['best']['start'] == 10_000_000)
+    _ok('relation to an inversion: pericentric / paracentric / breakpoint inside the centromere',
+        cen.relation_to_inversion(27.13e6, 27.60e6, 19.75e6, 43.56e6) == 'pericentric' and cen.relation_to_inversion(7.0e6, 7.42e6, 11.82e6, 29.90e6) == 'paracentric'
+        and cen.relation_to_inversion(32.49e6, 32.92e6, 2.40e6, 23.07e6) == 'paracentric' and cen.relation_to_inversion(11.7e6, 11.9e6, 11.82e6, 29.9e6).startswith('breakpoint'))
+    # arrays_for_genome on a small synthetic genome: family-47 arrays vs another satellite family and a terminal array
+    da = tempfile.mkdtemp(); faa = da + '/a.fa'
+    with open(faa, 'w') as fh:
+        fh.write('>chrA\n'); fh.write(('ACGT' * 25 + '\n') * 400000)                              # 40 Mb
+    anna = da + '/a.out'
+    with open(anna, 'w') as fh:
+        fh.write('h1\nh2\n\n')
+        fh.write('  900  5.0  0.0  0.0  chrA  1  600000  (1)  +  rnd-4_family-47  Satellite  1 2 3 1\n')                                  # terminal family-47 array (600 kb at the start)
+        for k in range(0, 420_000, 60_000):
+            fh.write(f'  900  5.0  0.0  0.0  chrA  {18_000_001 + k}  {18_000_000 + k + 55_000}  (1)  +  rnd-4_family-47  Satellite  1 2 3 2\n')   # internal array, small gaps
+        fh.write('  900  5.0  0.0  0.0  chrA  25000001  26500000  (1)  +  OTHERSAT  Satellite  1 2 3 3\n')                              # bigger array of ANOTHER family: ignored
+    cfga = csteps.cfg_of(); cfga.update(min_chrom_length=1_000_000)
+    ca, aa = csteps.arrays_for_genome('toy', faa, anna, cfga)
+    ra = ca.iloc[0]
+    _ok('arrays_for_genome uses only the configured family, skips the terminal array and the other family, reports the terminal one',
+        ra.start == 18_000_000 and 18_400_000 <= ra.end <= 18_460_000 and ra.largest_array_is_terminal and ra.n_internal_arrays == 1 and ra.family == 'rnd-4_family-47', f'{ra.start}-{ra.end} size {ra["size"]}')
+    # the overview prefers the array call over the published lift and the scan, and adds the relation to the inversion
+    with Run(proj, 'centromeres', 'arrays') as r_:
+        pd.DataFrame([dict(genome=ref, sequence=T2, lg='LG2', start=27_130_000, end=27_600_000, size=454_000, ambiguous=False),
+                      dict(genome=ref, sequence=T5, lg='LG5', start=32_490_000, end=32_920_000, size=419_000, ambiguous=True)]).to_csv(r_.dir + 'centromeres_arrays.tsv', sep='\t', index=False)
+    steps.figure_step(proj)
+    ova = pd.read_csv(last('inversion_breakpoints', 'figure') + 'inversion_overview.tsv', sep='\t').set_index('lg')
+    _ok('overview: array call wins (published lift and scan are only fall-backs), size and pericentric/paracentric are added',
+        ova.loc['LG2', 'cen_start'] == 27_130_000 and ova.loc['LG2', 'cen_confidence'] == 'array' and ova.loc['LG5', 'cen_confidence'] == 'array-ambiguous' and ova.loc['LG2', 'cen_size'] == 454_000
+        and ova.loc['LG2', 'cen_relation'] == 'pericentric', str(ova[['cen_start', 'cen_confidence', 'cen_relation']].to_dict('index')))
+
+    # ---------------- chr11-like TANDEM (double) inversion: A B' C' D with B and C each inverted in place; chr9-like single inversion; the same contig reverse-complemented
+    TD = 'NC_T11'; LD = 40 * M
+    dbl = [line('d', 40.6 * M, 0, 6.7 * M, '+', TD, LD, 0, 6.7 * M),
+           line('d', 40.6 * M, 6.8 * M, 12.3 * M, '-', TD, LD, 12.3 * M, 17.8 * M), line('d', 40.6 * M, 12.4 * M, 17.9 * M, '-', TD, LD, 6.8 * M, 12.3 * M),
+           line('d', 40.6 * M, 18.0 * M, 23.5 * M, '-', TD, LD, 23.2 * M, 28.7 * M), line('d', 40.6 * M, 23.6 * M, 29.1 * M, '-', TD, LD, 17.8 * M, 23.3 * M),
+           line('d', 40.6 * M, 29.2 * M, 40.6 * M, '+', TD, LD, 28.8 * M, 40.0 * M)]
+    for name, ls in (('as given', dbl), ('contig reverse-complemented', [flip(x) for x in dbl])):
+        rd = paf.call_method_AC(paf.parse_paf(ls), TD)
+        segs = [tuple(int(v) for v in s_.split('-')) for s_ in rd.segments.iloc[0].split(';')] if len(rd) else []
+        _ok(f'double inversion ({name}): ONE inversion 6.8-28.7 Mb made of TWO segments with the internal breakpoint at 17.8 Mb',
+            len(rd) == 1 and rd.method.iloc[0] == 'A' and int(rd.n_segments.iloc[0]) == 2 and abs(segs[0][0] - 6.8 * M) < 1000 and abs(segs[0][1] - 17.8 * M) < 1000 and abs(segs[1][1] - 28.7 * M) < 1000
+            and abs(int(rd.internal_breakpoints.iloc[0]) - 17.8 * M) < 100_000 and abs(rd.left_hi.iloc[0] - 6.8 * M) < 1000 and abs(rd.right_lo.iloc[0] - 28.7 * M) < 1000, str(rd[['n_segments', 'segments']].values.tolist()))
+    sgl = [line('s', 40 * M, 0, 15.9 * M, '+', TD, LD, 0, 15.9 * M), line('s', 40 * M, 16.0 * M, 24.5 * M, '-', TD, LD, 24.5 * M, 33.0 * M), line('s', 40 * M, 24.6 * M, 32.6 * M, '-', TD, LD, 16.5 * M, 24.5 * M),
+           line('s', 40 * M, 32.7 * M, 40 * M, '+', TD, LD, 32.7 * M, 40.0 * M)]
+    rs1 = paf.call_method_AC(paf.parse_paf(sgl), TD)
+    _ok('a single inversion is ONE segment (the blocks of one inverted run fall monotonically in the reference)', len(rs1) == 1 and int(rs1.n_segments.iloc[0]) == 1 and rs1.internal_breakpoints.iloc[0] == '')
+    noisy = list(sgl); noisy.insert(2, line('s', 40 * M, 24.5 * M, 24.53 * M, '-', TD, LD, 30.0 * M, 30.03 * M))          # a 30 kb repeat hit that jumps up inside the inversion
+    rs2 = paf.call_method_AC(paf.parse_paf(noisy), TD)
+    _ok('a small repeat block that jumps inside one segment does not create a second segment', len(rs2) == 1 and int(rs2.n_segments.iloc[0]) == 1, str(rs2[['n_segments', 'segments']].values.tolist()))
+    noisy2 = list(sgl); noisy2.insert(2, line('s', 40 * M, 24.5 * M, 24.65 * M, '-', TD, LD, 30.0 * M, 30.15 * M))          # a 150 kb repeat hit (above the small-block cut-off) that jumps up inside the inversion
+    rs3 = paf.call_method_AC(paf.parse_paf(noisy2), TD)
+    _ok('even a 150 kb out-of-line block does not split one inversion (overlapping segment extents are merged)', len(rs3) == 1 and int(rs3.n_segments.iloc[0]) == 1, str(rs3[['n_segments', 'segments']].values.tolist()))
+    cs_ = paf.consensus(pd.concat([paf.call_method_AC(paf.parse_paf(dbl), TD).assign(assembly='YH'), paf.call_method_AC(paf.parse_paf([flip(x) for x in dbl]), TD).assign(assembly='fDipLim2')], ignore_index=True), 150_000)
+    _ok('consensus of two assemblies keeps the segments of the best call', len(cs_) == 1 and int(cs_.n_segments.iloc[0]) == 2 and cs_.n_calls.iloc[0] == 2 and cs_.segments.iloc[0].count(';') == 1)
+    # the figure script draws the two segments from the overview table (smoke test)
+    import subprocess as sp, sys as sy
+    from .common_light import PKG_ROOT
+    tsv = tempfile.mkdtemp() + '/o.tsv'
+    pd.DataFrame([dict(lg='LG11', length=38_663_802, inv_start=6_800_000, inv_end=28_700_000, inv_segments='6800000-17800000;17800000-28700000', cen_start=5_038_192.0, cen_end=5_616_369.0, cen_confidence='array', cen_size=500000.0)]).to_csv(tsv, sep='\t', index=False)
+    rc = sp.run([sy.executable, os.path.join(PKG_ROOT, 'figures', 'fig_inversions_to_scale.py'), '--overview', tsv, '--out', os.path.dirname(tsv) + '/fig'], capture_output=True, text=True)
+    svg = open(os.path.dirname(tsv) + '/fig.svg', encoding='utf-8').read() if rc.returncode == 0 else ''
+    _ok('figure script draws a double inversion as two segments with its label', rc.returncode == 0 and '2 segments' in svg and 'double inversion' in svg, rc.stderr[-200:])

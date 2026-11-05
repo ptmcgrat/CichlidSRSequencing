@@ -167,3 +167,97 @@ def lift_step(proj, table):
         print(f'\n{len(out) - len(bad)} of {len(out)} published centromeres lifted cleanly; check the others: {sorted(bad.lg)}')
         if scan is not None:
             print('scan agrees for', int((out.scan_vs_published == 'agrees').sum()), 'chromosomes; disagrees for', sorted(out[out.scan_vs_published.str.startswith('disagrees', na=False)].lg))
+
+
+# ------------------------------------------------------------------ array-level centromeres (family-specific)
+def arrays_for_genome(name, fa, annotation, cfg, name_map=None, exclude=None):
+    """Arrays of the centromeric satellite family per chromosome-scale sequence. Returns (calls DataFrame, all-arrays DataFrame)."""
+    ac = cfg['arrays']
+    seqs = cen.fasta_lengths_and_gaps(fa)
+    ann = cen.parse_annotation(annotation, cfg['classes'])
+    if name_map:
+        ann['chrom'] = ann.chrom.map(name_map); ann = ann.dropna(subset=['chrom'])
+    ann = ann[ann.name == ac['family']]
+    calls, allrows = [], []
+    for seq, (length, _) in seqs.items():
+        if length < cfg['min_chrom_length']:
+            continue
+        sub = ann[ann.chrom == seq]
+        for s, e in (exclude or {}).get(seq, []):
+            sub = sub[~((sub.start >= s) & (sub.end <= e))]                      # features inside a known misassembly are ignored
+        res = cen.call_by_arrays(cen.merge_arrays(sub.start.values, sub.end.values, ac['max_gap']), length, ac['min_end_distance'], ac['min_array'])
+        b, o = res['best'], res['best_overall']
+        row = dict(genome=name, sequence=seq, length=length, family=ac['family'], n_family_features=int(len(sub)), n_arrays=res['n_arrays'], n_internal_arrays=res['n_internal'],
+                   start=b['start'] if b else np.nan, end=b['end'] if b else np.nan, size=b['size'] if b else np.nan, span=b['span'] if b else np.nan, n_features=b['n_features'] if b else np.nan,
+                   end_distance=b['end_distance'] if b else np.nan, second_internal_size=res['second_internal_size'], ambiguous=res['ambiguous'],
+                   largest_array_is_terminal=res['overall_is_terminal'], largest_array_start=o['start'] if o else np.nan, largest_array_end=o['end'] if o else np.nan,
+                   largest_array_size=o['size'] if o else np.nan)
+        calls.append(row)
+        for a in res['arrays']:
+            allrows.append(dict(genome=name, sequence=seq, **a))
+    return pd.DataFrame(calls), pd.DataFrame(allrows)
+
+
+def arrays_step(proj, align_dir=None):
+    """centromeres arrays: the centromere is the largest array of the satellite family (config arrays.family) more than 500 kb from either chromosome end, at feature resolution.
+    Compared with the published lifted intervals and the satellite scan, and classified against each inversion (pericentric / paracentric)."""
+    cfg = cfg_of(); ref = proj.genome
+    with proj.run('centromeres', 'arrays', params=dict(cfg=cfg, excluded_regions=excluded_regions(proj))) as run:
+        pub = scan = None
+        try:
+            pub = pd.read_csv(latest_dir(proj, 'centromeres', 'lift') + 'published_centromeres_lifted.tsv', sep='\t')
+        except FileNotFoundError:
+            pass
+        try:
+            s_ = pd.read_csv(latest_dir(proj, 'centromeres', 'scan') + 'centromeres.tsv', sep='\t'); scan = s_[s_.genome == ref]
+        except FileNotFoundError:
+            pass
+        inv = {}
+        try:
+            cdir = latest_dir(proj, 'inversion_breakpoints', 'call')
+            for lg in proj.lg.values():
+                f = f'{cdir}{lg}_consensus_breakpoints.tsv'
+                if os.path.exists(f) and os.path.getsize(f) > 5:
+                    c = pd.read_csv(f, sep='\t')
+                    if 'confidence' in c:
+                        c = c[c.confidence.isin(['high', 'medium'])]
+                    if len(c): inv[lg] = (c.iloc[0].left_breakpoint, c.iloc[0].right_breakpoint)
+        except FileNotFoundError:
+            pass
+        out = []
+        for key, g in cfg['genomes'].items():
+            spec = g.get('annotation')
+            if not spec:
+                continue
+            try:
+                fa = fasta_path(proj, key)
+                apath, nmap = annotation_for(proj, key) if spec == 'registered' else (os.path.expanduser(spec), None)
+            except FileNotFoundError as e:
+                print(f'[arrays] {key}: skipped ({e})'); continue
+            calls, allarr = arrays_for_genome(key, fa, apath, cfg, nmap, excluded_regions(proj) if key == ref else None)
+            if not len(calls):
+                continue
+            calls['lg'] = calls.sequence.map(proj.lg) if key == ref else np.nan
+            if key != ref:
+                print(f'[arrays] {key}: arrays are reported in the genome\'s own coordinates (lift to the reference is done by `centromeres scan` for annotated non-reference genomes)')
+            for i, r in calls.iterrows():                                         # compare with the other two methods and the inversion
+                if key == ref and pub is not None and r.lg in set(pub.lg) and pd.notna(r.start):
+                    p_ = pub[pub.lg == r.lg].iloc[0]; ps, pe = (p_.gt3_start, p_.gt3_end) if pd.notna(p_.gt3_start) else (p_.get('bounded_start', np.nan), p_.get('bounded_end', np.nan))
+                    if pd.notna(ps):
+                        gap = max(0.0, max(r.start, ps) - min(r.end, pe))
+                        calls.loc[i, ['published_start', 'published_end']] = [ps, pe]; calls.loc[i, 'array_vs_published'] = 'overlaps' if gap == 0 else f'{gap / 1e6:.2f} Mb apart'
+                if key == ref and scan is not None and r.lg in set(scan.lg):
+                    s_r = scan[scan.lg == r.lg].iloc[0]; calls.loc[i, ['scan_start', 'scan_end']] = [s_r.start, s_r.end]
+                if key == ref and r.lg in inv and pd.notna(r.start):
+                    calls.loc[i, ['inversion_start', 'inversion_end']] = [inv[r.lg][0], inv[r.lg][1]]
+                    calls.loc[i, 'relation_to_inversion'] = cen.relation_to_inversion(r.start, r.end, inv[r.lg][0], inv[r.lg][1])
+            out.append(calls)
+            allarr.to_csv(f'{run.dir}{key}_satellite_arrays.tsv', sep='\t', index=False)
+            show = calls[['sequence', 'lg', 'start', 'end', 'size', 'end_distance', 'n_internal_arrays', 'ambiguous', 'largest_array_is_terminal']].copy()
+            for c in ('start', 'end', 'size', 'end_distance'): show[c] = (show[c] / 1e6).round(3)
+            print(f'\n== {key}: largest {cfg["arrays"]["family"]} array > {cfg["arrays"]["min_end_distance"] / 1e3:.0f} kb from both ends (Mb) ==')
+            print(show.to_string(index=False))
+            odd = calls[calls.largest_array_is_terminal == True]
+            if len(odd): print('chromosomes whose largest array is TERMINAL and therefore not chosen:', sorted(odd.lg.dropna()))
+        if out:
+            pd.concat(out, ignore_index=True).to_csv(run.dir + 'centromeres_arrays.tsv', sep='\t', index=False)

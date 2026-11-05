@@ -142,3 +142,46 @@ def top_families(sub, start, end, k=3):
     inside['bp'] = np.minimum(inside.end, end) - np.maximum(inside.start, start)
     t = inside.groupby('name').bp.sum().sort_values(ascending=False).head(k)
     return ';'.join(f'{n}:{int(b)}' for n, b in t.items())
+
+
+# ------------------------------------------------------------------ array-level definition (family-specific, feature resolution)
+def merge_arrays(starts, ends, max_gap=50_000):
+    """Merge features of ONE satellite family into arrays: features closer than max_gap belong to the same array. Returns [(start, end, covered_bp, n_features)]."""
+    if len(starts) == 0:
+        return []
+    o = np.argsort(starts); s = np.asarray(starts)[o]; e = np.asarray(ends)[o]
+    arrays, cs, ce, cov, n = [], int(s[0]), int(e[0]), int(e[0] - s[0]), 1
+    for a, b in zip(s[1:], e[1:]):
+        a, b = int(a), int(b)
+        if a - ce <= max_gap:
+            cov += max(0, b - max(a, ce)); ce = max(ce, b); n += 1
+        else:
+            arrays.append((cs, ce, cov, n)); cs, ce, cov, n = a, b, b - a, 1
+    arrays.append((cs, ce, cov, n))
+    return arrays
+
+
+def call_by_arrays(arrays, length, min_end_distance=500_000, min_array=100_000, ambiguity_ratio=0.5):
+    """The centromere = the LARGEST array (by covered bases) that lies more than min_end_distance from BOTH chromosome ends. Arrays near an end are subtelomeric/terminal
+    and are never chosen, but are reported. `ambiguous` = the runner-up internal array is at least ambiguity_ratio times as large as the chosen one."""
+    arr = [dict(start=a, end=b, size=c, span=b - a, n_features=n, end_distance=min(a, length - b)) for a, b, c, n in arrays if c >= min_array]
+    for a in arr:
+        a['internal'] = a['start'] >= min_end_distance and (length - a['end']) >= min_end_distance
+    internal = sorted([a for a in arr if a['internal']], key=lambda a: -a['size'])
+    overall = max(arr, key=lambda a: a['size']) if arr else None
+    best = internal[0] if internal else None
+    second = internal[1]['size'] if len(internal) > 1 else 0
+    return dict(best=best, best_overall=overall, n_arrays=len(arr), n_internal=len(internal), second_internal_size=second,
+                ambiguous=bool(best and second >= ambiguity_ratio * best['size']), arrays=arr,
+                overall_is_terminal=bool(best and overall and not overall['internal']))
+
+
+def relation_to_inversion(c0, c1, i0, i1):
+    """pericentric: centromere entirely inside the inversion; paracentric: entirely outside; otherwise a breakpoint lies in the centromere."""
+    if any(pd.isna(x) for x in (c0, c1, i0, i1)):
+        return ''
+    if c1 < i0 or c0 > i1:
+        return 'paracentric'
+    if c0 >= i0 and c1 <= i1:
+        return 'pericentric'
+    return 'breakpoint within the centromere'

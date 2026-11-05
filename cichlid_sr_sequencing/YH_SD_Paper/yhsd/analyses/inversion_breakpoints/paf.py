@@ -62,10 +62,11 @@ def strand_runs(g, despeckle=0):
     of the SAME other strand (the tiny opposite-strand blocks that repeats scatter along a diagonal would otherwise split one long run into many)."""
     runs = []
     for r in g.itertuples():
+        blk = (r.tstart, r.tend, r.qstart, r.qend)
         if runs and runs[-1]['strand'] == r.strand:
-            x = runs[-1]; x['tmin'] = min(x['tmin'], r.tstart); x['tmax'] = max(x['tmax'], r.tend); x['qend'] = r.qend; x['n'] += 1
+            x = runs[-1]; x['tmin'] = min(x['tmin'], r.tstart); x['tmax'] = max(x['tmax'], r.tend); x['qend'] = r.qend; x['n'] += 1; x['blocks'].append(blk)
         else:
-            runs.append(dict(strand=r.strand, tmin=r.tstart, tmax=r.tend, qstart=r.qstart, qend=r.qend, n=1))
+            runs.append(dict(strand=r.strand, tmin=r.tstart, tmax=r.tend, qstart=r.qstart, qend=r.qend, n=1, blocks=[blk]))
     if despeckle:
         changed = True
         while changed:
@@ -74,10 +75,38 @@ def strand_runs(g, despeckle=0):
                 a, b, c = runs[i - 1], runs[i], runs[i + 1]
                 if b['tmax'] - b['tmin'] < despeckle and a['strand'] == c['strand'] != b['strand']:
                     runs[i - 1:i + 2] = [dict(strand=a['strand'], tmin=min(a['tmin'], b['tmin'], c['tmin']), tmax=max(a['tmax'], b['tmax'], c['tmax']),
-                                              qstart=a['qstart'], qend=c['qend'], n=a['n'] + b['n'] + c['n'])]
+                                              qstart=a['qstart'], qend=c['qend'], n=a['n'] + b['n'] + c['n'], blocks=a['blocks'] + b['blocks'] + c['blocks'])]
                     changed = True
                     break
     return runs
+
+
+def inversion_segments(run, jump_tol=100_000, min_seg=300_000, min_block=100_000):
+    """Split one inverted run into its inverted SEGMENTS. A tandem (double) inversion A B' C' D, with B and C each inverted in place, shows up as ONE run in which the reference coordinate
+    JUMPS back up between the two segments: along a '-' run the reference position normally falls from block to block, so a rise of more than jump_tol starts a new segment
+    ('+' run of a reverse-complemented contig: a fall). Robustness against repeat hits: blocks shorter than min_block are ignored when placing the boundaries (unless that would leave
+    fewer than two), segments shorter than min_seg are absorbed, and segments whose reference extents OVERLAP are merged (true tandem segments touch, they do not overlap).
+    Returns [(start, end), ...] sorted by reference position."""
+    bl = run['blocks']
+    big = [b for b in bl if (b[1] - b[0]) >= min_block]
+    if len(big) >= 2:
+        bl = big
+    segs = [[bl[0]]]
+    for prev, cur in zip(bl[:-1], bl[1:]):
+        new = cur[0] > prev[0] + jump_tol if run['strand'] == '-' else cur[1] < prev[1] - jump_tol
+        if new:
+            segs.append([cur])
+        else:
+            segs[-1].append(cur)
+    ext = sorted((min(b[0] for b in s), max(b[1] for b in s)) for s in segs)
+    out = []
+    for e in ext:
+        if out:
+            ov = min(out[-1][1], e[1]) - max(out[-1][0], e[0])
+            if e[1] - e[0] < min_seg or out[-1][1] - out[-1][0] < min_seg or ov > 0.5 * min(e[1] - e[0], out[-1][1] - out[-1][0]):
+                out[-1] = (min(out[-1][0], e[0]), max(out[-1][1], e[1])); continue
+        out.append(e)
+    return out
 
 
 def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_tol=500_000, despeckle=300_000, max_interval=1_000_000):
@@ -90,7 +119,9 @@ def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_
     out = []
 
     def row(method, left, right, r, support, dependent):
-        return dict(method=method, left_lo=left[0], left_hi=left[1], right_lo=right[0], right_hi=right[1], left_support=support[0], right_support=support[1],
+        segs = inversion_segments(r)
+        return dict(n_segments=len(segs), segments=';'.join(f'{a}-{b}' for a, b in segs), internal_breakpoints=';'.join(str((segs[k][1] + segs[k + 1][0]) // 2) for k in range(len(segs) - 1)),
+                    method=method, left_lo=left[0], left_hi=left[1], right_lo=right[0], right_hi=right[1], left_support=support[0], right_support=support[1],
                     inv_ref_len=r['tmax'] - r['tmin'], inv_query_len=r['qend'] - r['qstart'], inv_q_start=r['qstart'], inv_q_end=r['qend'], n_blocks=r['n'],
                     inv_strand=r['strand'], strand_dependent=dependent)
 
@@ -209,9 +240,13 @@ def consensus(calls, tol=150_000):
         methods = set(s.method)
         best = min(METHOD_RANK.get(m, 9) for m in methods)
         conf = 'high' if 'A' in methods else ('medium' if 'B' in methods else 'low')       # low = only calls that assume the reference orientation (A-half, C)
+        sg = s[s.method == 'A'] if 'A' in methods else s
+        sg = sg.iloc[0]
         rows.append(dict(left_breakpoint=int(s.left_mid.median()), left_min=int(s.left_lo.min()), left_max=int(s.left_hi.max()),
                          right_breakpoint=int(s.right_mid.median()), right_min=int(s.right_lo.min()), right_max=int(s.right_hi.max()),
                          inversion_length=int(s.right_mid.median() - s.left_mid.median()), n_calls=len(ix), confidence=conf, _rank=best,
+                         n_segments=int(sg['n_segments']) if pd.notna(sg.get('n_segments', np.nan)) else 1, segments=sg.get('segments', '') if isinstance(sg.get('segments', ''), str) else '',
+                         internal_breakpoints=sg.get('internal_breakpoints', '') if isinstance(sg.get('internal_breakpoints', ''), str) else '',
                          sources=';'.join(sorted(set(s.assembly + ':' + s.method)))))
     out = pd.DataFrame(rows).sort_values(['_rank', 'n_calls', 'inversion_length'], ascending=[True, False, False]).drop(columns='_rank').reset_index(drop=True)
     return out

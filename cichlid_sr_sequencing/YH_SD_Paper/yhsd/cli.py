@@ -8,6 +8,7 @@
   python -m yhsd.cli genomes fetch [--only KEY,...] | genomes annotate | genomes list   # all genomes (+ their repeat annotation) of the project: <data>/YH_SD_Paper/genomes/
   python -m yhsd.cli inversion_breakpoints align|call|figure|all           # inversion breakpoints (LG2, 5, 10, 13) in the reference from long-read assemblies
   python -m yhsd.cli centromeres scan                                       # centromere positions from satellite density (needs a repeat annotation per genome)
+  python -m yhsd.cli centromeres arrays                                    # centromere = largest array of the satellite family > 500 kb from both ends (feature resolution)
   python -m yhsd.cli centromeres lift --table <xlsx>                        # published centromeres (Table 3 of the 2026 paper) lifted into the reference
   python -m yhsd.cli sex_association fisher [--table <tsv> --out <dir>]   # Fisher tests: is each allele/inversion a sex determiner in each clade?
   python -m yhsd.cli sample_table inversions --blumer-dir <dir> [--bc-genotypes legacy|<csv> [--bc-legacy-mc]] [--write-sheet]   # add Blumer 2025 inversion genotypes to the SampleDatabase
@@ -140,8 +141,10 @@ def main():
             cs_.scan_step(proj)
         elif a.step == 'lift':
             cs_.lift_step(proj, a.table)
+        elif a.step == 'arrays':
+            cs_.arrays_step(proj)
         else:
-            raise SystemExit('usage: python -m yhsd.cli centromeres scan | centromeres lift --table <xlsx>')
+            raise SystemExit('usage: python -m yhsd.cli centromeres scan | centromeres arrays | centromeres lift --table <xlsx>')
     elif a.analysis == 'sex_association':
         from .analyses.sex_association import steps as sa
         if a.step != 'fisher':

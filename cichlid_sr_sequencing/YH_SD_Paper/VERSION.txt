@@ -1,5 +1,5 @@
 YH_SD_Paper package
-zip name : YH_SD_Paper_v22_20261105-0106.zip
-version  : v22
-built    : 20261105-0106
-changes  : centromeres lift reports where each flank lands (left/right_flank_ref and strand) even when the flanks lie on opposite strands (LG13). Rerun 'centromeres lift' only.
+zip name : YH_SD_Paper_v26_20261105-1007.zip
+version  : v26
+built    : 20261105-1007
+changes  : LG9 and LG11 (sex-linked XY inversions) added: called from YH plus fAulStu2, fDipLim2, fLetChi2; tandem (double) inversions reported with segments and internal breakpoints; figure script draws them.
