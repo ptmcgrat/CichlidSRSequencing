@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from ...common_light import sh, config_path
-from ...genomes_registry import fasta_path, entry_dir
+from ...genomes_registry import fasta_path, entry_dir, excluded_regions
 from ...runner import latest_dir
 from . import paf as P
 
@@ -29,6 +29,16 @@ def _genome_md5(proj, key):
     return json.load(open(entry_dir(proj, key) + 'manifest.json')).get('md5_fasta')
 
 
+def ensure_paf(proj, qkey, ref_key, mm_cfg):
+    """minimap2 alignment (with cigar) of a registered assembly to the reference, kept in the project's tmp folder (not uploaded); reused if it already exists."""
+    full = f"{proj.dirs['tmp']}{qkey}_vs_{ref_key}.paf"
+    if not os.path.exists(full):
+        extra = ' '.join(mm_cfg.get('extra', []))
+        print(f'[align] {qkey} -> {ref_key} (minimap2 -x {mm_cfg["preset"]}, {proj.cores} threads) ...')
+        sh(['bash', '-o', 'pipefail', '-c', f"minimap2 -x {mm_cfg['preset']} -c -t {proj.cores} {extra} {fasta_path(proj, ref_key)} {fasta_path(proj, qkey)} > {full}.part && mv {full}.part {full}"])
+    return full
+
+
 def align_step(proj):
     cfg = cfg_of(); ref = cfg['reference']
     if proj.genome != ref:
@@ -42,11 +52,7 @@ def align_step(proj):
                 qfa = fasta_path(proj, q)
             except FileNotFoundError as e:
                 print(f'[align] {q}: skipped ({e})'); continue
-            full = f"{proj.dirs['tmp']}{q}_vs_{ref}.paf"
-            if not os.path.exists(full):
-                extra = ' '.join(cfg['minimap2'].get('extra', []))
-                print(f'[align] {q} -> {ref} (minimap2 -x {cfg["minimap2"]["preset"]}, {proj.cores} threads) ...')
-                sh(['bash', '-o', 'pipefail', '-c', f"minimap2 -x {cfg['minimap2']['preset']} -c -t {proj.cores} {extra} {ref_fa} {qfa} > {full}.part && mv {full}.part {full}"])
+            full = ensure_paf(proj, q, ref, cfg['minimap2'])
             n = 0; share = {}
             with open(full) as fi, open(f'{run.dir}{q}_vs_{ref}.targets.paf', 'w') as fo:
                 for line in fi:
@@ -62,22 +68,36 @@ def align_step(proj):
             print(f'[align] {q}: kept {n} blocks on {sorted(keep)}; {len(cm)} contigs mapped')
 
 
-def dotplot(df, tname, contigs, consensus_df, title, path_base):
+def dotplot(df, tname, contigs, consensus_df, title, path_base, excluded=()):
+    """One panel per contig (shared reference axis): contigs no longer overlap on a common y-axis. Dashed lines = consensus breakpoints with high/medium confidence."""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    plt.rcParams.update({'svg.fonttype': 'none', 'font.size': 7})
-    fig, ax = plt.subplots(figsize=(4.2, 4.2))
+    plt.rcParams.update({'svg.fonttype': 'none', 'font.size': 6.5})
+    contigs = list(contigs)[:4]
+    n = max(1, len(contigs))
+    fig, axs = plt.subplots(n, 1, figsize=(4.4, 1.9 * n + 0.7), sharex=True, squeeze=False)
+    xs = []
     for q in contigs:
         g = df[(df.qname == q) & (df.tname == tname)]
-        for r in g.itertuples():
-            if r.strand == '+': ax.plot([r.tstart / 1e6, r.tend / 1e6], [r.qstart / 1e6, r.qend / 1e6], color='#2a6fb0', lw=1.2)
-            else: ax.plot([r.tstart / 1e6, r.tend / 1e6], [r.qend / 1e6, r.qstart / 1e6], color='#d9531e', lw=1.2)
+        xs += [g.tstart.min(), g.tend.max()]
+    bps = []
     for c in (consensus_df.itertuples() if consensus_df is not None and len(consensus_df) else []):
-        for x in (c.left_breakpoint, c.right_breakpoint):
+        if getattr(c, 'confidence', 'high') in ('high', 'medium'):
+            bps += [c.left_breakpoint, c.right_breakpoint]
+    for ax, q in zip(axs.flat, contigs):
+        g = df[(df.qname == q) & (df.tname == tname)]
+        for r in g.itertuples():
+            if r.strand == '+': ax.plot([r.tstart / 1e6, r.tend / 1e6], [r.qstart / 1e6, r.qend / 1e6], color='#2a6fb0', lw=1.3)
+            else: ax.plot([r.tstart / 1e6, r.tend / 1e6], [r.qend / 1e6, r.qstart / 1e6], color='#d9531e', lw=1.3)
+        for x in bps:
             ax.axvline(x / 1e6, color='#555555', lw=0.6, ls='--')
-    ax.set_xlabel(f'reference {tname} (Mb)'); ax.set_ylabel('position within each assembly contig (Mb)'); ax.set_title(title, fontsize=7)
-    ax.text(0.02, 0.97, 'blue = same strand, orange = reverse', transform=ax.transAxes, va='top', fontsize=6)
+        for s, e in excluded:                                              # known misassembly of the reference: shown, but ignored by the caller
+            ax.axvspan(s / 1e6, e / 1e6, color='#999999', alpha=0.25, lw=0)
+        ax.set_ylabel(f'{q}\nposition (Mb)', fontsize=5.5)
+        ax.tick_params(labelsize=5.5)
+    axs.flat[-1].set_xlabel(f'reference {tname} (Mb)')
+    axs.flat[0].set_title(title + '   (blue = same strand, orange = reverse)', fontsize=6.5)
     for ext in ('svg', 'png'):
         fig.savefig(f'{path_base}.{ext}', dpi=250, bbox_inches='tight')
     plt.close(fig)
@@ -96,7 +116,9 @@ def call_step(proj, align_dir=None):
     cfg = cfg_of(); ref = cfg['reference']; cc = cfg['calling']
     adir = align_dir or latest_dir(proj, 'inversion_breakpoints', 'align')
     L = proj.chrom_lengths()
-    with proj.run('inversion_breakpoints', 'call', params=dict(cfg=cfg, align_run=adir)) as run:
+    excl = excluded_regions(proj)
+    if excl: print('[call] ignoring alignments in known misassembled regions of the reference:', {k: v for k, v in excl.items()})
+    with proj.run('inversion_breakpoints', 'call', params=dict(cfg=cfg, align_run=adir, excluded_regions=excl)) as run:
         summary = {}
         for lg, spec in cfg['inversions'].items():
             tname = proj.chrom_for_lg(lg)
@@ -106,16 +128,24 @@ def call_step(proj, align_dir=None):
                 if not os.path.exists(f):
                     print(f'[call] {lg}: no alignment file for {q}; run `align` first'); continue
                 run.add_input(f)
-                df = P.parse_paf(f, {tname}); pafs[q] = df
+                df_all = P.parse_paf(f, {tname}); pafs[q] = df_all                          # the dotplot shows everything
+                df = P.drop_blocks_in_regions(df_all, excl.get(tname, []))                  # the caller does not see the misassembled region
                 if not len(df):
                     print(f'[call] {lg}: no alignments of {q} on {tname}'); continue
-                ac = P.call_method_AC(df, tname, cc['min_block'], cc['min_inversion']).assign(assembly=q)
+                ac = P.call_method_AC(df, tname, cc['min_block'], cc['min_inversion'], None, cc.get('despeckle_run', 300000), cc.get('max_breakpoint_interval', 1000000)).assign(assembly=q)
                 b = P.discordance_regions(df, tname, L[tname], cc['window'], cc['min_window_bp'], cc['min_block'], cc['min_inversion']).assign(assembly=q)
                 allcalls += [x for x in (ac, b) if len(x)]
                 h = haplotig_table(df, tname); h['assembly'] = q; hap_rows.append(h)
             calls = pd.concat(allcalls, ignore_index=True) if allcalls else pd.DataFrame()
             calls.to_csv(f'{run.dir}{lg}_breakpoints_per_assembly.tsv', sep='\t', index=False)
             if hap_rows: pd.concat(hap_rows).to_csv(f'{run.dir}{lg}_haplotigs.tsv', sep='\t', index=False)
+            run_rows = []
+            for q, df in pafs.items():
+                if len(df):
+                    df = P.drop_blocks_in_regions(df, excl.get(tname, []))
+                    top = df.groupby('qname').alen.sum().sort_values(ascending=False).index[:6].tolist()
+                    rt = P.runs_table(df, tname, top, cc['min_block'], cc.get('despeckle_run', 300000)); rt.insert(0, 'assembly', q); run_rows.append(rt)
+            if run_rows: pd.concat(run_rows).to_csv(f'{run.dir}{lg}_strand_runs.tsv', sep='\t', index=False)      # what the caller sees: strand runs per contig after despeckling
             cons = P.consensus(calls, cc['consensus_tolerance']) if len(calls) else pd.DataFrame()
             cons.to_csv(f'{run.dir}{lg}_consensus_breakpoints.tsv', sep='\t', index=False)
             info = dict(lg=lg, reference_chrom=tname, assemblies=spec['assemblies'], n_consensus=int(len(cons)),
@@ -128,7 +158,7 @@ def call_step(proj, align_dir=None):
             for q, df in pafs.items():
                 if len(df):
                     top = df.groupby('qname').alen.sum().sort_values(ascending=False).index[:6].tolist()
-                    dotplot(df, tname, top, cons, f'{lg}: {q} vs {ref}', f'{run.dir}{lg}_{q}_dotplot')
+                    dotplot(df, tname, top, cons, f'{lg}: {q} vs {ref}', f'{run.dir}{lg}_{q}_dotplot', excl.get(tname, []))
             summary[lg] = info
             print(f'\n== {lg} ({tname}) ==')
             print(cons.to_string(index=False) if len(cons) else 'no inversion found on this chromosome')
@@ -137,7 +167,7 @@ def call_step(proj, align_dir=None):
 
 
 # ------------------------------------------------------------------ overview for the figure
-def overview_table(proj_lengths, lg_to_chrom, cons_by_lg, centromeres, order):
+def overview_table(proj_lengths, lg_to_chrom, cons_by_lg, centromeres, order, excluded=None):
     """One row per chromosome: reference length, the top consensus inversion and the centromere (if known). centromeres: DataFrame(lg, ref_start, ref_end, confidence)."""
     rows = []
     for lg in order:
@@ -150,6 +180,8 @@ def overview_table(proj_lengths, lg_to_chrom, cons_by_lg, centromeres, order):
             m = centromeres[centromeres.lg == lg]
             if len(m):
                 m = m.iloc[0]; r.update(cen_start=int(m.ref_start), cen_end=int(m.ref_end), cen_confidence=m.confidence)
+        for s, e in (excluded or {}).get(chrom, [])[:1]:
+            r.update(excl_start=int(s), excl_end=int(e))
         rows.append(r)
     return pd.DataFrame(rows)
 
@@ -165,13 +197,15 @@ def draw_overview(ov, path_base, label_of=None):
     for i, r in enumerate(ov.itertuples()):
         ax.add_patch(Rectangle((0, i - 0.12), r.length / 1e6, 0.24, fc='#e6e6e6', ec='#888888', lw=0.5))
         ax.text(-0.6, i, (label_of or {}).get(r.lg, r.lg), ha='right', va='center', fontsize=7, weight='bold')
+        if hasattr(r, 'excl_start') and not pd.isna(r.excl_start):
+            ax.add_patch(Rectangle((r.excl_start / 1e6, i - 0.12), (r.excl_end - r.excl_start) / 1e6, 0.24, fc='none', ec='#888888', hatch='////', lw=0.4))
         if hasattr(r, 'inv_start') and not pd.isna(r.inv_start):
             ax.add_patch(Rectangle((r.inv_start / 1e6, i - 0.2), (r.inv_end - r.inv_start) / 1e6, 0.4, fc='#e76f51', ec='none', alpha=0.9))
             ax.text((r.inv_start + r.inv_end) / 2e6, i - 0.28, f'{(r.inv_end - r.inv_start) / 1e6:.1f} Mb', ha='center', va='bottom', fontsize=5.5)
         if hasattr(r, 'cen_start') and not pd.isna(r.cen_start):
             x = (r.cen_start + r.cen_end) / 2e6
             ax.add_patch(Polygon([[x - 0.6, i + 0.38], [x + 0.6, i + 0.38], [x, i + 0.14]], closed=True, fc='#333333', ec='none'))
-    ax.text(0, len(ov) - 0.1, 'orange: inversion (consensus breakpoints, reference coordinates)    black triangle: centromere', fontsize=5.5, color='#555555', va='top')
+    ax.text(0, len(ov) - 0.1, 'orange: inversion (consensus breakpoints, reference coordinates)    black triangle: centromere    hatched: reference misassembly (ignored)', fontsize=5.5, color='#555555', va='top')
     for ext in ('svg', 'png'):
         fig.savefig(f'{path_base}.{ext}', dpi=250, bbox_inches='tight')
     plt.close(fig)
@@ -185,7 +219,10 @@ def figure_step(proj, call_dir=None):
     for lg in cfg['inversions']:
         f = f'{cdir}{lg}_consensus_breakpoints.tsv'
         if os.path.exists(f) and os.path.getsize(f) > 5:
-            cons[lg] = pd.read_csv(f, sep='\t')
+            c = pd.read_csv(f, sep='\t')
+            if 'confidence' in c.columns:
+                c = c[c.confidence.isin(['high', 'medium'])].reset_index(drop=True)          # calls that only assume the reference orientation are never drawn
+            cons[lg] = c
     cen = None
     try:
         cen_dir = latest_dir(proj, 'centromeres', 'scan'); c = pd.read_csv(cen_dir + 'centromeres.tsv', sep='\t')
@@ -193,8 +230,17 @@ def figure_step(proj, call_dir=None):
         c['is_ref'] = (c.genome == cfg['reference']).astype(int)
         cen = c.sort_values('is_ref', ascending=False).drop_duplicates('lg')[['lg', 'ref_start', 'ref_end', 'confidence', 'genome']]    # prefer the reference's own call
     except FileNotFoundError:
-        print('[figure] no centromere scan found; the overview shows inversions only')
-    ov = overview_table(L, lg2c, cons, cen, list(cfg['inversions']))
+        print('[figure] no centromere scan found')
+    try:                                                                                  # published centromeres lifted into the reference win over the satellite scan
+        pub = pd.read_csv(latest_dir(proj, 'centromeres', 'lift') + 'published_centromeres_lifted.tsv', sep='\t')
+        pub = pub[pub.lift_status == 'ok'].rename(columns={'gt3_start': 'ref_start', 'gt3_end': 'ref_end'})[['lg', 'ref_start', 'ref_end']].assign(confidence='published', genome='published')
+        cen = pd.concat([pub, cen[~cen.lg.isin(pub.lg)]], ignore_index=True) if cen is not None else pub
+        print(f'[figure] {len(pub)} centromeres from the published assembly (lifted), the rest from the satellite scan')
+    except (FileNotFoundError, KeyError):
+        pass
+    if cen is None:
+        print('[figure] no centromere information; the overview shows inversions only')
+    ov = overview_table(L, lg2c, cons, cen, list(cfg['inversions']), excluded_regions(proj))
     labels = {lg: spec.get('label', lg) for lg, spec in cfg['inversions'].items()}
     with proj.run('inversion_breakpoints', 'figure', params=dict(call_run=cdir)) as run:
         ov.to_csv(run.dir + 'inversion_overview.tsv', sep='\t', index=False)

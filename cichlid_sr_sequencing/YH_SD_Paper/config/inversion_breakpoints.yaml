@@ -17,3 +17,5 @@ calling:
   window: 10000                   # resolution of the orientation-discordance map
   min_window_bp: 2000
   consensus_tolerance: 150000     # breakpoints from different assemblies/methods within this distance are merged
+  despeckle_run: 300000           # a strand run shorter than this between two runs of the other strand is absorbed (repeat-driven specks along a diagonal)
+  max_breakpoint_interval: 1000000   # a breakpoint interval wider than this is not a breakpoint: the call is rejected

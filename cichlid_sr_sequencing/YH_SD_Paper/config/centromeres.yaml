@@ -13,3 +13,9 @@ genomes:
   # annotation: 'registered' = the annotation registered next to the genome (`genomes annotate`), or a path to a RepeatMasker .out / GFF3 / UCSC rmsk / BED of tandem arrays.
   Mzebra_GT3_NCBI: {annotation: registered}
   YH:              {annotation: registered}
+published:                         # centromere annotation of a published near-complete assembly, lifted to the reference through a minimap2 alignment: python -m yhsd.cli centromeres lift --table <xlsx>
+  sheet: Table3 Centromere annotation        # sheet of 10577_2026_9819_MOESM2_ESM.xlsx
+  genome: Maylandia_zebra                    # value of the `genome` column in that sheet
+  assembly: Mzebra_fMayZeb221                # registry key of the published assembly (config/genomes.yaml)
+  window: 3000000                            # how far from a centromere interval the alignment is searched for alignable flanks
+  agree_distance: 1000000                    # a satellite-scan call within this distance of the lifted interval counts as agreeing

@@ -56,7 +56,10 @@ def run():
                                  chrom_for_lg=lambda lg: {'LG5': T5, 'LG2': T2}[lg], chrom_lengths=lambda: {T5: L5, T2: L2}, lg={T5: 'LG5', T2: 'LG2'}, cores=2, run=None)
     proj.run = lambda a, s, params=None, tar=(): Run(proj, a, s, params, tar)
     os.makedirs(proj.root)
+    _real_excl = steps.excluded_regions
+    steps.excluded_regions = lambda p_: {}                      # this synthetic data is labelled LG2 but is not the real LG2: do not apply the real exclusion here
     steps.call_step(proj, align_dir=adir)
+    steps.excluded_regions = _real_excl
     def last(a, s):
         base = f'{proj.root}{a}/{s}/'; return base + sorted(x for x in os.listdir(base) if x != 'LATEST')[-1] + '/'
     rd = last('inversion_breakpoints', 'call')
@@ -174,8 +177,8 @@ def run():
     def flip(l):
         f = l.split('\t'); qlen, qs, qe = int(f[1]), int(f[2]), int(f[3]); f[2], f[3] = str(qlen - qe), str(qlen - qs); f[4] = '-' if f[4] == '+' else '+'; return '\t'.join(f)
     TC, LC = 'NC_T10', 36 * M
-    c10 = [line('c10', 36.2 * M, 0, 6.8 * M, '+', TC, LC, 0, 6.8 * M), line('c10', 36.2 * M, 6.9 * M, 18 * M, '-', TC, LC, 18.2 * M, 29.3 * M),
-           line('c10', 36.2 * M, 18.4 * M, 25.3 * M, '-', TC, LC, 11.4 * M, 18.2 * M), line('c10', 36.2 * M, 25.4 * M, 36.2 * M, '+', TC, LC, 29.4 * M, 36.0 * M)]
+    c10 = [line('c10', 36.2 * M, 0, 11.35 * M, '+', TC, LC, 0, 11.35 * M), line('c10', 36.2 * M, 11.45 * M, 22.5 * M, '-', TC, LC, 18.2 * M, 29.3 * M),
+           line('c10', 36.2 * M, 22.9 * M, 29.7 * M, '-', TC, LC, 11.4 * M, 18.2 * M), line('c10', 36.2 * M, 29.8 * M, 36.2 * M, '+', TC, LC, 29.4 * M, 36.0 * M)]
     ra = paf.call_method_AC(paf.parse_paf(c10), TC); rb = paf.call_method_AC(paf.parse_paf([flip(x) for x in c10]), TC)
     same = (len(ra) == len(rb) == 1 and ra.method.iloc[0] == rb.method.iloc[0] == 'A' and ra.left_lo.iloc[0] == rb.left_lo.iloc[0] and ra.right_hi.iloc[0] == rb.right_hi.iloc[0])
     _ok('inversion call is identical for a contig and its reverse complement (even with the inversion at 51% of the chromosome)', same and ra.inv_strand.iloc[0] != rb.inv_strand.iloc[0] and not ra.strand_dependent.iloc[0])
@@ -266,3 +269,102 @@ def run():
     recs = {os.path.basename(x['path']): x for x in r.inputs}
     _ok('runner copies small outside inputs into <run>/inputs/, skips big files and files already in the project, flags missing ones',
         recs['small.tsv'].get('archived') == 'inputs/small.tsv' and os.path.exists(rd2 + 'inputs/small.tsv') and 'archived' not in recs['big.bin'] and 'archived' not in recs['already_here.txt'] and recs['missing.txt'].get('missing'))
+
+    # ---------------- failures seen on the real YH / OB assemblies (LG5, LG2, LG13)
+    def blk(q, qlen, qs, qe, st, tname, ts, te): return line(q, qlen, qs, qe, st, tname, 50 * M, ts, te)
+    # (1) LG5-like: a real inversion called by two assemblies AND repeat-driven calls elsewhere with the same number of supporters: the real one must rank first
+    calls = pd.DataFrame([dict(assembly='LatrZW', method='C', left_lo=3.68 * M, left_hi=3.68 * M, right_lo=5.04 * M, right_hi=5.04 * M),
+                          dict(assembly='MezeOBm', method='C', left_lo=3.69 * M, left_hi=3.69 * M, right_lo=5.04 * M, right_hi=5.04 * M),
+                          dict(assembly='LatrZW', method='A', left_lo=19.657 * M, left_hi=19.658 * M, right_lo=26.726 * M, right_hi=26.727 * M),
+                          dict(assembly='MezeOBm', method='A', left_lo=19.657 * M, left_hi=19.658 * M, right_lo=26.726 * M, right_hi=26.727 * M),
+                          dict(assembly='LatrZW', method='B', left_lo=3.38 * M, left_hi=3.39 * M, right_lo=4.66 * M, right_hi=4.67 * M)])
+    cs = paf.consensus(calls, 150_000)
+    _ok('consensus ranks a call with both flanks (A) above repeat-driven C/B calls, even when they have as many supporting calls',
+        cs.iloc[0].confidence == 'high' and abs(cs.iloc[0].left_breakpoint - 19.6575 * M) < 5000 and cs.iloc[0].n_calls == 2 and set(cs.confidence) == {'high', 'medium', 'low'}, str(cs[['left_breakpoint', 'confidence']].values.tolist()))
+    # (2) LG2-like: reverse-complemented contig [rev end 43.5-48.8][+ 19.8-43.5, speckled with tiny reverse blocks][rev 14.4-20 and 2-4.3][+ hairpin 0-2].
+    #     The inversion is ref 19.8-43.5; the old caller reported 2.0-23.8 (a '-' run with '+' flanks in the wrong places)
+    TL2 = 'NC_T2L'
+    lg2 = [blk('y2', 39.2 * M, 0, 5.3 * M, '-', TL2, 43.5 * M, 48.8 * M),
+           blk('y2', 39.2 * M, 5.3 * M, 12.0 * M, '+', TL2, 19.8 * M, 26.5 * M), blk('y2', 39.2 * M, 12.0 * M, 12.06 * M, '-', TL2, 26.5 * M, 26.56 * M),
+           blk('y2', 39.2 * M, 12.06 * M, 20.0 * M, '+', TL2, 26.56 * M, 34.5 * M), blk('y2', 39.2 * M, 20.0 * M, 20.05 * M, '-', TL2, 34.5 * M, 34.55 * M),
+           blk('y2', 39.2 * M, 20.05 * M, 29.7 * M, '+', TL2, 34.55 * M, 43.5 * M),
+           blk('y2', 39.2 * M, 29.8 * M, 35.0 * M, '-', TL2, 14.4 * M, 20.0 * M), blk('y2', 39.2 * M, 35.1 * M, 37.0 * M, '-', TL2, 2.0 * M, 4.3 * M),
+           blk('y2', 39.2 * M, 37.1 * M, 39.0 * M, '+', TL2, 0, 2.0 * M)]
+    d2l = paf.parse_paf(lg2)
+    r2 = paf.call_method_AC(d2l, TL2)
+    _ok('LG2-like contig: speckles are absorbed, the hairpin is not called, the inversion is ref 19.8-43.5 Mb (found once, with both flanks)',
+        len(r2) == 1 and r2.method.iloc[0] == 'A' and abs(r2.left_hi.iloc[0] - 20.0 * M) < 1000 and abs(r2.right_lo.iloc[0] - 43.5 * M) < 1000, str(r2[['method', 'left_lo', 'left_hi', 'right_lo', 'right_hi']].values.tolist()))
+    r2_old = paf.call_method_AC(d2l, TL2, despeckle=0)
+    _ok('without despeckling the same contig is NOT resolved (so the despeckling is what fixes it)', not (len(r2_old) == 1 and abs(r2_old.right_lo.iloc[0] - 43.5 * M) < 1000))
+    runs = paf.strand_runs(paf.blocks_for_contig(d2l, 'y2', TL2, 20_000), despeckle=300_000)
+    _ok('despeckled runs: - + - +  (4 runs)', [r['strand'] for r in runs] == ['-', '+', '-', '+'])
+    # (3) flank-run geometry inconsistent with its strand (a '+' run between two '-' runs lying in the wrong order) is not an inversion
+    bad = [blk('b', 30 * M, 0, 5 * M, '-', TL2, 10 * M, 15 * M), blk('b', 30 * M, 5.1 * M, 20 * M, '+', TL2, 15.1 * M, 30 * M), blk('b', 30 * M, 20.1 * M, 25 * M, '-', TL2, 30.1 * M, 35 * M)]
+    _ok("a '+' run between '-' runs that lie in the wrong order is not an inversion", len(paf.call_method_AC(paf.parse_paf(bad), TL2)) == 0 or paf.call_method_AC(paf.parse_paf(bad), TL2).method.iloc[0] != 'A')
+    # (4) LG13-like: a flank adjacency megabases wide is not a breakpoint
+    wide = [blk('w', 30 * M, 0, 2.4 * M, '+', TL2, 0, 2.4 * M), blk('w', 30 * M, 2.5 * M, 14 * M, '-', TL2, 12.0 * M, 23.5 * M), blk('w', 30 * M, 14.1 * M, 28 * M, '+', TL2, 23.6 * M, 37.5 * M)]
+    rw = paf.call_method_AC(paf.parse_paf(wide), TL2)
+    _ok('a breakpoint interval wider than max_interval (flank ends 9.6 Mb before the inverted run) is rejected', len(rw[rw.method == 'A']) == 0 if len(rw) else True)
+    # the call step writes the despeckled runs, one dotplot panel per contig, and the polarity text no longer talks about strands
+    rd_ = last('inversion_breakpoints', 'call')
+    _ok('call step writes the strand-run table next to the dotplots', os.path.exists(rd_ + 'LG5_strand_runs.tsv') and os.path.exists(rd_ + 'LG2_strand_runs.tsv'))
+    _ok('polarity text is independent of the strand of the contig', 'strand' not in json.load(open(rd_ + 'LG2_polarity.json'))['polarity'].lower().replace('orientation', ''))
+
+    # ---------------- the reference's known misassembly (LG2 4.0-14.4 Mb) is ignored by the breakpoint caller and the centromere scan
+    fakep = types.SimpleNamespace(genome='Mzebra_GT3_NCBI', chrom_for_lg=lambda lg: {'LG2': 'NC_135168.1'}[lg])
+    ex = gr.excluded_regions(fakep)
+    _ok('config: known misassembly of the reference resolved to the LG2 accession', ex == {'NC_135168.1': [(4_000_000, 14_400_000)]}, str(ex))
+    junk = paf.parse_paf([line('j', 20 * M, 0, 7 * M, '-', 'NC_135168.1', 48 * M, 4.3 * M, 11.1 * M), line('k', 20 * M, 0, 6 * M, '+', 'NC_135168.1', 48 * M, 20 * M, 26 * M),
+                          line('m', 20 * M, 0, 3 * M, '+', 'NC_135168.1', 48 * M, 13.5 * M, 15.5 * M)])
+    kept = paf.drop_blocks_in_regions(junk, ex['NC_135168.1'])
+    _ok('blocks inside the misassembled region are dropped, blocks outside or only touching it are kept', list(kept.qname) == ['k', 'm'], str(list(kept.qname)))
+    _ok('without the exclusion the repeat junk is called as an inversion (the old LG2 "YH:C 4.3-11.1 Mb")', len(paf.call_method_AC(junk, 'NC_135168.1')) == 1 and len(paf.call_method_AC(kept, 'NC_135168.1')) == 0)
+    # centromere scan: a big satellite chunk in the excluded region must not win; the real array outside it is called
+    d5 = tempfile.mkdtemp(); fa5 = d5 + '/x.fa'
+    with open(fa5, 'w') as fh:
+        fh.write('>NC_135168.1\n'); fh.write(('ACGT' * 25 + '\n') * 480000)                       # 48 Mb
+    ann5 = d5 + '/x.out'
+    with open(ann5, 'w') as fh:
+        fh.write('h1\nh2\n\n')
+        fh.write('  900  5.0  0.0  0.0  NC_135168.1  6000001  12000000  (1)  +  CHUNK  Satellite  1 2 3 1\n')                 # misplaced repeat chunk
+        fh.write('  900  5.0  0.0  0.0  NC_135168.1  26900001  27700000  (1)  +  CEN  Satellite  1 2 3 2\n')                  # the real centromere array
+    cfg5 = csteps.cfg_of(); cfg5.update(min_chrom_length=1_000_000)
+    c_no, _ = csteps.scan_genome('toy', fa5, ann5, cfg5)
+    c_ex, _ = csteps.scan_genome('toy', fa5, ann5, cfg5, exclude=ex)
+    _ok('centromere scan: the misplaced chunk wins without the mask, the real array wins with it',
+        6_000_000 <= c_no.iloc[0].start < 12_500_000 and 26_000_000 <= c_ex.iloc[0].start and c_ex.iloc[0].end <= 28_500_000 and c_ex.iloc[0].masked_regions == '4000000-14400000', f"{c_no.iloc[0].start} -> {c_ex.iloc[0].start}")
+
+    # ---------------- published centromeres (Table 3) lifted into the reference, including the 10.4 Mb chunk the reference has and the published assembly does not
+    import openpyxl
+    from .analyses.centromeres import published as pb
+    wbp = tempfile.mkdtemp() + '/t3.xlsx'
+    wb = openpyxl.Workbook(); ws = wb.active; ws.title = 'Table3 Centromere annotation'
+    ws.append(['genome', 'chr', 'start', 'end', 'Size', 'Centroid1', 'Centroid2', 'Distance', 'Gap cen', 'Telo L', 'Telo R', 'Ungapped chr', 'T2T'])
+    ws.append(['Maylandia_zebra', 'chr2', 17170767, 17765435, '=D2-C2', 17378589, None, None, 'No', 'Yes', 'Yes', 'Yes', '=AND(J2="Yes",K2="Yes",L2="Yes")'])
+    ws.append(['Maylandia_zebra', 'chr10', 7259076, 7998165, '=D3-C3', 7424819, None, None, 'No', 'Yes', 'Yes', 'Yes', '=FALSE'])
+    ws.append(['Maylandia_zebra', 'scf00000001', 100, 500, '=D4-C4', None, None, None, 'No', None, None, None, None])
+    ws.append(['Astatotilapia_burtoni', 'chr2', 1, 2, '=D5-C5', None, None, None, 'No', None, None, None, None])
+    wb.save(wbp)
+    tb = pb.read_published(wbp, 'Table3 Centromere annotation', 'Maylandia_zebra')
+    _ok('published table: one genome, chrN rows only, formulas not required', list(tb.lg) == ['LG2', 'LG10'] and list(tb['size']) == [594668, 739089] and tb.centroid1.iloc[0] == 17378589)
+    NT2, NT10, NEW2, NEW10 = 'NC_135168.1', 'NC_135176.1', 'OZ_chr2', 'OZ_chr10'
+    # reference LG2 has the 10.4 Mb chunk at 4.0-14.4 Mb; the published chr2 does not. chr10: the centromere array itself is not alignable (gap 7.3-8.1 in the published assembly)
+    pl = [line(NEW2, 38.4 * M, 0, 4.0 * M, '+', NT2, 48.8 * M, 0, 4.0 * M, f'{int(4.0 * M)}M'), line(NEW2, 38.4 * M, 4.0 * M, 38.4 * M, '+', NT2, 48.8 * M, 14.4 * M, 48.8 * M, f'{int(34.4 * M)}M'),
+          line(NEW10, 35.0 * M, 0, 7.2 * M, '+', NT10, 35.0 * M, 0, 7.2 * M, f'{int(7.2 * M)}M'), line(NEW10, 35.0 * M, 8.1 * M, 35.0 * M, '+', NT10, 35.0 * M, 8.1 * M, 35.0 * M, f'{int(26.9 * M)}M')]
+    pdf = paf.parse_paf(pl)
+    cm = pd.DataFrame([(NEW2, NT2, int(38.4 * M), 1.0), (NEW10, NT10, int(35 * M), 1.0)], columns=['contig', 'reference_chrom', 'aligned_bp', 'share'])
+    lg2c = {'LG2': NT2, 'LG10': NT10}
+    mp = pb.map_published_chr(cm, lg2c, ['LG2', 'LG10', 'LG99'])
+    _ok('published chromosome -> assembly sequence through the dominant reference chromosome (and "none" when nothing aligns)', mp['LG2']['seq'] == NEW2 and mp['LG10']['seq'] == NEW10 and mp['LG99'] is None)
+    lifted = pb.lift_all(pdf, tb, mp, lg2c, 3_000_000)
+    r2 = lifted[lifted.lg == 'LG2'].iloc[0]
+    _ok('LG2: published centromere 17.17-17.77 Mb lifts to ~27.57-28.17 Mb in the reference (+10.4 Mb: the chunk), centroid too',
+        r2.lift_status == 'ok' and abs(r2.gt3_start - 27_570_767) < 2 and abs(r2.gt3_end - 28_165_435) < 2 and abs(r2.centroid1_ref - 27_778_589) < 2, f'{r2.gt3_start}-{r2.gt3_end}')
+    r10 = lifted[lifted.lg == 'LG10'].iloc[0]
+    _ok('LG10: an unalignable centromere array is bounded by its alignable flanks (7.2-8.1 Mb)', r10.lift_status == 'ok' and abs(r10.gt3_start - 7.2 * M) < 30_000 and abs(r10.gt3_end - 8.1 * M) < 30_000, f'{r10.lift_status} {r10.gt3_start}-{r10.gt3_end}')
+    straddle = paf.parse_paf([line(NEW10, 35.0 * M, 0, 7.2 * M, '+', NT10, 35.0 * M, 0, 7.2 * M, f'{int(7.2 * M)}M'), line(NEW10, 35.0 * M, 8.1 * M, 35.0 * M, '-', NT10, 35.0 * M, 0.5 * M, 27.4 * M, f'{int(26.9 * M)}M')])
+    rs = pb.lift_all(straddle, tb, mp, lg2c, 3_000_000).query("lg == 'LG10'").iloc[0]
+    _ok('flanks on opposite strands (an interval across a breakpoint): flagged and NO coordinates are reported', 'opposite strands' in rs.lift_status and pd.isna(rs.gt3_start))
+    scan_df = pd.DataFrame([dict(lg='LG2', start=26_900_000, end=27_900_000, confidence='high'), dict(lg='LG10', start=0, end=300_000, confidence='low')])
+    cmp_ = pb.compare_with_scan(lifted, scan_df, 1_000_000)
+    _ok('comparison with the satellite scan: LG2 agrees (after the chunk is accounted for), LG10 (scan at 0-0.3 Mb) disagrees', cmp_[cmp_.lg == 'LG2'].scan_vs_published.iloc[0] == 'agrees' and cmp_[cmp_.lg == 'LG10'].scan_vs_published.iloc[0].startswith('disagrees'))

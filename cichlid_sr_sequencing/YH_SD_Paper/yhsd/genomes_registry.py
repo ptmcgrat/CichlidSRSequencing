@@ -384,6 +384,15 @@ def register_annotation(proj, key, spec, upload=True):
     return man
 
 
+def excluded_regions(proj):
+    """{reference sequence name: [(start, end), ...]} from `known_misassemblies` of the project's reference genome in config/genomes.yaml (LG labels resolved through proj.chrom_for_lg)."""
+    entry = load_registry().get(proj.genome, {})
+    out = {}
+    for m in entry.get('known_misassemblies') or []:
+        out.setdefault(proj.chrom_for_lg(m['lg']), []).append((int(m['start']), int(m['end'])))
+    return out
+
+
 def annotation_for(proj, key):
     """(path of the main annotation file, {annotation name: genome sequence}) of a registered genome; raises FileNotFoundError if none / unusable."""
     d = entry_dir(proj, key) + 'annotation/'

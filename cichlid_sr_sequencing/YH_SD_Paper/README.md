@@ -133,7 +133,16 @@ Inversions: LG5 from LatrZW + MezeOBm; LG2, LG10 and LG13 from the NCBI YH chrom
 breakpoints. Methods (reference coordinates): A = flank / inverted segment / flank inside one contig; B = windows covered on both strands by different haplotigs (needs two haplotypes);
 A-half and C = the contig ends at a breakpoint or is only the inverted segment (low confidence, flagged strand_dependent because they assume the reference orientation). `reference_is_standard`
 in the config says what the inverted strand means (true for LG2/10/13, unknown for LG5). Breakpoints are intervals; inv_q_start / inv_q_end give the segment's coordinates in the assembly.
+Consensus rows are ranked by the best method in the cluster (A > B > A-half > C) and carry a confidence: high (has an A call, i.e. both flanks seen), medium (B only), low (only calls that assume the reference
+orientation; never drawn in the overview). Tiny opposite-strand blocks that repeats scatter along a diagonal are absorbed (`despeckle_run`), and a breakpoint interval wider than `max_breakpoint_interval` is rejected.
+`LGn_strand_runs.tsv` lists the strand runs the caller saw for each contig (after despeckling) and `LGn_<assembly>_dotplot.png` has one panel per contig; read both before using a coordinate.
+The strand of the inverted segment is not meaningful (a contig may be reverse-complemented as a whole): what counts is that the assembly differs from the reference between the breakpoints.
 Check every `*_dotplot.png` by eye before using a coordinate. Assemblies that are not registered yet are skipped with a message.
+Known misassembly of the reference: `known_misassemblies` under Mzebra_GT3_NCBI in config/genomes.yaml (now LG2 4.0-14.4 Mb, a ~10.4 Mb chunk of repetitive DNA placed on the left arm).
+The breakpoint caller drops alignment blocks lying mostly inside it (the dotplots still show them, shaded grey), the centromere scan masks the satellite signal there, and the overview marks it hatched.
+Published centromeres: `python -m yhsd.cli centromeres lift --table 10577_2026_9819_MOESM2_ESM.xlsx` aligns the published near-complete M. zebra assembly (Mzebra_fMayZeb221, GCA_988222425.1; Table 3 of the
+Chromosome Research 2026 paper) to the reference and lifts each published centromere interval and centroid core into reference coordinates (bounded by the nearest alignable flanks; an interval whose flanks lie on
+opposite strands gets no coordinates). `published_centromeres_lifted.tsv` also compares each with the satellite scan; the overview figure prefers the published (lifted) centromeres. The workbook is archived in the run's inputs/.
 Centromeres: satellite-repeat density per 50 kb window from the registered annotation, smoothed; one call per chromosome with a confidence class (high / medium / low / none; 'low' and
 'none' mean not located) and its evidence. Non-reference genomes (YH) are lifted to the reference by the nearest alignable flanks. Cichlid centromeres are often poorly assembled: an
 unassembled array is reported as not located, never guessed.

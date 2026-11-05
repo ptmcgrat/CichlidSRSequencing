@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from ...common_light import config_path
-from ...genomes_registry import fasta_path, annotation_for
+from ...genomes_registry import fasta_path, annotation_for, excluded_regions
 from ...runner import latest_dir
 from ..inversion_breakpoints import paf as P
 from . import cen
@@ -16,7 +16,7 @@ def cfg_of():
     return yaml.safe_load(open(config_path('centromeres.yaml')))
 
 
-def scan_genome(name, fa, annotation, cfg, name_map=None):
+def scan_genome(name, fa, annotation, cfg, name_map=None, exclude=None):
     """Returns (calls DataFrame, dict of per-sequence profiles)."""
     seqs = cen.fasta_lengths_and_gaps(fa)
     ann = cen.parse_annotation(annotation, cfg['classes'])
@@ -29,8 +29,10 @@ def scan_genome(name, fa, annotation, cfg, name_map=None):
         sub = ann[ann.chrom == seq]
         dens = cen.window_coverage(sub.start.values, sub.end.values, length, cfg['window'])
         gcov = cen.window_coverage([a for a, b in gaps], [b for a, b in gaps], length, cfg['window'])
+        for s, e in (exclude or {}).get(seq, []):                              # known misassembly of the reference: no centromere evidence from there
+            dens[int(s // cfg['window']):int(e // cfg['window']) + 1] = 0.0; gcov[int(s // cfg['window']):int(e // cfg['window']) + 1] = 0.0
         r = cen.call_centromere(dens, cfg['window'], cfg['smooth'], cfg['confidence'], gcov)
-        r.update(genome=name, sequence=seq, length=length, n_satellite_features=int(len(sub)),
+        r.update(genome=name, sequence=seq, length=length, n_satellite_features=int(len(sub)), masked_regions=';'.join(f'{s}-{e}' for s, e in (exclude or {}).get(seq, [])),
                  top_families=cen.top_families(sub, r['start'], r['end']) if r['confidence'] != 'none' else '')
         rows.append(r); prof[seq] = (dens, gcov, r)
     return pd.DataFrame(rows), prof
@@ -79,7 +81,7 @@ def scan_step(proj, align_dir=None):
                     apath, nmap = os.path.expanduser(spec), None
             except FileNotFoundError as e:
                 print(f'[centromeres] {key}: skipped ({e})'); continue
-            calls, prof = scan_genome(key, fa, apath, cfg, nmap)
+            calls, prof = scan_genome(key, fa, apath, cfg, nmap, excluded_regions(proj) if key == ref else None)
             if not len(calls):
                 print(f'[centromeres] {key}: no chromosome-scale sequences with annotation'); continue
             # LG labels
@@ -109,4 +111,59 @@ def scan_step(proj, align_dir=None):
             print(f'\n== {key} ==\n' + calls[['sequence', 'lg', 'start', 'end', 'confidence', 'ratio', 'dominance', 'top_families', 'ref_start', 'ref_end']].round(2).to_string(index=False))
         if all_calls:
             pd.concat(all_calls, ignore_index=True)[['genome', 'sequence', 'lg', 'length', 'start', 'end', 'mid', 'confidence', 'peak', 'ratio', 'dominance', 'gap_fraction',
-                                                    'n_satellite_features', 'top_families', 'ref_start', 'ref_end', 'lift_status']].to_csv(run.dir + 'centromeres.tsv', sep='\t', index=False)
+                                                    'n_satellite_features', 'masked_regions', 'top_families', 'ref_start', 'ref_end', 'lift_status']].to_csv(run.dir + 'centromeres.tsv', sep='\t', index=False)
+
+
+def lift_step(proj, table):
+    """centromeres lift --table <xlsx>: align the published near-complete assembly to the reference, lift every published centromere interval and centroid core into the
+    reference's coordinates (bounded by the nearest alignable flanks), and compare with the satellite scan."""
+    from . import published as pb
+    from ..inversion_breakpoints.steps import ensure_paf
+    if not table:
+        raise SystemExit('usage: python -m yhsd.cli centromeres lift --table <10577_2026_9819_MOESM2_ESM.xlsx>')
+    cfg = cfg_of(); pc = cfg['published']; ref = proj.genome
+    mm = yaml.safe_load(open(config_path('inversion_breakpoints.yaml')))['minimap2']
+    lg_to_chrom = {lg: c for c, lg in proj.lg.items()}
+    with proj.run('centromeres', 'lift', params=dict(published=pc, table=os.path.basename(table))) as run:
+        run.add_input(table)                                                          # the paper's table is archived in the run folder
+        tbl = pb.read_published(table, pc['sheet'], pc['genome'])
+        full = ensure_paf(proj, pc['assembly'], ref, mm)
+        share = {}
+        with open(full) as f:                                                         # pass 1: which sequence of the published assembly is which reference chromosome
+            for line in f:
+                fl = line.split('\t', 11)
+                share[(fl[0], fl[5])] = share.get((fl[0], fl[5]), 0) + int(fl[10])
+        cm = pd.DataFrame([(c, tg, b) for (c, tg), b in share.items()], columns=['contig', 'reference_chrom', 'aligned_bp'])
+        cm['contig_total'] = cm.groupby('contig').aligned_bp.transform('sum'); cm['share'] = cm.aligned_bp / cm.contig_total
+        cm = cm.sort_values(['contig', 'aligned_bp'], ascending=[True, False]).groupby('contig').head(1)
+        mapping = pb.map_published_chr(cm, lg_to_chrom, list(tbl.lg.unique()))
+        win = pc['window']; wins = {}
+        for r in tbl.itertuples():
+            m = mapping.get(r.lg)
+            if m:
+                wins.setdefault(m['seq'], []).append((r.start - win, r.end + win))
+        keep = []
+        with open(full) as f:                                                         # pass 2: only the alignments near the published centromeres
+            for line in f:
+                fl = line.split('\t', 11)
+                if fl[0] in wins:
+                    qs, qe = int(fl[2]), int(fl[3])
+                    if any(qs < e and qe > s for s, e in wins[fl[0]]):
+                        keep.append(line)
+        df = P.parse_paf(keep)
+        lifted = pb.lift_all(df, tbl, mapping, lg_to_chrom, win)
+        scan = None
+        try:
+            s = pd.read_csv(latest_dir(proj, 'centromeres', 'scan') + 'centromeres.tsv', sep='\t')
+            scan = s[s.genome == ref][['lg', 'start', 'end', 'confidence']]
+        except FileNotFoundError:
+            print('[lift] no satellite scan found: run `centromeres scan` to compare')
+        out = pb.compare_with_scan(lifted, scan, pc['agree_distance'])
+        out.to_csv(run.dir + 'published_centromeres_lifted.tsv', sep='\t', index=False)
+        cm.to_csv(run.dir + 'published_assembly_contig_map.tsv', sep='\t', index=False)
+        show = out[['lg', 'published_start', 'published_end', 'gt3_start', 'gt3_end', 'gt3_width', 'strand', 'lift_status', 'scan_start', 'scan_end', 'scan_confidence', 'scan_vs_published']]
+        print(show.round(0).to_string(index=False))
+        bad = out[out.lift_status != 'ok']
+        print(f'\n{len(out) - len(bad)} of {len(out)} published centromeres lifted cleanly; check the others: {sorted(bad.lg)}')
+        if scan is not None:
+            print('scan agrees for', int((out.scan_vs_published == 'agrees').sum()), 'chromosomes; disagrees for', sorted(out[out.scan_vs_published.str.startswith('disagrees', na=False)].lg))

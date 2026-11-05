@@ -34,6 +34,18 @@ def parse_paf(src, tnames=None):
     return pd.DataFrame(rows, columns=PAF_COLS + ['cigar'])
 
 
+def drop_blocks_in_regions(df, regions, max_overlap=0.5):
+    """Remove alignment blocks whose reference span lies mostly (> max_overlap) inside a region the reference is known to have wrong (e.g. a misplaced repeat chunk)."""
+    if not regions or not len(df):
+        return df
+    keep = np.ones(len(df), bool)
+    ts, te = df.tstart.values, df.tend.values
+    for s, e in regions:
+        ov = (np.minimum(te, e) - np.maximum(ts, s)).clip(min=0)
+        keep &= ~(ov / np.maximum(te - ts, 1) > max_overlap)
+    return df[keep].reset_index(drop=True)
+
+
 # ------------------------------------------------------------------ method A: strand switches inside one contig
 def main_target(df, qname):
     g = df[df.qname == qname]
@@ -45,24 +57,36 @@ def blocks_for_contig(df, qname, tname, min_block):
     return g.reset_index(drop=True)
 
 
-def strand_runs(g):
-    """Consecutive blocks (in query order) with the same strand -> list of dicts."""
+def strand_runs(g, despeckle=0):
+    """Consecutive blocks (in query order) with the same strand -> list of dicts. despeckle > 0 absorbs a run shorter than that (reference span) that sits between two runs
+    of the SAME other strand (the tiny opposite-strand blocks that repeats scatter along a diagonal would otherwise split one long run into many)."""
     runs = []
     for r in g.itertuples():
         if runs and runs[-1]['strand'] == r.strand:
             x = runs[-1]; x['tmin'] = min(x['tmin'], r.tstart); x['tmax'] = max(x['tmax'], r.tend); x['qend'] = r.qend; x['n'] += 1
         else:
             runs.append(dict(strand=r.strand, tmin=r.tstart, tmax=r.tend, qstart=r.qstart, qend=r.qend, n=1))
+    if despeckle:
+        changed = True
+        while changed:
+            changed = False
+            for i in range(1, len(runs) - 1):
+                a, b, c = runs[i - 1], runs[i], runs[i + 1]
+                if b['tmax'] - b['tmin'] < despeckle and a['strand'] == c['strand'] != b['strand']:
+                    runs[i - 1:i + 2] = [dict(strand=a['strand'], tmin=min(a['tmin'], b['tmin'], c['tmin']), tmax=max(a['tmax'], b['tmax'], c['tmax']),
+                                              qstart=a['qstart'], qend=c['qend'], n=a['n'] + b['n'] + c['n'])]
+                    changed = True
+                    break
     return runs
 
 
-def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_tol=500_000):
+def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_tol=500_000, despeckle=300_000, max_interval=1_000_000):
     """Inversions inside one contig, independent of which strand the contig has relative to the reference.
     A (full): the MIDDLE run of a triplet whose two neighbours share the opposite strand and sit on either side of it in the reference
               ( + - + for a contig in the reference orientation, - + - for a reverse-complemented contig ): breakpoint intervals from the flank adjacencies.
     A-half / C: a contig that ends at a breakpoint (two runs) or is only the inverted segment (one run). With no flank there is nothing to compare against, so these
               ASSUME the reference orientation: the '-' run is the inversion. They are flagged strand_dependent and are low confidence."""
-    runs = strand_runs(g)
+    runs = strand_runs(g, despeckle)
     out = []
 
     def row(method, left, right, r, support, dependent):
@@ -74,13 +98,18 @@ def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_
         r, p, n = runs[i], runs[i - 1], runs[i + 1]
         if r['tmax'] - r['tmin'] < min_inversion or p['strand'] == r['strand'] or n['strand'] == r['strand']:
             continue
-        if p['tmax'] <= r['tmin'] + adjacent_tol and n['tmin'] >= r['tmax'] - adjacent_tol:          # flanks '+', inversion '-'
+        # the flank strand must agree with where the flanks lie: '+' flanks run left -> right in the reference, '-' flanks right -> left. A '+' run between two '-' runs that are
+        # in the wrong places is a translocation or an assembly join, not a simple inversion.
+        if p['strand'] == '+' and p['tmax'] <= r['tmin'] + adjacent_tol and n['tmin'] >= r['tmax'] - adjacent_tol:        # flanks '+', inversion '-'
             low, high = p, n
-        elif n['tmax'] <= r['tmin'] + adjacent_tol and p['tmin'] >= r['tmax'] - adjacent_tol:        # contig reverse-complemented: flanks '-', inversion '+'
+        elif p['strand'] == '-' and n['tmax'] <= r['tmin'] + adjacent_tol and p['tmin'] >= r['tmax'] - adjacent_tol:      # contig reverse-complemented: flanks '-', inversion '+'
             low, high = n, p
         else:
             continue
-        out.append(row('A', tuple(sorted((low['tmax'], r['tmin']))), tuple(sorted((r['tmax'], high['tmin']))), r, ('flank', 'flank'), False))
+        left, right = tuple(sorted((low['tmax'], r['tmin']))), tuple(sorted((r['tmax'], high['tmin'])))
+        if left[1] - left[0] > max_interval or right[1] - right[0] > max_interval:                   # a 'breakpoint' that is megabases wide is not a breakpoint
+            continue
+        out.append(row('A', left, right, r, ('flank', 'flank'), False))
     if out:
         return out
     if len(runs) == 2:
@@ -96,14 +125,24 @@ def inversions_in_contig(g, min_inversion=500_000, max_minus_gap=None, adjacent_
     return out
 
 
-def call_method_AC(df, tname, min_block=20_000, min_inversion=500_000, max_minus_gap=3_000_000):
+def call_method_AC(df, tname, min_block=20_000, min_inversion=500_000, max_minus_gap=None, despeckle=300_000, max_interval=1_000_000):
     rows = []
     for q in df[df.tname == tname].qname.unique():
         if main_target(df, q) != tname:
             continue
         g = blocks_for_contig(df, q, tname, min_block)
-        for inv in inversions_in_contig(g, min_inversion, max_minus_gap):
+        for inv in inversions_in_contig(g, min_inversion, None, 500_000, despeckle, max_interval):
             rows.append(dict(qname=q, **inv))
+    return pd.DataFrame(rows)
+
+
+def runs_table(df, tname, contigs, min_block=20_000, despeckle=300_000):
+    """The strand runs of the given contigs after despeckling (what the caller actually sees): one row per run, in query order."""
+    rows = []
+    for q in contigs:
+        g = blocks_for_contig(df, q, tname, min_block)
+        for i, r in enumerate(strand_runs(g, despeckle)):
+            rows.append(dict(contig=q, run=i + 1, strand=r['strand'], ref_start=r['tmin'], ref_end=r['tmax'], ref_span=r['tmax'] - r['tmin'], query_start=r['qstart'], query_end=r['qend'], n_blocks=r['n']))
     return pd.DataFrame(rows)
 
 
@@ -147,8 +186,12 @@ def discordance_regions(df, tname, tlen, window=10_000, min_window_bp=2_000, min
 
 
 # ------------------------------------------------------------------ consensus across assemblies / methods
+METHOD_RANK = {'A': 0, 'B': 1, 'A-half': 2, 'C': 3}     # a call with both flanks beats a haplotig comparison, which beats calls that assume the reference orientation
+
+
 def consensus(calls, tol=150_000):
-    """calls: DataFrame with columns assembly, method, left_lo/hi, right_lo/hi. Cluster left and right midpoints within `tol`; returns one row per cluster pair."""
+    """calls: DataFrame with columns assembly, method, left_lo/hi, right_lo/hi. Cluster left and right midpoints within `tol`; returns one row per cluster pair,
+    ranked by the best method in the cluster (A > B > A-half > C), then by the number of supporting calls, then by length. confidence: high (has an A call), medium (B only), low."""
     if not len(calls):
         return pd.DataFrame()
     c = calls.copy(); c['left_mid'] = (c.left_lo + c.left_hi) / 2; c['right_mid'] = (c.right_lo + c.right_hi) / 2
@@ -163,11 +206,15 @@ def consensus(calls, tol=150_000):
     rows = []
     for ix in cl:
         s = c.loc[ix]
+        methods = set(s.method)
+        best = min(METHOD_RANK.get(m, 9) for m in methods)
+        conf = 'high' if 'A' in methods else ('medium' if 'B' in methods else 'low')       # low = only calls that assume the reference orientation (A-half, C)
         rows.append(dict(left_breakpoint=int(s.left_mid.median()), left_min=int(s.left_lo.min()), left_max=int(s.left_hi.max()),
                          right_breakpoint=int(s.right_mid.median()), right_min=int(s.right_lo.min()), right_max=int(s.right_hi.max()),
-                         inversion_length=int(s.right_mid.median() - s.left_mid.median()), n_calls=len(ix),
+                         inversion_length=int(s.right_mid.median() - s.left_mid.median()), n_calls=len(ix), confidence=conf, _rank=best,
                          sources=';'.join(sorted(set(s.assembly + ':' + s.method)))))
-    return pd.DataFrame(rows).sort_values('n_calls', ascending=False).reset_index(drop=True)
+    out = pd.DataFrame(rows).sort_values(['_rank', 'n_calls', 'inversion_length'], ascending=[True, False, False]).drop(columns='_rank').reset_index(drop=True)
+    return out
 
 
 # ------------------------------------------------------------------ liftover through the PAF cigar
@@ -204,12 +251,13 @@ def lift_point(df, qname, qpos):
 
 # ------------------------------------------------------------------ polarity and interval liftover
 def strand_polarity(reference_is_standard):
-    """What a reverse-strand contig means. reference_is_standard: True / False / None (unknown)."""
+    """What the inversion means. The strand of the inverted segment is NOT meaningful (a contig can be reverse-complemented as a whole); what is meaningful is that the assembly
+    differs from the reference between the breakpoints. reference_is_standard: True / False / None (unknown)."""
     if reference_is_standard is True:
-        return "reference = standard orientation; the reverse-strand contig/haplotig carries the INVERTED (derived) orientation"
+        return "reference = standard orientation: the assembly's orientation between the breakpoints is the INVERTED (derived) state"
     if reference_is_standard is False:
-        return "reference carries the INVERTED orientation; the reverse-strand contig/haplotig carries the standard orientation"
-    return "orientation of the reference at this inversion is not established; only the strand relative to the reference is reported"
+        return "reference carries the INVERTED orientation: the assembly's orientation between the breakpoints is the standard state"
+    return "orientation of the reference at this inversion is not established: the assembly differs from the reference between the breakpoints"
 
 
 def lift_interval(df, qname, start, end, step=25_000, max_scan=3_000_000):
