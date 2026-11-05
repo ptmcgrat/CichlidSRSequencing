@@ -1,0 +1,14 @@
+# Region slices of every sample's final BAM, in Mzebra_GT3_NCBI (GCF_041146795.1) coordinates. Tab separated: name, chrom, start, end, note. 1-based, inclusive.
+# Edit freely: slices are cut from <sample>.all.bam after duplicate marking and uploaded with the sample.
+#
+# Chromosome 10 (NC_135176.1, 34,949,860 bp), the XY sex chromosome of the deep benthics: the WHOLE chromosome, for genotyping the entire sex chromosome in other species.
+# About 3.6% of the genome, so roughly 3.6% of each sample's all.bam in size.
+LG10	NC_135176.1	1	34949860	chromosome 10 (whole): sex chromosome, inversion 11.77-29.89 Mb
+#
+# Not used for now (breakpoint windows, 500 kb around each YH breakpoint; uncomment to cut them as well):
+#LG2_bp_left	NC_135168.1	19550000	20050000	LG2 inversion, left breakpoint (19,800,671)
+#LG2_bp_right	NC_135168.1	43300000	43800000	LG2 inversion, right breakpoint (43,549,813)
+#LG10_bp_left	NC_135176.1	11520000	12020000	LG10 inversion, left breakpoint (11,774,878)
+#LG10_bp_right	NC_135176.1	29640000	30140000	LG10 inversion, right breakpoint (29,891,917)
+#LG13_bp_left	NC_135179.1	2160000	2660000	LG13 inversion, left breakpoint (2,405,431)
+#LG13_bp_right	NC_135179.1	22850000	23350000	LG13 inversion, right breakpoint (23,099,416)
