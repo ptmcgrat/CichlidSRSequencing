@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# ./tools/cichlid <package> <command> ...   e.g.  ./tools/cichlid landmarks centromeres arrays     ./tools/cichlid download_reads run --manifest Blumer --dry-run
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$here/tools/env.sh"
+exec python3 -m "$@"

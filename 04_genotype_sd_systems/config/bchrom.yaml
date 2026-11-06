@@ -1,0 +1,92 @@
+# B chromosome blocks of Lake Malawi cichlids in the coordinates of the project reference (Clark, Conte & Kocher 2018, Genes 9:610, replicated on Mzebra_GT3_NCBI).
+# python -m yhsd.cli bchrom prepare | call | all | status | clean | compare            (see the README)
+#
+# DATA (public Illumina reads; downloaded from ENA, md5-verified, deleted once the depth track exists):
+#   PRJNA552724  12 B+ female individuals (the carriers of Clark's Table 1; the PacBio fish is not in this project)
+#   PRJNA808791  the pooled-sequencing dataset of Behrens et al. 2025 (population pools by sex and colour morph); the male pools of Clark's Table 1 and his two B-free female controls are among them. Identification: the base counts of five male
+#                pools equal Clark's Table 1 depths x 1.0099 (spread 0.04 %); the other four runs match the base count predicted from their Table 1 depth.
+# Each carrier is compared with the male pool of its own population (Clark's pairing; M. lombardoi has no male pool and uses M. zebra Boadzulu males, as in the paper).
+
+bin_size: 50                   # bp. Clark used single bases; 50 bp bins keep every block of his size range (median 0.9 kb) and make the tracks 50x smaller. 1 reproduces him exactly (50x the time and memory).
+scale_by: median               # genome-wide depth used for scaling: median of the non-zero bins on the placed chromosomes (robust to collapsed repeats) | mean (as in the paper)
+scale_min_chrom_bp: 5000000    # sequences at least this long are "chromosomes" for the genome-wide statistics
+
+thresholds:                    # Clark 2018, Methods 2
+  scr_min: 3.0                 # scaled coverage ratio; >= 3 means >= 4 B-located copies (an A-chromosome duplication gives 2)
+  p_max: 0.001                 # one-sided binomial test, expected share from the two genome-wide depths
+  merge_bp: 300                # passing positions closer than this are merged
+  min_block_bp: 500            # blocks of this length or shorter are dropped
+  min_fraction_passing: 0.10   # blocks in which this fraction of the positions or less pass are dropped
+  min_baseline_scaled: 0.2     # NOT in the paper: SCR is not computed where the baseline's scaled coverage is below this (no reads: no ratio)
+
+core:
+  min_individuals: 11          # a core position is covered by the blocks of at least this many of the 12 carriers (paper: 12 of 13, with the PacBio fish)
+  min_len_bp: 100              # NOT in the paper: core pieces shorter than this are dropped (two bins)
+  tier_a_min_baseline: 0.5     # core blocks where the male pools' median scaled coverage is at least this are tier A (the baseline is normal, so a high ratio is a high numerator). Below it (tier B)
+                               # the ratio can come from a low denominator: poorly mapped A sequence. In Clark's own core blocks 14-21 % have a male baseline < 0.5 (computed from his BED files);
+                               # there his carriers read ~2.5x while the SCR is ~10. Tier A is the set to use for a genotype; tier B is kept and reported separately.
+  exclude_blocks_in_controls: false   # true: also drop core pieces that overlap a block called in a B-free control female (A-genome copy-number variation / mismapping)
+
+qc:
+  depth_ratio_range: [0.5, 1.15]      # observed mean depth / (bases / genome length); outside this the run is flagged (wrong run, failed mapping, or a very high duplicate rate)
+  max_zero_fraction: 0.2              # flag a run if more of the placed-chromosome bins than this have no coverage
+
+download:
+  source: auto                 # ena | sra | auto. sra = NCBI's copy on AWS (aria2c, vdb-validate, fasterq-dump; module 02): ~100 MB/s on a good server; ENA is ~0.3 MB/s from most networks.
+                               # Every SRA run is checked against ENA (read count; first reads, sequence and quality). auto = sra first, ena as the fallback for a run sra cannot deliver.
+  sra_connections: 8           # parallel connections of one SRA download
+  sra_fq_threads: 8            # fasterq-dump threads
+  scheme: https                # ENA serves its ftp paths over https too
+  attempts: 4
+  backoff_s: 30
+
+resources:                     # defaults; override on the command line (--runs-in-flight, --threads)
+  runs_in_flight: 2
+  align_threads: 16            # minimap2 threads per run
+  mosdepth_threads: 4
+  stf_heap_gb: 4
+  mba_heap_gb: 8
+  markdup_heap_gb: 16
+  fastqtosam_heap_gb: 8
+  disk_factor: 5               # peak disk of a run = this x the size of its FASTQ files (FASTQ + uBAM + sorted BAM + duplicate-marked BAM + scratch)
+  min_free_gb: 150             # never let the free space of the work disk drop below this
+
+slices:                        # small BAM slices cut from every run's final BAM BEFORE it is deleted. The 21 runs are Behrens et al. 2025's pools (Table 1 there): BB males, BB females and OB (WZ)
+  enabled: true                # females of known composition (~20 genotyped fish each), so the LG5 inversion (the OB / ZW locus) has a known frequency in them: 0 in the BB pools, ~0.5 of the
+  upload: true                 # chromosomes in the OB female pools. Colour is NOT a proxy for the inversion (two M. callainos populations are OB for pigment but have no inversion). The breakpoint windows are a
+  regions:                     # few tens of MB per run and cannot be recreated without downloading and aligning the pool again; `upload: true` copies them into the bchrom/prepare run (Dropbox).
+    - {name: LG5_breakpoint_left,  lg: LG5, start: 19400000, end: 19910000}    # +-250 kb around the LG5 breakpoints called from LatrZW + MezeOBm (19,657,805 and 26,726,680; GT3 coordinates, run 20261105)
+    - {name: LG5_breakpoint_right, lg: LG5, start: 26470000, end: 26980000}    # to move or add regions (the other inversions; the gsdf region) edit this list BEFORE `prepare`
+
+work_dir: null                 # default <project>/<genome>/tmp/bchrom/ ; holds the per-run scratch (deleted as it goes) and the depth tracks (~50 MB per run, deleted by `bchrom clean`)
+
+# the two B-free control females (Clark's XX and WZ pools of the Maison Reef population) are not carriers: they measure the false-positive rate and the specificity of the core set
+runs:
+  # ---- carriers: PRJNA552724 (bases_gb = ENA base_count; published_* = Clark 2018 Table 3, for comparison with what is found here)
+  - {id: SRR9672201, role: carrier, label: M_mbenji_2012_3997,       baseline: SRR18083735, bases_gb: 14.72, published_A_mb: 5.59,  published_B_mb: 41.30}
+  - {id: SRR9672202, role: carrier, label: M_zeb_boadzulu_2005_0976, baseline: SRR18083689, bases_gb: 15.39, published_A_mb: 7.49,  published_B_mb: 59.48}
+  - {id: SRR9672203, role: carrier, label: M_lombardoi_2014_1021,    baseline: SRR18083689, bases_gb: 17.29, published_A_mb: 10.73, published_B_mb: 62.58}
+  - {id: SRR9672204, role: carrier, label: M_lombardoi_2014_1108,    baseline: SRR18083689, bases_gb: 11.87, published_A_mb: 11.09, published_B_mb: 58.48}
+  - {id: SRR9672205, role: carrier, label: M_greshakei_2012_3493,    baseline: SRR18083723, bases_gb: 14.74, published_A_mb: 6.14,  published_B_mb: 58.20}
+  - {id: SRR9672206, role: carrier, label: M_lombardoi_2014_1018,    baseline: SRR18083689, bases_gb: 16.37, published_A_mb: 14.06, published_B_mb: 74.53}
+  - {id: SRR9672207, role: carrier, label: L_trewavasae_2005_1306,   baseline: SRR18083714, bases_gb: 15.17, published_A_mb: 5.48,  published_B_mb: 49.44}
+  - {id: SRR9672208, role: carrier, label: M_auratus_2008_1601,      baseline: SRR18083711, bases_gb: 14.68, published_A_mb: 3.51,  published_B_mb: 23.19}
+  - {id: SRR9672209, role: carrier, label: M_zeb_boadzulu_2005_0983, baseline: SRR18083689, bases_gb: 14.93, published_A_mb: 6.66,  published_B_mb: 51.06}
+  - {id: SRR9672210, role: carrier, label: M_zeb_boadzulu_2005_0986, baseline: SRR18083689, bases_gb: 12.61, published_A_mb: 7.37,  published_B_mb: 49.55}
+  - {id: SRR9672211, role: carrier, label: M_zebra_NkhBay_2012_5340, baseline: SRR18083731, bases_gb: 13.41, published_A_mb: 6.92,  published_B_mb: 48.61}
+  - {id: SRR9672212, role: carrier, label: M_zebra_NkhBay_2012_5347, baseline: SRR18083731, bases_gb: 16.36, published_A_mb: 10.19, published_B_mb: 99.69}
+  # ---- B-free male pools (PRJNA808791): the baselines
+  - {id: SRR18083689, role: baseline, label: Mzebra_Boadzulu_Males (pool of 20),       bases_gb: 24.81}
+  - {id: SRR18083731, role: baseline, label: Mzebra_NkhataBay_BBMales (pool of 20),    bases_gb: 34.73}
+  - {id: SRR18083723, role: baseline, label: Mgreshakei_Males (pool of 20),            bases_gb: 24.75}
+  - {id: SRR18083735, role: baseline, label: Mzebra_Mbenji_Males (pool of 20),         bases_gb: 30.00}
+  - {id: SRR18083711, role: baseline, label: Mauratus_Thumbi_Males (pool of 10),       bases_gb: 13.31}
+  - {id: SRR18083714, role: baseline, label: Ltrewavasae_Thumbi_Males (pool of 12),    bases_gb: 12.78}
+  - {id: SRR18083719, role: baseline, label: Ltrewavasae_Maison_BBMales (pool of 13),  bases_gb: 37.01}
+  # ---- B-free control females (PRJNA808791), against the Maison Reef male pool; Clark: XX 38.62x, WZ 36.63x
+  - {id: SRR18083718, role: control, label: Ltrewavasae_Maison_BBFemales (XX),        baseline: SRR18083719, bases_gb: 39.00, published_A_mb: 1.52, published_B_mb: 2.15}
+  - {id: SRR18083717, role: control, label: Ltrewavasae_Maison_OBFemales (WZ),        baseline: SRR18083719, bases_gb: 36.99, published_A_mb: 0.28, published_B_mb: 0.39}
+
+clark:                         # for `bchrom compare`
+  assembly_key: Mzebra_UMD2a   # registered in config/genomes.yaml; `genomes fetch --only Mzebra_UMD2a`
+  published_core_a_space_mb: 1.37

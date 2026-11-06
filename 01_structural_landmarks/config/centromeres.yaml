@@ -1,0 +1,26 @@
+# Centromere positions from satellite-repeat density (plus assembly gaps), per genome. Cichlid centromeres are often poorly assembled, so every call
+# carries a confidence class and the evidence behind it; treat 'low'/'none' as 'not located'.
+# Run:  python -m yhsd.cli centromeres scan
+window: 50000
+smooth: 1000000                   # smoothing of the density profile (bp)
+min_chrom_length: 5000000         # only chromosome-scale sequences are scanned
+classes: [Satellite]              # repeat classes (prefix match, case-insensitive) counted as centromeric satellite evidence; add 'Simple_repeat' to widen
+confidence:
+  # ratio = peak / chromosome median; dominance = peak / strongest competing peak elsewhere; min_peak = smoothed satellite fraction at the peak
+  high:   {min_ratio: 5.0, min_dominance: 2.0, min_peak: 0.10}
+  medium: {min_ratio: 3.0, min_dominance: 1.5, min_peak: 0.05}
+genomes:
+  # annotation: 'registered' = the annotation registered next to the genome (`genomes annotate`), or a path to a RepeatMasker .out / GFF3 / UCSC rmsk / BED of tandem arrays.
+  Mzebra_GT3_NCBI: {annotation: registered}
+  YH:              {annotation: registered}
+published:                         # centromere annotation of a published near-complete assembly, lifted to the reference through a minimap2 alignment: python -m yhsd.cli centromeres lift --table <xlsx>
+  sheet: Table3 Centromere annotation        # sheet of 10577_2026_9819_MOESM2_ESM.xlsx
+  genome: Maylandia_zebra                    # value of the `genome` column in that sheet
+  assembly: Mzebra_fMayZeb221                # registry key of the published assembly (config/genomes.yaml)
+  window: 3000000                            # how far from a centromere interval the alignment is searched for alignable flanks
+  agree_distance: 1000000                    # a satellite-scan call within this distance of the lifted interval counts as agreeing
+arrays:                            # `centromeres arrays`: the centromere = the largest array of ONE satellite family that lies > min_end_distance from both chromosome ends
+  family: rnd-4_family-47          # the satellite family that tops every centromere interval in the GT3a RepeatMasker run (cichlid_merged_lib.fa, class Satellite)
+  max_gap: 50000                   # features of the family closer than this belong to the same array
+  min_end_distance: 500000         # arrays closer than this to either chromosome end are terminal/subterminal and are never chosen
+  min_array: 100000                # smaller arrays are ignored

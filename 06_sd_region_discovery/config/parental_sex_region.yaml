@@ -1,0 +1,23 @@
+# Analysis: which genomic region controls sex in the parental species (YH and MC)? Uses lab-reared broods (12 M / 12 F each).
+species:
+  YH:
+    callset: yh_broods                 # defined in config/callsets.yaml
+    broods: [YH-22-09-06, YH-23-02-27] # two unrelated families
+    expected_lg: LG10                  # chr10 inversion (X) / Y
+  MC:
+    callset: mc_broods
+    broods: [MC-24-11-23-1, MC-24-11-26-1]   # half-sibs (shared father STR_MC_M_001)
+    expected_lg: LG7                   # gsdf duplication in MC males
+window: 100000
+min_dp_offspring: 3                    # offspring are 3-13x; windows aggregate sites, so keep this low
+min_dp_parent: 6
+min_gq: 20
+min_informative_offspring: 12          # per site, per family
+depth_window: 100000
+region_calling:                        # a window counts as a signal when ...
+  fst_z: 3.0                           # robust z of male-female Fst
+  het_z: 3.0                           # robust z of |male - female heterozygosity|
+  inheritance_frac_perfect: 0.8        # fraction of informative sites with concordance >= 0.95 (in >= 1 family)
+  depth_p: 1.0e-3                      # male/female depth ratio
+  min_signals: 2
+  merge_gap_windows: 2

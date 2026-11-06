@@ -1,0 +1,92 @@
+# Registry of every genome used in this project. Folder: <CichlidSequencingData>/YH_SD_Paper/genomes/<key>/  (also on Dropbox, the permanent record).
+# source: filemanager = already managed by the lab FileManager (linked, not copied); ncbi = downloaded from NCBI and md5-verified; local = a FASTA you supply.
+# Download:   python -m yhsd.cli genomes fetch            (all)   |   python -m yhsd.cli genomes fetch --only LatrZW
+# An entry with source: local and path: null is skipped until you fill in the path.
+genomes:
+  Mzebra_GT3_NCBI:
+    source: filemanager
+    genome_version: Mzebra_GT3_NCBI
+    filemanager_file: GCF_041146795.1_Mzebra_GT3a_genomic.fna
+    accession: GCF_041146795.1
+    role: reference
+    note: M. zebra GT3 reference used for all read alignments and for all coordinates in this project
+    known_misassemblies:         # regions the reference is known to have wrong; the breakpoint caller ignores alignments there and the centromere scan masks them
+      - {lg: LG2, start: 4000000, end: 14400000, note: "a large chunk of repetitive DNA was placed on the left arm (confirmed by the PI; ~10.4 Mb; removing it moves the LG2 centromere to the published position)"}
+    annotation:                  # RepeatMasker run on Mzebra_GT3a.fasta; copied into genomes/<key>/annotation/ by `genomes annotate`
+      source_dir: /Data/mcgrath-lab/Jun/RepeatMasker/RepeatMasker/GT3a_repeatmasker
+      files: [Mzebra_GT3a.fasta.out, Mzebra_GT3a.fasta.out.gff, Mzebra_GT3a.fasta.tbl, Mzebra_GT3a.fasta.cat.gz, Mzebra_GT3a.fasta.masked]
+      main: Mzebra_GT3a.fasta.out
+      lengths_from: Mzebra_GT3a.fasta.masked   # sequence lengths; maps scaffold01.. to NW_.. by unique length (LG1.. map to NC_.. via the LG labels)
+  Mconophoros_GT1:
+    source: filemanager
+    genome_version: Mconophoros_GT1
+    filemanager_file: anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta
+    role: legacy_reference
+    note: Mchenga conophoros assembly used for the first BC genotyping (OutputGenotypes.csv)
+  YH:
+    source: filemanager
+    genome_version: AspChitande_GT1_NCBI        # <CichlidSequencingData>/Genomes/AspChitande_GT1_NCBI (on Dropbox; md5sum.txt there is checked)
+    filemanager_file: GCF_057382095.1_A_spYH_male_GT1.1_genomic.fna
+    accession: GCF_057382095.1
+    species: Aulonocara sp. Nhkata Yellow Head, male (GT1.1)
+    role: query
+    note: inverted HOMOZYGOUS on chr2, chr10 (X haplotype) and chr13; used to place those breakpoints in the reference
+    annotation: null           # RepeatMasker run by the student; when finished fill: {source_dir, files, main, lengths_from, compare_to: Mzebra_GT3_NCBI} and run `genomes annotate --only YH`
+  YH_X_hifiasm:
+    source: filemanager
+    master_path: 2026_Nikesh/Chromosome10s/YH_X_reversed.fasta
+    md5: 9c2496b65e70a36ff809051e4ffcf6d2
+    species: Aulonocara sp. Nhkata Yellow Head, hifiasm hap1 chr10 contig h1tg000012l (28,074,903 bp), X haplotype, reverse-complemented
+    role: haplotype
+    note: for the separate X-versus-Y QTN analysis (not used for breakpoints)
+  YH_Y_hifiasm:
+    source: filemanager
+    master_path: 2026_Nikesh/Chromosome10s/YH_Y.fasta
+    md5: 4a56c2f74982df111ad3fca44b5376cf
+    species: Aulonocara sp. Nhkata Yellow Head, hifiasm hap2 chr10 contig h2tg000014l (27,689,011 bp), Y haplotype (covers the inversion, not T2T)
+    role: haplotype
+    note: for the separate X-versus-Y QTN analysis (not used for breakpoints)
+  LatrZW:
+    source: ncbi
+    assembly_name: ASM4766397v1
+    accession: null            # resolved from the assembly name via NCBI E-utilities; set it here if you know it
+    species: Labeotropheus trewavasae (OB female, ZW; heterozygous for the LG5 inversion)
+    role: query
+    note: Behrens et al. 2025, Table 2; the inverted (W / OB) haplotype is the more complete LG5 haplotype in this assembly
+  MezeOBm:
+    source: ncbi
+    assembly_name: ASM4771593v1
+    accession: null
+    species: Metriaclima zebra (OB male; heterozygous for the LG5 inversion)
+    role: query
+    note: Behrens et al. 2025, Table 2; the LG5 inversion lies in a single haplotig, the rest of LG5 is poorly represented
+  Mzebra_fMayZeb221:
+    source: ncbi
+    accession: GCA_988222425.1
+    species: Maylandia zebra, male (fMayZeb221), near-complete assembly from the Chromosome Research 2026 centromere / rDNA paper
+    role: published_centromeres
+    note: Table 3 of that paper gives its centromere intervals and centroid cores; lifted to the reference by `centromeres lift`
+  Mzebra_UMD2a:
+    source: ncbi
+    accession: GCA_000238955.4
+    species: Maylandia zebra "Mazinzi Reef" male, PacBio assembly (M_zebra_UMD2a); the assembly Clark et al. 2018 aligned to
+    role: published_blocks
+    note: coordinates of the published B blocks (Clark, Conte & Kocher 2018, Appendix A); lifted to the reference by `bchrom compare` to check the blocks rediscovered on the reference
+  fAulStu2:
+    source: ncbi
+    accession: GCA_988222655.1
+    species: Aulonocara stuartgranti, male (fAulStu2)
+    role: query
+    note: shallow rocky Aulonocara; inverted on chr9 and chr11 (double), NOT on chr2/10/13 (Blumer et al. 2025; Kumar et al. 2025). Independent check of LG9 and LG11.
+  fDipLim2:
+    source: ncbi
+    accession: GCA_988222685.1
+    species: Diplotaxodon limnothrissa, male (fDipLim2)
+    role: query
+    note: fixed inverted on chr9, chr11 (and chr20); non-inverted on chr2/10/13. Independent check of LG9 and LG11.
+  fLetChi2:
+    source: ncbi
+    accession: GCA_988222475.1
+    species: Lethrinops sp. 'Chilingali', male (fLetChi2)
+    role: query
+    note: Shallow Lethrinops group (all inverted on chr9 and chr11 in Blumer Table S7). Independent check of LG9 and LG11.

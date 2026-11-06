@@ -1,0 +1,23 @@
+# Modules 02 and 04 (downloads, alignment of the B-chromosome reads). On Linux x86_64 this solves in one environment (checked on D07 and mzebra).
+# On macOS arm64 `aria2` and `sra-tools` conflict (libxml2): create `aria2` in a second environment and link its aria2c into ~/bin, or run the downloads on a Linux server.
+name: enadl
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.11
+  - pandas
+  - openpyxl
+  - pyyaml
+  - numpy
+  - scipy
+  - gatk4
+  - samtools
+  - minimap2
+  - mosdepth
+  - curl
+  - sra-tools
+  - aria2
+  - pip
+  - pip:
+      - gspread
+      - gspread-dataframe
+      - google-auth

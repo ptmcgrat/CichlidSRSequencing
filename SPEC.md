@@ -1,6 +1,6 @@
 # CichlidSRSequencing: specification
 
-Status: draft v1 (2026-11-06). Owner: McGrath lab. This file lives at the repository root and is the source of truth for what each folder is for, what it consumes, what it produces, and when it is done.
+Status: draft v2 (2026-11-06): the layout of section 3 now exists (see MIGRATE.md); module 04 downloads the B-chromosome reads through the SRA source. Owner: McGrath lab. This file lives at the repository root and is the source of truth for what each folder is for, what it consumes, what it produces, and when it is done.
 Where a statement is not yet verified it is marked **(unverified)**; where it is a decision still to be made it is marked **(open)**.
 
 ---
@@ -9,7 +9,7 @@ Where a statement is not yet verified it is marked **(unverified)**; where it is
 
 Take public and in-house short-read data for Lake Malawi cichlids from a read archive to a set of results about sex determination (SD): where the SD loci are, what they are made of (inversions, transposon insertions, a gene duplication, a B chromosome), how they behave in backcross families, and which variants are candidate causal changes. Everything that goes into the paper must be reproducible from versioned code and recorded inputs.
 
-The work is ten modules. Each is one folder. They communicate only through **data contracts** (section 4), never by importing each other's internals, so any module can be re-run, replaced or tested alone.
+The work is ten modules. Each is one folder. They communicate only through **data contracts** (section 4), never by importing each other's internals, so any module can be re-run, replaced or tested alone. A module may import the package of an upstream module it declares a dependency on (04 uses `download_reads.sources`; 06 and 07 use `variant_calling.callset`; all use `cichlid_common`), never its internals.
 
 ## 2. Principles that apply to every module
 
@@ -183,7 +183,7 @@ Command-line convention: `python -m <package> <command> [options]`; every comman
 
 **Current state.**
 - *gsdf duplication* (`panel` and `gsdf`, tests with fakes): raw 5 kb bins and junction reads stored, copy number called with the calibration of the MC pedigree (0.530 and 0.268), flags for low depth, non-integer, range, junction disagreement; validation against the existing 910 `gsdf number` values and sex-by-species tables. **(unverified: real BAMs; the calibrated range of 2 to 4 copies is my reading.)**
-- *B chromosome* (`bchrom`): downloads Clark et al.'s public reads, aligns them with the lab recipe, finds blocks and a core set in reference coordinates, evaluates each carrier leave-one-out, separates tier A (normal male-pool coverage) from tier B (low baseline). Not yet run on real data. The per-sample genotype step (a score over the core blocks, a threshold from the data) is not written.
+- *B chromosome* (`bchrom`): downloads Clark et al.'s public reads (through the SRA source of 02 with ENA as the fallback: `download.source` in `config/bchrom.yaml`; all 21 runs exist on the AWS copy, 280 GB), aligns them with the lab recipe, finds blocks and a core set in reference coordinates, evaluates each carrier leave-one-out, separates tier A (normal male-pool coverage) from tier B (low baseline). Not yet run on real data. The per-sample genotype step (a score over the core blocks, a threshold from the data) is not written.
 - *Inversions*: Blumer et al. (Table S7) give chr2, 9, 10, 11, 13 for 1,101 samples; all 440 mbuna among them are 0/0 on all five. These are **validation labels**, not an input. The LG5 (orange blotch / ZW) inversion is polymorphic in the mbuna and has no labels; PRJNA808791 (Behrens et al.) has BB and OB pools of known composition; `bchrom prepare` keeps slices around both LG5 breakpoints for them. A breakpoint-read genotyper is designed but not written.
 - *Transposon insertions*: previously produced by a separate tool (`sv-genotype`, columns `TE1`, `TE2`); to be re-implemented here from user-provided definitions. **(open: the definitions, the evidence to use, and which samples.)**
 
@@ -304,7 +304,7 @@ Each module has an `env.yml`. A known conflict: `aria2` and `sra-tools` cannot b
 
 Critical path to the mbuna run: 02 complete, 03 validated, the 04 panel defined.
 
-## 9. Migration from today's layout
+## 9. Migration from the old layout (done on branch `reorg_spec`; see MIGRATE.md)
 
 | Today | Becomes |
 |---|---|

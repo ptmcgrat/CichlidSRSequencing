@@ -1,0 +1,4 @@
+CichlidSRSequencing (organised as SPEC.md)
+version  : v35-reorg1
+built    : 20261106-1700
+changes  : the code of YH_SD_Paper v34 and the download tool v9d moved into the numbered module folders of SPEC.md (01 landmarks, 02 download_reads, 04 sd_genotypes, 05 variant_calling, 06 sd_regions, 07 bc_analysis, 10 paper_figures, shared library in common/); one cli.py per module; tests per module (python tools/run_tests.py). Module 03 (alignment) is not moved yet: see MIGRATE.md.

@@ -1,4 +1,11 @@
 __pycache__/
 *.pyc
-.DS_Store
+*.bam
+*.bai
 *.partial
+*.part
+*.sra
+*.fastq
+*.fastq.gz
+.DS_Store
+*_test/

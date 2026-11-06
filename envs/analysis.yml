@@ -1,0 +1,21 @@
+# Modules 01, 05, 06, 07, 10 (statistics, figures; no download tools).
+name: cichlid_analysis
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.11
+  - pandas
+  - numpy
+  - scipy
+  - pyyaml
+  - openpyxl
+  - matplotlib
+  - samtools
+  - bcftools
+  - bedtools
+  - minimap2
+  - mosdepth
+  - pip
+  - pip:
+      - gspread
+      - gspread-dataframe
+      - google-auth
