@@ -11,12 +11,12 @@ import calendar, json, os, random, time
 import pandas as pd
 
 RUNINFO_COLUMNS = ['Run', 'AvgSpotLen', 'Bases', 'BioProject', 'BioSample', 'Experiment', 'Instrument', 'Library Name', 'LibraryLayout', 'LibrarySelection', 'LibrarySource', 'Organism', 'Platform', 'SRA Study']
-TRACK_COLUMNS = ['DownloadStatus', 'InDatabase', 'DownloadedOn', 'Source', 'Machine', 'ClaimedBy', 'ClaimedAt', 'UpdatedAt', 'Attempts', 'FailureKind', 'LastError', 'Verified', 'QualityCheck', 'ReadsSource',
+TRACK_COLUMNS = ['DownloadStatus', 'InDatabase', 'DownloadedOn', 'Source', 'Machine', 'ClaimedBy', 'ClaimedAt', 'UpdatedAt', 'Attempts', 'FailureKind', 'LastError', 'Verified', 'QualityCheck', 'ReadCountCheck', 'ReadsSource',
                  'ReadsInUBAM', 'UBamBytes', 'UBamPath', 'DownloadSeconds', 'MBPerSec', 'PipelineVersion', 'Notes', 'Skip']
 STATUSES = ['pending', 'claimed', 'downloading', 'converting', 'uploaded', 'in_database', 'failed', 'skipped']
 ACTIVE = ('claimed', 'downloading', 'converting')
 DONE = ('uploaded', 'in_database', 'skipped')
-RETRYABLE = ('', 'transient', 'throttle')
+RETRYABLE = ('', 'transient', 'throttle', 'source_unavailable')           # every source was tried and none delivered: worth another try after a fix or when a source changes
 
 
 def col_letters(n):

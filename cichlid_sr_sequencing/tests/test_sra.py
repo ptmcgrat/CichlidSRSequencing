@@ -43,6 +43,21 @@ class TestFacts(unittest.TestCase):
         self.assertEqual((f[0], '--split-3' in f, f[f.index('-e') + 1], f[-1]), ('fasterq-dump', True, '6', '/d/ERR1.sra'))
 
 
+class TestCountCheck(unittest.TestCase):
+    def test_both_meanings_of_ena_read_count_are_accepted_with_the_two_real_runs(self):
+        ok, note, ratio = SF.count_check(54_756_109, 109_512_218, True)               # ERR13389718: ENA counts READS (2 x spots)
+        self.assertEqual((ok, note), (True, 'exact'))
+        ok, note, ratio = SF.count_check(40_650_256, 40_613_306, True)                # ERR14734229: ENA counts about PAIRS, SRA has 36,950 more spots
+        self.assertTrue(ok); self.assertIn('+36,950', note); self.assertIn('+0.09%', note)
+
+    def test_missing_reads_or_far_too_many_are_rejected(self):
+        ok, note, _ = SF.count_check(40_000_000, 40_613_306, True)
+        self.assertFalse(ok); self.assertIn('fewer', note)
+        ok, note, _ = SF.count_check(60_000_000, 54_756_109 * 2, True); self.assertFalse(ok)       # 9.6 % more than the half reading
+        self.assertTrue(SF.count_check(40_613_306, 40_613_306, False)[0]); self.assertFalse(SF.count_check(20_306_653, 40_613_306, False)[0])      # single-end: only one reading
+        self.assertFalse(SF.count_check(40_613_306 * 0.9985, 40_613_306, True)[0])                  # 0.15 % fewer is already too few
+
+
 class TestQualityCheck(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.mkdtemp() + '/'; self.mine = fastq(reads(300), lambda i, n: f'@ERR13389718.{i + 1} {i + 1} length=125'); open(self.d + 'm.fastq', 'w').write(self.mine)
@@ -96,9 +111,9 @@ class TestDownloadAndFetch(unittest.TestCase):
             self.assertEqual(cm.exception.kind, kind, str(kw))
 
     def spec(self, **kw):
-        return dict(run='ERR13389718', reads_expected=54756109, ena_url_r1='https://ftp.sra.ebi.ac.uk/x_1.fastq.gz', instrument='Illumina HiSeq 2500', fq_threads=4) | kw
+        return dict(run='ERR13389718', ena_read_count=109512218, paired=True, ena_url_r1='https://ftp.sra.ebi.ac.uk/x_1.fastq.gz', instrument='Illumina HiSeq 2500', fq_threads=4) | kw
 
-    def run_fake(self, validate_rc=0, make_pair=True, spots='54,756,109'):
+    def run_fake(self, validate_rc=0, make_pair=True, spots='54,756,109', unpaired=0):
         def run(cmd, capture_output=True, text=True):
             self.calls.append(cmd[0])
             if cmd[0] == 'vdb-validate':
@@ -107,6 +122,7 @@ class TestDownloadAndFetch(unittest.TestCase):
                 out = cmd[cmd.index('-O') + 1]
                 if make_pair:
                     for k in (1, 2): open(f'{out}/ERR13389718_{k}.fastq', 'w').write(fastq(reads(5)))
+                    if unpaired: open(f'{out}/ERR13389718.fastq', 'w').write(fastq(reads(unpaired)))
                 else:
                     open(f'{out}/ERR13389718.fastq', 'w').write(fastq(reads(5)))
                 return types.SimpleNamespace(returncode=0, stdout='', stderr=f'spots read      : {spots}\nreads read      : 109,512,218\nreads written   : 109,512,218\n')
@@ -121,9 +137,14 @@ class TestDownloadAndFetch(unittest.TestCase):
         self.assertEqual((st['source'], st['quality_check'], st['reads_fastq']), ('SRA-aws', 'identical-to-ENA', 54756109))
         self.assertEqual(self.left(), ['ERR13389718_1.fastq', 'ERR13389718_2.fastq'])                  # the .sra file, its log and the scratch folder are gone
 
+    def test_the_second_real_run_passes_with_its_note(self):
+        paths, st = SF.fetch_sra(self.spec(run='ERR13389718', ena_read_count=40613306), self.d, run=self.run_fake(spots='40,650,256', unpaired=7), monitor=self.monitor(), qcheck=lambda *a: ('identical-to-ENA', ''))
+        self.assertIn('+36,950', st['count_check']); self.assertIn('7 unpaired spots', st['count_check']); self.assertEqual((st['reads_fastq'], st['unpaired_spots']), (40650256, 7))
+        self.assertEqual(self.left(), ['ERR13389718_1.fastq', 'ERR13389718_2.fastq'])             # the unpaired file is deleted with the rest
+
     def test_each_failure_is_classified_and_cleans_up(self):
         q = lambda *a: ('identical-to-ENA', '')
-        cases = [(dict(validate_rc=1), 'transient'), (dict(spots='109,512,218'), 'source_unavailable'), (dict(make_pair=False), 'permanent')]
+        cases = [(dict(validate_rc=1), 'transient'), (dict(spots='60,000,000'), 'source_unavailable'), (dict(make_pair=False), 'permanent')]
         for kw, kind in cases:
             with self.assertRaises(E.EnaError) as cm:
                 SF.fetch_sra(self.spec(), self.d, run=self.run_fake(**kw), monitor=self.monitor(), qcheck=q)
@@ -223,7 +244,7 @@ class TestOrchestratorSources(unittest.TestCase):
 
     def test_the_spec_carries_what_the_sra_route_checks_against(self):
         spec = self.go(['--source', 'sra', '--fq-threads', '5', '--sra-connections', '6', '--sra-require-check'])[1][0]
-        self.assertEqual((spec['reads_expected'], spec['fq_threads'], spec['sra_connections'], spec['require_quality_check']), (100, 5, 6, True))   # read_count 200 = 100 pairs
+        self.assertEqual((spec['ena_read_count'], spec['paired'], spec['fq_threads'], spec['sra_connections'], spec['require_quality_check']), (200, True, 5, 6, True))      # ENA's raw count: its meaning is checked later
         self.assertTrue(spec['ena_url_r1'].startswith('https://ftp.sra.ebi.ac.uk/'))
 
     def test_missing_sra_tools_are_reported_before_anything_starts(self):

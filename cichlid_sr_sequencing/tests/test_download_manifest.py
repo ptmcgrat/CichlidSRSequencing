@@ -141,6 +141,8 @@ class TestClaims(unittest.TestCase):
         self.assertEqual(sorted(self.a.runs_to_download().Run), ['ERR002', 'ERR004'])                    # permanent failure and a fresh foreign claim are left out
         self.assertEqual(sorted(self.a.runs_to_download(retry_failed='all').Run), ['ERR001', 'ERR002', 'ERR004'])
         self.assertEqual(sorted(self.a.runs_to_download(retry_failed=False).Run), ['ERR004'])
+        setrow('ERR001', FailureKind='source_unavailable'); self.assertIn('ERR001', list(self.a.runs_to_download().Run))              # no source could deliver it: retried when asked again
+        setrow('ERR001', FailureKind='permanent')
         self.clock.sleep(7 * 3600); self.assertIn('ERR003', list(self.a.runs_to_download().Run))             # abandoned
         setrow('ERR004', Skip='TRUE'); self.assertNotIn('ERR004', list(self.a.runs_to_download().Run))
 

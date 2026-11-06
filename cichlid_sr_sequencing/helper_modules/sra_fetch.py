@@ -48,6 +48,21 @@ def parse_counts(text):
     return out
 
 
+def count_check(spots, read_count, paired, tol_fewer=0.001, tol_more=0.01):
+    """Is the number of spots in the .sra consistent with ENA's read_count? ENA's read_count does NOT have one meaning: for ERR13389718 it is the number of READS (109,512,218 = 2 x 54,756,109 spots), for
+    ERR14734229 it is about the number of PAIRS (40,613,306 against 40,650,256 spots). So both readings are tried (read_count, and read_count / 2 for paired runs) and the closer one is used.
+    Fewer spots than ENA (by more than 0.1 %) = reads missing: rejected. More (by up to 1 %) is accepted and reported (the SRA load can hold unpaired spots that ENA's pair files do not); more than 1 % is rejected.
+    Returns (ok, note, ratio)"""
+    cands = [read_count] + ([read_count / 2] if paired else [])
+    best = min(cands, key=lambda c: abs(spots - c))
+    ratio = spots / best if best else float('inf')
+    if ratio < 1 - tol_fewer:
+        return False, f'SRA has {spots:,} spots, fewer than ENA ({best:,.0f}): {(1 - ratio) * 100:.2f}% missing', ratio
+    if ratio > 1 + tol_more:
+        return False, f'SRA has {spots:,} spots, {(ratio - 1) * 100:.1f}% more than ENA ({best:,.0f})', ratio
+    return True, ('exact' if spots == best else f'SRA {spots - best:+,.0f} spots ({(ratio - 1) * 100:+.2f}%) vs ENA'), ratio
+
+
 def gunzip_partial(data):
     """Whatever can be decompressed of a TRUNCATED gzip stream (a range request of the first bytes of an ENA FASTQ)."""
     try:
@@ -124,7 +139,7 @@ def download_sra(run_id, dest_dir, connections=8, stall_s=120.0, timeout=None, m
 
 
 def fetch_sra(spec, dest_dir, run=subprocess.run, monitor=run_monitored, qcheck=quality_check, log=print):
-    """spec: run, reads_expected (ENA read_count), ena_url_r1, instrument, fq_threads, sra_connections, stall_s. Returns (paths, stats). Raises EnaError with a kind."""
+    """spec: run, ena_read_count, paired, ena_url_r1, instrument, fq_threads, sra_connections, stall_s. Returns (paths, stats). Raises EnaError with a kind."""
     rid = spec['run']
     sra_path, stats = download_sra(rid, dest_dir, spec.get('sra_connections', 8), spec.get('stall_s', 120.0), spec.get('ascp_timeout'), monitor)
     tmpdir = os.path.join(dest_dir, rid + '.fqtmp'); os.makedirs(tmpdir, exist_ok=True)
@@ -133,7 +148,7 @@ def fetch_sra(spec, dest_dir, run=subprocess.run, monitor=run_monitored, qcheck=
     def cleanup(keep_fastq=False):
         import shutil
         shutil.rmtree(tmpdir, ignore_errors=True)
-        for f in created[:2] + ([] if keep_fastq else created[2:]):
+        for f in created[:2] + ([created[4]] if keep_fastq else created[2:]):          # on success keep only the _1 / _2 pair; the unpaired file is never used
             try:
                 os.remove(f)
             except OSError:
@@ -150,15 +165,21 @@ def fetch_sra(spec, dest_dir, run=subprocess.run, monitor=run_monitored, qcheck=
         f1, f2 = os.path.join(dest_dir, f'{rid}_1.fastq'), os.path.join(dest_dir, f'{rid}_2.fastq')
         if not (os.path.exists(f1) and os.path.exists(f2)):
             raise EnaError(f'fasterq-dump wrote no _1/_2 pair for {rid} (single-end or technical reads only)', 'permanent')
-        exp = spec.get('reads_expected')
-        if exp and counts.get('spots') is not None and counts['spots'] != int(exp):
-            raise EnaError(f"read count differs: {counts['spots']} spots from SRA, {exp} reads on ENA", 'source_unavailable')
+        count_note = ''
+        if spec.get('ena_read_count') and counts.get('spots') is not None:
+            ok, count_note, _ = count_check(counts['spots'], int(spec['ena_read_count']), bool(spec.get('paired', True)))
+            if not ok:
+                raise EnaError(f'read count: {count_note}', 'source_unavailable')
+        unp = os.path.join(dest_dir, f'{rid}.fastq')                                # spots with only one read go to a third file, which the pipeline does not use
+        n_unp = (sum(1 for _ in open(unp, errors='replace')) // 4) if os.path.exists(unp) else 0
+        if n_unp:
+            count_note = (count_note + '; ' if count_note else '') + f'{n_unp:,} unpaired spots written to a separate file (not used)'
         verdict, detail = qcheck(f1, spec.get('ena_url_r1', ''), spec.get('instrument', ''))
         if verdict in ('MISMATCH', 'simplified-qualities-suspected'):
             raise EnaError(f'{verdict}: {detail} (SRA Lite?)', 'source_unavailable')
         if verdict.startswith('skipped') and spec.get('require_quality_check'):
             raise EnaError(f'quality check against ENA not possible ({detail}) and --sra-require-check is set', 'transient')
-        stats.update(quality_check=verdict, quality_detail=detail, reads_fastq=counts.get('spots', ''), convert_seconds=round(time.time() - t0, 1))
+        stats.update(quality_check=verdict, quality_detail=detail, count_check=count_note, unpaired_spots=n_unp, reads_fastq=counts.get('spots', ''), convert_seconds=round(time.time() - t0, 1))
         cleanup(keep_fastq=True)
         return [f1, f2], stats
     except BaseException:

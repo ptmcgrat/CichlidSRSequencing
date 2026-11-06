@@ -88,7 +88,7 @@ def build_records(args, fm, fetch=E.fetch_runs, log=print):
             cache[acc] = fetch(acc)
         return cache[acc]
     frames, wanted_samples = [], None
-    args.run_tab, args.run_attempts = {}, {}
+    args.run_tab, args.run_attempts, args.run_spotlen = {}, {}, {}
     sources = []
     for name in args.Run_Info_File:
         fm.downloadData(fm.localReadDownloadDir + name)
@@ -99,6 +99,8 @@ def build_records(args, fm, fetch=E.fetch_runs, log=print):
         args.run_tab.update({r: tab for r in todo_rows['Run']})
         args.run_attempts.update({r: int(a) if str(a).isdigit() else 0 for r, a in zip(todo_rows['Run'], todo_rows['Attempts'])})
     for name, ri in sources:
+        if 'AvgSpotLen' in ri.columns:
+            args.run_spotlen.update(dict(zip(ri['Run'], ri['AvgSpotLen'])))
         bad = [c for c in ('Run', 'BioSample') if c not in ri.columns]
         if bad:
             raise SystemExit(f'{name}: columns {bad} are required')
@@ -134,6 +136,8 @@ def build_records(args, fm, fetch=E.fetch_runs, log=print):
                 log(f'  {s}: not retrievable from ENA ({str(e)[-120:]})')
     frames = [f for f in frames if len(f)]
     out = pd.concat(frames, ignore_index=True).drop_duplicates('run_accession').reset_index(drop=True) if frames else pd.DataFrame(columns=E.RUN_FIELDS)
+    if len(out):
+        out['avg_spot_len'] = out['run_accession'].map(args.run_spotlen)
     return out, wanted_samples
 
 
@@ -163,7 +167,7 @@ def classify(records, reads_in_db, wanted_samples=None, retry_runs=None, on_clou
 def database_rows(fm, t):
     rec = t['rec']
     file_locations = f"{t['project']}/{t['run']}.unmapped_marked_adapters.bam"
-    read_data = {'SampleID': t['sample'], 'ProjectID': t['project'], 'RunID': t['run'], 'ReadLength': rec.get('avg_spot_len') or _spot_len(rec), 'TotalBases': rec.get('base_count'),
+    read_data = {'SampleID': t['sample'], 'ProjectID': t['project'], 'RunID': t['run'], 'ReadLength': _spot_len(rec), 'TotalBases': rec.get('base_count'),
                  'Instrument': rec.get('instrument_model'), 'LibraryID': t['library'], 'LibraryLayout': rec.get('library_layout'), 'LibrarySource': rec.get('library_source'),
                  'Platform': t['platform'], 'FileLocations': file_locations}
     try:
@@ -216,9 +220,11 @@ def add_pending(fm, path, log=print):
 
 
 def _spot_len(rec):
+    """ReadLength of the database row: the Run Info's AvgSpotLen when there is one (it is what the old script used). ENA's read_count means reads for some runs and pairs for others, so no length is guessed from it."""
+    v = rec.get('avg_spot_len') if hasattr(rec, 'get') else None
     try:
-        return int(round(float(rec['base_count']) / E.ena_spots(rec)))
-    except (TypeError, ValueError, ZeroDivisionError, KeyError):
+        return int(float(v)) if v not in (None, '') and v == v else ''
+    except (TypeError, ValueError):
         return ''
 
 
@@ -251,7 +257,8 @@ def manifest_events(manifests, now=time.time):
         elif name == 'fetched':
             d = st.get('download') or {}
             mf.update(run, Source=d.get('source') or 'ENA-' + str(d.get('method', '?')), DownloadSeconds=d.get('seconds'), MBPerSec=d.get('mb_per_s'), Verified=True,
-                      QualityCheck=d.get('quality_check', 'md5 of the ENA files' if str(d.get('source', 'ENA')).startswith('ENA') else ''), ReadsInUBAM=d.get('reads_fastq', ''))
+                      QualityCheck=d.get('quality_check', 'md5 of the ENA files' if str(d.get('source', 'ENA')).startswith('ENA') else ''), ReadCountCheck=d.get('count_check', ''),
+                      ReadsInUBAM=d.get('reads_fastq', ''))
         elif name == 'convert_start':
             mf.update(run, DownloadStatus='converting')
         elif name == 'done':
@@ -330,7 +337,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
                 if r.status in ('no_fastq', 'single_end', 'missing_mate', 'bad_listing', 'not_on_ena'):
                     mf.update(r.run, DownloadStatus='skipped', FailureKind='permanent', LastError=f'{r.status}: {r.note}'[:250])
                 if r.rec is not None and r.status == 'ok':
-                    mf.update(r.run, ReadsSource=E.ena_spots(r.rec))
+                    mf.update(r.run, ReadsSource=r.rec.get('read_count', ''))
             n = mf.reconcile(in_db, on_cloud); mf.flush(force=True)
             log(f'  manifest {tab}: {len(mine)} runs planned, {n} rows reconciled with the database / cloud')
     ss = sample_summary(plan); ss.to_csv(f'{fm.localTempDir}ena_plan_samples_{stamp}.tsv', sep='\t', index=False)
@@ -365,7 +372,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
         out = f"{fm.localReadsDir}{r.project}/{r.run}.unmapped_marked_adapters.bam"
         spec = dict(run=r.run, sample=r['sample'], library=r.rec['library_name'] or r.run, platform=r.platform, sel=r.sel, output_bam=out, temp_dir=fm.localTempDir,
                     ascp=ascp, key=key, ascp_rate=args.ascp_rate, one_session=not args.no_one_session, stall_s=args.stall_seconds,
-                    source=sources[0], reads_expected=E.ena_spots(r.rec), ena_url_r1=E.full_url(r.sel['r1']['url']),
+                    source=sources[0], ena_read_count=int(r.rec['read_count']) if str(r.rec.get('read_count', '')).isdigit() else None, paired=str(r.rec.get('library_layout', '')).upper() == 'PAIRED', ena_url_r1=E.full_url(r.sel['r1']['url']),
                     instrument=r.rec.get('instrument_model', ''), fq_threads=args.fq_threads, sra_connections=args.sra_connections, require_quality_check=args.sra_require_check)
         tasks.append(dict(run=r.run, sample=r['sample'], project=r.project, organism=r.organism, platform=r.platform, library=spec['library'], sel=r.sel, rec=r.rec, fastq_gb=r.fastq_gb,
                           output_bam=out, spec=spec))
