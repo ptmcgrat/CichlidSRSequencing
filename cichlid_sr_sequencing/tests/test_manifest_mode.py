@@ -89,6 +89,7 @@ class TestManifestMode(Harness):
         self.assertEqual((s.loc[r[4], 'DownloadStatus'], s.loc[r[4], 'FailureKind'], s.loc[r[4], 'ClaimedBy']), ('failed', 'permanent', '')); self.assertIn('FastqToSam', s.loc[r[4], 'LastError'])
         row = s.loc[r[5]]
         self.assertEqual((row.DownloadStatus, row.InDatabase, row.Attempts, row.Source, row.Verified, row.UBamBytes), ('in_database', 'TRUE', '2', 'ENA-aspera', 'TRUE', '123'))
+        self.assertTrue(float(row.ConvertSeconds) >= 0 and float(row.UploadSeconds) >= 0)                                   # stage timings reach the sheet
         self.assertTrue(row.DownloadedOn.endswith('Z') and row.UBamPath.endswith(f'{r[5]}.unmapped_marked_adapters.bam') and row.Machine and row.ClaimedBy == '' and float(row.MBPerSec) > 0)
         self.assertEqual((s.loc[r[6], 'DownloadStatus'], s.loc[r[6], 'ClaimedBy']), ('claimed', 'other-1'))                # not touched: someone else's
         self.assertEqual((s.loc[r[7], 'DownloadStatus'], s.loc[r[7], 'Skip']), ('pending', 'TRUE'))

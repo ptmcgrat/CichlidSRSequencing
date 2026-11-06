@@ -229,7 +229,7 @@ class TestWorker(unittest.TestCase):
     def test_success_fast_path_uploads_verifies_and_cleans(self):
         log = []; sanit = []
         st = W.process_run(make_spec(self.tmp, 'ERR100'), self.fm, run=fake_gatk(log=log), download=fake_download(), sanitize=lambda *a: sanit.append(1), log=lambda *a: None)
-        self.assertEqual((st['state'], st['kind']), ('done', '')); self.assertEqual(sanit, [])
+        self.assertEqual((st['state'], st['kind']), ('done', '')); self.assertEqual(sanit, []); self.assertEqual(sorted(st['timings']), ['adapters_s', 'ubam_s', 'upload_s'])
         self.assertEqual([c[0] for c in log], ['FastqToSam', 'MarkIlluminaAdapters']); self.assertEqual(len(self.fm.uploaded), 2); self.assertEqual(self.left(), [])
         self.assertEqual(json.load(open(self.tmp + 'temp/ERR100.status.json'))['state'], 'done')
 

@@ -82,7 +82,8 @@ def fetch_stage(spec, download=E.download_run, log=print, sra=None):
 def convert_stage(spec, fm, run=subprocess.run, sanitize=E.sanitize_pair, log=print):
     rid, tmp, out = spec['run'], spec['temp_dir'], spec['output_bam']
     metrics = out + '.metrics.txt'; temp_bam = f'{tmp}{rid}_temp.bam'
-    st = dict(run=rid, state='failed', stage='FastqToSam', kind='permanent', error='', started=time.strftime('%Y-%m-%dT%H:%M:%S'), sanitized=None)
+    st = dict(run=rid, state='failed', stage='FastqToSam', kind='permanent', error='', started=time.strftime('%Y-%m-%dT%H:%M:%S'), sanitized=None, timings={})
+    clock = time.time; tm = st['timings']; t_ = clock()
     fq1, fq2 = _fastq_paths(spec)
     created = [temp_bam, out, metrics, fq1, fq2, fq1 + '.partial', fq2 + '.partial', os.path.join(tmp, rid + '.sra')]
     try:
@@ -101,6 +102,7 @@ def convert_stage(spec, fm, run=subprocess.run, sanitize=E.sanitize_pair, log=pr
             r = run(fastq_to_sam(f1, f2, temp_bam, spec), capture_output=True)
             if r.returncode != 0:
                 raise StageFailed('FastqToSam (sanitized)', _tail(r.stderr))
+        tm['ubam_s'] = round(clock() - t_, 1); t_ = clock()
         st['stage'] = 'MarkIlluminaAdapters'
         plat = spec['platform']
         if plat == 'ILLUMINA' or 'ELEMENT' in plat:
@@ -110,6 +112,7 @@ def convert_stage(spec, fm, run=subprocess.run, sanitize=E.sanitize_pair, log=pr
         else:
             shutil.move(temp_bam, out)
             open(metrics, 'w').write(f'adapters not marked: platform {plat}\n')
+        tm['adapters_s'] = round(clock() - t_, 1); t_ = clock()
         st['stage'] = 'upload'
         try:
             fm.uploadData(out); fm.uploadData(metrics)                  # FileManager.uploadData runs `rclone check` with check=True: a mismatch or a network problem raises
@@ -119,6 +122,7 @@ def convert_stage(spec, fm, run=subprocess.run, sanitize=E.sanitize_pair, log=pr
         missing = [os.path.basename(p) for p in (out, metrics) if os.path.basename(p) not in names]
         if missing:
             raise StageFailed('upload', f'{missing} not found on the cloud after upload', 'transient')
+        tm['upload_s'] = round(clock() - t_, 1)
         st.update(state='done', stage='done', kind='')
     except StageFailed as e:
         st.update(stage=e.stage, error=str(e)[-1500:], kind=e.kind)

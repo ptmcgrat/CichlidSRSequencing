@@ -12,7 +12,7 @@ import pandas as pd
 
 RUNINFO_COLUMNS = ['Run', 'AvgSpotLen', 'Bases', 'BioProject', 'BioSample', 'Experiment', 'Instrument', 'Library Name', 'LibraryLayout', 'LibrarySelection', 'LibrarySource', 'Organism', 'Platform', 'SRA Study']
 TRACK_COLUMNS = ['DownloadStatus', 'InDatabase', 'DownloadedOn', 'Source', 'Machine', 'ClaimedBy', 'ClaimedAt', 'UpdatedAt', 'Attempts', 'FailureKind', 'LastError', 'Verified', 'QualityCheck', 'ReadCountCheck', 'ReadsSource',
-                 'ReadsInUBAM', 'UBamBytes', 'UBamPath', 'DownloadSeconds', 'MBPerSec', 'PipelineVersion', 'Notes', 'Skip']
+                 'ReadsInUBAM', 'UBamBytes', 'UBamPath', 'DownloadSeconds', 'MBPerSec', 'ConvertSeconds', 'UploadSeconds', 'PipelineVersion', 'Notes', 'Skip']
 STATUSES = ['pending', 'claimed', 'downloading', 'converting', 'uploaded', 'in_database', 'failed', 'skipped']
 ACTIVE = ('claimed', 'downloading', 'converting')
 DONE = ('uploaded', 'in_database', 'skipped')

@@ -263,7 +263,8 @@ def manifest_events(manifests, now=time.time):
             mf.update(run, DownloadStatus='converting')
         elif name == 'done':
             mf.update(run, DownloadStatus='in_database' if st.get('db_written') else 'uploaded', InDatabase=bool(st.get('db_written')), DownloadedOn=MF.utc_iso(now()), UBamBytes=st.get('ubam_bytes'),
-                      UBamPath=st.get('ubam_path'), Attempts=A(st.get('attempts')), FailureKind='', LastError=str(st.get('db_pending') or ''), ClaimedBy='', ClaimedAt='', Machine=host)
+                      UBamPath=st.get('ubam_path'), ConvertSeconds=round(sum(v for k, v in (st.get('timings') or {}).items() if k in ('ubam_s', 'adapters_s')), 1) if st.get('timings') else '',
+                      UploadSeconds=(st.get('timings') or {}).get('upload_s', ''), Attempts=A(st.get('attempts')), FailureKind='', LastError=str(st.get('db_pending') or ''), ClaimedBy='', ClaimedAt='', Machine=host)
         elif name == 'retry':
             mf.update(run, Attempts=A(st.get('attempts')), FailureKind=st.get('kind'), LastError=str(st.get('error', ''))[:250])
         elif name == 'failed':
