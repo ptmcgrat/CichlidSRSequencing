@@ -48,10 +48,10 @@ def parse_counts(text):
     return out
 
 
-def count_check(spots, read_count, paired, tol_fewer=0.001, tol_more=0.01):
+def count_check(spots, read_count, paired, tol_fewer=0.001, tol_more=0.05):
     """Is the number of spots in the .sra consistent with ENA's read_count? ENA's read_count does NOT have one meaning: for ERR13389718 it is the number of READS (109,512,218 = 2 x 54,756,109 spots), for
     ERR14734229 it is about the number of PAIRS (40,613,306 against 40,650,256 spots). So both readings are tried (read_count, and read_count / 2 for paired runs) and the closer one is used.
-    Fewer spots than ENA (by more than 0.1 %) = reads missing: rejected. More (by up to 1 %) is accepted and reported (the SRA load can hold unpaired spots that ENA's pair files do not); more than 1 % is rejected.
+    Fewer spots than ENA (by more than 0.1 %) = reads missing: rejected. More (by up to 5 %) is accepted and reported in ReadCountCheck: measured on 11 runs, SRA has 0.04 % to 1.7 % MORE spots than ENA's count (never fewer; three runs of one batch have +1.7 %), probably reads that ENA's FASTQ leaves out; the cause is not verified. More than 5 % is rejected.
     Returns (ok, note, ratio)"""
     cands = [read_count] + ([read_count / 2] if paired else [])
     best = min(cands, key=lambda c: abs(spots - c))

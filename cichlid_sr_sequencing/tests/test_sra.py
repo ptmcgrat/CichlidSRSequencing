@@ -50,6 +50,12 @@ class TestCountCheck(unittest.TestCase):
         ok, note, ratio = SF.count_check(40_650_256, 40_613_306, True)                # ERR14734229: ENA counts about PAIRS, SRA has 36,950 more spots
         self.assertTrue(ok); self.assertIn('+36,950', note); self.assertIn('+0.09%', note)
 
+    def test_the_three_runs_with_1_7_percent_more_spots_are_accepted_and_5_percent_is_the_limit(self):
+        for spots, ena in ((43_726_923, 42_991_885), (43_808_837, 43_072_209), (43_429_862, 42_700_392)):         # ERR14733496 / 497 / 501, measured on mzebra
+            ok, note, ratio = SF.count_check(spots, ena, True)
+            self.assertTrue(ok, note); self.assertIn('+1.7', note.replace('(+', '+') if '+1.7' not in note else note)
+        self.assertTrue(SF.count_check(int(42_700_392 * 1.049), 42_700_392, True)[0]); self.assertFalse(SF.count_check(int(42_700_392 * 1.055), 42_700_392, True)[0])
+
     def test_missing_reads_or_far_too_many_are_rejected(self):
         ok, note, _ = SF.count_check(40_000_000, 40_613_306, True)
         self.assertFalse(ok); self.assertIn('fewer', note)
