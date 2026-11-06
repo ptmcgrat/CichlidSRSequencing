@@ -1,0 +1,54 @@
+# LG5 (orange blotch / ZW) inversion: reads of pools of known composition, aligned to the project reference Mzebra_GT3_NCBI with the lab recipe, from which only the
+# LG5 inversion region and the unmapped reads are kept (the BAM is deleted once they exist).
+#   python -m sd_genotypes.lg5inv prepare [--only SRR18083720] [--runs-in-flight 1] [--threads 12] | status | clean
+#
+# WHY (see docs/lg5inv_design.md): the standard (BB) arrangement of the interior exists only as the reference; the two OB assemblies (LatrZW, MezeOBm) carry the inverted one. A marker is
+# diagnostic only if BB reads show the reference allele and OB reads the inverted one, so labelled reads are needed to DEFINE the markers, not only to validate them.
+# GT3 (the reference) carries the standard arrangement: both OB assemblies are inverted between the breakpoints (19,657,805 and 26,726,680, GT3 coordinates, run 20261105) and the three
+# non-mbuna assemblies (fAulStu2, fDipLim2, fLetChi2) are collinear with it.
+#
+# POOLS (PRJNA808791 = Behrens et al. 2025, Table 1; one pool per population, sex and morph, 10-20 fish; ~40x). expected_inverted_fraction = share of chromosomes carrying the inverted arrangement
+# IF every OB female is a ZW heterozygote (W = inverted) and no BB fish carries it; M. callainos Luwino and Lupingu are white fish with the OB pigment allele and NO inversion (Behrens et al.).
+# The ENA experiment title of SRR18083717 says "OB male pool"; its BioSample (SAMN26105339) says "Equimolar pool of 17 OB females" and so does Table 1: the title is a typo.
+
+bin_size: 50                   # bp; depth tracks (QC and mappability), as in config/bchrom.yaml
+scale_min_chrom_bp: 5000000
+qc:
+  depth_ratio_range: [0.5, 1.15]
+  max_zero_fraction: 0.2
+
+download:                      # module 02's SRA source (aria2c, vdb-validate, fasterq-dump, checked against ENA); ENA is the fallback
+  source: auto
+  sra_connections: 8
+  sra_fq_threads: 8
+  scheme: https
+  attempts: 4
+  backoff_s: 30
+
+resources:                     # sized for D05 (31 GB RAM, 546 GB free): ONE run in flight. One run held ~15 GB (D07 pilot); two did not leave a safe margin on 31 GB.
+  runs_in_flight: 1
+  align_threads: 12
+  mosdepth_threads: 4
+  stf_heap_gb: 4
+  mba_heap_gb: 8
+  markdup_heap_gb: 16
+  fastqtosam_heap_gb: 8
+  disk_factor: 5               # the SRA route reserves max(this, 9) x the FASTQ size
+  min_free_gb: 150
+
+slices:                        # cut from the duplicate-marked BAM BEFORE it is deleted; one contiguous region = both breakpoint windows (+-250 kb) and the whole interior
+  enabled: true
+  upload: true
+  unmapped: true               # also keep every unmapped read (flag 4) in <run>.unmapped.bam: reads from sequence absent from the reference (the ~5 kb unaligned sequence at the left junction of the
+                               # inverted haplotype, transposon insertions) are not in a region slice. Size depends on the unmapped fraction (unmeasured; ~1 GB per pool is my guess).
+  regions:
+    - {name: LG5_inversion_with_flanks, lg: LG5, start: 19400000, end: 26980000}
+
+work_dir: null                 # default <project>/<genome>/tmp/lg5inv/
+
+runs:                          # bases_gb = ENA base_count (checked against the download)
+  - {id: SRR18083720, role: pool, population: Luwino Reef,  species: M. callainos Luwino,  sex: F, morph: white, n_fish: 20, bases_gb: 35.85, expected_inverted_fraction: 0.0, note: OB pigment allele without the inversion (hard negative)}
+  - {id: SRR18083724, role: pool, population: Nkhata Bay,   species: M. zebra,             sex: F, morph: OB,    n_fish: 20, bases_gb: 39.19, expected_inverted_fraction: 0.5, note: mbuna positive}
+  - {id: SRR18083730, role: pool, population: Nkhata Bay,   species: M. zebra,             sex: F, morph: BB,    n_fish: 20, bases_gb: 40.28, expected_inverted_fraction: 0.0, note: same-population negative}
+  - {id: SRR18083717, role: pool, population: Maison Reef,  species: L. trewavasae,        sex: F, morph: OB,    n_fish: 17, bases_gb: 36.99, expected_inverted_fraction: 0.5, note: positive (also run in config/bchrom.yaml as a B-free control)}
+  - {id: SRR18083718, role: pool, population: Maison Reef,  species: L. trewavasae,        sex: F, morph: BB,    n_fish: 18, bases_gb: 39.00, expected_inverted_fraction: 0.0, note: same-population negative}
