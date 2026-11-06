@@ -6,7 +6,7 @@ What the old scripts did that lost samples, and what is done here instead:
   * ENA answers were fetched with three bare retries without a pause; ENA rate-limits. Retries now back off, and a failure is a recorded status, not a crash of the whole batch.
   * Downloads were checked only by the exit code of ascp. ENA's md5 and size are now verified; a truncated mate file can no longer be silently zipped against a complete one.
   * Run lists came only from an SRA Run Selector file; ENA-only projects (PRJEB...) can be listed directly from ENA."""
-import gzip, hashlib, io, os, re, subprocess, time
+import gzip, hashlib, io, os, re, shutil, subprocess, time
 import pandas as pd
 
 RUN_FIELDS = ['run_accession', 'sample_accession', 'secondary_sample_accession', 'experiment_accession', 'study_accession', 'library_name', 'library_layout', 'library_source',
@@ -211,3 +211,21 @@ def sanitize_pair(fq1, fq2, out1, out2):
 
 
 EMPTY_READ_ERRORS = re.compile(r'empty|zero|length|differ|quality|Fastq record|Sequence', re.I)
+
+
+ASCP_CANDIDATES = ['~/bin/ascp', '~/.aspera/sdk/ascp', '~/.aspera/ascli/sdk/ascp', '~/.aspera/connect/bin/ascp', '/home/mcgrath-lab/bin/ascp']
+KEY_CANDIDATES = ['~/.aspera/sdk/aspera_bypass_rsa.pem', '~/.aspera/ascli/sdk/aspera_bypass_rsa.pem', '~/.aspera/connect/etc/asperaweb_id_dsa.openssh']
+
+
+def find_first(explicit, candidates, which=None, exists=os.path.exists, env=None):
+    """The Aspera client / key: the explicit path if it exists, else $ASCP (client only), `which ascp`, then the usual places. None if nothing is found (the caller then uses https and says so)."""
+    paths = [explicit] if explicit else []
+    if env:
+        paths.append(os.environ.get(env))
+    if which:
+        paths.append(shutil.which(which))
+    paths += candidates
+    for p in paths:
+        if p and exists(os.path.expanduser(p)):
+            return os.path.expanduser(p)
+    return None

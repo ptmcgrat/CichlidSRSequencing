@@ -33,11 +33,20 @@ def bench(files, c, seconds, rate, ascp, key, popen=subprocess.Popen, sleep=time
     return dict(concurrency=c, aggregate_mb_s=round(mb / secs, 1), per_transfer_mb_s=round(mb / secs / c, 1), died_early=len(died), errors=errs)
 
 
+def resolve(ascp=None, key=None, exists=os.path.exists):
+    a = E.find_first(ascp, E.ASCP_CANDIDATES, which='ascp', env='ASCP', exists=exists); k = E.find_first(key, E.KEY_CANDIDATES, exists=exists)
+    if not (a and k):
+        raise SystemExit(f"ascp {'found at ' + a if a else 'NOT found'}, key {'found at ' + k if k else 'NOT found'}: give --ascp and --key (searched {E.ASCP_CANDIDATES} and {E.KEY_CANDIDATES})")
+    return a, k
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('runs', nargs='+'); ap.add_argument('--concurrency', nargs='+', type=int, default=[1, 2, 3, 4]); ap.add_argument('--seconds', type=float, default=60)
-    ap.add_argument('--rate', default='300m'); ap.add_argument('--ascp', default='/home/mcgrath-lab/bin/ascp'); ap.add_argument('--key', default=os.path.expanduser('~/.aspera/sdk/aspera_bypass_rsa.pem'))
+    ap.add_argument('--rate', default='300m'); ap.add_argument('--ascp', default=None); ap.add_argument('--key', default=None)
     a = ap.parse_args(argv)
+    a.ascp, a.key = resolve(a.ascp, a.key)
+    print(f'ascp {a.ascp}, key {a.key}')
     files = []
     for r in a.runs:
         s = E.select_fastqs(E.fetch_runs(r).iloc[0])

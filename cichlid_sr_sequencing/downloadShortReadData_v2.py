@@ -23,22 +23,7 @@ from helper_modules import ena_fetch as E, ena_scheduler as SCH
 RUNINFO_COLUMNS = ['Run', 'AvgSpotLen', 'Bases', 'BioProject', 'BioSample', 'Experiment', 'Instrument', 'Library Name', 'LibraryLayout', 'LibrarySelection', 'LibrarySource', 'Organism', 'Platform', 'SRA Study']
 
 
-ASCP_CANDIDATES = ['~/bin/ascp', '~/.aspera/sdk/ascp', '~/.aspera/ascli/sdk/ascp', '~/.aspera/connect/bin/ascp', '/home/mcgrath-lab/bin/ascp']
-KEY_CANDIDATES = ['~/.aspera/sdk/aspera_bypass_rsa.pem', '~/.aspera/ascli/sdk/aspera_bypass_rsa.pem', '~/.aspera/connect/etc/asperaweb_id_dsa.openssh']
-
-
-def find_first(explicit, candidates, which=None, exists=os.path.exists, env=None):
-    """The Aspera client / key: the explicit path if it exists, else $ASCP (client only), `which ascp`, then the usual places. None if nothing is found (the caller then uses https and says so)."""
-    paths = [explicit] if explicit else []
-    if env:
-        paths.append(os.environ.get(env))
-    if which:
-        paths.append(shutil.which(which))
-    paths += candidates
-    for p in paths:
-        if p and exists(os.path.expanduser(p)):
-            return os.path.expanduser(p)
-    return None
+from helper_modules.ena_fetch import find_first, ASCP_CANDIDATES, KEY_CANDIDATES      # shared with unit_scripts/ena_bench.py
 
 
 def parse_args(argv=None):
@@ -217,7 +202,7 @@ def report(plan, results, path, log=print):
         if r:
             rows.append(dict(run=p['run'], sample=p['sample'], project=p['project'], plan=p['status'], state=r['state'], stage=r['stage'], kind=r.get('kind', ''), attempts=r.get('attempts', ''), error=(r.get('error') or r.get('db_pending') or '')[:300].replace('\n', ' ')))
         else:
-            rows.append(dict(run=p['run'], sample=p['sample'], project=p['project'], plan=p['status'], state='skipped' if p['status'] in ('in_database', 'not_in_retry_list') else 'not_downloadable',
+            rows.append(dict(run=p['run'], sample=p['sample'], project=p['project'], plan=p['status'], state='skipped' if p['status'] in ('in_database', 'not_in_retry_list', 'on_cloud') else ('planned' if p['status'] == 'ok' else 'not_downloadable'),
                              stage='', kind='', attempts='', error=p['note']))
     t = pd.DataFrame(rows)
     t.to_csv(path, sep='\t', index=False)

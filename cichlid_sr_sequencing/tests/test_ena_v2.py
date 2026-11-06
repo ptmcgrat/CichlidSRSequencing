@@ -438,6 +438,8 @@ class TestTwoRunInfoFiles(unittest.TestCase):
         exp_complete = {s for s, g in self.csv.groupby('BioSample') if set(g.Run) <= set(in_db)}
         self.assertEqual(set(ss[ss.state == 'complete']['sample']), exp_complete); self.assertEqual(int(ss.runs.sum()), 40)
         self.assertEqual(self.fm.rows, [])                                                      # a dry run writes nothing
+        stt = pd.read_csv([self.fm.localTempDir + f for f in os.listdir(self.fm.localTempDir) if f.startswith('download_status_')][0], sep='\t', keep_default_na=False)
+        self.assertEqual(int((stt.state == 'planned').sum()), 35); self.assertEqual(int((stt.state == 'not_downloadable').sum()), 0); self.assertEqual(int((stt.state == 'skipped').sum()), 5)     # planned, not "not_downloadable"
 
     def test_adopt_cloud_adds_rows_for_ubams_already_on_dropbox_without_downloading(self):
         small = self.csv.iloc[:6]; small.to_csv(self.fm.localReadDownloadDir + 'small.csv', index=False)
@@ -487,6 +489,21 @@ class TestNoDb(unittest.TestCase):
         # --add-pending through run(): no download, no plan
         fm.rows.clear(); fm.reads_dt = pd.DataFrame(dict(RunID=[]))
         self.assertEqual(D.run(D.parse_args(['--add-pending', fm.localTempDir + 'pending_db_rows.jsonl']), fm, log=lambda *a: None), 0); self.assertEqual(len(fm.rows), 2)
+
+
+class TestBenchDiscovery(unittest.TestCase):
+    def test_bench_finds_ascp_like_the_downloader_and_refuses_clearly(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'unit_scripts'))
+        import ena_bench
+        old = os.environ.get('HOME'); os.environ['HOME'] = '/home/student'
+        try:
+            have = {'/home/student/bin/ascp', '/home/student/.aspera/sdk/aspera_bypass_rsa.pem'}
+            self.assertEqual(ena_bench.resolve(None, None, exists=lambda p: p in have), ('/home/student/bin/ascp', '/home/student/.aspera/sdk/aspera_bypass_rsa.pem'))
+            with self.assertRaises(SystemExit) as cm:
+                ena_bench.resolve(None, None, exists=lambda p: False)
+            self.assertIn('NOT found', str(cm.exception))
+        finally:
+            os.environ['HOME'] = old
 
 
 class TestOrchestratorOnTheExampleCsv(unittest.TestCase):
