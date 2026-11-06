@@ -3,6 +3,7 @@
   python3 downloadManifest.py import Blumer BlumerPaperData.csv        # create / extend the tab 'Blumer' from a Run Info file (a file name in .../Reads/ReadDownloadFiles/ on Dropbox, or a local path)
   python3 downloadManifest.py import Malinsky MalinskyPaperData.csv
   python3 downloadManifest.py status                                    # per tab: how many runs are pending / downloading / uploaded / in_database / failed / skipped, stale claims, sources
+  python3 downloadManifest.py reconcile Blumer Malinsky                 # after --add-pending (or any change to the database): runs now in DNAReadsDatabase become in_database
   python3 downloadManifest.py release Blumer --hours 6                  # give runs whose claim is older than 6 h back (after a crash)
   python3 downloadManifest.py tabs
 
@@ -64,6 +65,17 @@ def cmd_status(fm, tabs=None, hours=6.0, log=print, now=time.time):
     return out
 
 
+def cmd_reconcile(fm, tabs, log=print):
+    """Bring the sheet up to date with the database and Dropbox: runs in DNAReadsDatabase become in_database (also `uploaded` ones after an --add-pending); uBAMs on Dropbox become uploaded."""
+    fm.readSampleDatabase(); in_db = set(fm.reads_dt['RunID']); out = {}
+    for tab in tabs:
+        mf = fm.downloadManifest(tab); df = mf.load()
+        on_cloud = cloud_runs(fm, set(df['BioProject']) - {''}) - in_db if len(df) else set()
+        n = mf.reconcile(in_db, on_cloud); mf.flush(force=True); out[tab] = n
+        log(f'{tab}: {n} rows updated from the database / Dropbox')
+    return out
+
+
 def cmd_release(fm, tab, hours=6.0, log=print, now=time.time):
     mf = fm.downloadManifest(tab); df = mf.load(); n = 0
     for r in df.itertuples():
@@ -80,6 +92,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest='cmd', required=True)
     p = sub.add_parser('import'); p.add_argument('tab'); p.add_argument('source')
     p = sub.add_parser('status'); p.add_argument('tabs', nargs='*'); p.add_argument('--hours', type=float, default=6.0)
+    p = sub.add_parser('reconcile'); p.add_argument('tabs', nargs='+')
     p = sub.add_parser('release'); p.add_argument('tab'); p.add_argument('--hours', type=float, default=6.0)
     sub.add_parser('tabs')
     a = ap.parse_args(argv)
@@ -91,6 +104,8 @@ def main(argv=None):
         cmd_import(fm, a.tab, a.source)
     elif a.cmd == 'status':
         cmd_status(fm, a.tabs, a.hours)
+    elif a.cmd == 'reconcile':
+        cmd_reconcile(fm, a.tabs)
     elif a.cmd == 'release':
         cmd_release(fm, a.tab, a.hours)
     else:

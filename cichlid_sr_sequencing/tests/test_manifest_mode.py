@@ -14,6 +14,8 @@ import patch_file_manager as PFM
 class ManifestFM(FakeFM):
     def __init__(self, tmp, in_db=()):
         super().__init__(tmp, in_db); self.backend = MF.MemoryBackend()
+    def addDNAReadRow(self, read_data, sample_data):
+        super().addDNAReadRow(read_data, sample_data); self.reads_dt = pd.concat([self.reads_dt, pd.DataFrame([dict(RunID=read_data['RunID'])])], ignore_index=True)
     def downloadManifest(self, tab, who=None, flush_seconds=15.0):
         return MF.Manifest(self.backend, tab, who or 'testhost-1', sleep=lambda s: None, journal=self.localTempDir + f'dm_{tab}.jsonl', flush_s=flush_seconds, log=lambda *a: None)
 
@@ -100,6 +102,21 @@ class TestManifestMode(Harness):
         self.assertTrue(any('nothing to download' in str(m) for m in self.logs)); self.assertEqual(len(self.fm.rows), n)
         self.go('--retry-failed', 'all')                                                                                    # the permanent failure is tried again only on request
         self.assertEqual(sheet(self.fm).loc[self.runs[4], 'Attempts'], '2'); self.assertEqual(sheet(self.fm).loc[self.runs[4], 'DownloadStatus'], 'failed')      # one attempt per invocation, added up
+
+    def test_add_pending_with_the_manifest_turns_uploaded_rows_into_in_database(self):
+        self.go('--no-db'); r = self.runs
+        self.assertEqual(sheet(self.fm).loc[r[8], 'DownloadStatus'], 'uploaded')
+        pend = self.fm.localTempDir + 'pending_db_rows.jsonl'
+        clock = [0.0]
+        D.run(D.parse_args(['--manifest', 'Blumer', '--add-pending', pend]), self.fm, fetch=self.fetch, launch=self.launch, log=lambda *a: None)
+        s = sheet(self.fm)
+        self.assertEqual((s.loc[r[8], 'DownloadStatus'], s.loc[r[8], 'InDatabase']), ('in_database', 'TRUE')); self.assertIn(r[8], {x[0]['RunID'] for x in self.fm.rows})
+
+    def test_reconcile_command(self):
+        self.fm.reads_dt = pd.concat([self.fm.reads_dt, pd.DataFrame([dict(RunID=self.runs[2])])], ignore_index=True)           # the uBAM on Dropbox got its database row meanwhile
+        self.assertEqual(sheet(self.fm).loc[self.runs[2], 'DownloadStatus'], 'uploaded')
+        r = MT.cmd_reconcile(self.fm, ['Blumer'], log=lambda *a: None); self.assertEqual(r['Blumer'], 1)
+        self.assertEqual(sheet(self.fm).loc[self.runs[2], 'DownloadStatus'], 'in_database'); self.assertEqual(MT.cmd_reconcile(self.fm, ['Blumer'], log=lambda *a: None)['Blumer'], 0)
 
     def test_dry_run_reads_but_never_writes_the_sheet(self):
         before = copy.deepcopy(self.fm.backend.data); self.go('--dry-run')

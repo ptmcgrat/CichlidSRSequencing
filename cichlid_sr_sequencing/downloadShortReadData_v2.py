@@ -303,6 +303,10 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
         log(f'manifest tabs {args.manifest} as {who}')
     if args.add_pending:
         add_pending(fm, args.add_pending, log)
+        if args.manifests:                                                  # runs added to the database now: their rows in the sheet become in_database
+            fm.readSampleDatabase(); in_db_now = set(fm.reads_dt['RunID'])
+            for tab, mf in args.manifests.items():
+                n = mf.reconcile(in_db_now, set()); mf.flush(force=True); log(f'  manifest {tab}: {n} rows are now in_database')
         return 0
     if args.no_db:
         log('--no-db: the sample database will NOT be written; verified runs are appended to ' + fm.localTempDir + 'pending_db_rows.jsonl')

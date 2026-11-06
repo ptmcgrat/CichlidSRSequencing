@@ -212,13 +212,15 @@ class Manifest:
         return dict(added=len(rows), existing=len(ri) - len(rows))
 
     def reconcile(self, in_db=(), on_cloud=()):
-        """Rows that are not final yet but whose run is now in the database / on the cloud: mark them. Returns the number of rows changed."""
+        """Rows whose run is now in the database / on the cloud: mark them (in_database also for `uploaded` rows). Returns the number of rows changed."""
         df = self.load(); n = 0
         for r in df.itertuples():
-            if r.DownloadStatus in DONE:
+            if r.DownloadStatus in ('in_database', 'skipped'):
                 continue
-            if r.Run in in_db:
+            if r.Run in in_db:                                              # also upgrades `uploaded` (a --no-db run whose row has been added since)
                 self.update(r.Run, DownloadStatus='in_database', InDatabase=True, ClaimedBy='', ClaimedAt=''); n += 1
+            elif r.DownloadStatus == 'uploaded':
+                continue
             elif r.Run in on_cloud and r.DownloadStatus not in ACTIVE:
                 self.update(r.Run, DownloadStatus='uploaded', ClaimedBy='', ClaimedAt=''); n += 1
         return n
