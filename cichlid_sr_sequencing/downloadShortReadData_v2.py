@@ -43,9 +43,10 @@ def find_first(explicit, candidates, which=None, exists=os.path.exists, env=None
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('Run_Info_File', nargs='?', help='SRA Run Selector CSV (in the read-download folder on Dropbox)')
+    p.add_argument('Run_Info_File', nargs='*', help='one or more Run Info CSVs (in the read-download folder on Dropbox); put them BEFORE any option that takes several values (--ena)')
     p.add_argument('--ena', nargs='+', default=[], metavar='ACC', help='ENA project / sample / run accessions to list runs from')
     p.add_argument('--samples-file', help='TSV/CSV with a Biosample or SampleID column (and optionally Bioproject)')
+    p.add_argument('--adopt-cloud', action='store_true', help='for runs whose uBAM is already on the cloud but which have no database row: add the row (no download). Without this they are only reported')
     p.add_argument('--no-db', action='store_true', help='do NOT write the sample database: download, upload and verify the uBAMs, and append each verified run to pending_db_rows.jsonl in the temp folder (add them later, from ONE machine, with --add-pending)')
     p.add_argument('--add-pending', metavar='JSONL', help='add the rows of a pending_db_rows.jsonl to the sample database (only for uBAMs that are on the cloud and runs not yet in the database), then exit')
     p.add_argument('--retry', metavar='STATUS_TSV', help='only the runs that failed transiently in a previous status table')
@@ -78,29 +79,34 @@ def sample_ids_of(df):
 
 # ---------------------------------------------------------------------------------------------------------------- run table
 def build_records(args, fm, fetch=E.fetch_runs, log=print):
-    """ENA records (one per run) for everything that was asked for. Queries ENA by project where possible (one call for hundreds of runs), by sample otherwise."""
+    """ENA records (one per run) for everything that was asked for. Queries ENA by project where possible (one call for hundreds of runs), by sample otherwise; every accession once."""
+    cache = {}
+    def cfetch(acc):
+        if acc not in cache:
+            cache[acc] = fetch(acc)
+        return cache[acc]
     frames, wanted_samples = [], None
-    if args.Run_Info_File:
-        fm.downloadData(fm.localReadDownloadDir + args.Run_Info_File)
-        ri = pd.read_csv(fm.localReadDownloadDir + args.Run_Info_File, dtype=str, keep_default_na=False)
+    for name in args.Run_Info_File:
+        fm.downloadData(fm.localReadDownloadDir + name)
+        ri = pd.read_csv(fm.localReadDownloadDir + name, dtype=str, keep_default_na=False)
         bad = [c for c in ('Run', 'BioSample') if c not in ri.columns]
         if bad:
-            raise SystemExit(f'{args.Run_Info_File}: columns {bad} are required')
+            raise SystemExit(f'{name}: columns {bad} are required')
         proj = ri['BioProject'] if 'BioProject' in ri.columns else ri.get('SRA Study', pd.Series(dtype=str))
         wanted_runs = set(ri['Run'])
-        for acc in sorted(set(proj[proj != ''])) or sorted(wanted_runs):
-            frames.append(fetch(acc))
-        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        part = [cfetch(acc) for acc in (sorted(set(proj[proj != ''])) or sorted(wanted_runs))]
+        df = pd.concat(part, ignore_index=True) if part else pd.DataFrame()
         df = df[df['run_accession'].isin(wanted_runs)] if len(df) else df
         missing = sorted(wanted_runs - set(df['run_accession'])) if len(df) else sorted(wanted_runs)
-        frames = [df]
+        frames.append(df)
+        log(f'  {name}: {len(wanted_runs)} runs, {len(df)} found on ENA' + (f', {len(missing)} not returned by the project query (asked for one by one)' if missing else ''))
         for r in missing:                                               # runs the project query did not return: ask for them one by one
             try:
-                frames.append(fetch(r))
+                frames.append(cfetch(r))
             except E.EnaError as e:
                 log(f'  {r}: not retrievable from ENA ({str(e)[-120:]})')
     for acc in args.ena:
-        frames.append(fetch(acc))
+        frames.append(cfetch(acc))
     if args.samples_file:
         sf = read_table(args.samples_file)
         ids, col = sample_ids_of(sf)
@@ -108,12 +114,12 @@ def build_records(args, fm, fetch=E.fetch_runs, log=print):
         projects = sorted(set(sf['Bioproject'][sf['Bioproject'] != ''])) if 'Bioproject' in sf.columns else []
         got = pd.DataFrame()
         for pr in projects:
-            part = fetch(pr)
+            part = cfetch(pr)
             frames.append(part[part['sample_accession'].isin(wanted_samples) | part['secondary_sample_accession'].isin(wanted_samples)])
         have = set(pd.concat(frames, ignore_index=True)['sample_accession']) if frames else set()
         for s in sorted(wanted_samples - have):
             try:
-                frames.append(fetch(s))
+                frames.append(cfetch(s))
             except E.EnaError as e:
                 log(f'  {s}: not retrievable from ENA ({str(e)[-120:]})')
     frames = [f for f in frames if len(f)]
@@ -121,7 +127,7 @@ def build_records(args, fm, fetch=E.fetch_runs, log=print):
     return out, wanted_samples
 
 
-def classify(records, reads_in_db, wanted_samples=None, retry_runs=None):
+def classify(records, reads_in_db, wanted_samples=None, retry_runs=None, on_cloud=()):
     """The plan: one row per run with a status. Nothing is dropped silently."""
     rows = []
     for _, rec in records.iterrows():
@@ -129,6 +135,8 @@ def classify(records, reads_in_db, wanted_samples=None, retry_runs=None):
         status = sel['status']
         if rec['run_accession'] in reads_in_db:
             status = 'in_database'
+        elif rec['run_accession'] in on_cloud:
+            status = 'on_cloud'                                       # uBAM already on Dropbox, no database row: not downloaded again
         if retry_runs is not None and rec['run_accession'] not in retry_runs:
             status = 'not_in_retry_list'
         rows.append(dict(run=rec['run_accession'], sample=rec['sample_accession'], project=rec['study_accession'], organism=rec['scientific_name'], platform=rec['instrument_platform'],
@@ -218,6 +226,26 @@ def report(plan, results, path, log=print):
     return t
 
 
+def sample_summary(plan):
+    """Per BioSample: how many of its runs are in the database / on the cloud / to download / not downloadable, and whether the sample is complete."""
+    p = plan[plan.run != '']
+    g = p.groupby('sample').agg(project=('project', 'first'), organism=('organism', 'first'), runs=('run', 'size'), in_database=('status', lambda x: int((x == 'in_database').sum())),
+                                on_cloud=('status', lambda x: int((x == 'on_cloud').sum())), to_download=('status', lambda x: int((x == 'ok').sum())), fastq_gb=('fastq_gb', 'sum'))
+    g['not_downloadable'] = g.runs - g.in_database - g.on_cloud - g.to_download
+    g['state'] = ['complete' if r.in_database == r.runs else ('none in database' if r.in_database == 0 else 'partial') for r in g.itertuples()]
+    return g.reset_index()
+
+
+def cloud_runs(fm, projects, log=print):
+    """Run ids whose uBAM is listed on the cloud (one rclone lsf per project folder)."""
+    out = set()
+    for pr in sorted(projects):
+        for n in fm.returnCloudFiles(fm.localReadsDir + pr + '/'):
+            if n.endswith('.unmapped_marked_adapters.bam'):
+                out.add(n.split('.')[0])
+    return out
+
+
 def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=None, log=print, now=time.time):
     fm.readSampleDatabase()
     if args.add_pending:
@@ -232,7 +260,8 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
         prev = read_table(args.retry)
         retry_runs = set(prev.loc[(prev['state'] == 'failed') & (prev['kind'] != 'permanent'), 'run'])
         log(f'retrying {len(retry_runs)} runs that failed in a retryable way (not permanent) in {args.retry}')
-    plan = classify(records, in_db, wanted, retry_runs)
+    on_cloud = cloud_runs(fm, set(records['study_accession']) if len(records) else set(), log) - in_db
+    plan = classify(records, in_db, wanted, retry_runs, on_cloud)
     stamp = time.strftime('%Y%m%d-%H%M%S')
     os.makedirs(fm.localTempDir, exist_ok=True)
     plan.drop(columns=['sel', 'rec']).to_csv(f'{fm.localTempDir}ena_plan_{stamp}.tsv', sep='\t', index=False)
@@ -243,6 +272,10 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             log(f'  {st}: {len(sub)} (e.g. {sub.iloc[0]["run"] or sub.iloc[0]["sample"]}: {sub.iloc[0]["note"][:150]})')
     log(f'plan written to {fm.localTempDir}ena_plan_{stamp}.tsv')
     todo = plan[plan.status == 'ok']
+    ss = sample_summary(plan); ss.to_csv(f'{fm.localTempDir}ena_plan_samples_{stamp}.tsv', sep='\t', index=False)
+    log('samples: ' + ', '.join(f'{k}: {v}' for k, v in ss.state.value_counts().items()) + f' (of {len(ss)}); per-sample table {fm.localTempDir}ena_plan_samples_{stamp}.tsv')
+    log(f'to download: {len(todo)} runs, {todo.fastq_gb.sum():.0f} GB of FASTQ' + (f'; {int((plan.status == "on_cloud").sum())} runs have a uBAM on the cloud but no database row ' +
+        ('(adding their rows now: --adopt-cloud)' if args.adopt_cloud else '(use --adopt-cloud to add their rows)') if (plan.status == 'on_cloud').any() else ''))
     ascp = find_first(args.ascp, ASCP_CANDIDATES, which='ascp', env='ASCP'); key = find_first(args.key, KEY_CANDIDATES)
     if ascp and key:
         log(f'Aspera: {ascp} (key {key}), {args.ascp_rate} per transfer')
@@ -257,6 +290,11 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
         tasks.append(dict(run=r.run, sample=r['sample'], project=r.project, organism=r.organism, platform=r.platform, library=spec['library'], sel=r.sel, rec=r.rec, fastq_gb=r.fastq_gb,
                           output_bam=out, spec=spec))
     results = {}
+    if args.adopt_cloud and not args.dry_run:
+        for _, r in plan[plan.status == 'on_cloud'].iterrows():
+            t = dict(run=r.run, sample=r['sample'], project=r.project, organism=r.organism, platform=r.platform, library=r.rec['library_name'] or r.run, rec=r.rec)
+            st = dict(state='done', stage='adopted from cloud', kind='')
+            add_to_database(fm, t, st, args.no_db, log); results[r.run] = st
     if not args.dry_run and tasks:
         here = os.path.dirname(os.path.abspath(__file__))
         launch = launch or (lambda kind, spec, logf: subprocess.Popen([sys.executable, os.path.join(here, 'helper_modules', 'grab_ena_v2.py'), spec], stdout=open(logf, 'w'), stderr=subprocess.STDOUT))
@@ -264,7 +302,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             os.makedirs(fm.localReadsDir + t['project'], exist_ok=True)
         cfg = dict(temp_dir=fm.localTempDir, dl_max=args.dl_workers, workers=args.workers, max_ready=args.max_ready or args.workers, stagger_s=args.stagger, max_attempts=args.max_attempts,
                    backoff_s=args.backoff, min_free_gb=args.min_free_gb, disk_factor=args.disk_factor, status_every_s=60, poll_s=5)
-        results = SCH.run_tasks(tasks, cfg, launch, lambda t, st: add_to_database(fm, t, st, args.no_db, log), sleep=sleep, now=now, free_fn=free_fn, log=log)
+        results.update(SCH.run_tasks(tasks, cfg, launch, lambda t, st: add_to_database(fm, t, st, args.no_db, log), sleep=sleep, now=now, free_fn=free_fn, log=log))
     table = report(plan, results, f'{fm.localTempDir}download_status_{stamp}.tsv', log)
     log(f'status table: {fm.localTempDir}download_status_{stamp}.tsv')
     pend = [k for k, v in results.items() if v.get('db_pending')]

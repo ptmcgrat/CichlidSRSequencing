@@ -398,6 +398,58 @@ class TestFileManagerFailures(unittest.TestCase):
         self.assertEqual(fm.rows[0][0]['FileSize'], 4242)
 
 
+def csv_to_ena(csv):
+    return pd.DataFrame([rec(r.Run, sample_accession=r.BioSample, study_accession=r.BioProject, experiment_accession=r.Experiment, instrument_model=r.Instrument, scientific_name=r.Organism,
+                             read_count=str(int(int(r.Bases) // int(r.AvgSpotLen))), base_count=r.Bases, library_name='', size=2_000_000_000) for _, r in csv.iterrows()])
+
+
+class TestTwoRunInfoFiles(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp() + '/'; self.fm = FakeFM(self.tmp)
+        self.csv = pd.read_csv(os.path.join(HERE, 'MalinskyPaperData.csv'), dtype=str, keep_default_na=False).head(40)
+        self.runs = list(self.csv.Run); self.ena = csv_to_ena(self.csv); self.calls = []
+        def fetch(acc):
+            self.calls.append(acc)
+            return self.ena[(self.ena.study_accession == acc) | (self.ena.run_accession == acc)].reset_index(drop=True)
+        self.fetch = fetch
+
+    def put_cloud(self, runs):
+        proj = dict(zip(self.csv.Run, self.csv.BioProject))
+        for r in runs:
+            self.fm.cloud.setdefault(self.fm.localReadsDir + proj[r] + '/', set()).add(r + '.unmapped_marked_adapters.bam')
+
+    def no_launch(self, *a):
+        raise AssertionError('nothing should be downloaded')
+
+    def test_two_files_in_database_on_cloud_and_to_download(self):
+        self.csv.iloc[:25].to_csv(self.fm.localReadDownloadDir + 'blumer.csv', index=False); self.csv.iloc[15:].to_csv(self.fm.localReadDownloadDir + 'malinsky.csv', index=False)   # 10 runs in both
+        in_db, on_cloud = self.runs[0:3], self.runs[3:5]
+        self.fm.reads_dt = pd.DataFrame(dict(RunID=in_db)); self.put_cloud(on_cloud)
+        logs = []
+        rc = D.run(D.parse_args(['blumer.csv', 'malinsky.csv', '--dry-run']), self.fm, fetch=self.fetch, launch=self.no_launch, log=logs.append)
+        self.assertEqual(rc, 0)
+        plan = pd.read_csv([self.fm.localTempDir + f for f in os.listdir(self.fm.localTempDir) if f.startswith('ena_plan_2')][0], sep='\t', keep_default_na=False)
+        self.assertEqual(len(plan), 40)                                                         # the 10 shared runs appear once
+        st = plan.set_index('run').status
+        self.assertTrue(all(st[r] == 'in_database' for r in in_db) and all(st[r] == 'on_cloud' for r in on_cloud)); self.assertEqual(int((plan.status == 'ok').sum()), 35)
+        self.assertTrue(any('to download: 35 runs' in str(m) and '2 runs have a uBAM on the cloud' in str(m) and '--adopt-cloud' in str(m) for m in logs))
+        self.assertEqual(len(self.calls), len(set(self.calls)))                                 # each ENA accession asked once, although both files list the same projects
+        ss = pd.read_csv([self.fm.localTempDir + f for f in os.listdir(self.fm.localTempDir) if f.startswith('ena_plan_samples_')][0], sep='\t', keep_default_na=False)
+        exp_complete = {s for s, g in self.csv.groupby('BioSample') if set(g.Run) <= set(in_db)}
+        self.assertEqual(set(ss[ss.state == 'complete']['sample']), exp_complete); self.assertEqual(int(ss.runs.sum()), 40)
+        self.assertEqual(self.fm.rows, [])                                                      # a dry run writes nothing
+
+    def test_adopt_cloud_adds_rows_for_ubams_already_on_dropbox_without_downloading(self):
+        small = self.csv.iloc[:6]; small.to_csv(self.fm.localReadDownloadDir + 'small.csv', index=False)
+        runs = list(small.Run); self.fm.reads_dt = pd.DataFrame(dict(RunID=runs[:2])); self.put_cloud(runs[2:6])
+        logs = []
+        D.run(D.parse_args(['small.csv']), self.fm, fetch=self.fetch, launch=self.no_launch, log=logs.append)
+        self.assertEqual(self.fm.rows, []); self.assertTrue(any('--adopt-cloud' in str(m) for m in logs))      # default: only reported
+        D.run(D.parse_args(['small.csv', '--adopt-cloud']), self.fm, fetch=self.fetch, launch=self.no_launch, log=lambda *a: None)
+        self.assertEqual(sorted(r[0]['RunID'] for r in self.fm.rows), sorted(runs[2:6]))
+        self.assertEqual(self.fm.rows[0][0]['FileLocations'], f"{self.fm.rows[0][0]['ProjectID']}/{self.fm.rows[0][0]['RunID']}.unmapped_marked_adapters.bam")
+
+
 class TestAsperaDiscovery(unittest.TestCase):
     def test_order_and_missing(self):
         have = {'/home/student/bin/ascp', '/home/student/.aspera/sdk/aspera_bypass_rsa.pem'}
