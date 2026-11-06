@@ -9,6 +9,8 @@ Every run is classified BEFORE anything is downloaded (ok / already in the datab
 vanish silently; --dry-run stops there. At the end a status table records what happened to every run and why. A run is added to the sample database only if its uBAM is verified on the cloud.
   python3 downloadShortReadData_v2.py --samples-file blumer_missing_from_sheet.tsv --dry-run
   python3 downloadShortReadData_v2.py --samples-file blumer_missing_from_sheet.tsv --workers 4
+  python3 downloadShortReadData_v2.py --samples-file blumer_missing_from_sheet.tsv --no-db        # while another job may overwrite the sample database: rows are kept in pending_db_rows.jsonl
+  python3 downloadShortReadData_v2.py --add-pending ~/Temp/.../pending_db_rows.jsonl             # later, from ONE machine, when nothing else writes the database
   python3 downloadShortReadData_v2.py --retry download_status_20261106-0900.tsv          # only the runs that failed in a way a retry may fix
 
 Speed: downloads and conversions run in SEPARATE pools. --dl-workers (default 3) is the most downloads at the same time: one Aspera transfer is built to fill the link, so more of them
@@ -44,6 +46,8 @@ def parse_args(argv=None):
     p.add_argument('Run_Info_File', nargs='?', help='SRA Run Selector CSV (in the read-download folder on Dropbox)')
     p.add_argument('--ena', nargs='+', default=[], metavar='ACC', help='ENA project / sample / run accessions to list runs from')
     p.add_argument('--samples-file', help='TSV/CSV with a Biosample or SampleID column (and optionally Bioproject)')
+    p.add_argument('--no-db', action='store_true', help='do NOT write the sample database: download, upload and verify the uBAMs, and append each verified run to pending_db_rows.jsonl in the temp folder (add them later, from ONE machine, with --add-pending)')
+    p.add_argument('--add-pending', metavar='JSONL', help='add the rows of a pending_db_rows.jsonl to the sample database (only for uBAMs that are on the cloud and runs not yet in the database), then exit')
     p.add_argument('--retry', metavar='STATUS_TSV', help='only the runs that failed transiently in a previous status table')
     p.add_argument('--dry-run', action='store_true', help='classify the runs and write the plan; download nothing')
     p.add_argument('--dl-workers', type=int, default=3, help='most downloads at the same time (default 3; adapts downward when the server pushes back)')
@@ -138,7 +142,7 @@ def classify(records, reads_in_db, wanted_samples=None, retry_runs=None):
 
 
 # ---------------------------------------------------------------------------------------------------------------- running
-def add_to_database(fm, t, st):
+def database_rows(fm, t):
     rec = t['rec']
     file_locations = f"{t['project']}/{t['run']}.unmapped_marked_adapters.bam"
     read_data = {'SampleID': t['sample'], 'ProjectID': t['project'], 'RunID': t['run'], 'ReadLength': rec.get('avg_spot_len') or _spot_len(rec), 'TotalBases': rec.get('base_count'),
@@ -146,7 +150,34 @@ def add_to_database(fm, t, st):
                  'Platform': t['platform'], 'FileLocations': file_locations}
     read_data['FileSize'] = fm.returnFileSize(fm.localReadsDir + file_locations)
     sample_data = {'SampleID': t['sample'], 'Sex': '', 'Species': t['organism'], 'DoB': '', 'BroodID': '', 'Parents': '', 'Ecogroup': '', 'LabReared': '', 'Inversion10': ''}
-    fm.addDNAReadRow(read_data, sample_data)
+    return read_data, sample_data
+
+
+def add_to_database(fm, t, st, no_db=False):
+    """The row of a run whose uBAM is verified on the cloud: into the sample database, or (no_db) appended to pending_db_rows.jsonl for a later, single-machine --add-pending."""
+    read_data, sample_data = database_rows(fm, t)
+    if no_db:
+        with open(fm.localTempDir + 'pending_db_rows.jsonl', 'a') as f:
+            f.write(json.dumps(dict(read_data=read_data, sample_data=sample_data), default=str) + '\n')
+    else:
+        fm.addDNAReadRow(read_data, sample_data)
+
+
+def add_pending(fm, path, log=print):
+    """Add the rows of a pending file to the database. A row is added only if its uBAM is listed on the cloud and its run is not yet in the database; the rest is reported."""
+    in_db = set(fm.reads_dt['RunID']); added, skipped, missing = 0, 0, []
+    for line in open(path):
+        if not line.strip():
+            continue
+        row = json.loads(line); rd, sd = row['read_data'], row['sample_data']
+        if rd['RunID'] in in_db:
+            skipped += 1; continue
+        folder = fm.localReadsDir + os.path.dirname(rd['FileLocations']) + '/'
+        if os.path.basename(rd['FileLocations']) not in set(fm.returnCloudFiles(folder)):
+            missing.append(rd['RunID']); continue
+        fm.addDNAReadRow(rd, sd); in_db.add(rd['RunID']); added += 1
+    log(f'pending rows: {added} added, {skipped} already in the database, {len(missing)} not added because the uBAM is not on the cloud {missing[:10]}')
+    return added, skipped, missing
 
 
 def _spot_len(rec):
@@ -174,6 +205,11 @@ def report(plan, results, path, log=print):
 
 def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=None, log=print, now=time.time):
     fm.readSampleDatabase()
+    if args.add_pending:
+        add_pending(fm, args.add_pending, log)
+        return 0
+    if args.no_db:
+        log('--no-db: the sample database will NOT be written; verified runs are appended to ' + fm.localTempDir + 'pending_db_rows.jsonl')
     records, wanted = build_records(args, fm, fetch, log)
     in_db = set(fm.reads_dt['RunID'])
     retry_runs = None
@@ -213,7 +249,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             os.makedirs(fm.localReadsDir + t['project'], exist_ok=True)
         cfg = dict(temp_dir=fm.localTempDir, dl_max=args.dl_workers, workers=args.workers, max_ready=args.max_ready or args.workers, stagger_s=args.stagger, max_attempts=args.max_attempts,
                    backoff_s=args.backoff, min_free_gb=args.min_free_gb, disk_factor=args.disk_factor, status_every_s=60, poll_s=5)
-        results = SCH.run_tasks(tasks, cfg, launch, lambda t, st: add_to_database(fm, t, st), sleep=sleep, now=now, free_fn=free_fn, log=log)
+        results = SCH.run_tasks(tasks, cfg, launch, lambda t, st: add_to_database(fm, t, st, args.no_db), sleep=sleep, now=now, free_fn=free_fn, log=log)
     table = report(plan, results, f'{fm.localTempDir}download_status_{stamp}.tsv', log)
     log(f'status table: {fm.localTempDir}download_status_{stamp}.tsv')
     bad = table[(table.state == 'failed')]
@@ -222,8 +258,8 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
 
 def main():
     args = parse_args()
-    if not (args.Run_Info_File or args.ena or args.samples_file):
-        raise SystemExit('give a Run_Info_File, --ena ACC ... or --samples-file FILE')
+    if not (args.Run_Info_File or args.ena or args.samples_file or args.add_pending):
+        raise SystemExit('give a Run_Info_File, --ena ACC ..., --samples-file FILE or --add-pending JSONL')
     from helper_modules.file_manager import FileManager as FM
     fm = FM()
     sys.exit(run(args, fm))

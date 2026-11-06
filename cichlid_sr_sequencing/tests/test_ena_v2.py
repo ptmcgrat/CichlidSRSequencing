@@ -369,6 +369,31 @@ class TestAsperaDiscovery(unittest.TestCase):
             os.environ['HOME'] = old
 
 
+class TestNoDb(unittest.TestCase):
+    def test_no_db_keeps_rows_aside_and_add_pending_adds_only_verified_ones(self):
+        tmp = tempfile.mkdtemp() + '/'; fm = FakeFM(tmp)
+        runs = ['ERR9000001', 'ERR9000002', 'ERR9000003']
+        ena = pd.DataFrame([rec(r, study_accession='PRJEB77', sample_accession='SAMEA' + r[-1], library_name='') for r in runs])
+        def launch(kind, spec_path, logf):
+            spec = json.load(open(spec_path))
+            st = W.fetch_stage(spec, download=fake_download(), log=lambda *a: None) if kind == 'fetch' else W.convert_stage(spec, fm, run=fake_gatk(), log=lambda *a: None)
+            return types.SimpleNamespace(poll=lambda: 0 if st['state'] in ('done', 'fetched') else W.EXIT[st['kind']])
+        clock = [0.0]
+        args = D.parse_args(['--ena', 'PRJEB77', '--no-db', '--stagger', '0', '--ascp', '/no/ascp'])
+        rc = D.run(args, fm, fetch=lambda acc: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s), now=lambda: clock[0], free_fn=lambda p: 1e12, log=lambda *a: None)
+        self.assertEqual((rc, fm.rows), (0, []))                                    # the sample database was not touched
+        lines = [json.loads(l) for l in open(fm.localTempDir + 'pending_db_rows.jsonl')]
+        self.assertEqual(sorted(l['read_data']['RunID'] for l in lines), runs)
+        self.assertEqual(len(fm.cloud[fm.localReadsDir + 'PRJEB77/']), 6)           # but the uBAMs and metrics are uploaded
+        # one uBAM disappears from the cloud, one run is already in the database
+        fm.cloud[fm.localReadsDir + 'PRJEB77/'].discard('ERR9000002.unmapped_marked_adapters.bam'); fm.reads_dt = pd.DataFrame(dict(RunID=['ERR9000003']))
+        added, skipped, missing = D.add_pending(fm, fm.localTempDir + 'pending_db_rows.jsonl', log=lambda *a: None)
+        self.assertEqual((added, skipped, missing), (1, 1, ['ERR9000002'])); self.assertEqual([r[0]['RunID'] for r in fm.rows], ['ERR9000001'])
+        # --add-pending through run(): no download, no plan
+        fm.rows.clear(); fm.reads_dt = pd.DataFrame(dict(RunID=[]))
+        self.assertEqual(D.run(D.parse_args(['--add-pending', fm.localTempDir + 'pending_db_rows.jsonl']), fm, log=lambda *a: None), 0); self.assertEqual(len(fm.rows), 2)
+
+
 class TestOrchestratorOnTheExampleCsv(unittest.TestCase):
     """Your MalinskyPaperData.csv (673 runs) through the real orchestrator, scheduler and workers, with fake ENA, fake downloads and fake GATK."""
     def test_end_to_end(self):
