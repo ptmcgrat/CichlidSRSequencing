@@ -60,6 +60,13 @@ class TestImportTool(Harness):
         self.assertEqual(MT.cmd_import(self.fm, 'Blumer', self.path, log=lambda *a: None), dict(added=0, existing=14))
         self.assertEqual(MT.cmd_import(self.fm, 'Other', self.path, log=lambda *a: None)['added'], 14)                    # a second tab with the same runs is its own tab
 
+    def test_status_skips_tabs_that_are_not_manifest_tabs(self):                      # the empty default 'Sheet1' of a new spreadsheet crashed `status`
+        self.fm.backend.data['Sheet1'] = [[]]
+        out = []; r = MT.cmd_status(self.fm, None, log=out.append)
+        self.assertEqual(list(r), ['Blumer']); self.assertTrue(any('Sheet1: not a manifest tab' in x for x in out))
+        self.assertTrue(self.fm.downloadManifest('Sheet1').load().empty)                                         # loading it is harmless too
+        self.fm.backend.data['Blank'] = []; self.assertTrue(self.fm.downloadManifest('Blank').load().empty)
+
     def test_status_and_release(self):
         mf = self.fm.downloadManifest('Blumer'); mf.update(self.runs[5], DownloadStatus='downloading', ClaimedBy='old-1', ClaimedAt=MF.utc_iso(1_000_000_000)); mf.flush(force=True)
         out = []; r = MT.cmd_status(self.fm, ['Blumer'], log=out.append)

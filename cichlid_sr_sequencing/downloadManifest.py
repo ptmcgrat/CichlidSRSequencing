@@ -47,7 +47,10 @@ def cmd_status(fm, tabs=None, hours=6.0, log=print, now=time.time):
     tabs = tabs or [t for t in fm.downloadManifest('_').b.tabs()]
     out = {}
     for tab in tabs:
-        df = fm.downloadManifest(tab).load()
+        mf = fm.downloadManifest(tab)
+        if 'Run' not in mf.b.header(tab):                                   # e.g. the empty default 'Sheet1' of a new spreadsheet
+            log(f'{tab}: not a manifest tab (no Run column), skipped'); continue
+        df = mf.load()
         c = df['DownloadStatus'].replace('', 'pending').value_counts().to_dict()
         stale = [r.Run for r in df.itertuples() if r.DownloadStatus in MF.ACTIVE and (MF.parse_iso(r.ClaimedAt) is None or now() - MF.parse_iso(r.ClaimedAt) > hours * 3600)]
         log(f'{tab}: {len(df)} runs | ' + ', '.join(f'{k} {c.get(k, 0)}' for k in MF.STATUSES) + (f' | {len(stale)} STALE claims (older than {hours:.0f} h; `release` gives them back)' if stale else ''))

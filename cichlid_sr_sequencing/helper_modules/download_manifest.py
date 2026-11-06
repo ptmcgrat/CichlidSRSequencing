@@ -182,7 +182,7 @@ class Manifest:
     def load(self):
         """The whole tab as a DataFrame of strings, with `_row` = the row number in the sheet."""
         v = self.b.values(self.tab)
-        if not v:
+        if not v or 'Run' not in v[0]:                                      # an empty tab (a new spreadsheet has an empty 'Sheet1'), or one that is not a manifest tab
             return pd.DataFrame(columns=RUNINFO_COLUMNS + TRACK_COLUMNS + ['_row'])
         hdr = v[0]
         rows = [r + [''] * (len(hdr) - len(r)) for r in v[1:]]
