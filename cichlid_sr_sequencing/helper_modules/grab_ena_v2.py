@@ -52,7 +52,7 @@ def fetch_stage(spec, download=E.download_run, log=print):
     try:
         os.makedirs(tmp, exist_ok=True)
         _, _, stats = download(spec['sel'], tmp, ascp=spec.get('ascp'), key=spec.get('key'), rate=spec.get('ascp_rate', '300m'), both_in_one_session=spec.get('one_session', True),
-                               timeout=spec.get('ascp_timeout'), log=log)
+                               timeout=spec.get('ascp_timeout'), stall_s=spec.get('stall_s', 90.0), log=log)
         st.update(state='fetched', stage='fetched', kind='', download=stats)
     except E.EnaError as e:
         st.update(error=str(e)[-1500:], kind=e.kind)

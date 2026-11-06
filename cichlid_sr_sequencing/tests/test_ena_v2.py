@@ -283,7 +283,7 @@ class FakeProc:
         if self.n <= self.polls:
             return None
         st = dict(run=self.spec['run'], state=self.outcome['state'], stage=self.outcome.get('stage', 'x'), kind=self.outcome.get('kind', ''), error=self.outcome.get('error', ''),
-                  download=dict(method='aspera', mb_per_s=50.0))
+                  download=self.outcome.get('download', dict(method='aspera', mb_per_s=50.0)))
         if self.outcome.get('nostatus'):
             return 1
         json.dump(st, open(self.spec['status_json'], 'w'))
@@ -292,6 +292,7 @@ class FakeProc:
 
 class TestScheduler(unittest.TestCase):
     def setup(self, n=10, **over):
+        self.done = []
         self.tmp = tempfile.mkdtemp() + '/'; os.makedirs(self.tmp + 'temp/')
         self.cfg = dict(temp_dir=self.tmp + 'temp/', dl_max=3, workers=2, max_ready=2, stagger_s=5, max_attempts=3, backoff_s=30, min_free_gb=0, disk_factor=4, status_every_s=1e9, poll_s=1); self.cfg.update(over)
         self.tasks = [dict(run=f'ERR{i:03d}', sample='S', fastq_gb=1.0, spec=dict(run=f'ERR{i:03d}')) for i in range(n)]
@@ -316,6 +317,7 @@ class TestScheduler(unittest.TestCase):
         return launch
 
     def run_(self, launch, free=lambda p: 1e12):
+        self.done = getattr(self, 'done', None) or []
         self.done = []
         return SCH.run_tasks(self.tasks, self.cfg, launch, lambda t, st: self.done.append(t['run']), sleep=self.sleep, now=self.now, free_fn=free, log=lambda *a: None)
 
@@ -450,6 +452,134 @@ class TestTwoRunInfoFiles(unittest.TestCase):
         D.run(D.parse_args(['small.csv', '--adopt-cloud']), self.fm, fetch=self.fetch, launch=self.no_launch, log=lambda *a: None)
         self.assertEqual(sorted(r[0]['RunID'] for r in self.fm.rows), sorted(runs[2:6]))
         self.assertEqual(self.fm.rows[0][0]['FileLocations'], f"{self.fm.rows[0][0]['ProjectID']}/{self.fm.rows[0][0]['RunID']}.unmapped_marked_adapters.bam")
+
+
+class FakeP:
+    def __init__(self, ends_after=None, now=None, rc=0):
+        self.ends_after, self.now, self.rc, self.terminated, self.returncode = ends_after, now, rc, False, None
+        self.stderr = io.BytesIO(b'')
+    def poll(self):
+        if self.terminated:
+            return -15
+        if self.ends_after is not None and self.now() >= self.ends_after:
+            self.returncode = self.rc; return self.rc
+        return None
+    def terminate(self): self.terminated = True; self.returncode = -15
+    def wait(self, timeout=None): return self.returncode
+    def kill(self): self.terminated = True
+
+
+class TestStallAndProbe(unittest.TestCase):
+    def clock(self):
+        t = [0.0]
+        return t, (lambda: t[0]), (lambda dt: t.__setitem__(0, t[0] + dt))
+
+    def test_a_silent_process_is_stopped_after_the_stall_limit(self):
+        t, now, sleep = self.clock(); p = FakeP(now=now)
+        rc, err, stalled = E.run_monitored(['ascp'], lambda: 0, stall_s=60, popen=lambda *a, **k: p, sleep=sleep, now=now, poll=5)
+        self.assertTrue(stalled and p.terminated); self.assertGreaterEqual(t[0], 60); self.assertLess(t[0], 70)
+
+    def test_a_progressing_process_is_left_alone_and_the_hard_timeout_applies(self):
+        t, now, sleep = self.clock(); size = [0]
+        def watch(): size[0] += 1000; return size[0]
+        p = FakeP(ends_after=100, now=now)
+        rc, err, stalled = E.run_monitored(['ascp'], watch, stall_s=30, popen=lambda *a, **k: p, sleep=sleep, now=now, poll=5)
+        self.assertEqual((rc, stalled, p.terminated), (0, False, False))
+        t, now, sleep = self.clock(); p2 = FakeP(now=now)
+        rc, err, stalled = E.run_monitored(['ascp'], watch, stall_s=1e9, timeout=40, popen=lambda *a, **k: p2, sleep=sleep, now=now, poll=5)
+        self.assertTrue(p2.terminated and not stalled and t[0] >= 40)
+
+    def test_aspera_download_reports_a_stall_and_download_run_falls_back_to_https(self):
+        d = tempfile.mkdtemp() + '/'; ascp = d + 'ascp'; open(ascp, 'w').write('x')
+        payload = os.urandom(3000); md = hashlib.md5(payload).hexdigest()
+        mk = lambda n: dict(name=n, url='ftp.example/' + n, aspera='fasp.sra.ebi.ac.uk:/v/' + n, md5=md, bytes=3000)
+        sel = dict(status='ok', r1=mk('R_1.fastq.gz'), r2=mk('R_2.fastq.gz'), orphans=[])
+        stalled = lambda cmd, watch, **k: (-15, '', True)
+        ok, kind, msg = E.aspera_download([sel['r1']], d + 'a/', ascp, 'k', monitor=stalled, stall_s=90)
+        self.assertEqual((ok, kind), (False, 'stall')); self.assertIn('UDP', msg)
+        def curl(cmd, capture_output=True, text=True):
+            open(cmd[cmd.index('-o') + 1], 'wb').write(payload); return types.SimpleNamespace(returncode=0, stderr='')
+        _, _, st = E.download_run(sel, d + 'b/', ascp=ascp, key='k', log=lambda *a: None, ascp_monitor=stalled, run=curl)
+        self.assertEqual((st['method'], st['aspera_stalled']), ('https', True))
+
+    def test_probe(self):
+        d = tempfile.mkdtemp() + '/'; ascp = d + 'ascp'; open(ascp, 'w').write('x')
+        rec_ = dict(name='P_1.fastq.gz', aspera='fasp:/v/P_1.fastq.gz', md5='', bytes=1)
+        def monitor_data(cmd, watch, **k):
+            open(d + 'p/P_1.fastq.gz', 'wb').write(b'x' * 50_000_000); return (-15, '', False)
+        os.makedirs(d + 'p/')
+        ok, mb, rate = E.probe_aspera(rec_, d + 'p/', ascp, 'k', seconds=20, monitor=monitor_data)
+        self.assertTrue(ok); self.assertEqual(mb, 50.0); self.assertEqual(os.listdir(d + 'p/'), [])              # the partial file is removed
+        ok, mb, rate = E.probe_aspera(rec_, d + 'p/', ascp, 'k', seconds=20, monitor=lambda cmd, watch, **k: (-15, '', True))
+        self.assertFalse(ok)
+
+
+class TestSchedulerClaimAndEvents(TestScheduler):
+    def test_a_run_claimed_by_another_machine_is_skipped_and_events_are_reported(self):
+        self.setup(4, stagger_s=0); events = []
+        res = SCH.run_tasks(self.tasks, self.cfg, self.launcher({('fetch', 'ERR001'): [dict(state='failed', stage='download', kind='transient', error='net'), dict(state='fetched')]}), lambda t, st: self.done.append(t['run']) or None,
+                            sleep=self.sleep, now=self.now, free_fn=lambda p: 1e12, log=lambda *a: None, claim=lambda t: t['run'] != 'ERR002', on_event=lambda n, t, i: events.append((n, t['run'])))
+        self.assertEqual((res['ERR002']['state'], res['ERR002']['stage']), ('skipped', 'claimed by another machine'))
+        names = [e for e in events if e[1] == 'ERR001']
+        self.assertEqual([n for n, _ in names], ['fetch_start', 'retry', 'fetch_start', 'fetched', 'convert_start', 'done'])
+        self.assertFalse(any(r == 'ERR002' for _, r in events))                                     # nothing is reported for a run we did not take
+
+
+class TestAsperaOffAfterStalls(TestScheduler):
+    def test_two_stalls_switch_the_rest_of_the_runs_to_https(self):
+        self.setup(6, dl_max=1, stagger_s=0)
+        for t_ in self.tasks:
+            t_['spec']['ascp'] = '/bin/ascp'
+        seen = []
+        base = self.launcher({('fetch', 'ERR000'): dict(state='fetched', download=dict(method='https', mb_per_s=40.0, aspera_stalled=True)),
+                              ('fetch', 'ERR001'): dict(state='fetched', download=dict(method='https', mb_per_s=40.0, aspera_stalled=True))})
+        def launch(kind, spec_path, logf):
+            spec = json.load(open(spec_path))
+            if kind == 'fetch':
+                seen.append((spec['run'], spec.get('ascp')))
+            return base(kind, spec_path, logf)
+        self.run_(launch)
+        d = dict(seen)
+        self.assertEqual([d['ERR000'], d['ERR001']], ['/bin/ascp', '/bin/ascp']); self.assertTrue(all(d[f'ERR00{i}'] is None for i in (2, 3, 4, 5)))
+        self.assertEqual(len(self.done), 6)
+
+
+class TestProbeInTheOrchestrator(unittest.TestCase):
+    def go(self, probe_result):
+        tmp = tempfile.mkdtemp() + '/'; fm = FakeFM(tmp)
+        ascp, key = tmp + 'ascp', tmp + 'key.pem'; open(ascp, 'w').write('x'); open(key, 'w').write('k')
+        ena = pd.DataFrame([rec('ERR9200001', study_accession='PRJEB79', sample_accession='SAMEA7', library_name='')])
+        specs = []
+        def launch(kind, spec_path, logf):
+            spec = json.load(open(spec_path)); specs.append(spec.get('ascp'))
+            st = W.fetch_stage(spec, download=fake_download(), log=lambda *a: None) if kind == 'fetch' else W.convert_stage(spec, fm, run=fake_gatk(), log=lambda *a: None)
+            return types.SimpleNamespace(poll=lambda: 0 if st['state'] in ('done', 'fetched') else W.EXIT[st['kind']])
+        clock = [0.0]; logs = []
+        D.run(D.parse_args(['--ena', 'PRJEB79', '--no-db', '--stagger', '0', '--ascp', ascp, '--key', key]), fm, fetch=lambda a: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s),
+              now=lambda: clock[0], free_fn=lambda p: 1e12, log=logs.append, probe=lambda *a, **k: probe_result)
+        return specs, logs, ascp
+
+    def test_a_failed_probe_sends_everything_over_https(self):
+        specs, logs, ascp = self.go((False, 0.0, 0.0))
+        self.assertTrue(all(s is None for s in specs)); self.assertTrue(any('UDP' in str(m) and 'using https' in str(m) for m in logs))
+
+    def test_a_working_probe_keeps_aspera(self):
+        specs, logs, ascp = self.go((True, 480.0, 24.0))
+        self.assertTrue(all(s == ascp for s in specs)); self.assertTrue(any('Aspera works' in str(m) for m in logs))
+
+
+class TestBenchHttps(unittest.TestCase):
+    def test_https_mode_measures_bytes(self):
+        sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'unit_scripts'))
+        import ena_bench
+        class P:
+            def __init__(self, cmd, **k):
+                open(cmd[cmd.index('-o') + 1], 'wb').write(b'x' * 20_000_000); self.returncode = 28
+            def poll(self): return self.returncode
+            def terminate(self): pass
+        t = [0.0]
+        r = ena_bench.bench_https([dict(name='a.gz', url='ftp.x/a.gz'), dict(name='b.gz', url='ftp.x/b.gz')], 2, 10, popen=P, sleep=lambda s: t.__setitem__(0, t[0] + s), now=lambda: t[0])
+        self.assertEqual((r['concurrency'], r['died_early']), (2, 0)); self.assertAlmostEqual(r['aggregate_mb_s'], 40.0 / 12, places=0)
 
 
 class TestAsperaDiscovery(unittest.TestCase):

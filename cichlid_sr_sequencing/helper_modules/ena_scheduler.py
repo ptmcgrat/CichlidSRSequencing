@@ -56,7 +56,7 @@ def read_status(path, log_path, rc):
     return st
 
 
-def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free_fn=None, log=print):
+def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free_fn=None, log=print, claim=None, on_event=None):
     """tasks: dicts with run, fastq_gb, and whatever the workers need. cfg: temp_dir, dl_max, workers, max_ready, stagger_s, max_attempts, backoff_s, min_free_gb, disk_factor, status_every_s.
     launch(kind, spec_path, log_path) -> process with .poll(); kind is 'fetch' or 'convert'. on_done(task, status) is called for a finished conversion that reported done (database row);
     it may raise, which turns the run into a failure. Returns {run: final status}."""
@@ -65,9 +65,13 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
     queue = [dict(t, attempts=0, not_before=0.0) for t in tasks]
     fetching, ready, converting, results = [], [], [], {}
     last_start, last_status, bytes_done, t_begin = -1e9, now(), 0.0, now()
+    aspera = dict(stalls=0, off=False)
+    ev = on_event or (lambda *a: None)             # ev(name, task, info): fetch_start | fetched | convert_start | done | retry | failed
 
     def spec_for(t, kind):
         spec = dict(t['spec'], stage=kind, status_json=f"{tmp}{t['run']}.{kind}.status.json")
+        if aspera['off']:
+            spec['ascp'] = None
         path = f"{tmp}{t['run']}.{kind}.spec.json"
         json.dump(spec, open(path, 'w'), indent=1)
         if os.path.exists(spec['status_json']):
@@ -77,10 +81,10 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
     def retry_or_fail(t, st):
         t['attempts'] += 1
         if st.get('kind') != 'permanent' and t['attempts'] < cfg['max_attempts']:
-            t['not_before'] = now() + cfg['backoff_s'] * t['attempts']; queue.append(t)
+            t['not_before'] = now() + cfg['backoff_s'] * t['attempts']; queue.append(t); ev('retry', t, dict(st, attempts=t['attempts']))
             log(f"  {t['run']}: {st['stage']} failed ({st.get('kind')}), retry {t['attempts']}/{cfg['max_attempts'] - 1} in {cfg['backoff_s'] * t['attempts']:.0f} s")
         else:
-            results[t['run']] = dict(st, state='failed', attempts=t['attempts'])
+            results[t['run']] = dict(st, state='failed', attempts=t['attempts']); ev('failed', t, results[t['run']])
             log(f"  {t['run']}: FAILED ({st['stage']}, {st.get('kind')}): {str(st.get('error', ''))[:150].replace(chr(10), ' ')}")
 
     while queue or fetching or ready or converting:
@@ -90,8 +94,12 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
                 continue
             fetching.remove(r); st = read_status(r['status_json'], r['log'], rc)
             if st['state'] == 'fetched':
-                gov.on_success(); bytes_done += r['task']['fastq_gb'] * 1e9; r['task']['dl'] = st.get('download'); ready.append(r['task'])
+                gov.on_success(); bytes_done += r['task']['fastq_gb'] * 1e9; r['task']['dl'] = st.get('download'); ready.append(r['task']); ev('fetched', r['task'], st)
                 d = st.get('download') or {}
+                if d.get('aspera_stalled'):
+                    aspera['stalls'] += 1
+                    if aspera['stalls'] >= 2 and not aspera['off']:
+                        aspera['off'] = True; log('  Aspera stalled twice (no data for the stall limit): the remaining runs use https')
                 log(f"  {r['task']['run']}: downloaded {r['task']['fastq_gb']:.1f} GB via {d.get('method', '?')} at {d.get('mb_per_s', '?')} MB/s")
             else:
                 if st.get('kind') == 'throttle':
@@ -104,18 +112,19 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
             converting.remove(r); st = read_status(r['status_json'], r['log'], rc)
             if st['state'] == 'done':
                 try:
-                    on_done(r['task'], st); results[r['task']['run']] = dict(st, attempts=r['task']['attempts'] + 1)
+                    on_done(r['task'], st); results[r['task']['run']] = dict(st, attempts=r['task']['attempts'] + 1); ev('done', r['task'], results[r['task']['run']])
                     log(f"  {r['task']['run']}: done")
                 except Exception as e:
-                    results[r['task']['run']] = dict(st, state='failed', stage='database', kind='permanent', error=f'uBAM uploaded but the database row failed: {e}')
+                    results[r['task']['run']] = dict(st, state='failed', stage='database', kind='permanent', error=f'uBAM uploaded but the database row failed: {e}'); ev('failed', r['task'], results[r['task']['run']])
                     log(f"  {r['task']['run']}: uBAM uploaded but the database row failed: {e}")
             else:
-                retry_or_fail(dict(r['task']), st) if st.get('kind') != 'permanent' else results.__setitem__(r['task']['run'], dict(st, state='failed'))
+                retry_or_fail(dict(r['task']), st) if st.get('kind') != 'permanent' else results.__setitem__(r['task']['run'], dict(st, state='failed', attempts=r['task']['attempts'] + 1))
                 if st.get('kind') == 'permanent':
+                    ev('failed', r['task'], results[r['task']['run']])
                     log(f"  {r['task']['run']}: FAILED ({st['stage']}): {str(st.get('error', ''))[:150].replace(chr(10), ' ')}")
         while ready and len(converting) < cfg['workers']:                       # drain first: a run whose FASTQs are on disk converts before a new download starts
             t = ready.pop(0); path, sj = spec_for(t, 'convert')
-            converting.append(dict(task=t, status_json=sj, log=f"{tmp}{t['run']}.convert.log", proc=launch('convert', path, f"{tmp}{t['run']}.convert.log")))
+            converting.append(dict(task=t, status_json=sj, log=f"{tmp}{t['run']}.convert.log", proc=launch('convert', path, f"{tmp}{t['run']}.convert.log"))); ev('convert_start', t, {})
         while queue and gov.may_start(len(fetching)) and len(ready) < cfg['max_ready'] and now() - last_start >= cfg['stagger_s']:
             cand = next((t for t in queue if t['not_before'] <= now()), None)
             if cand is None:
@@ -126,12 +135,17 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
             if free_fn(tmp) - reserved < need + cfg['min_free_gb'] * 1e9:
                 if not inflight:
                     queue.remove(cand)
+                    ev('failed', cand, dict(state='failed', stage='disk', kind='transient', error='not enough free disk', attempts=cand['attempts']))
                     results[cand['run']] = dict(state='failed', stage='disk', kind='transient', error=f"not enough free disk for {need / 1e9:.0f} GB (free {free_fn(tmp) / 1e9:.0f} GB, margin {cfg['min_free_gb']:.0f} GB)", attempts=cand['attempts'])
                     continue
                 break
-            queue.remove(cand); path, sj = spec_for(cand, 'fetch'); last_start = now()
+            queue.remove(cand)
+            if claim and not claim(cand):                                              # another machine has this run: leave it
+                results[cand['run']] = dict(state='skipped', stage='claimed by another machine', kind='', error='', attempts=cand['attempts'])
+                log(f"  {cand['run']}: claimed by another machine, skipped"); continue
+            path, sj = spec_for(cand, 'fetch'); last_start = now()
             log(f"Starting download of {cand['run']} ({cand['sample']}, {cand['fastq_gb']:.1f} GB); downloads {len(fetching) + 1}/{gov.allowed}")
-            fetching.append(dict(task=cand, status_json=sj, log=f"{tmp}{cand['run']}.fetch.log", proc=launch('fetch', path, f"{tmp}{cand['run']}.fetch.log")))
+            fetching.append(dict(task=cand, status_json=sj, log=f"{tmp}{cand['run']}.fetch.log", proc=launch('fetch', path, f"{tmp}{cand['run']}.fetch.log"))); ev('fetch_start', cand, {})
         if now() - last_status >= cfg['status_every_s']:
             last_status = now(); el = max(now() - t_begin, 1e-6)
             log(f"[{time.strftime('%H:%M:%S')}] downloading {len(fetching)}/{gov.allowed}, ready {len(ready)}, converting {len(converting)}/{cfg['workers']}, waiting {len(queue)}, done {sum(1 for v in results.values() if v['state'] == 'done')}, "

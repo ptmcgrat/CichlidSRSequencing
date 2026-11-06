@@ -6,7 +6,7 @@ What the old scripts did that lost samples, and what is done here instead:
   * ENA answers were fetched with three bare retries without a pause; ENA rate-limits. Retries now back off, and a failure is a recorded status, not a crash of the whole batch.
   * Downloads were checked only by the exit code of ascp. ENA's md5 and size are now verified; a truncated mate file can no longer be silently zipped against a complete one.
   * Run lists came only from an SRA Run Selector file; ENA-only projects (PRJEB...) can be listed directly from ENA."""
-import gzip, hashlib, io, os, re, shutil, subprocess, time
+import glob, gzip, hashlib, io, os, re, shutil, subprocess, time
 import pandas as pd
 
 RUN_FIELDS = ['run_accession', 'sample_accession', 'secondary_sample_accession', 'experiment_accession', 'study_accession', 'library_name', 'library_layout', 'library_source',
@@ -137,17 +137,62 @@ def ascp_command(recs, dest_dir, ascp, key, rate='300m', port=33001, resume=1):
     return [ascp, '-QT', '-l', str(rate), '-P', str(port), '-k', str(resume), '-i', key] + ['era-fasp@' + r['aspera'] for r in recs] + [dest_dir]
 
 
-def aspera_download(recs, dest_dir, ascp, key, rate='300m', port=33001, run=None, md5=md5_file, timeout=None):
-    """One ascp session for the files in `recs`. Returns (ok, kind, message): ok only if every file is complete and its md5 matches. A file that is complete but wrong is deleted."""
-    run = run or subprocess.run
+def run_monitored(cmd, watch, stall_s=90.0, timeout=None, popen=subprocess.Popen, sleep=time.sleep, now=time.time, poll=5.0):
+    """Run `cmd` and watch its progress. watch() returns the number of bytes present so far; if that does not grow for `stall_s` seconds the process is terminated and `stalled` is True.
+    A silent ascp is what a firewall that lets the TCP control connection through but drops the UDP data channel looks like: it neither fails nor transfers. `timeout` is a hard limit.
+    Returns (returncode, stderr text, stalled)."""
+    p = popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    t0 = last_change = now(); last = watch(); stalled = False
+    while p.poll() is None:
+        sleep(poll)
+        cur = watch()
+        if cur != last:
+            last, last_change = cur, now()
+        if now() - last_change > stall_s or (timeout and now() - t0 > timeout):
+            stalled = now() - last_change > stall_s
+            p.terminate()
+            try:
+                p.wait(timeout=10)
+            except Exception:
+                p.kill()
+            break
+    err = ''
+    try:
+        err = (p.stderr.read() or b'').decode('utf-8', 'replace')
+    except Exception:
+        pass
+    return p.returncode, err, stalled
+
+
+def _present(dest_dir, recs):
+    tot = 0
+    for r in recs:
+        for f in glob.glob(os.path.join(dest_dir, r['name']) + '*'):
+            if not f.endswith(('.aspx', '.aspera-ckpt')):
+                try:
+                    tot += os.path.getsize(f)
+                except OSError:
+                    pass
+    return tot
+
+
+def aspera_download(recs, dest_dir, ascp, key, rate='300m', port=33001, run=None, md5=md5_file, timeout=None, stall_s=90.0, monitor=run_monitored):
+    """One ascp session for the files in `recs`. Returns (ok, kind, message): ok only if every file is complete and its md5 matches. A file that is complete but wrong is deleted.
+    kind 'stall' = no data for `stall_s` seconds (the session is killed). If `run` is given it is used instead of the monitored process (tests)."""
     if not (ascp and os.path.exists(ascp)):
         return False, 'transient', 'ascp not available'
     os.makedirs(dest_dir, exist_ok=True)
-    try:
-        r = run(ascp_command(recs, dest_dir, ascp, key, rate, port), capture_output=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return False, 'throttle', f'ascp timed out after {timeout} s'
-    err = r.stderr.decode('utf-8', 'replace') if isinstance(r.stderr, (bytes, bytearray)) else str(r.stderr or '')
+    cmd = ascp_command(recs, dest_dir, ascp, key, rate, port)
+    if run is not None:
+        try:
+            r = run(cmd, capture_output=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return False, 'throttle', f'ascp timed out after {timeout} s'
+        rc, err, stalled = r.returncode, (r.stderr.decode('utf-8', 'replace') if isinstance(r.stderr, (bytes, bytearray)) else str(r.stderr or '')), False
+    else:
+        rc, err, stalled = monitor(cmd, lambda: _present(dest_dir, recs), stall_s=stall_s, timeout=timeout)
+    if stalled:
+        return False, 'stall', f'no data received for {stall_s:.0f} s (TCP 33001 connects; the UDP data channel is probably blocked by a firewall)'
     bad = []
     for rec in recs:
         path = os.path.join(dest_dir, rec['name'])
@@ -155,24 +200,39 @@ def aspera_download(recs, dest_dir, ascp, key, rate='300m', port=33001, run=None
             bad.append(rec['name'])
             if os.path.exists(path) and os.path.getsize(path) >= rec['bytes']:
                 os.remove(path)                                            # complete-looking but wrong: do not let -k 1 'resume' it
-    if not bad and r.returncode == 0:
+    if not bad and rc == 0:
         return True, '', ''
-    kind = classify_ascp_error(err) if r.returncode else 'transient'
-    return False, kind, f'ascp exit {r.returncode}, incomplete/wrong: {bad}: {err[-300:].strip()}'
+    kind = classify_ascp_error(err) if rc else 'transient'
+    return False, kind, f'ascp exit {rc}, incomplete/wrong: {bad}: {err[-300:].strip()}'
 
 
-def download_run(sel, dest_dir, ascp=None, key=None, rate='300m', both_in_one_session=True, log=print, timeout=None, run=None, **kw):
+def probe_aspera(rec, dest_dir, ascp, key, rate='300m', seconds=20.0, min_mb=10.0, monitor=run_monitored, now=time.time):
+    """Does Aspera actually move data on THIS network? Starts one transfer of `rec`, stops it after `seconds`, and reports (ok, MB received, MB/s). Not ok = nothing (or almost nothing)
+    arrived: use https. The partial file is deleted."""
+    os.makedirs(dest_dir, exist_ok=True)
+    t0 = now()
+    monitor(ascp_command([rec], dest_dir, ascp, key, rate), lambda: _present(dest_dir, [rec]), stall_s=seconds, timeout=seconds)
+    mb = _present(dest_dir, [rec]) / 1e6
+    for f in glob.glob(os.path.join(dest_dir, rec['name']) + '*'):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+    return mb >= min_mb, round(mb, 1), round(mb / max(now() - t0, 1e-6), 1)
+
+
+def download_run(sel, dest_dir, ascp=None, key=None, rate='300m', both_in_one_session=True, log=print, timeout=None, run=None, stall_s=90.0, ascp_monitor=None, **kw):
     """Both mate files. Aspera first (one session for both mates), https as the fallback (UDP/33001 is blocked on some networks, and a refused session should not end the run).
     Returns (path1, path2, stats). Raises EnaError(kind=...) when both routes fail; the kind is the Aspera one if it was throttling, so that the scheduler can slow down."""
     recs = [sel['r1'], sel['r2']]
-    t0 = time.time(); method = 'https'; akind = ''
+    t0 = time.time(); method = 'https'; akind = ''; stalled = False
     if ascp:
         groups = [recs] if both_in_one_session else [[recs[0]], [recs[1]]]
         ok_all, msgs = True, []
         for g in groups:
-            ok, kind, msg = aspera_download(g, dest_dir, ascp, key, rate, run=run, timeout=timeout)
+            ok, kind, msg = aspera_download(g, dest_dir, ascp, key, rate, run=(run if ascp_monitor is None else None), timeout=timeout, stall_s=stall_s, monitor=ascp_monitor or run_monitored)
             if not ok:
-                ok_all = False; akind = kind; msgs.append(msg); log(f'    aspera failed ({kind}): {msg[:200]}')
+                ok_all = False; akind = kind; stalled = stalled or kind == 'stall'; msgs.append(msg); log(f'    aspera failed ({kind}): {msg[:200]}')
         if ok_all:
             method = 'aspera'
         elif akind == 'permanent':
@@ -184,7 +244,7 @@ def download_run(sel, dest_dir, ascp=None, key=None, rate='300m', both_in_one_se
         except EnaError as e:
             raise EnaError(str(e), 'throttle' if akind == 'throttle' else 'transient')
     secs = max(time.time() - t0, 1e-6); nbytes = sum(r['bytes'] for r in recs)
-    return os.path.join(dest_dir, recs[0]['name']), os.path.join(dest_dir, recs[1]['name']), dict(method=method, seconds=round(secs, 1), bytes=nbytes, mb_per_s=round(nbytes / 1e6 / secs, 1))
+    return os.path.join(dest_dir, recs[0]['name']), os.path.join(dest_dir, recs[1]['name']), dict(method=method, seconds=round(secs, 1), bytes=nbytes, mb_per_s=round(nbytes / 1e6 / secs, 1), aspera_stalled=stalled)
 
 
 # ----------------------------------------------------------------------------------------------------------------- FASTQ clean-up (only when FastqToSam rejects the files)

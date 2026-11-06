@@ -19,6 +19,7 @@ class FileManager():
 	
 		self.s_ID = '1NmgB_TWoO01Qz2ufvECuZFkxXayhUsyu8wQGStVB_8k' # Sample Database
 		self.a_ID = '1vlA_eJ09RSKCaM0foFMc0n5tL95XK4deB3dr7kAFx3E' # Alignment Database
+		self.dl_ID = '1gNFAd_B8tWxQZRJeEmuhVl1qsqJf1KJtKYpehoEMfrQ' # Download Database (one tab per Run Info file; see helper_modules/download_manifest.py)
 
 		# Create file structure for data
 		self._createMasterDirs()
@@ -239,6 +240,22 @@ class FileManager():
 			except AttributeError:
 				self.readSampleDatabase()
 				return self.merged_dt.Subgroup.dropna().unique().tolist()
+
+	# ---- Download database: one tab per Run Info file. The logic is in helper_modules/download_manifest.py: only the cells of changed rows are written (batched), runs are claimed before they
+	# are downloaded, and updates that cannot be written are journalled locally. This is NOT like setSampleDatabase (which rewrites whole worksheets).
+	def downloadManifest(self, tab, who = None, flush_seconds = 15.0):
+		try:
+			from helper_modules import download_manifest as dm
+		except ImportError:
+			import download_manifest as dm
+		who = who or (platform.node().split('.')[0] + '-' + str(os.getpid()))
+		return dm.Manifest(dm.GspreadBackend(self.gc, self.dl_ID), tab, who, journal = self.localTempDir + 'download_manifest_' + tab.replace(' ', '_') + '.journal.jsonl', flush_s = flush_seconds)
+
+	def downloadTabs(self):
+		return self.downloadManifest('_').b.tabs()
+
+	def readDownloadTab(self, tab):
+		return self.downloadManifest(tab).load()
 
 	def _authenticateGS(self):
 		self.downloadData(self.localCredentialFile)
