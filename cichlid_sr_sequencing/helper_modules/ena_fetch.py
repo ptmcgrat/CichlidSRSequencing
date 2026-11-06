@@ -70,9 +70,18 @@ def select_fastqs(row):
     return dict(status='missing_mate', r1=None, r2=None, orphans=files, note=f'files: {[f["name"] for f in files]}')
 
 
+def ena_spots(row):
+    """Read PAIRS (spots) of a run. ENA's `read_count` counts READS: both mates of a pair (measured: ERR13389718 has read_count 109,512,218 and fasterq-dump finds 54,756,109 spots). None if unknown."""
+    try:
+        n = int(row['read_count'])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return n // 2 if str(row.get('library_layout', '')).upper() == 'PAIRED' else n
+
+
 def runinfo_from_ena(df):
     """ENA run records -> the columns of an SRA Run Selector file that downloadShortReadData expects. AvgSpotLen = bases per spot (both mates), as in Run Selector."""
-    spots = pd.to_numeric(df['read_count'], errors='coerce'); bases = pd.to_numeric(df['base_count'], errors='coerce')
+    spots = pd.to_numeric(df['read_count'], errors='coerce') / df['library_layout'].str.upper().map(lambda x: 2 if x == 'PAIRED' else 1); bases = pd.to_numeric(df['base_count'], errors='coerce')
     return pd.DataFrame({'Run': df['run_accession'], 'AvgSpotLen': (bases / spots).round().astype('Int64'), 'Bases': bases.astype('Int64'), 'BioProject': df['study_accession'],
                          'BioSample': df['sample_accession'], 'Experiment': df['experiment_accession'], 'Instrument': df['instrument_model'], 'Library Name': df['library_name'],
                          'LibraryLayout': df['library_layout'], 'LibrarySelection': df['library_selection'], 'LibrarySource': df['library_source'], 'Organism': df['scientific_name'],
@@ -80,6 +89,11 @@ def runinfo_from_ena(df):
 
 
 # ----------------------------------------------------------------------------------------------------------------- downloads
+def full_url(u, scheme='https'):
+    """ENA lists paths such as ftp.sra.ebi.ac.uk/vol1/fastq/...; they are served over https as well as ftp."""
+    return u if '://' in u else f'{scheme}://{u}'
+
+
 def md5_file(path, chunk=1 << 22):
     h = hashlib.md5()
     with open(path, 'rb') as f:

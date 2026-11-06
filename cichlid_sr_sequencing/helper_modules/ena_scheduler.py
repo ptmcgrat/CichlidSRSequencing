@@ -72,6 +72,10 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
         spec = dict(t['spec'], stage=kind, status_json=f"{tmp}{t['run']}.{kind}.status.json")
         if aspera['off']:
             spec['ascp'] = None
+        if kind == 'fetch' and t.get('sources'):                                    # the source of this attempt: they are tried in turn, one per attempt
+            spec['source'] = t['sources'][t['attempts'] % len(t['sources'])]
+        if kind == 'convert' and t.get('fastq'):
+            spec['fastq'] = t['fastq']
         path = f"{tmp}{t['run']}.{kind}.spec.json"
         json.dump(spec, open(path, 'w'), indent=1)
         if os.path.exists(spec['status_json']):
@@ -80,8 +84,10 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
 
     def retry_or_fail(t, st):
         t['attempts'] += 1
-        if st.get('kind') != 'permanent' and t['attempts'] < cfg['max_attempts']:
-            t['not_before'] = now() + cfg['backoff_s'] * t['attempts']; queue.append(t); ev('retry', t, dict(st, attempts=t['attempts']))
+        kind = st.get('kind')
+        switchable = kind == 'source_unavailable' and len(t.get('sources') or []) > 1          # this source cannot deliver this run: the next one is tried, at once
+        if kind != 'permanent' and (kind != 'source_unavailable' or switchable) and t['attempts'] < cfg['max_attempts']:
+            t['not_before'] = now() + (0 if kind == 'source_unavailable' else cfg['backoff_s'] * t['attempts']); queue.append(t); ev('retry', t, dict(st, attempts=t['attempts']))
             log(f"  {t['run']}: {st['stage']} failed ({st.get('kind')}), retry {t['attempts']}/{cfg['max_attempts'] - 1} in {cfg['backoff_s'] * t['attempts']:.0f} s")
         else:
             results[t['run']] = dict(st, state='failed', attempts=t['attempts']); ev('failed', t, results[t['run']])
@@ -94,13 +100,13 @@ def run_tasks(tasks, cfg, launch, on_done, sleep=time.sleep, now=time.time, free
                 continue
             fetching.remove(r); st = read_status(r['status_json'], r['log'], rc)
             if st['state'] == 'fetched':
-                gov.on_success(); bytes_done += r['task']['fastq_gb'] * 1e9; r['task']['dl'] = st.get('download'); ready.append(r['task']); ev('fetched', r['task'], st)
+                gov.on_success(); bytes_done += r['task']['fastq_gb'] * 1e9; r['task']['dl'] = st.get('download'); r['task']['fastq'] = st.get('fastq'); ready.append(r['task']); ev('fetched', r['task'], st)
                 d = st.get('download') or {}
                 if d.get('aspera_stalled'):
                     aspera['stalls'] += 1
                     if aspera['stalls'] >= 2 and not aspera['off']:
                         aspera['off'] = True; log('  Aspera stalled twice (no data for the stall limit): the remaining runs use https')
-                log(f"  {r['task']['run']}: downloaded {r['task']['fastq_gb']:.1f} GB via {d.get('method', '?')} at {d.get('mb_per_s', '?')} MB/s")
+                log(f"  {r['task']['run']}: downloaded {r['task']['fastq_gb']:.1f} GB via {d.get('source') or d.get('method', '?')} at {d.get('mb_per_s', '?')} MB/s" + (f", quality check: {d['quality_check']}" if d.get('quality_check') else ''))
             else:
                 if st.get('kind') == 'throttle':
                     gov.on_throttle(); log(f'  server pushing back: downloads limited to {gov.allowed}, cool-down {gov.cooldown:.0f} s')

@@ -10,11 +10,11 @@ Exit status (grabENA.py exited 0 after failed conversions, so failed runs were r
 A JSON status file says which stage failed and why. Platforms other than ILLUMINA / ELEMENT no longer fail at upload; everything large is deleted in a `finally`, also after a failure."""
 import json, os, shutil, subprocess, sys, time, traceback
 try:
-    from helper_modules import ena_fetch as E
+    from helper_modules import ena_fetch as E, sra_fetch as SF
 except ImportError:                                                  # run as a script from helper_modules/
-    import ena_fetch as E
+    import ena_fetch as E, sra_fetch as SF
 
-EXIT = {'permanent': 10, 'transient': 11, 'throttle': 12}
+EXIT = {'permanent': 10, 'transient': 11, 'throttle': 12, 'source_unavailable': 13}
 
 
 class StageFailed(RuntimeError):
@@ -43,16 +43,23 @@ def _write_status(spec, st):
 
 
 def _fastq_paths(spec):
+    if spec.get('fastq'):                                           # the SRA route writes <run>_1.fastq / <run>_2.fastq (uncompressed)
+        return list(spec['fastq'])
     return [os.path.join(spec['temp_dir'], spec['sel'][k]['name']) for k in ('r1', 'r2')]
 
 
-def fetch_stage(spec, download=E.download_run, log=print):
+def fetch_stage(spec, download=E.download_run, log=print, sra=None):
     rid, tmp = spec['run'], spec['temp_dir']
     st = dict(run=rid, state='failed', stage='download', kind='transient', error='', started=time.strftime('%Y-%m-%dT%H:%M:%S'), download=None)
     try:
         os.makedirs(tmp, exist_ok=True)
+        if spec.get('source') == 'sra':
+            paths, stats = (sra or SF.fetch_sra)(spec, tmp, log=log)
+            st.update(state='fetched', stage='fetched', kind='', download=stats, fastq=paths)
+            return st
         _, _, stats = download(spec['sel'], tmp, ascp=spec.get('ascp'), key=spec.get('key'), rate=spec.get('ascp_rate', '300m'), both_in_one_session=spec.get('one_session', True),
                                timeout=spec.get('ascp_timeout'), stall_s=spec.get('stall_s', 90.0), log=log)
+        stats.setdefault('source', 'ENA-' + stats.get('method', '?'))
         st.update(state='fetched', stage='fetched', kind='', download=stats)
     except E.EnaError as e:
         st.update(error=str(e)[-1500:], kind=e.kind)
@@ -77,7 +84,7 @@ def convert_stage(spec, fm, run=subprocess.run, sanitize=E.sanitize_pair, log=pr
     metrics = out + '.metrics.txt'; temp_bam = f'{tmp}{rid}_temp.bam'
     st = dict(run=rid, state='failed', stage='FastqToSam', kind='permanent', error='', started=time.strftime('%Y-%m-%dT%H:%M:%S'), sanitized=None)
     fq1, fq2 = _fastq_paths(spec)
-    created = [temp_bam, out, metrics, fq1, fq2, fq1 + '.partial', fq2 + '.partial']
+    created = [temp_bam, out, metrics, fq1, fq2, fq1 + '.partial', fq2 + '.partial', os.path.join(tmp, rid + '.sra')]
     try:
         os.makedirs(os.path.dirname(out), exist_ok=True)
         if not (os.path.exists(fq1) and os.path.exists(fq2)):
@@ -127,6 +134,7 @@ def convert_stage(spec, fm, run=subprocess.run, sanitize=E.sanitize_pair, log=pr
                 os.remove(f)
             except OSError:
                 pass
+        shutil.rmtree(os.path.join(tmp, rid + '.fqtmp'), ignore_errors=True)
         _write_status(spec, st)
     return st
 

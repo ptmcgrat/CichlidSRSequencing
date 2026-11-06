@@ -48,7 +48,7 @@ class Harness(unittest.TestCase):
 
     def go(self, *extra, tab='Blumer'):
         clock = [0.0]
-        args = D.parse_args(['--manifest', tab, '--stagger', '0', '--backoff', '0', '--workers', '2', '--dl-workers', '2', '--ascp', '/no/ascp'] + list(extra))
+        args = D.parse_args(['--manifest', tab, '--stagger', '0', '--backoff', '0', '--workers', '2', '--dl-workers', '2', '--ascp', '/no/ascp', '--source', 'ena'] + list(extra))
         rc = D.run(args, self.fm, fetch=self.fetch, launch=self.launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s), now=lambda: clock[0], free_fn=lambda p: 1e12, log=self.logs.append)
         return rc
 

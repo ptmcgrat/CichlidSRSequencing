@@ -11,7 +11,7 @@ import calendar, json, os, random, time
 import pandas as pd
 
 RUNINFO_COLUMNS = ['Run', 'AvgSpotLen', 'Bases', 'BioProject', 'BioSample', 'Experiment', 'Instrument', 'Library Name', 'LibraryLayout', 'LibrarySelection', 'LibrarySource', 'Organism', 'Platform', 'SRA Study']
-TRACK_COLUMNS = ['DownloadStatus', 'InDatabase', 'DownloadedOn', 'Source', 'Machine', 'ClaimedBy', 'ClaimedAt', 'UpdatedAt', 'Attempts', 'FailureKind', 'LastError', 'Verified', 'ReadsSource',
+TRACK_COLUMNS = ['DownloadStatus', 'InDatabase', 'DownloadedOn', 'Source', 'Machine', 'ClaimedBy', 'ClaimedAt', 'UpdatedAt', 'Attempts', 'FailureKind', 'LastError', 'Verified', 'QualityCheck', 'ReadsSource',
                  'ReadsInUBAM', 'UBamBytes', 'UBamPath', 'DownloadSeconds', 'MBPerSec', 'PipelineVersion', 'Notes', 'Skip']
 STATUSES = ['pending', 'claimed', 'downloading', 'converting', 'uploaded', 'in_database', 'failed', 'skipped']
 ACTIVE = ('claimed', 'downloading', 'converting')

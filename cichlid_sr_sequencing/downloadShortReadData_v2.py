@@ -26,6 +26,11 @@ RUNINFO_COLUMNS = ['Run', 'AvgSpotLen', 'Bases', 'BioProject', 'BioSample', 'Exp
 from helper_modules.ena_fetch import find_first, ASCP_CANDIDATES, KEY_CANDIDATES      # shared with unit_scripts/ena_bench.py
 
 
+def validate_args(args):
+    if not (args.Run_Info_File or args.ena or args.samples_file or args.add_pending or args.manifest):
+        raise SystemExit('give a Run_Info_File, --manifest TAB ..., --ena ACC ..., --samples-file FILE or --add-pending JSONL')
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('Run_Info_File', nargs='*', help='one or more Run Info CSVs (in the read-download folder on Dropbox); put them BEFORE any option that takes several values (--ena)')
@@ -43,6 +48,12 @@ def parse_args(argv=None):
     p.add_argument('--workers', type=int, default=4, help='conversions at the same time (FastqToSam, adapter marking, upload; default 4)')
     p.add_argument('--max-ready', type=int, default=None, help='most runs whose FASTQs wait on disk for a free conversion slot (default: --workers); bounds the disk use')
     p.add_argument('--ascp-rate', default='300m', help='Aspera target rate per download (ENA suggests 300m); aggregate = this x the number of downloads')
+    p.add_argument('--source', choices=['ena', 'sra', 'auto'], default='auto', help="where the reads come from: ena (Aspera / https), sra (NCBI's copy on AWS, converted with fasterq-dump) or auto: the Aspera probe decides, "
+                   "ENA first if it moves data, otherwise SRA first; the other one is the fallback for a run that fails")
+    p.add_argument('--sra-connections', type=int, default=8, help='parallel connections of one SRA download (aria2c)')
+    p.add_argument('--fq-threads', type=int, default=8, help='fasterq-dump threads per conversion')
+    p.add_argument('--sra-require-check', action='store_true', help='SRA route: refuse a run whose first reads cannot be compared with ENA (ENA unreachable) instead of recording "skipped"')
+    p.add_argument('--max-runs', type=int, default=None, help='process only the N SMALLEST runs that need downloading (a cheap first real test)')
     p.add_argument('--no-probe', action='store_true', help='skip the 20 s Aspera probe before the downloads start (the probe decides between Aspera and https)')
     p.add_argument('--probe-seconds', type=float, default=20.0, help='length of the Aspera probe')
     p.add_argument('--stall-seconds', type=float, default=90.0, help='an Aspera transfer that receives no data for this long is stopped and the run falls back to https')
@@ -206,7 +217,7 @@ def add_pending(fm, path, log=print):
 
 def _spot_len(rec):
     try:
-        return int(round(float(rec['base_count']) / float(rec['read_count'])))
+        return int(round(float(rec['base_count']) / E.ena_spots(rec)))
     except (TypeError, ValueError, ZeroDivisionError, KeyError):
         return ''
 
@@ -239,7 +250,8 @@ def manifest_events(manifests, now=time.time):
             mf.update(run, DownloadStatus='downloading', Attempts=A(t.get('attempts', 0) + 1), Machine=host)
         elif name == 'fetched':
             d = st.get('download') or {}
-            mf.update(run, Source='ENA-' + str(d.get('method', '?')), DownloadSeconds=d.get('seconds'), MBPerSec=d.get('mb_per_s'), Verified=True)
+            mf.update(run, Source=d.get('source') or 'ENA-' + str(d.get('method', '?')), DownloadSeconds=d.get('seconds'), MBPerSec=d.get('mb_per_s'), Verified=True,
+                      QualityCheck=d.get('quality_check', 'md5 of the ENA files' if str(d.get('source', 'ENA')).startswith('ENA') else ''), ReadsInUBAM=d.get('reads_fastq', ''))
         elif name == 'convert_start':
             mf.update(run, DownloadStatus='converting')
         elif name == 'done':
@@ -273,7 +285,7 @@ def cloud_runs(fm, projects, log=print):
     return out
 
 
-def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=None, log=print, now=time.time, probe=E.probe_aspera):
+def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=None, log=print, now=time.time, probe=E.probe_aspera, which=shutil.which):
     fm.readSampleDatabase()
     args.manifests = {}
     if args.manifest:
@@ -308,6 +320,9 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             log(f'  {st}: {len(sub)} (e.g. {sub.iloc[0]["run"] or sub.iloc[0]["sample"]}: {sub.iloc[0]["note"][:150]})')
     log(f'plan written to {fm.localTempDir}ena_plan_{stamp}.tsv')
     todo = plan[plan.status == 'ok']
+    if args.max_runs:
+        todo = todo.sort_values('fastq_gb').head(args.max_runs)
+        log(f'--max-runs {args.max_runs}: only the {len(todo)} smallest runs are processed: {list(todo.run)}')
     if args.manifests and not args.dry_run:
         for tab, mf in args.manifests.items():
             mine = plan[plan.run.map(lambda r: args.run_tab.get(r) == tab)]
@@ -315,7 +330,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
                 if r.status in ('no_fastq', 'single_end', 'missing_mate', 'bad_listing', 'not_on_ena'):
                     mf.update(r.run, DownloadStatus='skipped', FailureKind='permanent', LastError=f'{r.status}: {r.note}'[:250])
                 if r.rec is not None and r.status == 'ok':
-                    mf.update(r.run, ReadsSource=r.rec.get('read_count', ''))
+                    mf.update(r.run, ReadsSource=E.ena_spots(r.rec))
             n = mf.reconcile(in_db, on_cloud); mf.flush(force=True)
             log(f'  manifest {tab}: {len(mine)} runs planned, {n} rows reconciled with the database / cloud')
     ss = sample_summary(plan); ss.to_csv(f'{fm.localTempDir}ena_plan_samples_{stamp}.tsv', sep='\t', index=False)
@@ -336,11 +351,22 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             log(f'Aspera probe: only {mb:.1f} MB in {args.probe_seconds:.0f} s: Aspera moves no data on this network (TCP 33001 connects, the UDP data channel is probably blocked): using https. '
                 f'(--no-probe to force Aspera; ask IT to allow outbound UDP 33001 to fasp.sra.ebi.ac.uk)')
             ascp = None
+    sources = ['ena'] if args.source == 'ena' else (['sra'] if args.source == 'sra' else (['ena', 'sra'] if ascp else ['sra', 'ena']))
+    if len(todo) and not args.dry_run:
+        log(f"sources, in the order they are tried per run: {sources}" + (' (Aspera did not move data in the probe, so SRA comes first)' if args.source == 'auto' and sources[0] == 'sra' else ''))
+        if 'sra' in sources and launch is None:
+            missing = [t for t in ('aria2c', 'vdb-validate', 'fasterq-dump') if not which(t)]
+            if missing:
+                raise SystemExit(f"the SRA source needs {missing} on PATH: conda install -c conda-forge -c bioconda sra-tools aria2 (or --source ena)")
+        if 'sra' in sources:
+            args.disk_factor = max(args.disk_factor, 8.0)                       # .sra + uncompressed FASTQ (~4x the gz) + fasterq-dump scratch + the uBAM
     tasks = []
     for _, r in todo.iterrows():
         out = f"{fm.localReadsDir}{r.project}/{r.run}.unmapped_marked_adapters.bam"
         spec = dict(run=r.run, sample=r['sample'], library=r.rec['library_name'] or r.run, platform=r.platform, sel=r.sel, output_bam=out, temp_dir=fm.localTempDir,
-                    ascp=ascp, key=key, ascp_rate=args.ascp_rate, one_session=not args.no_one_session, stall_s=args.stall_seconds)
+                    ascp=ascp, key=key, ascp_rate=args.ascp_rate, one_session=not args.no_one_session, stall_s=args.stall_seconds,
+                    source=sources[0], reads_expected=E.ena_spots(r.rec), ena_url_r1=E.full_url(r.sel['r1']['url']),
+                    instrument=r.rec.get('instrument_model', ''), fq_threads=args.fq_threads, sra_connections=args.sra_connections, require_quality_check=args.sra_require_check)
         tasks.append(dict(run=r.run, sample=r['sample'], project=r.project, organism=r.organism, platform=r.platform, library=spec['library'], sel=r.sel, rec=r.rec, fastq_gb=r.fastq_gb,
                           output_bam=out, spec=spec))
     results = {}
@@ -360,6 +386,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
         cfg = dict(temp_dir=fm.localTempDir, dl_max=args.dl_workers, workers=args.workers, max_ready=args.max_ready or args.workers, stagger_s=args.stagger, max_attempts=args.max_attempts,
                    backoff_s=args.backoff, min_free_gb=args.min_free_gb, disk_factor=args.disk_factor, status_every_s=60, poll_s=5)
         for t in tasks:
+            t['sources'] = sources
             t['tab'] = args.run_tab.get(t['run']); t['base_attempts'] = args.run_attempts.get(t['run'], 0)           # Attempts in the sheet add up over invocations
         results.update(SCH.run_tasks(tasks, cfg, launch, lambda t, st: add_to_database(fm, t, st, args.no_db, log), sleep=sleep, now=now, free_fn=free_fn, log=log,
                                      claim=(lambda t: args.manifests[t['tab']].claim(t['run'], args.claim_hours * 3600) if t.get('tab') else True) if args.manifests else None,
@@ -377,8 +404,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
 
 def main():
     args = parse_args()
-    if not (args.Run_Info_File or args.ena or args.samples_file or args.add_pending):
-        raise SystemExit('give a Run_Info_File, --ena ACC ..., --samples-file FILE or --add-pending JSONL')
+    validate_args(args)
     from helper_modules.file_manager import FileManager as FM
     fm = FM()
     sys.exit(run(args, fm))

@@ -40,7 +40,7 @@ class TestSelect(unittest.TestCase):
         self.assertTrue(a.startswith('fasp.sra.ebi.ac.uk:/vol1/fastq/')); self.assertEqual(a, b)
 
     def test_runinfo_columns(self):
-        ri = E.runinfo_from_ena(pd.DataFrame([rec('ERR7', read_count='100', base_count='25000')]))
+        ri = E.runinfo_from_ena(pd.DataFrame([rec('ERR7', read_count='200', base_count='25000')]))     # ENA's read_count counts both mates: 100 pairs of 250 bases
         self.assertEqual(list(ri.columns), D.RUNINFO_COLUMNS); self.assertEqual(int(ri.AvgSpotLen[0]), 250)
 
 
@@ -249,7 +249,7 @@ class TestWorker(unittest.TestCase):
             self.assertEqual([f for f in os.listdir(fm.localTempDir) if not f.endswith('.json')], [])    # no leftovers
 
     def test_exit_codes(self):
-        self.assertEqual(W.EXIT, {'permanent': 10, 'transient': 11, 'throttle': 12})
+        self.assertEqual(W.EXIT, {'permanent': 10, 'transient': 11, 'throttle': 12, 'source_unavailable': 13})
 
     def test_non_illumina_platform_skips_adapter_marking_but_uploads(self):
         log = []
@@ -284,10 +284,12 @@ class FakeProc:
             return None
         st = dict(run=self.spec['run'], state=self.outcome['state'], stage=self.outcome.get('stage', 'x'), kind=self.outcome.get('kind', ''), error=self.outcome.get('error', ''),
                   download=self.outcome.get('download', dict(method='aspera', mb_per_s=50.0)))
+        if 'fastq' in self.outcome:
+            st['fastq'] = self.outcome['fastq']
         if self.outcome.get('nostatus'):
             return 1
         json.dump(st, open(self.spec['status_json'], 'w'))
-        return {'': 0, 'permanent': 10, 'transient': 11, 'throttle': 12}[st['kind']]
+        return {'': 0, 'permanent': 10, 'transient': 11, 'throttle': 12, 'source_unavailable': 13}[st['kind']]
 
 
 class TestScheduler(unittest.TestCase):
@@ -373,7 +375,7 @@ class TestFileManagerFailures(unittest.TestCase):
             st = W.fetch_stage(spec, download=fake_download(), log=lambda *a: None) if kind == 'fetch' else W.convert_stage(spec, fm, run=fake_gatk(), log=lambda *a: None)
             return types.SimpleNamespace(poll=lambda: 0 if st['state'] in ('done', 'fetched') else W.EXIT[st['kind']])
         clock = [0.0]; logs = []
-        rc = D.run(D.parse_args(['--ena', 'PRJEB78', '--stagger', '0', '--ascp', '/no/ascp']), fm, fetch=lambda acc: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s),
+        rc = D.run(D.parse_args(['--ena', 'PRJEB78', '--stagger', '0', '--ascp', '/no/ascp', '--source', 'ena']), fm, fetch=lambda acc: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s),
                    now=lambda: clock[0], free_fn=lambda p: 1e12, log=logs.append)
         return rc, logs
 
@@ -402,7 +404,7 @@ class TestFileManagerFailures(unittest.TestCase):
 
 def csv_to_ena(csv):
     return pd.DataFrame([rec(r.Run, sample_accession=r.BioSample, study_accession=r.BioProject, experiment_accession=r.Experiment, instrument_model=r.Instrument, scientific_name=r.Organism,
-                             read_count=str(int(int(r.Bases) // int(r.AvgSpotLen))), base_count=r.Bases, library_name='', size=2_000_000_000) for _, r in csv.iterrows()])
+                             read_count=str(2 * (int(r.Bases) // int(r.AvgSpotLen))), base_count=r.Bases, library_name='', size=2_000_000_000) for _, r in csv.iterrows()])
 
 
 class TestTwoRunInfoFiles(unittest.TestCase):
@@ -555,7 +557,7 @@ class TestProbeInTheOrchestrator(unittest.TestCase):
             st = W.fetch_stage(spec, download=fake_download(), log=lambda *a: None) if kind == 'fetch' else W.convert_stage(spec, fm, run=fake_gatk(), log=lambda *a: None)
             return types.SimpleNamespace(poll=lambda: 0 if st['state'] in ('done', 'fetched') else W.EXIT[st['kind']])
         clock = [0.0]; logs = []
-        D.run(D.parse_args(['--ena', 'PRJEB79', '--no-db', '--stagger', '0', '--ascp', ascp, '--key', key]), fm, fetch=lambda a: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s),
+        D.run(D.parse_args(['--ena', 'PRJEB79', '--no-db', '--stagger', '0', '--ascp', ascp, '--key', key, '--source', 'ena']), fm, fetch=lambda a: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s),
               now=lambda: clock[0], free_fn=lambda p: 1e12, log=logs.append, probe=lambda *a, **k: probe_result)
         return specs, logs, ascp
 
@@ -606,7 +608,7 @@ class TestNoDb(unittest.TestCase):
             st = W.fetch_stage(spec, download=fake_download(), log=lambda *a: None) if kind == 'fetch' else W.convert_stage(spec, fm, run=fake_gatk(), log=lambda *a: None)
             return types.SimpleNamespace(poll=lambda: 0 if st['state'] in ('done', 'fetched') else W.EXIT[st['kind']])
         clock = [0.0]
-        args = D.parse_args(['--ena', 'PRJEB77', '--no-db', '--stagger', '0', '--ascp', '/no/ascp'])
+        args = D.parse_args(['--ena', 'PRJEB77', '--no-db', '--stagger', '0', '--ascp', '/no/ascp', '--source', 'ena'])
         rc = D.run(args, fm, fetch=lambda acc: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s), now=lambda: clock[0], free_fn=lambda p: 1e12, log=lambda *a: None)
         self.assertEqual((rc, fm.rows), (0, []))                                    # the sample database was not touched
         lines = [json.loads(l) for l in open(fm.localTempDir + 'pending_db_rows.jsonl')]
@@ -648,7 +650,7 @@ class TestOrchestratorOnTheExampleCsv(unittest.TestCase):
         recs = []
         for _, r in csv.iterrows():
             kw = dict(run_accession=r.Run, sample_accession=r.BioSample, study_accession=r.BioProject, experiment_accession=r.Experiment, instrument_model=r.Instrument, scientific_name=r.Organism,
-                      read_count=str(int(int(r.Bases) // int(r.AvgSpotLen))), base_count=r.Bases, library_name='')
+                      read_count=str(2 * (int(r.Bases) // int(r.AvgSpotLen))), base_count=r.Bases, library_name='')
             if r.Run in special['nofastq']:
                 recs.append(rec(r.Run, fastq_ftp='', fastq_md5='', fastq_bytes='', fastq_aspera='', submitted_ftp='ftp.sra.ebi.ac.uk/x/a.cram', submitted_format='CRAM', **kw))
             elif r.Run in special['single']:
@@ -673,7 +675,7 @@ class TestOrchestratorOnTheExampleCsv(unittest.TestCase):
             st = W.fetch_stage(spec, download=download, log=lambda *a: None) if kind == 'fetch' else W.convert_stage(spec, fm, run=fake_gatk(fail_for=[special['badgatk']]), log=lambda *a: None)
             return types.SimpleNamespace(poll=lambda: 0 if st['state'] in ('done', 'fetched') else W.EXIT[st['kind']])
 
-        args = D.parse_args(['runs.csv', '--stagger', '0', '--backoff', '0', '--workers', '3', '--dl-workers', '3', '--ascp', '/no/ascp'])
+        args = D.parse_args(['runs.csv', '--stagger', '0', '--backoff', '0', '--workers', '3', '--dl-workers', '3', '--ascp', '/no/ascp', '--source', 'ena'])
         clock = [0.0]
         rc = D.run(args, fm, fetch=fetch, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s), now=lambda: clock[0], free_fn=lambda p: 1e12, log=lambda *a: None)
         added = {r[0]['RunID'] for r in fm.rows}
