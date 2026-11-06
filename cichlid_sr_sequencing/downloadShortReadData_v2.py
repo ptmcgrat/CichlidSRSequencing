@@ -148,19 +148,32 @@ def database_rows(fm, t):
     read_data = {'SampleID': t['sample'], 'ProjectID': t['project'], 'RunID': t['run'], 'ReadLength': rec.get('avg_spot_len') or _spot_len(rec), 'TotalBases': rec.get('base_count'),
                  'Instrument': rec.get('instrument_model'), 'LibraryID': t['library'], 'LibraryLayout': rec.get('library_layout'), 'LibrarySource': rec.get('library_source'),
                  'Platform': t['platform'], 'FileLocations': file_locations}
-    read_data['FileSize'] = fm.returnFileSize(fm.localReadsDir + file_locations)
+    try:
+        read_data['FileSize'] = fm.returnFileSize(fm.localReadsDir + file_locations)          # rclone size on the cloud copy; raises while Dropbox has not listed the file yet
+    except Exception:
+        read_data['FileSize'] = ''                                                           # filled in by --add-pending
     sample_data = {'SampleID': t['sample'], 'Sex': '', 'Species': t['organism'], 'DoB': '', 'BroodID': '', 'Parents': '', 'Ecogroup': '', 'LabReared': '', 'Inversion10': ''}
     return read_data, sample_data
 
 
-def add_to_database(fm, t, st, no_db=False):
-    """The row of a run whose uBAM is verified on the cloud: into the sample database, or (no_db) appended to pending_db_rows.jsonl for a later, single-machine --add-pending."""
+def add_to_database(fm, t, st, no_db=False, log=print):
+    """The row of a run whose uBAM is verified on the cloud: into the sample database, or (no_db, or if the write fails) appended to pending_db_rows.jsonl for --add-pending.
+    FileManager.addDNAReadRow re-reads both sheets and rewrites them completely, and asserts that the run is not yet in the database: any exception of that is caught here, so a run
+    whose uBAM is on the cloud never loses its row."""
     read_data, sample_data = database_rows(fm, t)
-    if no_db:
-        with open(fm.localTempDir + 'pending_db_rows.jsonl', 'a') as f:
-            f.write(json.dumps(dict(read_data=read_data, sample_data=sample_data), default=str) + '\n')
-    else:
-        fm.addDNAReadRow(read_data, sample_data)
+    if not no_db and read_data['FileSize'] != '':
+        try:
+            fm.addDNAReadRow(read_data, sample_data)
+            return
+        except Exception as e:
+            st['db_pending'] = f'{type(e).__name__}: {str(e)[-200:]}'
+            log(f"  {t['run']}: database write failed ({st['db_pending']}); the row is kept in pending_db_rows.jsonl")
+    elif not no_db:
+        st['db_pending'] = 'file size not available yet'
+    if st.get('db_pending'):
+        st['stage'] = 'done (row pending)'
+    with open(fm.localTempDir + 'pending_db_rows.jsonl', 'a') as f:
+        f.write(json.dumps(dict(read_data=read_data, sample_data=sample_data), default=str) + '\n')
 
 
 def add_pending(fm, path, log=print):
@@ -175,6 +188,8 @@ def add_pending(fm, path, log=print):
         folder = fm.localReadsDir + os.path.dirname(rd['FileLocations']) + '/'
         if os.path.basename(rd['FileLocations']) not in set(fm.returnCloudFiles(folder)):
             missing.append(rd['RunID']); continue
+        if rd.get('FileSize') in ('', None):
+            rd['FileSize'] = fm.returnFileSize(fm.localReadsDir + rd['FileLocations'])
         fm.addDNAReadRow(rd, sd); in_db.add(rd['RunID']); added += 1
     log(f'pending rows: {added} added, {skipped} already in the database, {len(missing)} not added because the uBAM is not on the cloud {missing[:10]}')
     return added, skipped, missing
@@ -192,7 +207,7 @@ def report(plan, results, path, log=print):
     for _, p in plan.iterrows():
         r = results.get(p['run'])
         if r:
-            rows.append(dict(run=p['run'], sample=p['sample'], project=p['project'], plan=p['status'], state=r['state'], stage=r['stage'], kind=r.get('kind', ''), attempts=r.get('attempts', ''), error=(r.get('error') or '')[:300].replace('\n', ' ')))
+            rows.append(dict(run=p['run'], sample=p['sample'], project=p['project'], plan=p['status'], state=r['state'], stage=r['stage'], kind=r.get('kind', ''), attempts=r.get('attempts', ''), error=(r.get('error') or r.get('db_pending') or '')[:300].replace('\n', ' ')))
         else:
             rows.append(dict(run=p['run'], sample=p['sample'], project=p['project'], plan=p['status'], state='skipped' if p['status'] in ('in_database', 'not_in_retry_list') else 'not_downloadable',
                              stage='', kind='', attempts='', error=p['note']))
@@ -249,9 +264,12 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             os.makedirs(fm.localReadsDir + t['project'], exist_ok=True)
         cfg = dict(temp_dir=fm.localTempDir, dl_max=args.dl_workers, workers=args.workers, max_ready=args.max_ready or args.workers, stagger_s=args.stagger, max_attempts=args.max_attempts,
                    backoff_s=args.backoff, min_free_gb=args.min_free_gb, disk_factor=args.disk_factor, status_every_s=60, poll_s=5)
-        results = SCH.run_tasks(tasks, cfg, launch, lambda t, st: add_to_database(fm, t, st, args.no_db), sleep=sleep, now=now, free_fn=free_fn, log=log)
+        results = SCH.run_tasks(tasks, cfg, launch, lambda t, st: add_to_database(fm, t, st, args.no_db, log), sleep=sleep, now=now, free_fn=free_fn, log=log)
     table = report(plan, results, f'{fm.localTempDir}download_status_{stamp}.tsv', log)
     log(f'status table: {fm.localTempDir}download_status_{stamp}.tsv')
+    pend = [k for k, v in results.items() if v.get('db_pending')]
+    if pend:
+        log(f'{len(pend)} runs are on the cloud but their database rows are pending: python3 downloadShortReadData_v2.py --add-pending {fm.localTempDir}pending_db_rows.jsonl')
     bad = table[(table.state == 'failed')]
     return 1 if len(bad) else 0
 

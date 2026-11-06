@@ -355,6 +355,49 @@ class TestScheduler(unittest.TestCase):
         self.assertEqual((res['ERR000']['state'], res['ERR000']['stage']), ('failed', 'database'))
 
 
+class TestFileManagerFailures(unittest.TestCase):
+    def test_upload_exceptions_are_transient(self):
+        import subprocess as sp
+        fm = FakeFM(tempfile.mkdtemp() + '/')
+        def boom(path): raise sp.CalledProcessError(1, ['rclone', 'check'], stderr='differences found')
+        fm.uploadData = boom
+        st = W.process_run(make_spec(fm.localTempDir.replace('temp/', ''), 'ERR200'), fm, run=fake_gatk(), download=fake_download(), log=lambda *a: None)
+        self.assertEqual((st['state'], st['stage'], st['kind']), ('failed', 'upload', 'transient'))
+
+    def run_one(self, fm):
+        ena = pd.DataFrame([rec('ERR9100001', study_accession='PRJEB78', sample_accession='SAMEA9', library_name='')])
+        def launch(kind, spec_path, logf):
+            spec = json.load(open(spec_path))
+            st = W.fetch_stage(spec, download=fake_download(), log=lambda *a: None) if kind == 'fetch' else W.convert_stage(spec, fm, run=fake_gatk(), log=lambda *a: None)
+            return types.SimpleNamespace(poll=lambda: 0 if st['state'] in ('done', 'fetched') else W.EXIT[st['kind']])
+        clock = [0.0]; logs = []
+        rc = D.run(D.parse_args(['--ena', 'PRJEB78', '--stagger', '0', '--ascp', '/no/ascp']), fm, fetch=lambda acc: ena, launch=launch, sleep=lambda s: clock.__setitem__(0, clock[0] + s),
+                   now=lambda: clock[0], free_fn=lambda p: 1e12, log=logs.append)
+        return rc, logs
+
+    def test_a_failing_database_write_keeps_the_row_pending(self):
+        fm = FakeFM(tempfile.mkdtemp() + '/')
+        def bad(rd, sd): raise AssertionError('run already in database')
+        fm.addDNAReadRow = bad
+        rc, logs = self.run_one(fm)
+        self.assertEqual(rc, 0)                                                      # the uBAM is on the cloud: the run is not a failure
+        self.assertEqual(len(open(fm.localTempDir + 'pending_db_rows.jsonl').read().splitlines()), 1)
+        self.assertTrue(any('--add-pending' in str(m) for m in logs))
+        st = pd.read_csv([fm.localTempDir + f for f in os.listdir(fm.localTempDir) if f.startswith('download_status_')][0], sep='\t', keep_default_na=False)
+        self.assertEqual(st.stage.iloc[0], 'done (row pending)')
+
+    def test_a_failing_size_lookup_goes_pending_and_add_pending_fills_it(self):
+        fm = FakeFM(tempfile.mkdtemp() + '/')
+        def nosize(p): raise ValueError('not listed yet')
+        fm.returnFileSize = nosize
+        rc, logs = self.run_one(fm)
+        self.assertEqual((rc, fm.rows), (0, []))
+        row = json.loads(open(fm.localTempDir + 'pending_db_rows.jsonl').readline()); self.assertEqual(row['read_data']['FileSize'], '')
+        fm.returnFileSize = lambda p: 4242
+        D.add_pending(fm, fm.localTempDir + 'pending_db_rows.jsonl', log=lambda *a: None)
+        self.assertEqual(fm.rows[0][0]['FileSize'], 4242)
+
+
 class TestAsperaDiscovery(unittest.TestCase):
     def test_order_and_missing(self):
         have = {'/home/student/bin/ascp', '/home/student/.aspera/sdk/aspera_bypass_rsa.pem'}

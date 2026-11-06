@@ -104,7 +104,10 @@ def convert_stage(spec, fm, run=subprocess.run, sanitize=E.sanitize_pair, log=pr
             shutil.move(temp_bam, out)
             open(metrics, 'w').write(f'adapters not marked: platform {plat}\n')
         st['stage'] = 'upload'
-        fm.uploadData(out); fm.uploadData(metrics)
+        try:
+            fm.uploadData(out); fm.uploadData(metrics)                  # FileManager.uploadData runs `rclone check` with check=True: a mismatch or a network problem raises
+        except Exception as e:
+            raise StageFailed('upload', f'{type(e).__name__}: {str(e)[-300:]}', 'transient')
         names = set(fm.returnCloudFiles(os.path.dirname(out) + '/'))
         missing = [os.path.basename(p) for p in (out, metrics) if os.path.basename(p) not in names]
         if missing:
