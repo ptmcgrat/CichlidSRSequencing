@@ -355,6 +355,20 @@ class TestScheduler(unittest.TestCase):
         self.assertEqual((res['ERR000']['state'], res['ERR000']['stage']), ('failed', 'database'))
 
 
+class TestAsperaDiscovery(unittest.TestCase):
+    def test_order_and_missing(self):
+        have = {'/home/student/bin/ascp', '/home/student/.aspera/sdk/aspera_bypass_rsa.pem'}
+        ex = lambda p: p in have
+        old = os.environ.get('HOME'); os.environ['HOME'] = '/home/student'
+        try:
+            self.assertEqual(D.find_first(None, D.ASCP_CANDIDATES, exists=ex), '/home/student/bin/ascp')
+            self.assertEqual(D.find_first('/x/ascp', D.ASCP_CANDIDATES, exists=ex), '/home/student/bin/ascp')          # an explicit path that does not exist is skipped, not fatal
+            self.assertEqual(D.find_first(None, D.KEY_CANDIDATES, exists=ex), '/home/student/.aspera/sdk/aspera_bypass_rsa.pem')
+            self.assertIsNone(D.find_first(None, D.ASCP_CANDIDATES, exists=lambda p: False))
+        finally:
+            os.environ['HOME'] = old
+
+
 class TestOrchestratorOnTheExampleCsv(unittest.TestCase):
     """Your MalinskyPaperData.csv (673 runs) through the real orchestrator, scheduler and workers, with fake ENA, fake downloads and fake GATK."""
     def test_end_to_end(self):

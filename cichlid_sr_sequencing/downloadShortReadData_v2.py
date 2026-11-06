@@ -21,6 +21,24 @@ from helper_modules import ena_fetch as E, ena_scheduler as SCH
 RUNINFO_COLUMNS = ['Run', 'AvgSpotLen', 'Bases', 'BioProject', 'BioSample', 'Experiment', 'Instrument', 'Library Name', 'LibraryLayout', 'LibrarySelection', 'LibrarySource', 'Organism', 'Platform', 'SRA Study']
 
 
+ASCP_CANDIDATES = ['~/bin/ascp', '~/.aspera/sdk/ascp', '~/.aspera/ascli/sdk/ascp', '~/.aspera/connect/bin/ascp', '/home/mcgrath-lab/bin/ascp']
+KEY_CANDIDATES = ['~/.aspera/sdk/aspera_bypass_rsa.pem', '~/.aspera/ascli/sdk/aspera_bypass_rsa.pem', '~/.aspera/connect/etc/asperaweb_id_dsa.openssh']
+
+
+def find_first(explicit, candidates, which=None, exists=os.path.exists, env=None):
+    """The Aspera client / key: the explicit path if it exists, else $ASCP (client only), `which ascp`, then the usual places. None if nothing is found (the caller then uses https and says so)."""
+    paths = [explicit] if explicit else []
+    if env:
+        paths.append(os.environ.get(env))
+    if which:
+        paths.append(shutil.which(which))
+    paths += candidates
+    for p in paths:
+        if p and exists(os.path.expanduser(p)):
+            return os.path.expanduser(p)
+    return None
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('Run_Info_File', nargs='?', help='SRA Run Selector CSV (in the read-download folder on Dropbox)')
@@ -38,7 +56,8 @@ def parse_args(argv=None):
     p.add_argument('--no-one-session', action='store_true', help='download the two mates in separate Aspera sessions (default: one session for both)')
     p.add_argument('--min-free-gb', type=float, default=100.0, help='keep this much free space on the temp disk')
     p.add_argument('--disk-factor', type=float, default=4.0, help='peak temp disk of a run = this x its FASTQ size')
-    p.add_argument('--ascp', default='/home/mcgrath-lab/bin/ascp', help='Aspera client (used first if it exists; https is the fallback)')
+    p.add_argument('--ascp', default=None, help='Aspera client; default: $ASCP, `which ascp`, ~/bin/ascp, ~/.aspera/sdk/ascp, ... (https is the fallback if none is found)')
+    p.add_argument('--key', default=None, help='Aspera key; default: ~/.aspera/sdk/aspera_bypass_rsa.pem, ~/.aspera/ascli/sdk/..., ~/.aspera/connect/etc/asperaweb_id_dsa.openssh')
     return p.parse_args(argv)
 
 
@@ -173,12 +192,17 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             log(f'  {st}: {len(sub)} (e.g. {sub.iloc[0]["run"] or sub.iloc[0]["sample"]}: {sub.iloc[0]["note"][:150]})')
     log(f'plan written to {fm.localTempDir}ena_plan_{stamp}.tsv')
     todo = plan[plan.status == 'ok']
-    key = os.path.join(os.path.expanduser('~'), '.aspera/sdk/aspera_bypass_rsa.pem')
+    ascp = find_first(args.ascp, ASCP_CANDIDATES, which='ascp', env='ASCP'); key = find_first(args.key, KEY_CANDIDATES)
+    if ascp and key:
+        log(f'Aspera: {ascp} (key {key}), {args.ascp_rate} per transfer')
+    else:
+        log(f"Aspera NOT used ({'ascp not found' if not ascp else 'ascp found at ' + ascp + ' but no key'}): downloads go over https (md5-verified, slower). Install ascp / pass --ascp and --key.")
+        ascp = None
     tasks = []
     for _, r in todo.iterrows():
         out = f"{fm.localReadsDir}{r.project}/{r.run}.unmapped_marked_adapters.bam"
         spec = dict(run=r.run, sample=r['sample'], library=r.rec['library_name'] or r.run, platform=r.platform, sel=r.sel, output_bam=out, temp_dir=fm.localTempDir,
-                    ascp=args.ascp if os.path.exists(args.ascp) else None, key=key, ascp_rate=args.ascp_rate, one_session=not args.no_one_session)
+                    ascp=ascp, key=key, ascp_rate=args.ascp_rate, one_session=not args.no_one_session)
         tasks.append(dict(run=r.run, sample=r['sample'], project=r.project, organism=r.organism, platform=r.platform, library=spec['library'], sel=r.sel, rec=r.rec, fastq_gb=r.fastq_gb,
                           output_bam=out, spec=spec))
     results = {}
