@@ -36,7 +36,7 @@ class SheetFM:
         self.localTempDir = tempfile.mkdtemp() + '/'; self.localReadsDir = self.localTempDir + 'Reads/'
         self.remote = dict(SampleDatabase=old_samples(n_old), DNAReadsDatabase=old_reads(n_old)); self.grid = dict(SampleDatabase=grid, DNAReadsDatabase=grid)
         self.cloud, self.s_ID, self.gc = {}, 'S', self
-        self.reads_n = self.writes_n = self.size_calls = 0; self.fail_write, self.corrupt_write = fail_write, corrupt_write
+        self.reads_n = self.writes_n = self.size_calls = self.cloud_calls = 0; self.fail_write, self.corrupt_write = fail_write, corrupt_write
     def open_by_key(self, k): return self
     def worksheet(self, name): return WS(self, name)
     def readSampleDatabase(self):
@@ -50,7 +50,7 @@ class SheetFM:
         self.remote['SampleDatabase'] = self.sample_dt.copy()
         self.remote['DNAReadsDatabase'] = self.reads_dt.iloc[:-1].copy() if self.corrupt_write else self.reads_dt.copy()
         self.writes_n += 1; return True
-    def returnCloudFiles(self, d): return sorted(self.cloud.get(d, set()))
+    def returnCloudFiles(self, d): self.cloud_calls += 1; return sorted(self.cloud.get(d, set()))
     def returnFileSize(self, p): self.size_calls += 1; return 999
     def addDNAReadRow(self, dna_dict, sample_dict):                                   # the real method, line by line
         self.readSampleDatabase()
@@ -128,6 +128,43 @@ class T(unittest.TestCase):
             D.add_pending_bulk(fm, pending_file([line('RUN0', 'S0'), json.dumps(bad), 'not json']), log=lambda *a: None)
         self.assertIn('nothing was written', str(cm.exception)); self.assertIn('RUN1', str(cm.exception))
         self.assertEqual((fm.writes_n, [x for x in os.listdir(fm.localTempDir) if x.startswith('database_backup_')]), (0, []))
+
+    def test_one_listing_per_project_folder_gives_existence_and_sizes_without_any_per_run_call(self):
+        fm = SheetFM(); calls = []
+        def listing(folder):
+            calls.append(folder); return {f'RUN{i}.unmapped_marked_adapters.bam': 1000 + i for i in range(12) if f'/{"PRJA" if i < 6 else "PRJB"}/' in folder}
+        lines = [line(f'RUN{i}', f'S{i // 2}', project='PRJA' if i < 6 else 'PRJB') for i in range(12)] + [line('RUN99', 'S99', project='PRJA')]
+        added, skipped, missing = D.add_pending_bulk(fm, pending_file(lines), log=lambda *a: None, listing=listing)
+        self.assertEqual((added, missing), (12, ['RUN99'])); self.assertEqual(len(calls), 2)                                  # 13 runs, 2 folders, 2 listings
+        self.assertEqual((fm.size_calls, fm.cloud_calls), (0, 0))                                                            # no rclone size / lsf per run
+        r = fm.remote['DNAReadsDatabase'].set_index('RunID'); self.assertEqual((r.loc['RUN0', 'FileSize'], r.loc['RUN7', 'FileSize']), (1000, 1007))
+
+    def test_a_dry_run_asks_for_no_sizes(self):
+        fm = SheetFM(); fm.put(*[f'RUN{i}' for i in range(12)])
+        D.add_pending_bulk(fm, pending_file(LINES), log=lambda *a: None, dry_run=True)
+        self.assertEqual(fm.size_calls, 0)
+
+    def test_the_rclone_listing_maps_the_path_and_distinguishes_missing_from_failed(self):
+        class R:
+            def __init__(self, rc, out='', err=''): self.returncode, self.stdout, self.stderr = rc, out, err
+        class FM:
+            localMasterDir, cloudMasterDir = '/home/u/Temp/CSD/', 'ptm_dropbox:/COS/CSD/'
+        calls = []
+        def run(cmd, capture_output=True, text=True):
+            calls.append(cmd); return R(0, json.dumps([dict(Name='a.bam', Size=5, Path='a.bam'), dict(Name='b.bam', Size=7, Path='b.bam')]))
+        self.assertEqual(D._cloud_listing(FM, '/home/u/Temp/CSD/Reads/PRJ1/', run=run), {'a.bam': 5, 'b.bam': 7})
+        self.assertEqual(calls[0], ['rclone', 'lsjson', '--files-only', 'ptm_dropbox:/COS/CSD/Reads/PRJ1/'])
+        self.assertEqual(D._cloud_listing(FM, '/home/u/Temp/CSD/Reads/X/', run=lambda *a, **k: R(3)), {})                 # directory not found = empty
+        with self.assertRaises(RuntimeError) as cm:
+            D._cloud_listing(FM, '/home/u/Temp/CSD/Reads/X/', run=lambda *a, **k: R(1, '', 'network unreachable'))
+        self.assertIn('network unreachable', str(cm.exception))                                                           # a failed listing is never "no files"
+
+    def test_the_default_listing_is_rclone_when_the_file_manager_has_cloud_paths(self):
+        fm = SheetFM(); self.assertEqual(D._default_listing(fm)('/x/'), {})                                               # the fake has no cloud paths: returnCloudFiles, sizes later
+        fm.cloudMasterDir, fm.localMasterDir = 'remote:/m/', fm.localTempDir
+        import unittest.mock as um
+        with um.patch.object(D.subprocess, 'run', lambda cmd, **k: type('R', (), dict(returncode=0, stdout=json.dumps([dict(Name='z.bam', Size=3)]), stderr=''))()):
+            self.assertEqual(D._default_listing(fm)(fm.localTempDir + 'Reads/P/'), {'z.bam': 3})
 
     def test_the_command_line_options(self):
         fm = SheetFM(); fm.put(*[f'RUN{i}' for i in range(12)]); path = pending_file(LINES)

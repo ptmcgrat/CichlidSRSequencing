@@ -215,14 +215,33 @@ def _ensure_rows(fm, tab, need, log):
         log(f'  {tab}: could not check the grid size ({type(e).__name__}: {str(e)[:100]}); continuing')
 
 
-def add_pending_bulk(fm, path, log=print, dry_run=False):
+def _cloud_listing(fm, folder, run=None):
+    """{file name: size in bytes} of a folder on Dropbox with ONE `rclone lsjson`. (FileManager.returnCloudFiles is an uncached `rclone lsf` of the whole folder and returnFileSize an `rclone size`: one call of each per run,
+    which is many minutes for a few hundred runs.)"""
+    cloud = folder.replace(fm.localMasterDir, fm.cloudMasterDir, 1)
+    r = (run or subprocess.run)(['rclone', 'lsjson', '--files-only', cloud], capture_output=True, text=True)
+    if r.returncode == 3:                                                                     # rclone: directory not found
+        return {}
+    if r.returncode != 0:
+        raise RuntimeError(f'rclone lsjson {cloud} failed (exit {r.returncode}): {(r.stderr or "")[-200:]}')
+    return {x['Name']: int(x['Size']) for x in json.loads(r.stdout or '[]')}
+
+
+def _default_listing(fm):
+    if hasattr(fm, 'cloudMasterDir') and hasattr(fm, 'localMasterDir'):
+        return lambda folder: _cloud_listing(fm, folder)
+    return lambda folder: {n: None for n in fm.returnCloudFiles(folder)}                    # a file manager without cloud paths (the tests' fakes): sizes are asked per run
+
+
+def add_pending_bulk(fm, path, log=print, dry_run=False, listing=None):
     """Add the rows of a pending file with ONE read and ONE write of the two sheets (add_pending adds run by run: two sheet reads and two whole-sheet writes per run, which hits Google's 60 reads per minute).
     The rules are those of FileManager.addDNAReadRow: a run is added only if it is not in DNAReadsDatabase and its uBAM is on the cloud; a sample is added to SampleDatabase only if it is not there yet.
     Safe only when nothing else writes the two sheets meanwhile. Both sheets are saved to CSV first, nothing is written if any line is malformed, and the result is read back and checked."""
+    listing = listing or _default_listing(fm)
     fm.readSampleDatabase()
     old_reads, old_samples = fm.reads_dt.copy(), fm.sample_dt.copy()
     in_db, have_samples = set(old_reads['RunID']), set(old_samples['SampleID'])
-    new_reads, new_samples, skipped, missing, warned, bad = [], [], 0, [], [], []
+    new_reads, new_samples, skipped, missing, warned, bad, listed = [], [], 0, [], [], [], {}
     for n, line in enumerate(open(path), 1):
         if not line.strip():
             continue
@@ -235,10 +254,13 @@ def add_pending_bulk(fm, path, log=print, dry_run=False):
         if rd['RunID'] in in_db:
             skipped += 1; continue
         folder = fm.localReadsDir + os.path.dirname(rd['FileLocations']) + '/'
-        if os.path.basename(rd['FileLocations']) not in set(fm.returnCloudFiles(folder)):
+        if folder not in listed:
+            listed[folder] = listing(folder); log(f'  Reads/{os.path.dirname(rd["FileLocations"])}/: {len(listed[folder])} files on Dropbox')
+        names, base = listed[folder], os.path.basename(rd['FileLocations'])
+        if base not in names:
             missing.append(rd['RunID']); continue
-        if rd.get('FileSize') in ('', None):
-            rd['FileSize'] = fm.returnFileSize(fm.localReadsDir + rd['FileLocations'])
+        if rd.get('FileSize') in ('', None) and not dry_run:                                   # a dry run needs no sizes
+            rd['FileSize'] = names[base] if names[base] is not None else fm.returnFileSize(fm.localReadsDir + rd['FileLocations'])
         new_reads.append(rd); in_db.add(rd['RunID'])
         if sd['SampleID'] in have_samples:
             if sd['SampleID'] not in {x['SampleID'] for x in new_samples}:
