@@ -25,6 +25,7 @@ INVERSIONS = collections.OrderedDict([('chr2', 'Inversion2'), ('chr9', 'Inversio
 TEXT_NEW = ['SRASpecies', 'BlumerSequenceID', 'BlumerSpecimenID']
 NUMERIC_NEW = ['Inversion2', 'Inversion9', 'Inversion11', 'Inversion13']
 TOUCHED = ['Sex', 'Species', 'Ecogroup', 'LabReared', 'Inversion10'] + TEXT_NEW + NUMERIC_NEW
+DEFAULT_INVERSION_SOURCE = 'Blumer et al. 2025 Table S7'
 SEX_OK = {'', 'M', 'F', 'U', 'M?', 'F?'}
 
 
@@ -86,6 +87,14 @@ def sra_species(reads_dt, tabs):
 
 
 # ------------------------------------------------------------------------------------------------------------------ the plan (pure: no sheet access)
+def inversion_source_text(df):
+    """The InversionSource that the existing Blumer rows carry (the most frequent non-blank value among rows with a BlumerSequenceID), so that new rows read the same; a default if there is none."""
+    if 'InversionSource' not in df.columns or 'BlumerSequenceID' not in df.columns:
+        return DEFAULT_INVERSION_SOURCE
+    vals = [norm(v) for v, k in zip(df['InversionSource'], df['BlumerSequenceID']) if norm(v) != '' and norm(k) != '']
+    return collections.Counter(vals).most_common(1)[0][0] if vals else DEFAULT_INVERSION_SOURCE
+
+
 def plan(sample_dt, b, sra):
     """-> (new frame, changes, summary). changes: [{SampleID, column, old, new, action}] with action filled | overwritten | kept (differs) | skipped (...)."""
     df = sample_dt.copy().reset_index(drop=True)
@@ -96,7 +105,8 @@ def plan(sample_dt, b, sra):
             df[c] = pd.Series([''] * len(df), dtype=object) if c in TEXT_NEW else pd.Series([float('nan')] * len(df), dtype=float)
     new_cols = [c for c in TEXT_NEW + NUMERIC_NEW if c not in base]
     df = df[base + [c for c in ['Inversion10'] if c not in base] + new_cols + unnamed]
-    for c in TOUCHED:
+    source_text = inversion_source_text(df) if 'InversionSource' in df.columns else None
+    for c in TOUCHED + (['InversionSource'] if source_text else []):
         df[c] = df[c].astype(object)
     idx = {str(s): i for i, s in enumerate(df.SampleID)}
     changes, matched = [], set()
@@ -126,10 +136,13 @@ def plan(sample_dt, b, sra):
             changes.append(dict(SampleID=sid, column='Ecogroup', old=norm(df.at[idx[sid], 'Ecogroup']), new='', action='skipped (clade %r not mapped)' % r.clade))
         put(sid, 'LabReared', 0, 'fill')
         put(sid, 'BlumerSequenceID', r.sequence_id.strip(), 'fill'); put(sid, 'BlumerSpecimenID', r.specimen_id.strip(), 'fill') if r.specimen_id.strip() not in ('', 'NA') else None
+        filled_before = len(changes)
         for chr_, col in INVERSIONS.items():
             v = norm(getattr(r, chr_, ''))
             if v != '':
                 put(sid, col, int(float(v)), 'fill')
+        if source_text and any(ch['action'] == 'filled' and ch['column'] in INVERSIONS.values() for ch in changes[filled_before:]):
+            put(sid, 'InversionSource', source_text, 'fill')                                   # only where this run filled an inversion value
     for sid, org in sra.items():
         if sid in idx:
             put(sid, 'SRASpecies', org, 'overwrite')
@@ -138,7 +151,7 @@ def plan(sample_dt, b, sra):
     summary = collections.OrderedDict()
     for ch in changes:
         k = (ch['column'], ch['action'].split(' (')[0]); summary[k] = summary.get(k, 0) + 1
-    return df, changes, dict(matched=matched, counts=summary, new_columns=new_cols)
+    return df, changes, dict(matched=matched, counts=summary, new_columns=new_cols, inversion_source=source_text)
 
 
 def species_pairs(changes):
@@ -189,6 +202,17 @@ def readback_problems(expected, found, limit=8):
 # ------------------------------------------------------------------------------------------------------------------ checks (read-only)
 def spelling_key(s):
     return re.sub(r"[^a-z0-9]", '', re.sub(r"\bsp\.?\b|['\"-]", '', norm(s).lower()))
+
+
+def orphan_rows(sample_dt, reads_dt, sra, blumer=None):
+    """Samples with reads and no SampleDatabase row: [(SampleID, runs, projects, SRA species, in Blumer's S1)]."""
+    known = set(sample_dt.SampleID.astype(str)); in_s1 = set(blumer[0].Biosample) if blumer is not None else set()
+    by = collections.OrderedDict()
+    for sid, run, proj in zip(reads_dt.SampleID.astype(str), reads_dt.RunID.astype(str), reads_dt['ProjectID'].astype(str) if 'ProjectID' in reads_dt.columns else [''] * len(reads_dt)):
+        if sid not in known:
+            e = by.setdefault(sid, ([], []))
+            e[0].append(run); e[1].append(proj) if proj not in e[1] else None
+    return [(sid, ','.join(r), ','.join(p), sra.get(sid, ''), 'TRUE' if sid in in_s1 else 'FALSE') for sid, (r, p) in by.items()]
 
 
 def run_checks(sample_dt, reads_dt, tabs, blumer=None, out=print):
@@ -266,7 +290,7 @@ def write_reports(out_dir, changes, summary, pairs, unmatched, not_in_s1, multi,
 def main(argv=None, fm=None, writer=default_writer, out=print):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
-    c = sub.add_parser('check'); c.add_argument('--s1', default=DEFAULT_S1); c.add_argument('--s7', default=DEFAULT_S7); c.add_argument('--no-blumer', action='store_true', help='do not compare with Blumer et al.'); c.add_argument('--tabs', nargs='+', default=['Blumer', 'Malinsky'])
+    c = sub.add_parser('check'); c.add_argument('--s1', default=DEFAULT_S1); c.add_argument('--s7', default=DEFAULT_S7); c.add_argument('--no-blumer', action='store_true', help='do not compare with Blumer et al.'); c.add_argument('--out-dir', default=None); c.add_argument('--tabs', nargs='+', default=['Blumer', 'Malinsky'])
     b = sub.add_parser('blumer'); b.add_argument('--s1', default=DEFAULT_S1); b.add_argument('--s7', default=DEFAULT_S7); b.add_argument('--tabs', nargs='+', default=['Blumer', 'Malinsky'])
     b.add_argument('--out-dir', default=None); b.add_argument('--write', action='store_true')
     a = ap.parse_args(argv)
@@ -283,7 +307,14 @@ def main(argv=None, fm=None, writer=default_writer, out=print):
             raise SystemExit('this file_manager.py has no readDownloadTab (the download database methods): use the checkout that has them (mzebra)')
     if a.cmd == 'check':
         blumer = read_blumer(a.s1, a.s7) if (not a.no_blumer and os.path.exists(a.s1) and os.path.exists(a.s7)) else None
-        return run_checks(fm.sample_dt, fm.reads_dt, tabs, blumer=blumer, out=out)
+        n = run_checks(fm.sample_dt, fm.reads_dt, tabs, blumer=blumer, out=out)
+        orph = orphan_rows(fm.sample_dt, fm.reads_dt, sra_species(fm.reads_dt, tabs)[0], blumer=blumer)
+        if orph:
+            od = a.out_dir or '%ssampledb_reports_%s/' % (getattr(fm, 'localTempDir', './'), time.strftime('%Y%m%d-%H%M%S')); os.makedirs(od, exist_ok=True)
+            with open(od + 'sampledb_orphans.tsv', 'w', newline='') as f:
+                w = csv.writer(f, delimiter='\t'); w.writerow(['SampleID', 'RunIDs', 'ProjectIDs', 'SRA_species', 'in_Blumer_S1']); w.writerows(orph)
+            out('%d samples with reads but no SampleDatabase row, listed with their runs, projects and SRA species in %ssampledb_orphans.tsv' % (len(orph), od))
+        return n
     for f in (a.s1, a.s7):
         if not os.path.exists(f):
             raise SystemExit('%s not found: Blumer\'s tables are in data/blumer/ of the repository (git pull?), or pass --s1 / --s7' % f)
@@ -302,6 +333,8 @@ def main(argv=None, fm=None, writer=default_writer, out=print):
     write_reports(out_dir, changes, summary, pairs, unmatched, not_in_s1, multi, out)
     out('samples in Table S1: %d, matched to the SampleDatabase: %d, not in the sheet: %d; %d sheet samples have Blumer-project runs but are not in S1' % (len(blumer), len(summary['matched']), len(unmatched), len(not_in_s1)))
     out('new columns: %s' % (summary['new_columns'] or 'none'))
+    if summary['inversion_source']:
+        out('InversionSource of the rows filled now: %r (the value of the existing Blumer rows)' % summary['inversion_source'])
     for (col, act), n in sorted(summary['counts'].items()):
         out('  %-18s %-12s %5d' % (col, act, n))
     out('Species: %d distinct (SRA or old name -> Blumer name) pairs, most frequent: %s' % (len(pairs), '; '.join('%s -> %s (%d)' % (o, n, k) for (o, n), k in pairs[:4])))

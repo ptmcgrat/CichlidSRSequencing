@@ -167,6 +167,46 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(self.summary['matched'], {'SAMEA1', 'SAMEA2', 'SAMEA3', 'SAMEA4', 'SAMEA6', 'SAMEA7'})
 
 
+class TestInversionSourceAndOrphans(unittest.TestCase):
+    def sheet_with_source(self, existing='Blumer 2025 S7'):
+        sh = sheet().copy(); sh['BlumerSequenceID'] = ''; sh['InversionSource'] = ''
+        i = sh.index[sh.SampleID == 'SAMEA1'][0]; sh.at[i, 'BlumerSequenceID'] = 'cichlid1'; sh.at[i, 'InversionSource'] = existing                                        # an existing Blumer row
+        return sh
+
+    def run_plan(self, sh):
+        s1, s7 = tables(); b, _ = S.read_blumer(s1, s7)
+        return S.plan(sh, b, {})
+
+    def test_new_rows_get_the_inversion_source_that_the_existing_blumer_rows_carry(self):
+        new, changes, summary = self.run_plan(self.sheet_with_source('Blumer 2025 S7'))
+        self.assertEqual(summary['inversion_source'], 'Blumer 2025 S7')
+        r = new[new.SampleID == 'SAMEA2'].iloc[0]; self.assertEqual(r.InversionSource, 'Blumer 2025 S7')
+        self.assertEqual(new[new.SampleID == 'SAMEA5'].iloc[0].InversionSource, '')                                                   # not in S1: no inversion values, no source
+        self.assertTrue(any(c['SampleID'] == 'SAMEA2' and c['column'] == 'InversionSource' and c['action'] == 'filled' for c in changes))
+
+    def test_a_default_is_used_when_no_row_has_one_and_nothing_is_added_when_no_source_column_exists(self):
+        new, _, summary = self.run_plan(self.sheet_with_source(''))
+        self.assertEqual(summary['inversion_source'], S.DEFAULT_INVERSION_SOURCE); self.assertEqual(new[new.SampleID == 'SAMEA2'].iloc[0].InversionSource, S.DEFAULT_INVERSION_SOURCE)
+        new, _, summary = self.run_plan(sheet()); self.assertIsNone(summary['inversion_source']); self.assertNotIn('InversionSource', new.columns)
+
+    def test_a_sample_whose_inversions_were_already_there_gets_no_source_written(self):
+        sh = self.sheet_with_source('Blumer 2025 S7')
+        for c in ['Inversion2', 'Inversion9', 'Inversion11', 'Inversion13']:
+            sh[c] = float('nan')
+        i = sh.index[sh.SampleID == 'SAMEA2'][0]
+        for c, v in (('Inversion2', 2.0), ('Inversion9', 1.0), ('Inversion10', 0.0), ('Inversion11', 0.0), ('Inversion13', 0.0)):                                          # SAMEA2 already has every value of S7
+            sh.at[i, c] = v
+        new, changes, _ = self.run_plan(sh)
+        self.assertFalse(any(c['SampleID'] == 'SAMEA2' and c['column'] == 'InversionSource' for c in changes))                                                         # this run filled nothing for it
+
+    def test_check_lists_the_samples_that_have_reads_but_no_sample_row(self):
+        od = tempfile.mkdtemp() + '/'; out = []
+        S.main(['check', '--no-blumer', '--out-dir', od], fm=FM(), out=out.append)
+        rows = open(od + 'sampledb_orphans.tsv').read().strip().split('\n')
+        self.assertEqual(rows[0].split('\t'), ['SampleID', 'RunIDs', 'ProjectIDs', 'SRA_species', 'in_Blumer_S1']); self.assertEqual(rows[1].split('\t')[:2], ['ORPHAN', 'ERR9'])
+        self.assertTrue(any('1 samples with reads but no SampleDatabase row' in l for l in out))
+
+
 class TestCommand(unittest.TestCase):
     def test_report_only_changes_nothing_and_writes_the_reports(self):
         s1, s7 = tables(); od = tempfile.mkdtemp() + '/'

@@ -1,4 +1,4 @@
-# lab_repo_patch_v9p_ena: downloadShortReadData_v2 / grab_ena_v2 + the download database + the SRA source (supersedes v7a-v8b)
+# lab_repo_patch_v9q_ena: downloadShortReadData_v2 / grab_ena_v2 + the download database + the SRA source (supersedes v7a-v8b)
 
 New files only (nothing of the old scripts is touched; `downloadShortReadData.py` and `grabENA.py` keep working, and its `--Local` mode stays there).
 
@@ -72,6 +72,8 @@ Everything is in the repository, including Blumer et al.'s two tables (`data/blu
     python3 -B unit_scripts/sampledb.py check                 # READ-ONLY: duplicates, orphans between SampleDatabase / DNAReadsDatabase / DownloadDatabase, codings, blanks, taxa written in several ways, comparison with Blumer
     python3 -B unit_scripts/sampledb.py blumer                # the update as a REPORT: changes nothing, writes the reports (every cell, species pairs, unmatched samples)
     python3 -B unit_scripts/sampledb.py blumer --write        # applies it: CSV backup, ONLY the SampleDatabase tab, written once, read back cell by cell
+
+`check` also writes `sampledb_orphans.tsv` (samples that have reads but no SampleDatabase row, with their runs, projects and SRA species). If the sheet has an `InversionSource` column, the samples whose inversion values the update fills get the value of the existing Blumer rows.
 
 For the samples whose SampleID is a Blumer BioSample: Species is set to Blumer's name (the SRA name is kept in the new column SRASpecies, taken from the DownloadDatabase for EVERY sample that has runs there); Sex and Ecogroup are filled if blank and a differing value
 is kept and listed; LabReared 0; BlumerSequenceID, BlumerSpecimenID; Inversion2/9/10/11/13 from Table S7. Measured on the export of 1,820 rows: 1,101 match S1, Species differs for 324 (103 pairs), Sex and Inversion10 agree for all, Ecogroup differs for 4 (Error x2,
