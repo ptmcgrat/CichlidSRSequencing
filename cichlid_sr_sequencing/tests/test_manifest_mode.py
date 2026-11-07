@@ -152,6 +152,16 @@ class TestFileManagerPatch(unittest.TestCase):
         self.assertTrue(new.index('def downloadManifest') < new.index('def _authenticateGS')); self.assertEqual(PFM.patch(new), (new, []))
         ns = {}; exec(new.replace('class FileManager', 'class FileManager'), ns); self.assertTrue(all(hasattr(ns['FileManager'], m) for m in ('downloadManifest', 'downloadTabs', 'readDownloadTab')))
 
+    SRC_GS = ("import platform, os, pdb, gspread, subprocess, time\nimport pandas as pd\n\nfrom gspread_dataframe import get_as_dataframe\nfrom google.oauth2.service_account import Credentials\n\n\n"
+              "class FileManager():\n\tdef __init__(self):\n\t\tself.s_ID = 'S'\n\t\tself.a_ID = 'A' # Alignment Database\n\n\t\tself._createMasterDirs()\n\n\tdef _authenticateGS(self):\n\t\tpass\n")
+
+    def test_the_retry_of_google_calls_is_installed_after_the_gspread_imports_once(self):
+        new, done = PFM.patch(self.SRC_GS); compile(new, 'fm', 'exec')
+        self.assertEqual(done, ['dl_ID', 'methods', 'gspread retry'])
+        self.assertTrue(new.index('from google.oauth2.service_account import Credentials') < new.index('_gspread_retry.install()') < new.index('class FileManager'))
+        self.assertEqual(PFM.patch(new), (new, []))
+        _, done_plain = PFM.patch(self.SRC); self.assertNotIn('gspread retry', done_plain)                                               # a file that does not import gspread gets no retry
+
     def test_a_missing_anchor_is_an_error_not_a_silent_skip(self):
         with self.assertRaises(ValueError):
             PFM.patch('class FileManager():\n\tdef x(self):\n\t\tpass\n')

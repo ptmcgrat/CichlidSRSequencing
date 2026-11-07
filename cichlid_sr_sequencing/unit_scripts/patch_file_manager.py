@@ -3,7 +3,7 @@
   python3 unit_scripts/patch_file_manager.py --dry-run        # show the diff, change nothing
   python3 unit_scripts/patch_file_manager.py                  # apply (a backup file_manager.py.bak-<time> is written)
 
-Inserted: `self.dl_ID` (the DownloadDatabase spreadsheet) after the line that sets `self.a_ID`, and three methods before `_authenticateGS`: downloadManifest(tab, who) -> a Manifest for one tab,
+Also inserted, after the import of gspread: the installation of helper_modules/gspread_retry.py (retry of every Google call). Inserted: `self.dl_ID` (the DownloadDatabase spreadsheet) after the line that sets `self.a_ID`, and three methods before `_authenticateGS`: downloadManifest(tab, who) -> a Manifest for one tab,
 downloadTabs(), readDownloadTab(tab). They only DELEGATE to helper_modules/download_manifest.py (cell-level writes, claims, journal); nothing existing is changed, and the old file managers that are
 running are not affected (Python has them loaded already)."""
 import argparse, difflib, os, re, sys, time
@@ -29,6 +29,18 @@ METHODS = '''\t# ---- Download database: one tab per Run Info file. The logic is
 '''
 
 
+RETRY_SNIPPET = """try:                                    # retry transient Google errors (connection reset, 429, 5xx) in every gspread call; see gspread_retry.py
+\tfrom helper_modules import gspread_retry as _gspread_retry
+except ImportError:
+\ttry:
+\t\tfrom cichlid_common import gspread_retry as _gspread_retry
+\texcept ImportError:
+\t\t_gspread_retry = None
+if _gspread_retry is not None:
+\t_gspread_retry.install()
+"""
+
+
 def patch(text):
     """Returns (new text, list of what was done). Raises ValueError if an anchor is missing."""
     done = []
@@ -42,6 +54,10 @@ def patch(text):
         if i < 0:
             raise ValueError("anchor not found: def _authenticateGS")
         text = text[:i] + METHODS + text[i:]; done.append('methods')
+    if 'gspread_retry' not in text:                                                # the retry of every Google call (only where the file imports gspread)
+        m = re.search(r'^from google\.oauth2\.service_account import Credentials[^\n]*\n', text, re.M) or re.search(r'^import gspread[^\n]*\n', text, re.M)
+        if m:
+            text = text[:m.end()] + RETRY_SNIPPET + text[m.end():]; done.append('gspread retry')
     return text, done
 
 
