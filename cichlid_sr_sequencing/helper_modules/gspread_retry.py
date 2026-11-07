@@ -30,7 +30,19 @@ def _target():
 
 
 def install(tries=TRIES, base=BASE, max_wait=MAX_WAIT, log=print):
-    """Wrap gspread's request method. Returns True if installed now, False if it already was."""
+    """Wrap gspread's request method. Returns True if installed now, False if it already was or could not be installed. It NEVER raises: file_manager.py calls it at import,
+    and a convenience layer must not be able to break the program that imports it (a gspread whose internals differ just means no retry, and a printed line)."""
+    try:
+        return _install(tries, base, max_wait, log)
+    except Exception as e:
+        try:
+            log('[gspread-retry] not installed (%s: %s); Google calls are not retried' % (type(e).__name__, str(e)[:100]))
+        except Exception:
+            pass
+        return False
+
+
+def _install(tries, base, max_wait, log):
     import requests
     import gspread
     cls = _target()

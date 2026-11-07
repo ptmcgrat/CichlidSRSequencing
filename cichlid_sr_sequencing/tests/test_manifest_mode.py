@@ -13,7 +13,7 @@ import patch_file_manager as PFM
 
 class ManifestFM(FakeFM):
     def __init__(self, tmp, in_db=()):
-        super().__init__(tmp, in_db); self.backend = MF.MemoryBackend()
+        super().__init__(tmp, in_db); self.backend = MF.MemoryBackend(); self.sample_dt = pd.DataFrame(dict(SampleID=[]))
     def addDNAReadRow(self, read_data, sample_data):
         super().addDNAReadRow(read_data, sample_data); self.reads_dt = pd.concat([self.reads_dt, pd.DataFrame([dict(RunID=read_data['RunID'])])], ignore_index=True)
     def downloadManifest(self, tab, who=None, flush_seconds=15.0):
@@ -113,6 +113,15 @@ class TestManifestMode(Harness):
         s = sheet(self.fm)
         self.assertEqual((s.loc[r[8], 'DownloadStatus'], s.loc[r[8], 'InDatabase']), ('in_database', 'TRUE')); self.assertIn(r[8], {x[0]['RunID'] for x in self.fm.rows})
 
+    def test_add_pending_dry_run_with_a_manifest_changes_neither_the_sheets_nor_the_manifest(self):
+        self.go('--no-db'); pend = self.fm.localTempDir + 'pending_db_rows.jsonl'
+        self.fm.reads_dt = pd.concat([self.fm.reads_dt, pd.DataFrame(dict(RunID=[self.runs[8]]))], ignore_index=True)       # in the database already (as the first, crashed add-pending left 26 runs), still `uploaded` in the sheet
+        self.assertEqual(sheet(self.fm).loc[self.runs[8], 'DownloadStatus'], 'uploaded')
+        before = copy.deepcopy(self.fm.backend.data); n_rows = len(self.fm.rows)
+        for extra in ([], ['--bulk']):
+            D.run(D.parse_args(['--manifest', 'Blumer', '--add-pending', pend, '--dry-run'] + extra), self.fm, fetch=self.fetch, launch=self.launch, log=lambda *a: None)
+            self.assertEqual(self.fm.backend.data, before); self.assertEqual(len(self.fm.rows), n_rows)                         # the dry run used to reconcile (write) the manifest
+
     def test_reconcile_command(self):
         self.fm.reads_dt = pd.concat([self.fm.reads_dt, pd.DataFrame([dict(RunID=self.runs[2])])], ignore_index=True)           # the uBAM on Dropbox got its database row meanwhile
         self.assertEqual(sheet(self.fm).loc[self.runs[2], 'DownloadStatus'], 'uploaded')
@@ -161,6 +170,12 @@ class TestFileManagerPatch(unittest.TestCase):
         self.assertTrue(new.index('from google.oauth2.service_account import Credentials') < new.index('_gspread_retry.install()') < new.index('class FileManager'))
         self.assertEqual(PFM.patch(new), (new, []))
         _, done_plain = PFM.patch(self.SRC); self.assertNotIn('gspread retry', done_plain)                                               # a file that does not import gspread gets no retry
+
+    def test_retry_only_installs_nothing_but_the_retry(self):
+        new, done = PFM.patch(self.SRC_GS, retry_only=True); compile(new, 'fm', 'exec')
+        self.assertEqual(done, ['gspread retry']); self.assertNotIn('downloadManifest', new); self.assertNotIn('dl_ID', new)
+        self.assertEqual(PFM.patch(new, retry_only=True), (new, []))
+        full, done2 = PFM.patch(new); self.assertEqual(done2, ['dl_ID', 'methods'])                                        # the rest can still be added later
 
     def test_a_missing_anchor_is_an_error_not_a_silent_skip(self):
         with self.assertRaises(ValueError):

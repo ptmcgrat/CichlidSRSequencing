@@ -398,7 +398,7 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             add_pending_bulk(fm, args.add_pending, log, dry_run=args.dry_run)           # --dry-run never writes, with or without --bulk
         else:
             add_pending(fm, args.add_pending, log)
-        if args.manifests:                                                  # runs added to the database now: their rows in the sheet become in_database
+        if args.manifests and not args.dry_run:                                                  # runs added to the database now: their rows in the sheet become in_database
             fm.readSampleDatabase(); in_db_now = set(fm.reads_dt['RunID'])
             for tab, mf in args.manifests.items():
                 n = mf.reconcile(in_db_now, set()); mf.flush(force=True); log(f'  manifest {tab}: {n} rows are now in_database')

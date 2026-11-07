@@ -41,15 +41,15 @@ if _gspread_retry is not None:
 """
 
 
-def patch(text):
-    """Returns (new text, list of what was done). Raises ValueError if an anchor is missing."""
+def patch(text, retry_only=False):
+    """Returns (new text, list of what was done). Raises ValueError if an anchor is missing. retry_only: only the retry of Google calls (for a file manager that predates the download database)."""
     done = []
-    if 'self.dl_ID' not in text:
+    if not retry_only and 'self.dl_ID' not in text:
         m = re.search(r'^\t\tself\.a_ID = .*\n', text, re.M)
         if not m:
             raise ValueError("anchor not found: the line that sets self.a_ID")
         text = text[:m.end()] + ID_LINE + text[m.end():]; done.append('dl_ID')
-    if 'def downloadManifest' not in text:
+    if not retry_only and 'def downloadManifest' not in text:
         i = text.find('\tdef _authenticateGS(self):')
         if i < 0:
             raise ValueError("anchor not found: def _authenticateGS")
@@ -63,10 +63,10 @@ def patch(text):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--file', default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'helper_modules', 'file_manager.py')); ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--file', default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'helper_modules', 'file_manager.py')); ap.add_argument('--dry-run', action='store_true'); ap.add_argument('--retry-only', action='store_true', help='only install the retry of Google calls (a file manager that predates the download database, e.g. the one of the alignment pipeline on utaka)')
     a = ap.parse_args(argv)
     old = open(a.file).read()
-    new, done = patch(old)
+    new, done = patch(old, retry_only=a.retry_only)
     if not done:
         print(f'{a.file}: already patched, nothing to do'); return 0
     print(''.join(difflib.unified_diff(old.splitlines(True), new.splitlines(True), 'file_manager.py', 'file_manager.py (patched)', n=1)))

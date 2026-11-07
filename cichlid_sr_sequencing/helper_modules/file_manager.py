@@ -4,6 +4,15 @@ import pandas as pd
 from gspread_dataframe import get_as_dataframe
 from gspread_dataframe import set_with_dataframe
 from google.oauth2.service_account import Credentials
+try:                                    # retry transient Google errors (connection reset, 429, 5xx) in every gspread call; see gspread_retry.py
+	from helper_modules import gspread_retry as _gspread_retry
+except ImportError:
+	try:
+		from cichlid_common import gspread_retry as _gspread_retry
+	except ImportError:
+		_gspread_retry = None
+if _gspread_retry is not None:
+	_gspread_retry.install()
 
 
 class FileManager():
