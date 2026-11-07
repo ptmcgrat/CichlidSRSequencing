@@ -54,6 +54,7 @@ def parse_args(argv=None):
     p.add_argument('--fq-threads', type=int, default=8, help='fasterq-dump threads per conversion')
     p.add_argument('--sra-require-check', action='store_true', help='SRA route: refuse a run whose first reads cannot be compared with ENA (ENA unreachable) instead of recording "skipped"')
     p.add_argument('--max-runs', type=int, default=None, help='process only the N SMALLEST runs that need downloading (a cheap first real test)')
+    p.add_argument('--bulk', action='store_true', help='with --add-pending: add all rows with one read and one write of the two sheets (backed up and verified); only when nothing else writes the database. --dry-run shows what would be added')
     p.add_argument('--no-probe', action='store_true', help='skip the 20 s Aspera probe before the downloads start (the probe decides between Aspera and https)')
     p.add_argument('--probe-seconds', type=float, default=20.0, help='length of the Aspera probe')
     p.add_argument('--stall-seconds', type=float, default=90.0, help='an Aspera transfer that receives no data for this long is stopped and the run falls back to https')
@@ -200,6 +201,74 @@ def add_to_database(fm, t, st, no_db=False, log=print):
         f.write(json.dumps(dict(read_data=read_data, sample_data=sample_data), default=str) + '\n')
 
 
+READ_KEYS = {'SampleID', 'ProjectID', 'RunID', 'ReadLength', 'TotalBases', 'Instrument', 'LibraryID', 'LibraryLayout', 'LibrarySource', 'Platform', 'FileLocations', 'FileSize'}
+SAMPLE_KEYS = {'SampleID', 'Sex', 'Species', 'DoB', 'BroodID', 'Parents', 'Ecogroup', 'LabReared', 'Inversion10'}
+
+
+def _ensure_rows(fm, tab, need, log):
+    """set_with_dataframe does not enlarge the grid of a worksheet: make sure it has `need` rows (header included)."""
+    try:
+        ws = fm.gc.open_by_key(fm.s_ID).worksheet(tab)
+        if ws.row_count < need:
+            old = ws.row_count; ws.resize(rows=need + 50); log(f'  {tab}: grid enlarged from {old} to {need + 50} rows')
+    except Exception as e:
+        log(f'  {tab}: could not check the grid size ({type(e).__name__}: {str(e)[:100]}); continuing')
+
+
+def add_pending_bulk(fm, path, log=print, dry_run=False):
+    """Add the rows of a pending file with ONE read and ONE write of the two sheets (add_pending adds run by run: two sheet reads and two whole-sheet writes per run, which hits Google's 60 reads per minute).
+    The rules are those of FileManager.addDNAReadRow: a run is added only if it is not in DNAReadsDatabase and its uBAM is on the cloud; a sample is added to SampleDatabase only if it is not there yet.
+    Safe only when nothing else writes the two sheets meanwhile. Both sheets are saved to CSV first, nothing is written if any line is malformed, and the result is read back and checked."""
+    fm.readSampleDatabase()
+    old_reads, old_samples = fm.reads_dt.copy(), fm.sample_dt.copy()
+    in_db, have_samples = set(old_reads['RunID']), set(old_samples['SampleID'])
+    new_reads, new_samples, skipped, missing, warned, bad = [], [], 0, [], [], []
+    for n, line in enumerate(open(path), 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line); rd, sd = dict(row['read_data']), dict(row['sample_data'])
+        except (ValueError, KeyError, TypeError):
+            bad.append(f'line {n}: not a pending row'); continue
+        if set(rd) != READ_KEYS or set(sd) != SAMPLE_KEYS:
+            bad.append(f"line {n} ({rd.get('RunID', '?')}): unexpected fields {sorted(set(rd) ^ READ_KEYS)} {sorted(set(sd) ^ SAMPLE_KEYS)}"); continue
+        if rd['RunID'] in in_db:
+            skipped += 1; continue
+        folder = fm.localReadsDir + os.path.dirname(rd['FileLocations']) + '/'
+        if os.path.basename(rd['FileLocations']) not in set(fm.returnCloudFiles(folder)):
+            missing.append(rd['RunID']); continue
+        if rd.get('FileSize') in ('', None):
+            rd['FileSize'] = fm.returnFileSize(fm.localReadsDir + rd['FileLocations'])
+        new_reads.append(rd); in_db.add(rd['RunID'])
+        if sd['SampleID'] in have_samples:
+            if sd['SampleID'] not in {x['SampleID'] for x in new_samples}:
+                warned.append(sd['SampleID'])                                                  # already in the sheet before this run: addDNAReadRow only warns
+        else:
+            new_samples.append(sd); have_samples.add(sd['SampleID'])
+    if bad:
+        raise SystemExit('nothing was written; the pending file has malformed lines:\n  ' + '\n  '.join(bad[:10]))
+    log(f'pending rows (bulk): {len(new_reads)} to add, {skipped} already in the database, {len(missing)} not added because the uBAM is not on the cloud {missing[:10]}; '
+        f'{len(new_samples)} new samples ({len(warned)} runs belong to samples that are already in SampleDatabase)')
+    if dry_run or not new_reads:
+        log('dry run: nothing written' if dry_run else 'nothing to add'); return len(new_reads), skipped, missing
+    stamp = time.strftime('%Y%m%d-%H%M%S'); bdir = f'{fm.localTempDir}database_backup_{stamp}/'; os.makedirs(bdir, exist_ok=True)
+    old_samples.to_csv(bdir + 'SampleDatabase.csv', index=False); old_reads.to_csv(bdir + 'DNAReadsDatabase.csv', index=False)
+    log(f'  both sheets saved to {bdir} (Google Sheets also keeps its version history)')
+    fm.reads_dt = pd.concat([old_reads, pd.DataFrame(new_reads)], ignore_index=True)
+    fm.sample_dt = pd.concat([old_samples, pd.DataFrame(new_samples)], ignore_index=True) if new_samples else old_samples
+    assert fm.reads_dt['RunID'].is_unique and list(fm.reads_dt['RunID'][:len(old_reads)]) == list(old_reads['RunID'])
+    assert list(fm.sample_dt['SampleID'][:len(old_samples)]) == list(old_samples['SampleID'])
+    _ensure_rows(fm, 'SampleDatabase', len(fm.sample_dt) + 1, log); _ensure_rows(fm, 'DNAReadsDatabase', len(fm.reads_dt) + 1, log)
+    if not fm.setSampleDatabase():
+        raise SystemExit(f'the write to the sheets failed after retries; they may be partly written: restore from {bdir} (or the sheet\'s version history), then run again')
+    want_r, want_s = list(fm.reads_dt['RunID']), list(fm.sample_dt['SampleID'])
+    fm.readSampleDatabase()                                                                    # read back and check
+    if list(fm.reads_dt['RunID']) != want_r or list(fm.sample_dt['SampleID']) != want_s:
+        raise SystemExit(f'the sheets do not hold what was written (expected {len(want_r)} runs and {len(want_s)} samples, found {len(fm.reads_dt)} and {len(fm.sample_dt)}): see {bdir}')
+    log(f'  verified: DNAReadsDatabase {len(old_reads)} -> {len(fm.reads_dt)} rows, SampleDatabase {len(old_samples)} -> {len(fm.sample_dt)} rows')
+    return len(new_reads), skipped, missing
+
+
 def add_pending(fm, path, log=print):
     """Add the rows of a pending file to the database. A row is added only if its uBAM is listed on the cloud and its run is not yet in the database; the rest is reported."""
     in_db = set(fm.reads_dt['RunID']); added, skipped, missing = 0, 0, []
@@ -303,7 +372,10 @@ def run(args, fm, fetch=E.fetch_runs, launch=None, sleep=time.sleep, free_fn=Non
             args.manifests[tab].setup()
         log(f'manifest tabs {args.manifest} as {who}')
     if args.add_pending:
-        add_pending(fm, args.add_pending, log)
+        if args.bulk or args.dry_run:
+            add_pending_bulk(fm, args.add_pending, log, dry_run=args.dry_run)           # --dry-run never writes, with or without --bulk
+        else:
+            add_pending(fm, args.add_pending, log)
         if args.manifests:                                                  # runs added to the database now: their rows in the sheet become in_database
             fm.readSampleDatabase(); in_db_now = set(fm.reads_dt['RunID'])
             for tab, mf in args.manifests.items():
