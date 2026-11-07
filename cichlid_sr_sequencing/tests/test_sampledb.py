@@ -86,6 +86,33 @@ def run(argv, fm=None):
     return fm, res, '\n'.join(out)
 
 
+class TestTheTablesLiveInTheRepository(unittest.TestCase):
+    """The tool must run from a checkout with no flags: Blumer's tables are part of the repository, and they must be what the mapping and the join expect."""
+    def test_the_default_tables_exist_and_join(self):
+        self.assertTrue(os.path.exists(S.DEFAULT_S1) and os.path.exists(S.DEFAULT_S7), 'data/blumer/Table_S1.tsv and Table_S7.tsv must be in the repository')
+        b, problems = S.read_blumer(S.DEFAULT_S1, S.DEFAULT_S7)
+        self.assertEqual(problems, []); self.assertEqual(len(b), 1375)
+
+    def test_every_clade_maps_to_an_ecogroup_and_the_inversion_codes_are_0_1_2(self):
+        b, _ = S.read_blumer(S.DEFAULT_S1, S.DEFAULT_S7)
+        self.assertEqual(sorted(set(b.clade) - set(S.ECO_MAP)), [])                                    # a new clade in the table would otherwise be skipped silently
+        for c in S.INVERSIONS:
+            self.assertLessEqual(set(b[c]) - {''}, {'0', '1', '2'}, c)
+        self.assertTrue(b.sequence_id.is_unique and (b.Biosample[~b.Biosample.isin(['', 'NA'])]).is_unique)
+
+    def test_commands_run_with_no_table_flags(self):
+        fm = FM(); out = []
+        S.main(['blumer', '--out-dir', tempfile.mkdtemp() + '/'], fm=fm, writer=fm.writer, out=out.append)
+        self.assertIn('samples in Table S1: 1375, matched to the SampleDatabase: 0', '\n'.join(out))        # none of the fixture's sample IDs is a real Blumer BioSample: the default tables were read
+        out = []; S.main(['check'], fm=FM(), out=out.append); self.assertIn('Blumer samples (Table S1) that are not in the SampleDatabase: 1375 of 1375', '\n'.join(out))
+        out = []; S.main(['check', '--no-blumer'], fm=FM(), out=out.append); self.assertNotIn('Blumer samples', '\n'.join(out))
+
+    def test_a_missing_table_says_where_it_should_be(self):
+        with self.assertRaises(SystemExit) as cm:
+            S.main(['blumer', '--s1', '/nonexistent/S1.tsv'], fm=FM(), out=lambda *a: None)
+        self.assertIn('data/blumer', str(cm.exception))
+
+
 class TestPlan(unittest.TestCase):
     def setUp(self):
         s1, s7 = tables(); self.b, self.problems = S.read_blumer(s1, s7)

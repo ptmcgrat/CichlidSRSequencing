@@ -82,6 +82,12 @@ class T(unittest.TestCase):
         with self.assertRaises(FakeAPIError):
             self.call('post', append)                                                                                      # 500 on an append: unknown whether it was applied
 
+    def test_installing_never_raises_even_when_gspread_looks_different(self):
+        GR.uninstall(); del self.Client.request                                                   # a gspread without the method the retry wraps
+        logs = []
+        self.assertFalse(GR.install(log=logs.append)); self.assertTrue(any('not installed (AttributeError' in l for l in logs))
+        self.assertFalse(GR.install(log=lambda *a: (_ for _ in ()).throw(OSError('log is broken'))))           # not even a failing log function can make it raise
+
     def test_installing_twice_does_nothing_and_uninstall_restores_the_original(self):
         self.assertFalse(GR.install(log=self.logs.append)); self.assertTrue(self.Client.request._gspread_retry)
         self.assertEqual(self.Client.request.__name__, 'request')

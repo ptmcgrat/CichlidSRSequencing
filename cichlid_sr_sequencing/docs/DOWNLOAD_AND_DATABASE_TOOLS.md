@@ -1,4 +1,4 @@
-# lab_repo_patch_v9o_ena: downloadShortReadData_v2 / grab_ena_v2 + the download database + the SRA source (supersedes v7a-v8b)
+# lab_repo_patch_v9p_ena: downloadShortReadData_v2 / grab_ena_v2 + the download database + the SRA source (supersedes v7a-v8b)
 
 New files only (nothing of the old scripts is touched; `downloadShortReadData.py` and `grabENA.py` keep working, and its `--Local` mode stays there).
 
@@ -66,12 +66,16 @@ counts in parallel (`--jobs`), and adds ALL rows with one read and one write of 
 each BAM is its own task and a progress line is printed per sample. `--check-existing N` recounts N registered samples and compares EVERY computed column with the sheet (the counts, the fractions, Coverage and RunIDs)
 (validates the counting and the formulas); `--limit` and `--dry-run` try a few without writing. It needs the BAMs on this machine; samples without them are reported and skipped, and nothing already in the sheet is changed. A sample with reads but no row in the SampleDatabase is skipped, as alignment_worker skips it (its merged table has no ReadLength for it); `--allow-unlisted` registers it anyway with the ReadLength of the DNAReadsDatabase.
 
-## The SampleDatabase: checks and the Blumer update (v9o)
-`unit_scripts/sampledb.py check [--s1 Table_S1.tsv --s7 Table_S7.tsv]` is READ-ONLY: duplicates, orphans between SampleDatabase / DNAReadsDatabase / DownloadDatabase, codings, blank key fields, taxa written in several ways, and how the sheet compares with Blumer.
-`unit_scripts/sampledb.py blumer --s1 ... --s7 ... [--write]` adds Blumer et al.'s information to the samples whose SampleID is a Blumer BioSample: Species (Blumer's name overwrites; the SRA name is kept in the new column SRASpecies, taken from the DownloadDatabase
-for EVERY sample that has runs there), Sex and Ecogroup (filled if blank, a differing value is kept and listed), LabReared 0, BlumerSequenceID, BlumerSpecimenID, Inversion2/9/10/11/13. Without --write it only writes reports (every change, cell by cell, the
-species pairs, unmatched samples). With --write: CSV backup, grid enlarged, ONLY the SampleDatabase tab written once, read back cell by cell. Measured on the export of 1,820 rows: 1,101 samples match S1, Species differs for 324 (103 pairs), Sex and Inversion10 agree for all,
-Ecogroup differs for 4 (Error x2, Exclude, one Utaka: manual curation, kept).
+## The SampleDatabase: checks and the Blumer update
+Everything is in the repository, including Blumer et al.'s two tables (`data/blumer/`). On any machine with a checkout (mzebra: `git pull`, `conda activate enadl`, from `cichlid_sr_sequencing/`):
+
+    python3 -B unit_scripts/sampledb.py check                 # READ-ONLY: duplicates, orphans between SampleDatabase / DNAReadsDatabase / DownloadDatabase, codings, blanks, taxa written in several ways, comparison with Blumer
+    python3 -B unit_scripts/sampledb.py blumer                # the update as a REPORT: changes nothing, writes the reports (every cell, species pairs, unmatched samples)
+    python3 -B unit_scripts/sampledb.py blumer --write        # applies it: CSV backup, ONLY the SampleDatabase tab, written once, read back cell by cell
+
+For the samples whose SampleID is a Blumer BioSample: Species is set to Blumer's name (the SRA name is kept in the new column SRASpecies, taken from the DownloadDatabase for EVERY sample that has runs there); Sex and Ecogroup are filled if blank and a differing value
+is kept and listed; LabReared 0; BlumerSequenceID, BlumerSpecimenID; Inversion2/9/10/11/13 from Table S7. Measured on the export of 1,820 rows: 1,101 match S1, Species differs for 324 (103 pairs), Sex and Inversion10 agree for all, Ecogroup differs for 4 (Error x2,
+Exclude, one Utaka: manual curation, kept). `--s1` / `--s7` take other tables. The tests check that the tables are in the repository and that every clade maps to an Ecogroup.
 
 ## The download database (Google Sheet `DownloadDatabase`, one TAB per Run Info file)
 Instead of CSV files, the runs and what happened to them live in a spreadsheet of their own (`FileManager.dl_ID` = 1gNFAd_B8tWxQZRJeEmuhVl1qsqJf1KJtKYpehoEMfrQ), shared as Editor with the service account. Tabs: Blumer, Malinsky, ...

@@ -1,9 +1,9 @@
 """Checks and the Blumer update of the SampleDatabase. Python 3.7 compatible.
 
-    python3 sampledb.py check [--s1 Table_S1.tsv --s7 Table_S7.tsv]
+    python3 unit_scripts/sampledb.py check [--no-blumer]
         READ-ONLY. Structure, duplicates, orphans between SampleDatabase / DNAReadsDatabase / DownloadDatabase, codings, blanks, spelling variants of species names (and, with --s1, how the sheet compares with Blumer).
-    python3 sampledb.py blumer --s1 Table_S1.tsv --s7 Table_S7.tsv [--out-dir D] [--write]
-        Adds Blumer et al.'s information to the samples whose SampleID is a Blumer BioSample, and records the SRA species of every sample that has runs in the DownloadDatabase.
+    python3 unit_scripts/sampledb.py blumer [--out-dir D] [--write]
+        Blumer's tables are read from data/blumer/ of the repository (--s1 / --s7 take other files). Adds Blumer et al.'s information to the samples whose SampleID is a Blumer BioSample, and records the SRA species of every sample that has runs in the DownloadDatabase.
         WITHOUT --write it changes nothing and writes the reports (what would change, cell by cell) into --out-dir.
 
 What the update does, per sample that is in Table S1 (matched on S1.Biosample = SampleID):
@@ -18,6 +18,8 @@ New columns are inserted before the empty 'Unnamed' columns at the end; existing
 import argparse, collections, csv, os, re, sys, time
 import pandas as pd
 
+REPO_DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'blumer')       # Blumer's tables live in the repository
+DEFAULT_S1, DEFAULT_S7 = os.path.join(REPO_DATA, 'Table_S1.tsv'), os.path.join(REPO_DATA, 'Table_S7.tsv')
 ECO_MAP = {'Mbuna': 'Mbuna', 'Shallow': 'Shallow_Benthic', 'Deep': 'Deep_Benthic', 'Utaka': 'Utaka', 'Diplo': 'Diplotaxodon', 'Rhampho': 'Rhamphochromis', 'AstCal': 'AC'}
 INVERSIONS = collections.OrderedDict([('chr2', 'Inversion2'), ('chr9', 'Inversion9'), ('chr10', 'Inversion10'), ('chr11', 'Inversion11'), ('chr13', 'Inversion13')])
 TEXT_NEW = ['SRASpecies', 'BlumerSequenceID', 'BlumerSpecimenID']
@@ -264,8 +266,8 @@ def write_reports(out_dir, changes, summary, pairs, unmatched, not_in_s1, multi,
 def main(argv=None, fm=None, writer=default_writer, out=print):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
-    c = sub.add_parser('check'); c.add_argument('--s1', default=None); c.add_argument('--s7', default=None); c.add_argument('--tabs', nargs='+', default=['Blumer', 'Malinsky'])
-    b = sub.add_parser('blumer'); b.add_argument('--s1', required=True); b.add_argument('--s7', required=True); b.add_argument('--tabs', nargs='+', default=['Blumer', 'Malinsky'])
+    c = sub.add_parser('check'); c.add_argument('--s1', default=DEFAULT_S1); c.add_argument('--s7', default=DEFAULT_S7); c.add_argument('--no-blumer', action='store_true', help='do not compare with Blumer et al.'); c.add_argument('--tabs', nargs='+', default=['Blumer', 'Malinsky'])
+    b = sub.add_parser('blumer'); b.add_argument('--s1', default=DEFAULT_S1); b.add_argument('--s7', default=DEFAULT_S7); b.add_argument('--tabs', nargs='+', default=['Blumer', 'Malinsky'])
     b.add_argument('--out-dir', default=None); b.add_argument('--write', action='store_true')
     a = ap.parse_args(argv)
     if fm is None:
@@ -280,8 +282,11 @@ def main(argv=None, fm=None, writer=default_writer, out=print):
         except AttributeError:
             raise SystemExit('this file_manager.py has no readDownloadTab (the download database methods): use the checkout that has them (mzebra)')
     if a.cmd == 'check':
-        blumer = read_blumer(a.s1, a.s7) if a.s1 and a.s7 else None
+        blumer = read_blumer(a.s1, a.s7) if (not a.no_blumer and os.path.exists(a.s1) and os.path.exists(a.s7)) else None
         return run_checks(fm.sample_dt, fm.reads_dt, tabs, blumer=blumer, out=out)
+    for f in (a.s1, a.s7):
+        if not os.path.exists(f):
+            raise SystemExit('%s not found: Blumer\'s tables are in data/blumer/ of the repository (git pull?), or pass --s1 / --s7' % f)
     blumer, problems = read_blumer(a.s1, a.s7)
     for p in problems:
         out('NOTE: ' + p)
