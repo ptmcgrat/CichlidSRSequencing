@@ -1,6 +1,6 @@
 # LG5 (orange blotch / ZW) inversion: how to genotype it
 
-Status: design and the data-preparation step (`python -m sd_genotypes.lg5inv prepare`); no marker has been defined or tested on real reads. Items marked **(unverified)** rest on a table or an
+Status: data preparation done for five pools (`python -m sd_genotypes.lg5inv prepare`, 2026-11-07/08); junction counts calibrated in two genera; interior marker discovery written and tested on synthetic data only (`sd_genotypes.lg5inv.markers`), not yet run on the real alignments. Items marked **(unverified)** rest on a table or an
 alignment coordinate, not on sequence or reads.
 
 ## What is known (module 01 run 20261105, `inversion_breakpoints`; Behrens et al. 2025, Mol Ecol)
@@ -40,3 +40,34 @@ and to all unmapped reads before it is deleted, and the pool is uploaded as `lg5
 * The 5.3 kb sequence and the exact junction coordinates (needs the sequences of LatrZW CM105746.1 and MezeOBm CM105983.1, on Dropbox under `genomes/`).
 * Whether the junction and marker approaches transfer between genera (only one OB pool per genus here).
 * Size of the unmapped-read BAMs (unmeasured).
+
+## Results so far (pools on D05; junction counts from `junction_count.py`, an alignment-free count of the junction sequences in the region slice and unmapped reads)
+
+The inverted chromosome has two junction points at the right breakpoint: junction a = RC(GT3 19,657,763+) | GT3 26,726,677+ (reads clipped left at 26,726,677) and junction b = GT3 ..26,726,685 | GT3 19,657,763+ forward (reads clipped
+right at 26,726,685); both were found in LatrZW (CM105746.1:23,076,449 and 14,558,115) and MezeOBm (CM105983.1:9,701,365 and 1,954,626); the standard junction is in neither assembly. Inverted fraction
+p = ((A+B)/2) / ((A+B)/2 + C), C = reads across the standard sequence.
+
+| pool | A | B | C | p |
+|---|---|---|---|---|
+| SRR18083724 M. zebra Nkhata Bay OB females | 12 | 12 | 9 | 0.57 |
+| SRR18083730 M. zebra Nkhata Bay BB females | 0 | 0 | 31 | 0.00 |
+| SRR18083717 L. trewavasae Maison OB females | 8 | 11 | 16 | 0.37 |
+| SRR18083718 L. trewavasae Maison BB females | 0 | 0 | 29 | 0.00 |
+| SRR18083720 M. callainos Luwino white females | 1 | 0 | 29 | 0.017 |
+
+Reading: the junction is present in OB pools of both genera (expected ~0.5 if every OB female is a ZW heterozygote; standard errors ~0.1), absent from BB pools; one read in Luwino cannot separate a rare inverted
+chromosome (1 in 40 would give about that) from background. The 12 B+ carrier females of the B chromosome analysis and 6 male pools showed no junction reads at the clipping level. Expected per single fish at ~10x: std/std ~8 C reads
+and 0 A/B; std/inv ~4 A, ~4 B, ~4 C; inv/inv ~8 A, ~8 B (extrapolated from pool yields; false-positive rate per fish unmeasured).
+
+**SRR18083730 has no base qualities** (every quality is Q0 in its slice): the SRA copy was rejected because its qualities differed from ENA's in all 1,000 reads checked, and the fallback ENA FASTQ has none. Sequences, mapping and
+junction counts are unaffected; nothing may filter on base quality for the pools (MarkDuplicates and its duplicate fraction, 4.75% against 2.3-3.6%, may be affected). The fetch guard does not flag a quality-less fallback yet.
+
+LatrZW aligned to GT3 (`minimap2 -cx asm10 --cs`, inverted segment with 150 kb flank): one chain of minus-strand blocks from GT3 26.73 to 19.66 Mb between plus-strand flanks, with a ~332 kb insertion in the assembly at GT3 ~26.075 Mb
+(contiguous in GT3), probably the repeat expansion Behrens et al. describe.
+
+## Marker discovery (`sd_genotypes.lg5inv.markers`, tests/test_lg5inv_markers.py)
+
+`candidates` (variants seen identically in both OB assemblies, left-aligned, in sequence covered exactly once by each, with >= 12 matching bases either side and alignment divergence <= 5%), `count` (SNV allele counts in
+the pools with `samtools mpileup`, MAPQ >= 20, no base-quality filter) and `select` (>= 15x in every pool, <= 1 alt read in every negative pool, alt fraction 0.2-0.8 in every positive pool). Negatives: SRR18083730,
+SRR18083718, SRR18083720; positives: SRR18083724, SRR18083717. Indels are listed but not counted from reads yet. Not yet verified: the orientation of alt alleles of minus-strand alignments (an inversion allele
+showing up in the OB pools would confirm it).
