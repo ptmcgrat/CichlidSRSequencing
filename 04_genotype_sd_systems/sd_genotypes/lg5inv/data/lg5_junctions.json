@@ -1,0 +1,8 @@
+{
+ "probes": {
+  "A": "GAAATCAGATCGTCCAAACATTTTAGCTTA",
+  "B": "TACTGTAAACATTTTGGACGATCTGATTTC",
+  "C": "TACTGTAAACATTTTAGCTTACTTAATCTG"
+ },
+ "note": "A, B: inverted junctions; C: standard sequence across the right breakpoint (GT3 26,726,671-700)"
+}
