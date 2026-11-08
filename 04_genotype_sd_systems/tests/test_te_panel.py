@@ -167,6 +167,16 @@ class TestMeasureAndCall(unittest.TestCase):
         self.assertEqual((s['chr7ins_c1']['n_ref'], s['chr7ins_c1']['n_alt']), (3, 3)); self.assertEqual((s['chr7ins_c2']['n_ref'], s['chr7ins_c2']['n_alt']), (2, 4))
         self.assertEqual((s['TE2']['n_ref'], s['TE2']['n_alt']), (0, 0))                    # no reads of TE2 in the plan; TE1's reads are not TE2 evidence
 
+    def test_the_chr10_insertions_TE1_and_TE2_are_classified_at_their_own_site_only(self):
+        """The two LG10 insertions are 216 bp apart: each window contains the other's anchor, so reads of one are presented to the other's classifier too and must not count there."""
+        out = self.measure({'TE1': (0, 6), 'TE2': (3, 3)})                                   # TE1: six insertion pairs; TE2 (the 9,869 bp allele): three reference and three insertion pairs
+        s = out['sites']
+        self.assertEqual((s['TE1']['n_ref'], s['TE1']['n_alt']), (0, 6)); self.assertEqual((s['TE2']['n_ref'], s['TE2']['n_alt']), (3, 3))
+        t = C.call_table([dict(SampleID='x', **out)], self.cfg).set_index('SampleID')
+        self.assertEqual((t.loc['x', 'TE1_GT'], t.loc['x', 'TE2_GT']), ('1/1', '0/1'))        # TE1 homozygous for the insertion, TE2 heterozygous
+        both = self.measure({'TE1': (4, 4), 'TE2': (0, 6)})['sites']                          # and the other way round
+        self.assertEqual(((both['TE1']['n_ref'], both['TE1']['n_alt']), (both['TE2']['n_ref'], both['TE2']['n_alt'])), ((4, 4), (0, 6)))
+
     def test_unmapped_mates_and_duplicates(self):
         s = self.d['sites'][2]; lines = site_reads(s, 0, 4, unmapped_alt=True)
         pairs = L.reads_from_samtools_lines(lines)
