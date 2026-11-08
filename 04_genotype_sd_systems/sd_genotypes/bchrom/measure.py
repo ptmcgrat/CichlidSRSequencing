@@ -25,6 +25,7 @@ def load_definition(cfg):
 
 def definition_key(cfg):
     """Hash of what is measured: the measurement keys of the config and the CONTENT of the three definition files."""
+    load_definition(cfg)                                                   # a missing file is reported with the command that builds it
     h = {k: cfg[k] for k in MEASUREMENT_KEYS}
     h['files'] = [hashlib.md5(open(p, 'rb').read()).hexdigest() for p in _paths(cfg)]
     return hashlib.md5(json.dumps(h, sort_keys=True).encode()).hexdigest()[:12]

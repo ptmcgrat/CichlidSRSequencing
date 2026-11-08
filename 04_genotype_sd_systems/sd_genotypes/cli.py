@@ -1,13 +1,21 @@
-"""python -m sd_genotypes panel measure --bam B --sample S --out-json J | gsdf call|validate | bchrom prepare|call|all|status|clean|compare | sample_table inversions | selftest"""
+"""python -m sd_genotypes panel measure --bam B --sample S --out-json J [--modules all] | panel check | gsdf call|validate | bchrom prepare|call|all|status|clean|compare | sample_table inversions | selftest"""
 import os
 from cichlid_common import cli_base
 
 
 def _panel(a):                                                  # needs only samtools: runs on any machine, in the lab pipeline, without a Project
     from sd_genotypes.panel import measure as pm
+    if a.step == 'check':                                       # preflight: definition files and keys of every module; exit code 1 if anything is missing
+        rows = pm.check(a.modules)
+        for r in rows:
+            print(f"[panel] {r['module']:8s} {r['status']:8s} {r['key']:12s} {r['message']}")
+        if any(r['status'] != 'OK' for r in rows):
+            raise SystemExit(1)
+        return True
     if a.step != 'measure' or not (a.bam and a.sample and a.out_json):
-        raise SystemExit('usage: python -m sd_genotypes panel measure --bam <sample.all.bam> --sample <ID> --out-json <ID>.panel.json [--modules gsdf,te,lg5inv,bchrom]  (default: gsdf)')
-    res = pm.measure(a.bam, a.sample, a.modules.split(','))
+        raise SystemExit('usage: python -m sd_genotypes panel measure --bam <sample.all.bam> --sample <ID> --out-json <ID>.panel.json [--modules all | gsdf,te,lg5inv,bchrom]  (default: gsdf)\n'
+                         '       python -m sd_genotypes panel check [--modules all]   (preflight: every module has its definition files)')
+    res = pm.measure(a.bam, a.sample, pm.resolve_modules(a.modules))
     pm.write_json(a.out_json, res)
     print(f'[panel] {a.sample}: {", ".join(res["modules"])} -> {a.out_json}')
     return True

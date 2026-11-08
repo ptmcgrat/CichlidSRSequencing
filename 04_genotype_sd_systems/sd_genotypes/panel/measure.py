@@ -22,6 +22,32 @@ def bam_index_present(bam):
     return any(os.path.exists(p) for p in (bam + '.bai', bam[:-4] + '.bai', bam + '.csi'))
 
 
+def resolve_modules(spec):
+    """'all' (every registered module), a comma-separated string, or a list/tuple of names -> list of module names (checked against the registry)."""
+    names = list(MODULES) if spec in ('all', ['all'], ('all',)) else (spec.split(',') if isinstance(spec, str) else list(spec))
+    names = [n.strip() for n in names if n.strip()]
+    unknown = [n for n in names if n not in MODULES]
+    if unknown:
+        raise ValueError(f'unknown panel modules {unknown}; available: {sorted(MODULES)}')
+    return names
+
+
+def check(modules='all', cfgs=None):
+    """Preflight for a pipeline: can every module measure? Loads its config and definition files and returns [{module, status ('OK' | 'MISSING' | 'ERROR'), key (the definition key), message}].
+    Run it once before a long job: a missing definition then stops the run before anything is aligned."""
+    out = []
+    for m in resolve_modules(modules):
+        try:
+            mod = importlib.import_module(MODULES[m][0]); cfg = (cfgs or {}).get(m) or module_cfg(m)
+            key = mod.definition_key(cfg) if hasattr(mod, 'definition_key') else ''
+            out.append(dict(module=m, status='OK', key=key, message=''))
+        except FileNotFoundError as e:
+            out.append(dict(module=m, status='MISSING', key='', message=str(e)[:200]))
+        except Exception as e:
+            out.append(dict(module=m, status='ERROR', key='', message=f'{type(e).__name__}: {str(e)[:180]}'))
+    return out
+
+
 def measure(bam, sample, modules=('gsdf',), run=None, cfgs=None, now=None):
     """Returns the JSON-able dict. run(cmd) defaults to common_light.sh. cfgs: {module: config} overrides (tests)."""
     run = run or sh
@@ -29,9 +55,7 @@ def measure(bam, sample, modules=('gsdf',), run=None, cfgs=None, now=None):
         raise FileNotFoundError(bam)
     if not bam_index_present(bam):
         raise FileNotFoundError(f'{bam} has no index (.bai / .csi next to it): the panel reads regions and needs one')
-    unknown = [m for m in modules if m not in MODULES]
-    if unknown:
-        raise ValueError(f'unknown panel modules {unknown}; available: {sorted(MODULES)}')
+    modules = resolve_modules(modules)
     out = dict(schema=SCHEMA, sample=sample, bam=os.path.abspath(bam), bam_size=os.path.getsize(bam), panel_version=package_version(),
                measured=(now or datetime.datetime.now()).isoformat(timespec='seconds'), samtools=run(['samtools', '--version']).stdout.splitlines()[0], modules={})
     for m in modules:

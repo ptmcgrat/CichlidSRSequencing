@@ -25,6 +25,7 @@ def load_definition(cfg):
 
 def definition_key(cfg):
     """Hash of what is measured: the measurement keys of the config and the CONTENT of the marker and junction files."""
+    load_definition(cfg)                                                   # a missing file is reported with the command that builds it
     mp, jp = _paths(cfg)
     h = {k: cfg[k] for k in MEASUREMENT_KEYS}
     h['files'] = [hashlib.md5(open(p, 'rb').read()).hexdigest() for p in (mp, jp)]

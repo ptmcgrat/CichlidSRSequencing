@@ -1,0 +1,13 @@
+# Machines that only RUN the panel (measure, call, retro, parity): the alignment machine, a laptop on Linux or macOS. No download tools, no conda needed beyond this.
+# Checked: importing every panel module loads only numpy, pandas and yaml (no scipy, no matplotlib); samtools is the only external tool. parasail is optional (about 100x faster transposon measurement;
+# the numpy aligner gives the same scores). rclone is the machine's own (needed for retro only).
+#   conda env create -f envs/panel.yml && conda activate sdpanel && source tools/env.sh && python -m sd_genotypes panel check
+name: sdpanel
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - pyyaml
+  - samtools
+  - parasail-python
