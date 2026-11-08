@@ -1,0 +1,31 @@
+# B chromosome: per-sample presence score from a local BAM aligned to Mzebra_GT3_NCBI, and the call made from it. DISK ONLY: the score needs the whole genome (blocks and the genome-wide depth
+# estimate come from every chromosome), so it is measured while the BAM is local; it cannot be read from slices.
+#   python -m sd_genotypes panel measure --bam S.all.bam --sample S --out-json S.panel.json --modules bchrom      (needs only samtools)
+#   python -m sd_genotypes.bchrom.score --panel DIR_OF_PANEL_JSONS --out bchrom_scores.tsv
+# Measurement and call are separate: the raw depths are stored per sample, so the thresholds can change without touching a BAM.
+#
+# WHAT IS MEASURED (definition = the keys below + the three files in sd_genotypes/bchrom/data/, built by `python -m sd_genotypes.bchrom.definition` from the `bchrom call` run 20261107-072140_905fa9cd):
+#   block_depth   mean depth over each of the 874 core blocks of the B chromosome on GT3 (tier A = 836 blocks with normal coverage in the male pools; tier B = 38)
+#   scale_bins    mean depth of 12,000 evenly spaced 50 bp bins on the placed chromosomes: their median non-zero value estimates the genome-wide depth, the divisor of the discovery (`bchrom call`) without a
+#                 whole-genome pass
+# Read filters: samtools bedcov defaults (unmapped, secondary, QC-fail and duplicate reads excluded: the same as the mosdepth tracks the blocks were found in) and no MAPQ filter, because B-derived reads
+# mismap onto their A homologs on purpose. Checked against the 21 depth tracks with `python -m sd_genotypes.bchrom.validate_scale`; to be checked against mosdepth on the first pilot BAM.
+min_mapq: 0
+blocks_file: bchrom_blocks.tsv
+bins_file: bchrom_scale_bins.bed
+meta_file: bchrom_meta.json
+
+# CALL. Score = median over the selected blocks of block depth / genome-wide depth: ~1 for a B-free fish, 4.3-8.0 for the 12 carriers of the discovery (leave-one-out), pools of B-free samples 1.0-1.1.
+# PROVISIONAL cut-offs (the middle of that gap): refit them on the mbuna cohort (males should be B-free: Clark found 0 of 317; about 10-15 carriers expected among ~110 females).
+thresholds:
+  present_min: 2.5             # score at or above: B+ ; at or below absent_max: B- ; between: B? (partial B, mosaic, or poor data)
+  absent_max: 1.6
+  min_scale_depth: 3.0         # flag 'low_depth': genome-wide depth estimate below this (x)
+  min_scale_bins: 8000         # flag 'few_scale_bins': fewer non-zero scale bins than this (of 12,000)
+  min_blocks_used: 100         # flag 'few_blocks'
+  frac_ge2_absent_max: 0.30    # flag 'fraction_disagrees' when B- but more of the blocks than this are >= 2x (B-free samples had 0.08-0.10), or B+ and fewer than frac_ge2_present_min
+  frac_ge2_present_min: 0.50
+blocks:
+  tiers: [A]                   # tier A: the male pools cover the block normally, so a high ratio is a high numerator
+  clean_only: false            # true: only blocks that are also ~1x in the nine B-free samples (chosen on those samples: circular for them)
+labels: {present: "B+", absent: "B-", uncertain: "B?"}

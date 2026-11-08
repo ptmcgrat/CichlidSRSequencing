@@ -1,0 +1,24 @@
+# Transposon insertions: TE1 and TE2 (LG10, 216 bp apart; goal 3) and chr7ins, the insertion directly upstream of gsdf (LG7, two reference copies; goal 2). Panel module `te`.
+#   python -m sd_genotypes panel measure --bam S.all.bam --sample S --out-json S.panel.json --modules te      (needs only samtools; python + numpy; parasail is optional and ~100x faster)
+#   python -m sd_genotypes.te.call --panel DIR --out te_calls.tsv [--gsdf-calls gsdf_calls.tsv]
+# Measurement and call are separate: the read-pair counts per site are stored, so the model and its limits can change without touching a BAM. Works on a local BAM (disk) or on the small BAM that
+# `python -m sd_genotypes.retro` streams from Dropbox (retro): the reads needed are those in `regions(cfg)` of sd_genotypes.te.measure.
+#
+# METHOD (sexloci 0.1.26, vendored; see docs in SPEC.md): for each site, reads overlapping the window [variant - (flanking + 200), variant + (flanking + 200)] (unmapped mates stored at their mate's position
+# included; duplicate, secondary and supplementary alignments excluded) are grouped in pairs and aligned (Smith-Waterman) to a LOCAL reference allele (flanking bp + the anchor base + flanking bp) and an
+# insertion allele (the same flanks around the inserted sequence). A pair counts for one allele only if a read clearly prefers it (score margin) and crosses a junction with `breakpoint_overhang` bp
+# on each side. The counts of REF and ALT pairs are what is stored. Only junction pairs inform, so no-calls are common at low coverage.
+# The alleles are in sd_genotypes/te/sites.py (vendored; fingerprints pinned by the tests); the reference flanks are baked into the definition file, built once from GT3a:
+#   python -m sd_genotypes.te.definition --ref <Mzebra_GT3_NCBI .fna> --out-dir sd_genotypes/te/data
+flanking: 250
+classifier: {gap_open: 5, gap_extend: 2, score_margin: 20, min_score_frac: 0.6, breakpoint_overhang: 15}
+min_mapq: 0                    # mapped reads with a lower MAPQ are dropped; 0 keeps everything (the lab's setting)
+include_unmapped: true         # unmapped mates stored at their mate's position carry the inserted sequence
+backend: auto                  # parasail if installed, else numpy (same scores, slower); recorded with every measurement, not part of the definition
+definition_file: te_definition.json
+
+# CALL: the binomial model of sexloci (longindel.call_from_counts): P(alt pair) = 0.02 for 0/0, 0.5 for 0/1, 0.98 for 1/1; GQ = phred gap between the best and second-best genotype.
+call:
+  min_informative_pairs: 5     # fewer REF + ALT pairs gives ./.
+  min_gq: 10                   # a call counts as confident (and is what the Sample Database gets) from this GQ
+  dilution_min_copies: 3       # chr7ins: a 0/0 with at least one insertion pair in a fish with this many gsdf copies or more is flagged 'dilution_possible' (extra reference-like copies of the site dilute the insertion allele)

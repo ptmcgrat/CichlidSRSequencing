@@ -3,7 +3,10 @@ import datetime, importlib, json, os
 import yaml
 from cichlid_common.common_light import config_path, sh, repo_version
 
-MODULES = {'gsdf': ('sd_genotypes.gsdf.measure', 'gsdf.yaml')}              # LG5 inversion and B chromosome are added here when their definitions are fixed
+MODULES = {'gsdf': ('sd_genotypes.gsdf.measure', 'gsdf.yaml'),
+           'lg5inv': ('sd_genotypes.lg5inv.measure', 'lg5panel.yaml'),      # LG5 inversion: needs the definition files in sd_genotypes/lg5inv/data/
+           'bchrom': ('sd_genotypes.bchrom.measure', 'bchrompanel.yaml'),  # B chromosome (disk only): needs the definition files in sd_genotypes/bchrom/data/
+           'te': ('sd_genotypes.te.measure', 'tepanel.yaml')}              # transposon insertions TE1, TE2 (LG10) and chr7ins (LG7); needs sd_genotypes/te/data/te_definition.json. Modules with a regions(cfg) function can be measured retrospectively (sd_genotypes.retro)
 SCHEMA = 1
 
 

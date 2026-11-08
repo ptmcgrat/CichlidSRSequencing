@@ -32,7 +32,7 @@ if a[0] == "depth":
     q = "-Q" in a
     ratio = float(os.environ["FAKE_RATIO"]); jr = float(os.environ["FAKE_JUNCTION"]); flank = float(os.environ.get("FAKE_FLANK", "15"))
     for pos in range(start + 1, end + 1):
-        d = flank * ratio if ul <= pos - 1 < ur else flank
+        d = flank * ratio if ul <= pos - 1 < ur + 5000 else flank
         if q and jl <= pos - 1 < jr_:
             d = flank * jr
         print(f"{cfg_chrom}\t{pos}\t{d:g}")
@@ -49,7 +49,7 @@ def run():
     u0, u1 = [x - r['start'] for x in cfg['unit_window']]; j0, j1 = [x - r['start'] for x in cfg['junction_window']]
 
     def depth_arrays(ratio, jr, flank=15.0):
-        d = np.full(L, float(flank)); d[u0:u1] = flank * ratio
+        d = np.full(L, float(flank)); d[u0:u1 + 5000] = flank * ratio                       # the real block runs to 50,794,777: the bin starting at 50,785,000 is inside it too
         q = d.copy(); q[j0:j1] = flank * jr
         return d, q
 
@@ -66,8 +66,10 @@ def run():
     bins = np.repeat(np.arange(26, dtype=float), 5000)
     bm = M.bin_means(bins, 5000)
     unit = M.window_mean_of_bins(bm, r['start'], 5000, [cfg['unit_window']]); flank = M.window_mean_of_bins(bm, r['start'], 5000, cfg['flank_windows'])
-    _ok('unit window = 6 bins (11-16), flank windows = 7 + 3 bins (0-6, 20-22), exactly as in the method', unit == np.mean(range(11, 17)) and flank == np.mean(list(range(0, 7)) + [20, 21, 22]), f'{unit} {flank}')
-    _ok('the unit window holds none of the flank bins (no overlap)', not set(range(11, 17)) & set(list(range(0, 7)) + [20, 21, 22]))
+    _ok('a bin belongs to a window when it STARTS inside it (sexloci, the calibration): unit = 7 bins (11-17), flank = 8 + 4 bins (0-7, 20-23)', unit == np.mean(range(11, 18)) and flank == np.mean(list(range(0, 8)) + [20, 21, 22, 23]), f'{unit} {flank}')
+    inside = M.mean_of_bins_inside(bm, r['start'], 5000, cfg['junction_flank_window'])
+    _ok('the junction ratio divides by the bins ENTIRELY inside the first flank window (bins 0-6)', inside == np.mean(range(0, 7)))
+    _ok('the unit window holds none of the flank bins (no overlap)', not set(range(11, 18)) & set(list(range(0, 8)) + [20, 21, 22, 23]))
     k = M.definition_key(cfg)
     c2 = yaml.safe_load(yaml.safe_dump(cfg)); c2['calibration']['ratio_per_copy'] = 0.3; c3 = yaml.safe_load(yaml.safe_dump(cfg)); c3['unit_window'] = [50755000, 50790000]
     _ok('definition key: unchanged by calibration or thresholds, changed by anything that changes what is measured', M.definition_key(c2) == k and M.definition_key(c3) != k)
@@ -75,17 +77,26 @@ def run():
     # ======================================================================================== calling
     cal = cfg['calibration']
     _ok('copies = 2 + (ratio - 0.530) / 0.268', abs(C.estimate_copies(0.530, cal) - 2) < 1e-9 and abs(C.estimate_copies(0.530 + 0.268, cal) - 3) < 1e-9 and abs(C.estimate_copies(0.530 + 2 * 0.268, cal) - 4) < 1e-9)
-    cases = {'two': (0.530, 0.0, 15.0), 'three': (0.798, 0.5, 15.0), 'four': (1.066, 1.0, 15.0), 'five': (1.33, 1.0, 15.0), 'lowdepth': (0.798, 0.5, 2.0), 'half': (0.664, 0.25, 15.0), 'depth3_junction2': (0.798, 0.0, 15.0)}
+    cases = {'two': (0.530, 0.0, 15.0), 'three': (0.798, 0.5, 15.0), 'four': (1.066, 1.0, 15.0), 'five': (1.33, 1.0, 15.0), 'lowdepth': (0.798, 0.5, 2.0), 'half': (0.664, 0.25, 15.0), 'depth3_junction2': (0.798, 0.0, 15.0), 'six': (1.60, 1.0, 15.0), 'seven': (1.87, 1.0, 15.0)}
     t = C.call_table([raw_of(k, *v) for k, v in cases.items()], cfg).set_index('SampleID')
     _ok('2, 3 and 4 copies are called and named -/-, dup/-, dup/dup, unflagged', [(int(t.loc[k].gsdf_number), t.loc[k].genotype, t.loc[k].call_flags) for k in ('two', 'three', 'four')] == [(2, '-/-', ''), (3, 'dup/-', ''), (4, 'dup/dup', '')])
-    _ok('5 copies: reported as 5, no genotype name, flagged outside the calibrated range', t.loc['five'].gsdf_number == 5 and t.loc['five'].genotype == '' and t.loc['five'].call_flags == 'outside_calibrated_range')
+    _ok('5 copies (they exist in the sheet): reported as 5, named CN5, NOT flagged (sexloci flags only estimates below 0.6 or above 5.4)', t.loc['five'].gsdf_number == 5 and t.loc['five'].genotype == 'CN5' and t.loc['five'].call_flags == '')
+    _ok('6 copies is flagged outside the calibrated range; an estimate of ~7 is reported as 6 (clipped) and flagged', t.loc['six'].gsdf_number == 6 and t.loc['six'].call_flags == 'outside_calibrated_range' and t.loc['seven'].gsdf_number == 6 and 'outside_calibrated_range' in t.loc['seven'].call_flags)
     _ok('flank depth below 3x is flagged (the call itself is still made)', t.loc['lowdepth'].call_flags == 'low_flank_depth' and t.loc['lowdepth'].gsdf_number == 3)
-    _ok('an estimate halfway between integers is flagged non_integer (and rounds up at .5)', 'non_integer' in t.loc['half'].call_flags and t.loc['half'].gsdf_number == 3)
-    _ok('the unique-read junction can disagree with depth (3 copies by depth, no junction reads) and is flagged', t.loc['depth3_junction2'].call_flags == 'junction_disagrees')
+    _ok('an estimate halfway between integers is flagged non_integer', 'non_integer' in t.loc['half'].call_flags and t.loc['half'].gsdf_number in (2, 3))
+    _ok('the unique-read junction can disagree with depth (3 copies by depth, no junction reads): reported in check_flags, the call itself stays unflagged', t.loc['depth3_junction2'].check_flags == 'junction_disagrees' and t.loc['depth3_junction2'].call_flags == '')
     _ok('the junction ratio is 0, 0.5, 1 for 2, 3, 4 copies', [round(t.loc[k].junction_ratio, 2) for k in ('two', 'three', 'four')] == [0.0, 0.5, 1.0])
     z = C.call_table([raw_of('zero', 0.5, 0.0, flank=0.0)], cfg).iloc[0]
     _ok('no coverage at all gives no estimate and flags, without crashing', np.isnan(z.gsdf_number) and 'low_flank_depth' in z.call_flags and 'no_estimate' in z.call_flags)
     _ok('the call table has no column called "flags" (it would collide with the pandas attribute)', 'flags' not in t.columns and 'call_flags' in t.columns)
+
+    # ======================================================================================== calibration from anchors
+    ratios = [0.50 + 0.25 * (n - 2) + e for n, e in zip([2, 2, 2, 3, 3, 3, 4, 4], [0.01, -0.01, 0.0, 0.01, -0.01, 0.0, 0.0, 0.0])]
+    cal2 = C.fit_anchors(ratios, [2, 2, 2, 3, 3, 3, 4, 4])
+    _ok('fit_anchors recovers the line through samples of known copy number (here 0.50 and 0.25)', abs(cal2['ratio_at_two_copies'] - 0.5) < 0.02 and abs(cal2['ratio_per_copy'] - 0.25) < 0.02, str(cal2))
+    _ok('fit_anchors needs two different copy numbers', _raises(lambda: C.fit_anchors([0.5, 0.51], [2, 2]), ValueError))
+    t2 = C.call_table([raw_of('th3', 0.75, 0.5)], cfg, calibration=C.THEORY_CALIBRATION).iloc[0]
+    _ok('a calibration passed to call_table replaces the one in the config (theory: ratio 0.75 = 3 copies)', t2.gsdf_number == 3 and t2.call_flags == '')
 
     # ======================================================================================== measuring a BAM (fake samtools)
     log = []

@@ -6,7 +6,7 @@ from cichlid_common import cli_base
 def _panel(a):                                                  # needs only samtools: runs on any machine, in the lab pipeline, without a Project
     from sd_genotypes.panel import measure as pm
     if a.step != 'measure' or not (a.bam and a.sample and a.out_json):
-        raise SystemExit('usage: python -m sd_genotypes panel measure --bam <sample.all.bam> --sample <ID> --out-json <ID>.panel.json [--modules gsdf]')
+        raise SystemExit('usage: python -m sd_genotypes panel measure --bam <sample.all.bam> --sample <ID> --out-json <ID>.panel.json [--modules gsdf,te,lg5inv,bchrom]  (default: gsdf)')
     res = pm.measure(a.bam, a.sample, a.modules.split(','))
     pm.write_json(a.out_json, res)
     print(f'[panel] {a.sample}: {", ".join(res["modules"])} -> {a.out_json}')

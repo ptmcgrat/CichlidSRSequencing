@@ -9,36 +9,53 @@ def estimate_copies(ratio, cal):
 
 
 def call_one(m, cfg):
-    """m = measure.metrics(...). Returns dict: copies_estimate, gsdf_number (rounded), genotype label, flags (list), junction fields."""
+    """m = measure.metrics(...). Returns dict: copies_estimate, gsdf_number (rounded, clipped), genotype label, flags (the method's: low depth, non-integer, outside the calibrated range) and
+    check_flags (the junction cross-check, which does not change whether the call counts as unflagged), junction fields."""
     th, cal = cfg['thresholds'], cfg['calibration']
-    flags = []
+    flags, checks = [], []
     if not (m['flank_depth'] == m['flank_depth']) or m['flank_depth'] < th['min_flank_depth']:
         flags.append('low_flank_depth')
     est = estimate_copies(m['ratio'], cal) if m['ratio'] == m['ratio'] else float('nan')
     if est != est:
-        return dict(copies_estimate=np.nan, gsdf_number=np.nan, genotype='', flags=flags + ['no_estimate'], junction_implied_copies=np.nan)
-    n = int(math.floor(est + 0.5))
-    if abs(est - n) > th['max_distance_from_integer']:
+        return dict(copies_estimate=np.nan, gsdf_number=np.nan, genotype='', flags=flags + ['no_estimate'], check_flags=[], junction_implied_copies=np.nan)
+    c_lo, c_hi = th['clip_copies']; e_lo, e_hi = th['estimate_range']
+    n = int(min(max(round(est), c_lo), c_hi))                                   # round(): half to even, as pandas does in sexloci
+    if abs(est - round(est)) > th['max_distance_from_integer']:
         flags.append('non_integer')
-    lo, hi = th['copies_range']
-    if n < lo or n > hi:
+    if est < e_lo or est > e_hi:
         flags.append('outside_calibrated_range')
     jr = m['junction_ratio']
     n_dup_j = 2 * jr if jr == jr else float('nan')                           # duplicated chromosomes the unique junction reads imply: 0, 1 or 2
     implied = 2 + min(2, max(0, round(n_dup_j))) if n_dup_j == n_dup_j else np.nan
-    if n_dup_j == n_dup_j and lo <= n <= hi and abs(n_dup_j - (n - 2)) > th['junction_max_distance']:
-        flags.append('junction_disagrees')
-    return dict(copies_estimate=est, gsdf_number=n, genotype=cfg['labels'].get(n, ''), flags=flags, junction_implied_copies=implied)
+    if n_dup_j == n_dup_j and 2 <= n <= 4 and e_lo <= est <= e_hi and abs(n_dup_j - (n - 2)) > th['junction_max_distance']:
+        checks.append('junction_disagrees')
+    return dict(copies_estimate=est, gsdf_number=n, genotype=cfg['labels'].get(n, f'CN{n}'), flags=flags, check_flags=checks, junction_implied_copies=implied)
 
 
-def call_table(raw_rows, cfg):
-    """raw_rows: iterable of dicts with SampleID, bins, bins_q, junction_depth, junction_depth_q. Returns one row per sample."""
+def fit_anchors(ratios, copies):
+    """Calibration from samples of KNOWN copy number (sexloci's --anchors): ratio = a + step * copies; returns {'ratio_at_two_copies': a + 2 * step, 'ratio_per_copy': step}. Needs at least two different copy numbers."""
+    import pandas as pd
+    r = pd.Series(ratios).astype(float); c = pd.Series(copies).astype(float)
+    ok = r.notna() & c.notna()
+    if c[ok].nunique() < 2:
+        raise ValueError('anchors need samples with at least two different copy numbers')
+    step, icpt = np.polyfit(c[ok].values, r[ok].values, 1)
+    return dict(ratio_at_two_copies=float(icpt + 2 * step), ratio_per_copy=float(step))
+
+
+THEORY_CALIBRATION = dict(ratio_at_two_copies=0.5, ratio_per_copy=0.25)         # ratio = copies / 4 (sexloci's --theory)
+
+
+def call_table(raw_rows, cfg, calibration=None):
+    """raw_rows: iterable of dicts with SampleID, bins, bins_q, junction_depth, junction_depth_q. Returns one row per sample. `calibration` (e.g. from fit_anchors) replaces the one in the config."""
     from . import measure
+    if calibration is not None:
+        cfg = dict(cfg, calibration=calibration)
     out = []
     for raw in raw_rows:
         m = measure.metrics(raw, cfg); c = call_one(m, cfg)
         out.append(dict(SampleID=raw['SampleID'], **{k: m[k] for k in ('unit_depth', 'flank_depth', 'ratio', 'flank_depth_unique', 'junction_depth_unique', 'junction_ratio')},
-                        copies_estimate=c['copies_estimate'], gsdf_number=c['gsdf_number'], genotype=c['genotype'], junction_implied_copies=c['junction_implied_copies'], call_flags=';'.join(c['flags'])))
+                        copies_estimate=c['copies_estimate'], gsdf_number=c['gsdf_number'], genotype=c['genotype'], junction_implied_copies=c['junction_implied_copies'], call_flags=';'.join(c['flags']), check_flags=';'.join(c['check_flags'])))
     return pd.DataFrame(out)
 
 

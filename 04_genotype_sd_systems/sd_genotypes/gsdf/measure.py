@@ -7,6 +7,11 @@ def region_string(cfg):
     return f"{r['chrom']}:{r['start'] + 1}-{r['end']}"                         # samtools regions are 1-based, inclusive
 
 
+def regions(cfg):
+    """The regions of the BAM this module reads (for the retrospective mode, which fetches only these)."""
+    return [region_string(cfg)]
+
+
 def view_command(src, region, out_bam):
     return ['samtools', 'view', '-b', '-o', out_bam, src, region]
 
@@ -39,12 +44,15 @@ def bin_means(arr, bin_bp):
 
 
 def window_mean_of_bins(bins, region_start, bin_bp, windows):
-    """Mean of the bins that lie entirely inside any of the windows ([start, end) in genome coordinates)."""
-    keep = []
-    for k, v in enumerate(bins):
-        s, e = region_start + k * bin_bp, region_start + (k + 1) * bin_bp
-        if any(s >= w0 and e <= w1 for w0, w1 in windows):
-            keep.append(v)
+    """Mean of the bins whose START lies in any window [w0, w1] (inclusive; genome coordinates): sexloci's rule, the one the calibration was made with."""
+    keep = [v for k, v in enumerate(bins) if any(w0 <= region_start + k * bin_bp <= w1 for w0, w1 in windows)]
+    return float(np.mean(keep)) if keep else float('nan')
+
+
+def mean_of_bins_inside(bins, region_start, bin_bp, window):
+    """Mean of the bins that lie entirely inside the window [w0, w1) (used for the junction ratio's flank)."""
+    w0, w1 = window
+    keep = [v for k, v in enumerate(bins) if region_start + k * bin_bp >= w0 and region_start + (k + 1) * bin_bp <= w1]
     return float(np.mean(keep)) if keep else float('nan')
 
 
@@ -61,13 +69,13 @@ def metrics(raw, cfg):
     r = cfg['region']; b = cfg['bin_bp']
     unit = window_mean_of_bins(raw['bins'], r['start'], b, [cfg['unit_window']])
     flank = window_mean_of_bins(raw['bins'], r['start'], b, cfg['flank_windows'])
-    flank_q = window_mean_of_bins(raw['bins_q'], r['start'], b, cfg['flank_windows'])
+    flank_q = mean_of_bins_inside(raw['bins_q'], r['start'], b, cfg['junction_flank_window'])
     return dict(unit_depth=unit, flank_depth=flank, ratio=unit / flank if flank > 0 else float('nan'), flank_depth_unique=flank_q, junction_depth_unique=raw['junction_depth_q'],
                 junction_ratio=raw['junction_depth_q'] / flank_q if flank_q > 0 else float('nan'))
 
 
 # ---------------------------------------------------------------------------------------------------- measuring a local BAM
-MEASUREMENT_KEYS = ('region', 'bin_bp', 'unit_window', 'flank_windows', 'junction_window', 'mapq_unique')
+MEASUREMENT_KEYS = ('region', 'bin_bp', 'window_rule', 'unit_window', 'flank_windows', 'junction_flank_window', 'junction_window', 'mapq_unique')
 
 
 def definition_key(cfg):

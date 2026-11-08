@@ -46,6 +46,7 @@ def call_step(measurements, out_dir=None, proj=None, cfg=None):
     text = [f'gsdf copy number: {len(calls)} samples measured ({len(skipped)} panel files without a gsdf measurement skipped)',
             'copies (rounded): ' + ', '.join(f'{int(k)}: {v}' for k, v in calls.gsdf_number.value_counts().sort_index().items()),
             f"unflagged: {int((calls['call_flags'] == '').sum())}; flagged: {int((calls['call_flags'] != '').sum())}" + ('  (' + ', '.join(f'{k}: {v}' for k, v in fl.value_counts().items()) + ')' if len(fl) else ''),
+            f"junction cross-check disagrees with the depth in {int((calls['check_flags'] != '').sum())} calls (reported in check_flags; these calls still count as unflagged)",
             '', 'where the unflagged samples sit against the calibration (drift check for a new batch; ratio and junction ratio by call):', clus.round(3).to_string(index=False), '']
     with _out(proj, 'gsdf', 'call', out_dir, dict(cfg=cfg, n=len(calls))) as run:
         calls.to_csv(run.dir + 'gsdf_calls.tsv', sep='\t', index=False)
