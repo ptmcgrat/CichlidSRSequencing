@@ -1,5 +1,12 @@
-# Modules 02 and 04 (downloads, alignment of the B-chromosome reads). On Linux x86_64 this solves in one environment (checked on D07 and mzebra).
-# On macOS arm64 `aria2` and `sra-tools` conflict (libxml2): create `aria2` in a second environment and link its aria2c into ~/bin, or run the downloads on a Linux server.
+# Modules 02 and 04 on Linux x86_64: everything for the downloads, the alignment of the pool reads (B chromosome, LG5), the panel (measure, call, retro, parity) and the code copied from sexloci
+# (parasail is its fast aligner; without it the numpy aligner gives the same scores, about 100x slower). Checked on D07 and mzebra; D05 and utaka to be confirmed.
+#   new machine:       conda env create -f envs/download.yml
+#   existing enadl:    conda env update -n enadl -f envs/download.yml --prune
+#   check:             conda activate enadl && source tools/env.sh && bash tools/check_env.sh
+# rclone is NOT in this environment on purpose: each machine already has one with the ptm_dropbox remote configured (on D05 it is the snap build, which keeps its configuration separate from a conda
+# rclone's ~/.config/rclone: a conda rclone would not see the remote).
+# On macOS arm64 `aria2` and `sra-tools` conflict (libxml2): create `aria2` in a second environment and link its aria2c into ~/bin, or run the downloads on a Linux server. If `parasail-python` does not
+# solve on some machine, delete that line and run `pip install parasail` (or leave it out: the measurement records which aligner ran).
 name: enadl
 channels: [conda-forge, bioconda]
 dependencies:
@@ -9,6 +16,7 @@ dependencies:
   - pyyaml
   - numpy
   - scipy
+  - matplotlib
   - gatk4
   - samtools
   - minimap2
@@ -16,6 +24,7 @@ dependencies:
   - curl
   - sra-tools
   - aria2
+  - parasail-python
   - pip
   - pip:
       - gspread
