@@ -77,14 +77,17 @@ def run():
     # ======================================================================================== calling
     cal = cfg['calibration']
     _ok('copies = 2 + (ratio - 0.530) / 0.268', abs(C.estimate_copies(0.530, cal) - 2) < 1e-9 and abs(C.estimate_copies(0.530 + 0.268, cal) - 3) < 1e-9 and abs(C.estimate_copies(0.530 + 2 * 0.268, cal) - 4) < 1e-9)
-    cases = {'two': (0.530, 0.0, 15.0), 'three': (0.798, 0.5, 15.0), 'four': (1.066, 1.0, 15.0), 'five': (1.33, 1.0, 15.0), 'lowdepth': (0.798, 0.5, 2.0), 'half': (0.664, 0.25, 15.0), 'depth3_junction2': (0.798, 0.0, 15.0), 'six': (1.60, 1.0, 15.0), 'seven': (1.87, 1.0, 15.0)}
+    cases = {'two': (0.530, 0.0, 15.0), 'three': (0.798, 0.5, 15.0), 'four': (1.066, 1.0, 15.0), 'five': (1.33, 1.0, 15.0), 'lowdepth': (0.798, 0.5, 2.0), 'half': (0.664, 0.25, 15.0), 'depth3_junction2': (0.798, 0.0, 15.0), 'two_junction': (0.530, 0.5, 15.0), 'two_small_junction': (0.530, 0.10, 15.0), 'six': (1.60, 1.0, 15.0), 'seven': (1.87, 1.0, 15.0)}
     t = C.call_table([raw_of(k, *v) for k, v in cases.items()], cfg).set_index('SampleID')
     _ok('2, 3 and 4 copies are called and named -/-, dup/-, dup/dup, unflagged', [(int(t.loc[k].gsdf_number), t.loc[k].genotype, t.loc[k].call_flags) for k in ('two', 'three', 'four')] == [(2, '-/-', ''), (3, 'dup/-', ''), (4, 'dup/dup', '')])
     _ok('5 copies (they exist in the sheet): reported as 5, named CN5, NOT flagged (sexloci flags only estimates below 0.6 or above 5.4)', t.loc['five'].gsdf_number == 5 and t.loc['five'].genotype == 'CN5' and t.loc['five'].call_flags == '')
     _ok('6 copies is flagged outside the calibrated range; an estimate of ~7 is reported as 6 (clipped) and flagged', t.loc['six'].gsdf_number == 6 and t.loc['six'].call_flags == 'outside_calibrated_range' and t.loc['seven'].gsdf_number == 6 and 'outside_calibrated_range' in t.loc['seven'].call_flags)
     _ok('flank depth below 3x is flagged (the call itself is still made)', t.loc['lowdepth'].call_flags == 'low_flank_depth' and t.loc['lowdepth'].gsdf_number == 3)
     _ok('an estimate halfway between integers is flagged non_integer', 'non_integer' in t.loc['half'].call_flags and t.loc['half'].gsdf_number in (2, 3))
-    _ok('the unique-read junction can disagree with depth (3 copies by depth, no junction reads): reported in check_flags, the call itself stays unflagged', t.loc['depth3_junction2'].check_flags == 'junction_disagrees' and t.loc['depth3_junction2'].call_flags == '')
+    _ok('the junction check is one-sided: a unique-read junction in a sample called with two copies is reported in check_flags (the call stays unflagged); a small ratio (0.10) is not',
+        t.loc['two_junction'].check_flags == 'junction_in_two_copy' and t.loc['two_junction'].call_flags == '' and t.loc['two_small_junction'].check_flags == '')
+    _ok('a three-copy sample WITHOUT junction reads is not flagged (true three-copy samples are often at 0 at 5-6x depth)', t.loc['depth3_junction2'].check_flags == '' and t.loc['depth3_junction2'].call_flags == '')
+    _ok('no column holds a junction-implied copy number any more (its formula assumed 0.5 and 1.0)', 'junction_implied_copies' not in t.columns)
     _ok('the junction ratio is 0, 0.5, 1 for 2, 3, 4 copies', [round(t.loc[k].junction_ratio, 2) for k in ('two', 'three', 'four')] == [0.0, 0.5, 1.0])
     z = C.call_table([raw_of('zero', 0.5, 0.0, flank=0.0)], cfg).iloc[0]
     _ok('no coverage at all gives no estimate and flags, without crashing', np.isnan(z.gsdf_number) and 'low_flank_depth' in z.call_flags and 'no_estimate' in z.call_flags)

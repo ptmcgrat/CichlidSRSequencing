@@ -26,7 +26,7 @@ thresholds:                                                      # a call is FLA
   max_distance_from_integer: 0.35                                #   the estimate is farther than this from an integer
   estimate_range: [0.6, 5.4]                                     #   the UNROUNDED copy-number estimate is outside this range (sexloci's 'outside calibrated range'; five copies exist in the sheet and are not flagged)
   clip_copies: [1, 6]                                            #   the reported number is the rounded estimate clipped to this range
-  junction_max_distance: 0.35                                    #   the junction ratio x 2 (= number of duplicated chromosomes) is farther than this from the number the depth implies
+  junction_max_two_copy: 0.15                                    #   CHECK (check_flags, never the call): a sample called with two copies has a unique-read junction ratio above this (all 25 two-copy MC samples were at 0.054 or below; true three-copy samples are often at 0 at 5-6x depth, so a LOW ratio is not checked)
 labels: {2: "-/-", 3: "dup/-", 4: "dup/dup"}                     # genotype names (any other number n is named CNn); ONLY valid where the extra copies are on different chromosomes: a male with 4 copies may carry a 3-unit Y. `gsdf number` is the plain total.
 
 select:
