@@ -1,0 +1,28 @@
+# LG5 (orange blotch / ZW) inversion: per-sample measurement from a local BAM aligned to Mzebra_GT3_NCBI, and the call made from it.
+#   python -m sd_genotypes.lg5inv.measure --bam S.all.bam --sample S --out-json S.panel.json     (needs only samtools; the same JSON schema as `panel measure`)
+#   python -m sd_genotypes.lg5inv.call --panel DIR_OF_PANEL_JSONS --out calls.tsv
+# Measurement and call are separate: the raw counts are stored per sample, so thresholds can change without touching a BAM.
+#
+# WHAT IS MEASURED (definition = this file's measurement keys + the two data files in sd_genotypes/lg5inv/data/, built by `python -m sd_genotypes.lg5inv.definition` from the pools; see docs/lg5inv_design.md):
+#   markers   ref and alt read counts at the marker SNVs (alleles shared by the two inverted assemblies and clean in the BB and Luwino pools), MAPQ >= min_mapq, NO base-quality filter
+#   junction  reads containing the junction sequences at the right breakpoint (a, b = inverted; C = standard), no MAPQ filter, duplicate-flagged reads excluded
+region: {chrom: NC_135171.1, start: 19680000, end: 26730000}          # 0-based half-open; the only part of the BAM the markers are read from
+junction_region: {chrom: NC_135171.1, start: 26726300, end: 26727060}   # reads overlapping this window are searched for the junction sequences
+min_mapq: 20
+expected_contig_length: 42954235                                       # LG5 of Mzebra_GT3_NCBI: a BAM with another length was not aligned to the project reference
+markers_file: lg5_markers.tsv
+junctions_file: lg5_junctions.json
+
+# CALL. Genotype = number of inverted chromosomes (0, 1, 2) from the MEDIAN per-site alt fraction over usable markers (a diploid fish gives ~0, ~0.5, ~1; the median is robust to the ~10% of sites
+# where the alt allele also segregates on standard chromosomes of other species). PROVISIONAL: the cut-offs are the midpoints of the three expected fractions; refit them on the cohort's own distribution of
+# median_site_fraction (it should form three clusters) before relying on the calls. Flags are reported with every call.
+thresholds:
+  min_site_depth: 3            # a marker counts only with at least this many ref+alt reads
+  min_usable_markers: 200      # flag 'few_markers' below this
+  min_mean_depth: 4.0          # flag 'low_depth': mean ref+alt reads per marker
+  class_cuts: [0.25, 0.75]     # median fraction below the first = std/std, between = std/inv, above the second = inv/inv
+  near_cut: 0.10               # flag 'near_threshold' when within this of a cut
+  aggregate_max_distance: 0.25 # flag 'aggregate_disagrees' when the aggregate fraction is farther than this from the class's expected fraction (0, 0.5, 1)
+  min_junction_reads: 4        # A+B+C below this: junction not used (flag 'junction_uninformative')
+  junction_max_distance: 0.35  # flag 'junction_disagrees' when the junction fraction p = ((A+B)/2)/((A+B)/2+C) is farther than this from the class's expected fraction
+labels: {0: "std/std", 1: "std/inv", 2: "inv/inv"}                     # std = the arrangement of the reference (GT3), inv = the OB/W inverted arrangement

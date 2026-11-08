@@ -71,3 +71,30 @@ LatrZW aligned to GT3 (`minimap2 -cx asm10 --cs`, inverted segment with 150 kb f
 the pools with `samtools mpileup`, MAPQ >= 20, no base-quality filter) and `select` (>= 15x in every pool, <= 1 alt read in every negative pool, alt fraction 0.2-0.8 in every positive pool). Negatives: SRR18083730,
 SRR18083718, SRR18083720; positives: SRR18083724, SRR18083717. Indels are listed but not counted from reads yet. Not yet verified: the orientation of alt alleles of minus-strand alignments (an inversion allele
 showing up in the OB pools would confirm it).
+
+## Held-out and distribution checks in the pools (markers selected on some pools, evaluated on others)
+
+Aggregate alt fraction over the selected sites (selection on pools of one genus, evaluation on the other):
+
+| selected on | markers | trewavasae OB | trewavasae BB | zebra OB | zebra BB | Luwino |
+|---|---|---|---|---|---|---|
+| zebra pair | 1,741 | 0.526 (held out) | 0.068 (held out) | 0.509 | 0.005 | 0.070 (held out) |
+| trewavasae pair | 3,180 | 0.502 | 0.002 | 0.574 (held out) | 0.174 (held out) | 0.196 (held out) |
+| both BB + both OB pools | 1,421 | 0.504 | 0.001 | 0.508 | 0.005 | 0.061 (held out) |
+| saved set (also clean in Luwino) | 954 | 0.502 | 0.001 | 0.507 | 0.004 | 0.013 (selected) |
+
+The inverted alleles transfer between genera (held-out OB pools 0.53 and 0.57). The held-out BB-type pools are NOT clean (0.06-0.20): many alt alleles also occur on standard chromosomes of other species. Of 10,052 SNV
+candidates: 1,597 under 15x in some pool, 2,645 fixed in both BB pools (GT3-private), 4,787 with alt reads in a negative pool, 8 absent from both OB pools, 61 with an OB fraction outside 0.2-0.8, 954 pass.
+
+Per-site distribution of alt reads (observed against a binomial with the same mean): in the OB pool it is a narrow binomial (a real haplotype is uniform). In the L. trewavasae BB pool (zebra-selected sites) 82.5% of sites have 0 alt
+reads, ~10% have 6 or more and almost none lie between: standing variation at ~10% of sites and nothing else. Luwino (1,421 sites selected without it) has 40.6% zero, 27.7% one, 14.0% two, 10.3% three to five, 7.5% six or
+more: the same ~7.5% standing-variation subset plus a bulk of roughly 1 alt read per site (~3%) that the L. trewavasae BB pool does not have. A uniform ~3% component is what one inverted chromosome in 40 (2.5%) would give,
+and it fits the single junction read; cross-contamination is the alternative. Unresolved. Consequence for genotyping a diploid fish: use the MEDIAN per-site alt fraction (robust to the standing-variation sites), not the aggregate.
+
+## Per-sample measurement (`lg5inv.measure`, `lg5inv.call`, config/lg5panel.yaml)
+
+Same shape as the other panel modules: only samtools, a local indexed BAM aligned to Mzebra_GT3_NCBI, a definition hash. Stored per sample: ref and alt read counts at the markers (MAPQ >= 20, no base-quality filter) and the counts of
+reads containing the junction sequences (A, B inverted; C standard). Call: n inverted chromosomes (0/1/2) from the median per-site alt fraction (cuts 0.25 and 0.75, PROVISIONAL), with flags for low depth, few markers, near a cut,
+aggregate or junction disagreeing with the class, uninformative junction. The definition (`sd_genotypes/lg5inv/data/lg5_markers.tsv`, `lg5_junctions.json`) is built from a `markers select` output and the reference by
+`python -m sd_genotypes.lg5inv.definition` and committed. It runs standalone (`python -m sd_genotypes.lg5inv.measure`, which registers itself with the panel at run time); adding it to `panel/measure.py` MODULES is a one-line change
+that was deliberately not made. Untested on real BAMs: how `samtools mpileup` without `-f` prints bases (the code handles both letters and `.`/`,`) and `-a` with `-l` and `-r`.

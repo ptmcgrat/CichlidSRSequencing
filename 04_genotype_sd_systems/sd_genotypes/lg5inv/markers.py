@@ -15,6 +15,13 @@ import numpy as np
 import pandas as pd
 
 CHROM = 'NC_135171.1'
+rc = lambda x: x.translate(str.maketrans('ACGTN', 'TGCAN'))[::-1]
+
+
+def faidx(ref, a, b):
+    """GT3 NC_135171.1 a..b (1-based, inclusive), uppercase, from the reference FASTA."""
+    out = subprocess.check_output(['samtools', 'faidx', ref, f'{CHROM}:{a}-{b}']).decode().split('\n')[1:]
+    return ''.join(out).upper()
 CS = re.compile(r':(\d+)|=([ACGTNacgtn]+)|\*([acgtn])([acgtn])|\+([acgtn]+)|-([acgtn]+)')
 
 
