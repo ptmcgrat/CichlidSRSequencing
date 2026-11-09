@@ -1,0 +1,17 @@
+# Region slices of every sample's final BAM, in Mzebra_GT3_NCBI (GCF_041146795.1) coordinates. Tab separated: name, chrom, start, end, note. 1-based, inclusive.
+# `end` may be END = the length of the chromosome from the reference index. Slices are cut from <sample>.all.bam after duplicate marking and uploaded with the sample.
+#
+# Decision 42 (2026-11-08): whole chromosomes LG2, LG10 and LG13, for goal 6 of module 04 (inversion breakpoint reads on a BAM that is no longer on disk).
+# LG9, LG11 and LG20 are NOT sliced: goal 6 on them is measured on disk only. LG10 (NC_135176.1, 34,949,860 bp) is 3.6% of the genome; the three together are roughly an eighth of each all.bam (an estimate).
+# The contig names are those of the reference registry; the pipeline checks every name and end against the reference index before it starts.
+LG2	NC_135168.1	1	END	chromosome 2 (whole): inversion, deep benthic
+LG10	NC_135176.1	1	END	chromosome 10 (whole): the XY sex chromosome of the deep benthics, inversion 11.77-29.89 Mb
+LG13	NC_135179.1	1	END	chromosome 13 (whole): inversion, deep benthic
+#
+# Not used (breakpoint windows, 500 kb around each YH breakpoint; the windows of module 01 will replace them):
+#LG2_bp_left	NC_135168.1	19550000	20050000	LG2 inversion, left breakpoint (19,800,671)
+#LG2_bp_right	NC_135168.1	43300000	43800000	LG2 inversion, right breakpoint (43,549,813)
+#LG10_bp_left	NC_135176.1	11520000	12020000	LG10 inversion, left breakpoint (11,774,878)
+#LG10_bp_right	NC_135176.1	29640000	30140000	LG10 inversion, right breakpoint (29,891,917)
+#LG13_bp_left	NC_135179.1	2160000	2660000	LG13 inversion, left breakpoint (2,405,431)
+#LG13_bp_right	NC_135179.1	22850000	23350000	LG13 inversion, right breakpoint (23,099,416)
