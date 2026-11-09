@@ -19,7 +19,7 @@ PICARD = '\n'.join([
     '## htsjdk.samtools.metrics.StringHeader', '# MarkDuplicates INPUT=[x.sorted.bam] OUTPUT=x.all.bam METRICS_FILE=x.metrics.txt', '## htsjdk.samtools.metrics.StringHeader', '# Started on: Thu Nov 05 12:00:00 EST 2026', '',
     '## METRICS CLASS\tpicard.sam.DuplicationMetrics',
     'LIBRARY\tUNPAIRED_READS_EXAMINED\tREAD_PAIRS_EXAMINED\tSECONDARY_OR_SUPPLEMENTARY_RDS\tUNMAPPED_READS\tUNPAIRED_READ_DUPLICATES\tREAD_PAIR_DUPLICATES\tREAD_PAIR_OPTICAL_DUPLICATES\tPERCENT_DUPLICATION\tESTIMATED_LIBRARY_SIZE',
-    'libA\t1000000\t48000000\t500000\t1200000\t80000\t4325000\t300000\t0.09\t250000000', '',
+    'libA\t1000000\t48000000\t500000\t3000000\t80000\t4325000\t300000\t0.09\t250000000', '',
     '## HISTOGRAM\tjava.lang.Double', 'BIN\tVALUE', '1.0\t1.0']) + '\n'
 
 
@@ -91,8 +91,20 @@ class TestDerived(unittest.TestCase):
         self.assertIn('duplicate rate differs', w)
         w = bs.derive_columns(self.sn, self.idx, self.libs, 962_000_000, ubam_reads=99_000_000)['QCWarnings']
         self.assertIn('unmapped BAM', w)
-        w = bs.derive_columns(self.sn, dict(self.idx, unplaced_unmapped=2_400_000), self.libs, 962_000_000)['QCWarnings']
-        self.assertIn('fully unmapped reads differ', w)
+        w = bs.derive_columns(dict(self.sn, **{'reads unmapped': 2_400_000}), self.idx, self.libs, 962_000_000)['QCWarnings']          # samtools 2.4 M, Picard 3.0 M: 0.6 % of the reads
+        self.assertIn('unmapped reads differ: Picard 3000000 vs samtools stats 2400000', w)
+
+    def test_the_unmapped_check_is_not_fooled_by_reads_whose_mate_is_mapped(self):
+        """The numbers of the validation run of 2026-11-09 (SAMEA1904833): Picard's UNMAPPED_READS and samtools' `reads unmapped` are the same 1,896,658 (every unmapped primary read); the reads without a position
+        (idxstats `*`) are only 582,860, the rest being unmapped reads whose mate is mapped. The first version of the check compared Picard with the 582,860 and warned on every such sample."""
+        sn = {'raw total sequences': 49_696_726, 'reads mapped': 47_800_068, 'reads unmapped': 1_896_658}
+        idx = dict(records=49_908_521, unplaced_unmapped=582_860, mapped=47_800_068)
+        libs = [dict(LIBRARY='6868862', UNPAIRED_READS_EXAMINED=1_313_798, READ_PAIRS_EXAMINED=23_243_135, SECONDARY_OR_SUPPLEMENTARY_RDS=211_795, UNMAPPED_READS=1_896_658, UNPAIRED_READ_DUPLICATES=153_904)]
+        c = bs.derive_columns(sn, idx, libs, 962_000_000)
+        self.assertNotIn('unmapped reads differ', c['QCWarnings'])
+        self.assertAlmostEqual(c['UnmappedOrphanFraction'], (1_896_658 - 582_860) / 49_696_726)                      # 1,313,798 = Picard's UNPAIRED_READS_EXAMINED
+        self.assertAlmostEqual(c['UnmappedNoPositionFraction'], 582_860 / 49_696_726)
+        self.assertIn('unmapped reads differ', bs.derive_columns(dict(sn, **{'reads unmapped': 1_000_000}), idx, libs, 962_000_000)['QCWarnings'], 'a real disagreement is still reported')
 
     def test_without_picard_metrics_the_flag_based_rate_is_used_and_flagged(self):
         c = bs.derive_columns(self.sn, self.idx, [], 962_000_000)

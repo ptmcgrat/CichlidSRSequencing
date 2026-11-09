@@ -308,7 +308,7 @@ class Config:
 
     def __init__(self, max_cores=None, max_ram_gb=None, samples_in_flight=6, align_threads=16, prefetch=2, max_downloads=4, uploads=2, keep_local=False,
                  slices_file=None, nice=5, verify_counts=True, upload=True, align_stf_heap_gb=4, align_mba_heap_gb=8, markdup_heap_gb=16, merge_heap_gb=8, python=None,
-                 max_pending_uploads=None, min_free_gb=200, disk_reserve_factor=3.5, scratch_base=None, status_s=600, check_workers=2, download_attempts=4, download_backoff=30.0,
+                 max_pending_uploads=None, min_free_gb=200, disk_reserve_factor=5.5, scratch_base=None, status_s=600, check_workers=2, download_attempts=4, download_backoff=30.0,
                  panel=None, pipeline_version=None, upload_min_mb_s=5.0, small_timeout_s=3600):
         self.max_cores = int(max_cores or max(1, (os.cpu_count() or 8) - 8))
         self.max_ram_gb = float(max_ram_gb or self.default_ram())

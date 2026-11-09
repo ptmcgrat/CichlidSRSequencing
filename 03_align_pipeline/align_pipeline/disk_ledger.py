@@ -27,7 +27,7 @@ def dir_size(path):
 
 
 class DiskLedger:
-    def __init__(self, path, reserve_factor=3.5, min_free_gb=200, usage_fn=None, size_fn=None):
+    def __init__(self, path, reserve_factor=5.5, min_free_gb=200, usage_fn=None, size_fn=None):
         """usage_fn(path) -> object with .free (bytes); size_fn(sample) -> bytes this sample currently occupies (uBAMs + outputs + scratch)."""
         self.path, self.factor, self.min_free = path, float(reserve_factor), float(min_free_gb) * 1e9
         self.usage_fn = usage_fn or shutil.disk_usage

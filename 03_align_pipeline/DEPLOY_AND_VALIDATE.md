@@ -12,7 +12,7 @@ Use the EXACT file name of the zip you downloaded last (`ls -l ~/Downloads/m03_i
     cd ~/CichlidSRSequencing && git status --short                        # nothing should be listed
     git checkout reorg_spec && git pull --ff-only origin reorg_spec      # brings the panel's schema 2 and the updated SPEC.md and decisions.md
     cp -R ~/Downloads/m03_increment1/03_align_pipeline/. 03_align_pipeline/
-    python3 tools/run_tests.py 03                                         # expect: Ran 158 tests ... OK  (needs pandas; about 30 s). An older build says 146 or 154.
+    python3 tools/run_tests.py 03                                         # expect: Ran 143 tests ... OK on a branch without the audit and registration tools (161 where they are present); needs pandas, about 30 s. Compare with the number in the zip's README, not with an older message.
     git add -A && git status --short                                      # 27 new files (M instead of A for files of an earlier build that was already pushed)
     git commit -m "Module 03: align_pipeline: panel identity check, --panel-expect, pinned environment, commit read without git, deployment guide"
     git push origin reorg_spec

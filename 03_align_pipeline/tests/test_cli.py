@@ -159,6 +159,12 @@ class TestReadingTheCommitWithoutGit(unittest.TestCase):
         self.assertEqual(cli.pipeline_version(run=no_git, path=root), 'align_pipeline 3.0 4d55ab4')
 
 
+class TestDefaults(Base):
+    def test_the_disk_reservation_default_is_above_the_measured_peak(self):
+        args = cli.build_parser(self.fm).parse_args(['run', 'G'])
+        self.assertEqual(args.disk_reserve_factor, 5.5); self.assertGreater(args.disk_reserve_factor, 4.6)
+
+
 class TestSetupDatabase(Base):
     def test_it_adds_the_ledger_columns_once(self):
         self.fm = FakeFM(self.tmp + '/a', header=OLD) if False else FakeFM(tempfile.mkdtemp(), header=OLD)

@@ -159,7 +159,7 @@ def build_parser(fm):
     r.add_argument('--markdup-heap-gb', type=int, default=16, help='Java heap of MarkDuplicates (default 16)')
     r.add_argument('--tmp-dir', default=None, help='Base folder (ideally a fast local disk) for the GATK/Picard scratch files: one subfolder per sample')
     r.add_argument('--min-free-gb', type=float, default=200, help='The download queue pauses unless the disk keeps at least this much free after reserving room for the next sample (default 200)')
-    r.add_argument('--disk-reserve-factor', type=float, default=3.5, help='Disk reserved per sample, as a multiple of its uBAM size (default 3.5)')
+    r.add_argument('--disk-reserve-factor', type=float, default=5.5, help='Disk reserved per sample, as a multiple of its uBAM size (default 5.5: the peak measured on 2026-11-09 was 4.6x)')
     r.add_argument('--max-pending-uploads', type=int, default=None, help='Finished samples that may wait locally for an upload slot (default: --uploads + 2)')
     r.add_argument('--upload-min-mb-s', type=float, default=5.0, help='The slowest upload speed that is still believable; an upload slower than this for its whole size is killed as hung (default 5)')
     r.add_argument('--status-minutes', type=float, default=10, help='Print a status line this often; 0 = never')

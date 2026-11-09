@@ -545,6 +545,16 @@ class TestPanelStage(unittest.TestCase):
         self.assertNotIn('panel', dict(build(self.tmp, {'SMP_1': 1})[0].plan(paths[0])))
 
 
+class TestDiskReservation(unittest.TestCase):
+    def test_the_default_reserves_more_than_the_peak_measured_on_real_data(self):
+        """The first real sample used 4.6x its uBAM size locally at the sampled peak; the reservation was 3.5x."""
+        from align_pipeline.disk_ledger import DiskLedger
+        from align_pipeline import cli
+        self.assertEqual(sp.Config(max_cores=8, max_ram_gb=64).disk_reserve_factor, 5.5)
+        self.assertGreater(sp.Config(max_cores=8, max_ram_gb=64).disk_reserve_factor, 4.6)
+        self.assertEqual(DiskLedger('/data').factor, 5.5)
+
+
 class TestShortReason(unittest.TestCase):
     def test_the_exit_code_and_the_last_lines_of_the_tool_not_the_command(self):
         msg = 'exit code 3: /env/bin/python3 -m sd_genotypes panel measure --bam /b/S.all.bam --sample S\nfirst\ndefinition missing\nbuild it with `panel build`'

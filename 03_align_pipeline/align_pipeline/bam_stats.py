@@ -83,13 +83,15 @@ def parse_picard_metrics(text):
 
 def duplication_summary(libraries):
     """Picard's definition, summed over libraries: PERCENT_DUPLICATION = (UNPAIRED_READ_DUPLICATES + 2 * READ_PAIR_DUPLICATES) / (UNPAIRED_READS_EXAMINED + 2 * READ_PAIRS_EXAMINED).
-    Only mapped reads are examined; unmapped reads are in neither the numerator nor the denominator."""
+    Only mapped reads are examined; unmapped reads are in neither the numerator nor the denominator. `unmapped_reads` is Picard's UNMAPPED_READS: EVERY unmapped primary read, including those whose mate is
+    mapped (they sit at the mate's position), so it equals samtools' `reads unmapped`, not the number of reads without a position (the `*` line of idxstats: both mates unmapped). Measured 2026-11-09: 1,896,658 in both,
+    against 582,860 reads without a position."""
     g = lambda r, k: r.get(k) or 0
     examined = sum(g(r, 'UNPAIRED_READS_EXAMINED') + 2 * g(r, 'READ_PAIRS_EXAMINED') for r in libraries)
     dups = sum(g(r, 'UNPAIRED_READ_DUPLICATES') + 2 * g(r, 'READ_PAIR_DUPLICATES') for r in libraries)
     optical = sum(2 * g(r, 'READ_PAIR_OPTICAL_DUPLICATES') for r in libraries)
     return dict(examined_reads=examined, duplicate_reads=dups, optical_reads=optical, fraction=(dups / examined) if examined else NAN,
-                optical_fraction=(optical / examined) if examined else NAN, fully_unmapped_reads=sum(g(r, 'UNMAPPED_READS') for r in libraries), n_libraries=len(libraries))
+                optical_fraction=(optical / examined) if examined else NAN, unmapped_reads=sum(g(r, 'UNMAPPED_READS') for r in libraries), n_libraries=len(libraries))
 
 
 def _ratio(a, b):
@@ -126,8 +128,8 @@ def derive_columns(sn, idx_all, picard_libraries, reference_size, ubam_reads=Non
         warnings.append('no Picard duplication metrics: DuplicateFraction is the flag-based value')
     elif not math.isnan(dup_bam) and not math.isnan(dup['fraction']) and abs(dup['fraction'] - dup_bam) > dup_tolerance:
         warnings.append(f"duplicate rate differs: Picard {dup['fraction']:.4f} vs flags in the BAM {dup_bam:.4f}")
-    if dup is not None and primary and abs(dup['fully_unmapped_reads'] - idx_all['unplaced_unmapped']) > unmapped_tolerance * primary:
-        warnings.append(f"fully unmapped reads differ: Picard {dup['fully_unmapped_reads']} vs reads without a position in the BAM {idx_all['unplaced_unmapped']} (check)")
+    if dup is not None and primary and abs(dup['unmapped_reads'] - unmapped) > unmapped_tolerance * primary:             # both count every unmapped primary read (see duplication_summary)
+        warnings.append(f"unmapped reads differ: Picard {dup['unmapped_reads']} vs samtools stats {unmapped} (check)")
     if ubam_reads is not None and ubam_reads != primary:
         warnings.append(f'reads in the unmapped BAM(s) ({ubam_reads}) != primary reads in the final BAM ({primary})')
     cols['QCWarnings'] = '; '.join(warnings)
