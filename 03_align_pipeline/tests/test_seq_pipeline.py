@@ -19,6 +19,7 @@ class Fake:
     def __init__(self, nubams, fail=None, delay=0.003, delays=None, hook=None):
         self.nubams, self.fail, self.delay = nubams, fail or (lambda kind, sample, text: False), delay
         self.delays, self.hook, self.ends, self.timeouts = delays or {}, hook, [], []
+        self.panel_record = None                                                   # fn(bam, sample) -> the dict the fake panel writes; None = a file that is not JSON
         self.calls, self.lock, self.t0 = [], threading.Lock(), time.time()
 
     @staticmethod
@@ -66,6 +67,11 @@ class Fake:
         if kind == 'markdup':
             with open(cmd[cmd.index('-M') + 1], 'w') as f:
                 f.write(PICARD)
+        if kind == 'panel':                                                          # what `panel measure` writes (schema 2: the identity of the BAM it measured)
+            bam, out_json, sid = cmd[cmd.index('--bam') + 1], cmd[cmd.index('--out-json') + 1], cmd[cmd.index('--sample') + 1]
+            rec = self.panel_record(bam, sid) if self.panel_record else {'schema': 2, 'sample': sid, 'bam': os.path.basename(bam), 'bam_size_bytes': os.path.getsize(bam)}
+            with open(out_json, 'w') as f:
+                json.dump(rec, f)
         if stdout:
             body = {'stats': STATS, 'idxstats': IDXSTATS, 'count': f'{100_000_000 // self.nubams[sample]}\n'}.get(kind, '')
             with open(stdout, 'w') as f:
@@ -438,7 +444,7 @@ class TestBudget(unittest.TestCase):
 
 
 class TestPanelStage(unittest.TestCase):
-    """Decision 40: the panel measures the final BAM; a failure never fails the sample; the sidecar says which BAM the JSON belongs to."""
+    """Decision 40: the panel measures the final BAM; a failure never fails the sample; the JSON must name the BAM it was measured on."""
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         from align_pipeline import panel as pn
@@ -459,9 +465,10 @@ class TestPanelStage(unittest.TestCase):
         self.assertEqual(cmd.replace('nice ', ''), f'/env/bin/python3 -m sd_genotypes panel measure --bam {paths[0].all_bam} --sample SMP_1 --out-json {paths[0].panel_json} --modules all')
         r = rows[0]
         self.assertEqual((r['PanelStatus'], r['Species'], r['Instrument'], r['ReadLength'], r['NRuns'], r['InputFingerprint']), ('ok', 'Maylandia zebra', 'HiSeq', 250, 1, 'fp_SMP_1'))
-        self.assertTrue(os.path.exists(paths[0].panel_json) and os.path.exists(paths[0].panel_meta))
-        self.assertTrue(self.pn.sidecar_is_current(paths[0].panel_meta, paths[0].all_bam, 'fp_SMP_1'))
-        self.assertFalse(self.pn.sidecar_is_current(paths[0].panel_meta, paths[0].all_bam, 'another set of runs'), 'a re-alignment from other runs makes the old measurement stale')
+        rec = json.load(open(paths[0].panel_json))
+        self.assertEqual((rec['schema'], rec['bam'], rec['bam_size_bytes']), (2, 'SMP_1.all.bam', os.path.getsize(paths[0].all_bam)))
+        self.assertEqual(self.pn.identity_status(paths[0].panel_json, paths[0].all_bam)[0], 'same')
+        self.assertEqual(os.path.dirname(paths[0].panel_json) + '/', paths[0].bam_dir, 'the panel JSON lives in the sample folder, next to the BAM, and is uploaded with it')
 
     def test_a_failing_panel_does_not_fail_the_sample_and_the_row_and_qc_say_so(self):
         bad = lambda kind, sample, text: kind == 'panel' and sample == 'SMP_B'
@@ -497,6 +504,39 @@ class TestPanelStage(unittest.TestCase):
         _, done, failed = pipe.run_batch(paths)
         self.assertEqual((done, failed, rows[0]['PanelStatus']), (['SMP_1'], {}, 'failed'))
         self.assertIn('did not create', rows[0]['QCWarnings'])
+
+    def test_a_panel_json_that_names_another_bam_is_a_failed_panel_and_is_not_kept(self):
+        pipe, paths, fake, rows, *_ = build(self.tmp, {'SMP_1': 1}, panel=self.cfg, keep_local=True)
+        fake.panel_record = lambda bam, sid: {'schema': 2, 'sample': sid, 'bam': 'OTHER.all.bam', 'bam_size_bytes': os.path.getsize(bam)}
+        _, done, failed = pipe.run_batch(paths)
+        self.assertEqual((done, failed, rows[0]['PanelStatus']), (['SMP_1'], {}, 'failed'))
+        self.assertIn('measured on OTHER.all.bam, not SMP_1.all.bam', rows[0]['QCWarnings'])
+        self.assertFalse(os.path.exists(paths[0].panel_json), 'a measurement of another BAM must never be uploaded as this sample\'s')
+
+    def test_a_panel_json_with_the_size_of_another_alignment_is_a_failed_panel(self):
+        pipe, paths, fake, rows, *_ = build(self.tmp, {'SMP_1': 1}, panel=self.cfg)
+        fake.panel_record = lambda bam, sid: {'schema': 2, 'sample': sid, 'bam': os.path.basename(bam), 'bam_size_bytes': os.path.getsize(bam) + 1000}
+        _, done, failed = pipe.run_batch(paths)
+        self.assertEqual((done, failed, rows[0]['PanelStatus']), (['SMP_1'], {}, 'failed')); self.assertIn('bytes, this one has', rows[0]['QCWarnings'])
+
+    def test_a_schema_1_json_without_an_identity_is_accepted_with_a_warning_in_the_row(self):
+        pipe, paths, fake, rows, *_ = build(self.tmp, {'SMP_1': 1}, panel=self.cfg)
+        fake.panel_record = lambda bam, sid: {'schema': 1, 'sample': sid}
+        _, done, failed = pipe.run_batch(paths)
+        self.assertEqual((done, failed, rows[0]['PanelStatus']), (['SMP_1'], {}, 'ok')); self.assertIn('records no BAM identity', rows[0]['QCWarnings'])
+
+    def test_a_panel_json_that_is_not_json_is_a_failed_panel(self):
+        pipe, paths, fake, rows, *_ = build(self.tmp, {'SMP_1': 1}, panel=self.cfg)
+        fake.panel_record = None
+        orig = fake.__call__
+        def garbage(cmd, stdout, stderr, produces, stop, timeout_s=None):
+            rc = orig(cmd, stdout, stderr, produces, stop, timeout_s)
+            if 'sd_genotypes' in ' '.join(cmd):
+                open(cmd[cmd.index('--out-json') + 1], 'w').write('{not json')
+            return rc
+        pipe.runner.exec_fn = garbage
+        _, done, failed = pipe.run_batch(paths)
+        self.assertEqual((done, failed, rows[0]['PanelStatus']), (['SMP_1'], {}, 'failed')); self.assertIn('cannot be read', rows[0]['QCWarnings'])
 
     def test_the_plan_lists_the_panel_command(self):
         pipe, paths, *_ = build(self.tmp, {'SMP_1': 1}, panel=self.cfg)

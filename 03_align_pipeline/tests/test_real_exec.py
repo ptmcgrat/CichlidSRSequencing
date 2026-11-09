@@ -113,7 +113,8 @@ if os.environ.get('FAKE_PANEL_FAIL'):
     sys.stderr.write('definition missing: build it with `panel build`\\n'); sys.exit(3)
 if a[3] == 'measure':
     out = a[a.index('--out-json') + 1]
-    open(out + '.tmp', 'w').write(json.dumps({'schema': 1, 'sample': a[a.index('--sample') + 1], 'bam': a[a.index('--bam') + 1]}))
+    bam = a[a.index('--bam') + 1]
+    open(out + '.tmp', 'w').write(json.dumps({'schema': 2, 'sample': a[a.index('--sample') + 1], 'bam': os.path.basename(bam), 'bam_size_bytes': os.path.getsize(bam)}))
     os.replace(out + '.tmp', out)
 ''')
         os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
@@ -126,7 +127,7 @@ if a[3] == 'measure':
         text, done, failed = pipe.run_batch([path])
         self.assertEqual((done, failed, rows[0]['PanelStatus']), (['SMP_1'], {}, 'ok'), text)
         self.assertIn('"sample": "SMP_1"', open(path.panel_json).read())
-        self.assertTrue(pn.sidecar_is_current(path.panel_meta, path.all_bam, ''))
+        self.assertEqual(pn.identity_status(path.panel_json, path.all_bam)[0], 'same')
         os.environ['FAKE_PANEL_FAIL'] = '1'
         try:
             pipe2, path2, rows2 = self.pipeline(sample='SMP_2', panel=cfg)

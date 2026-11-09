@@ -222,9 +222,8 @@ class SamplePaths:
         self.stats_txt, self.idxstats_txt = self.all_bam + '.stats.txt', self.all_bam + '.idxstats.txt'
         self.ubam_reads_txt = f'{self.tmp_dir}ubam_reads.txt'
         self.qc_json = f'{self.bam_dir}{sample}.qc.json'
-        self.panel_json = f'{self.bam_dir}{sample}.panel.json'
-        self.panel_meta = f'{self.bam_dir}{sample}.panel.meta.json'               # which BAM the panel JSON was measured on (see panel.py)
-        self.panel_status, self.panel_error = 'off', ''
+        self.panel_json = f'{self.bam_dir}{sample}.panel.json'                    # next to the BAM, uploaded with the sample's folder
+        self.panel_status, self.panel_error, self.panel_note = 'off', '', ''
         self.holds_slot = False
 
     @staticmethod
@@ -512,8 +511,14 @@ class SeqPipeline:
             self.run(sp, cmd, 'panel', 'panel measure', stderr=f'{sp.tmp_dir}panel_errors.txt', produces=[sp.panel_json], extra_logs=[f'{sp.tmp_dir}panel_errors.txt'])
         except StageError as e:
             raise PanelFailed(sp.sample, e.message)
-        pn.write_sidecar(sp.panel_meta, sp.all_bam, sp.sample, self.sample_meta.get(sp.sample, {}).get('InputFingerprint', ''), self.cfg.panel)
-        return [sp.panel_json, sp.panel_meta]
+        status, why = pn.identity_status(sp.panel_json, sp.all_bam)
+        if status in ('different', 'bad'):                                       # a JSON that names another BAM must never be uploaded as this sample's measurement
+            try:
+                os.remove(sp.panel_json)
+            except OSError:
+                pass
+            raise PanelFailed(sp.sample, why)
+        return [sp.panel_json]
 
     def _count_ubams(self, sp):
         total = 0
@@ -555,6 +560,8 @@ class SeqPipeline:
             raise errors[0]
         if self.cfg.panel and sp.panel_status != 'failed':
             sp.panel_status = 'ok'
+            status, why = pn.identity_status(sp.panel_json, sp.all_bam)
+            sp.panel_note = why if status == 'unknown' else ''                    # accepted, but the row says so
 
     def _qc(self, sp):
         counts, idx_all = {}, None
@@ -594,6 +601,8 @@ class SeqPipeline:
         warnings = qc.get('QCWarnings', '')
         if sp.panel_status == 'failed':
             warnings = '; '.join(w for w in (warnings, 'panel measurement failed: ' + short_reason(sp.panel_error)) if w)
+        if sp.panel_note:
+            warnings = '; '.join(w for w in (warnings, sp.panel_note) if w)
         meta.update(SampleID=sp.sample, GenomeVersion=self.genome_version, BamSize=os.path.getsize(sp.all_bam), minimap2_version=self.versions.get('minimap2', ''),
                     gatk_version=self.versions.get('gatk', ''), pysam_version=self.versions.get('pysam', ''), AlignedOn=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
                     Machine=socket.gethostname(), PipelineVersion=self.pipeline_version, PanelStatus=sp.panel_status, QCWarnings=warnings)

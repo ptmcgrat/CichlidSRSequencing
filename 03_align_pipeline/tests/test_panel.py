@@ -1,4 +1,4 @@
-"""panel.py: the command lines are the contract with module 04; the preflight stops a run that cannot measure; the sidecar says which BAM a panel JSON belongs to."""
+"""panel.py: the command lines are the contract with module 04; the preflight stops a run that cannot measure; the identity check says whether a panel JSON belongs to a BAM."""
 import json, os, subprocess, sys, tempfile, unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from align_pipeline import panel as pn
@@ -52,6 +52,15 @@ class TestPreflight(unittest.TestCase):
             raise subprocess.TimeoutExpired(cmd, kw['timeout'])
         ok, text = pn.preflight(self.cfg, run=hang, timeout=5); self.assertFalse(ok); self.assertIn('did not answer within 5 s', text)
 
+    def test_the_pilots_frozen_keys_are_checked_when_they_are_expected(self):
+        printed = 'gsdf 5d71ee8d6c2b\nte 2af781e90119\nlg5inv 80bbea57e10b\nbchrom 75367d0dfba8'
+        cfg = pn.PanelConfig(python='p', expect=['5d71ee8d6c2b', '2af781e90119', '80bbea57e10b', '75367d0dfba8'])
+        self.assertEqual(pn.preflight(cfg, run=lambda cmd, **kw: Done(0, printed)), (True, printed))
+        ok, text = pn.preflight(cfg, run=lambda cmd, **kw: Done(0, printed.replace('2af781e90119', 'ffffffffffff')))
+        self.assertFalse(ok); self.assertIn('not the expected ones', text); self.assertIn("['2af781e90119']", text); self.assertIn('ffffffffffff', text, 'what was printed is shown')
+        self.assertTrue(pn.preflight(pn.PanelConfig(python='p'), run=lambda cmd, **kw: Done(0, 'anything'))[0], 'without expected keys nothing is compared')
+        self.assertFalse(pn.preflight(cfg, run=lambda cmd, **kw: Done(1, printed))[0], 'a failing check stays a failure whatever it printed')
+
     def test_the_check_is_run_with_the_contract_command_and_a_time_limit(self):
         seen = {}
         def run(cmd, **kw):
@@ -60,30 +69,43 @@ class TestPreflight(unittest.TestCase):
         self.assertEqual(seen['cmd'], pn.check_command(self.cfg)); self.assertEqual(seen['kw']['timeout'], 300)
 
 
-class TestSidecar(unittest.TestCase):
+class TestIdentity(unittest.TestCase):
+    """The panel JSON of sd_genotypes schema 2 records `bam` and `bam_size_bytes`; the rule is the one of `python -m sd_genotypes.panel.identity`."""
     def setUp(self):
         self.dir = tempfile.mkdtemp() + '/'
         self.bam = self.dir + 'S1.all.bam'
         open(self.bam, 'wb').write(b'x' * 100)
-        self.meta = self.dir + 'S1.panel.meta.json'
-        self.cfg = pn.PanelConfig(python='p')
+        self.json = self.dir + 'S1.panel.json'
 
-    def test_it_records_the_bam_and_the_runs_and_is_current_for_exactly_those(self):
-        rec = pn.write_sidecar(self.meta, self.bam, 'S1', 'fp1', self.cfg, now=0)
-        self.assertEqual((rec['bam'], rec['bam_size'], rec['input_fingerprint'], rec['measured_on'], rec['sample']), ('S1.all.bam', 100, 'fp1', '1970-01-01T00:00:00Z', 'S1'))
-        self.assertEqual(json.load(open(self.meta)), rec); self.assertFalse(os.path.exists(self.meta + '.tmp'), 'written atomically')
-        self.assertTrue(pn.sidecar_is_current(self.meta, self.bam, 'fp1'))
+    def write(self, rec):
+        json.dump(rec, open(self.json, 'w'))
 
-    def test_a_different_bam_other_runs_or_a_damaged_sidecar_are_not_current(self):
-        pn.write_sidecar(self.meta, self.bam, 'S1', 'fp1', self.cfg)
-        self.assertFalse(pn.sidecar_is_current(self.meta, self.bam, 'fp2'), 'the runs changed')
-        open(self.bam, 'ab').write(b'more'); self.assertFalse(pn.sidecar_is_current(self.meta, self.bam, 'fp1'), 'the BAM was re-made: its size differs')
-        self.assertFalse(pn.sidecar_is_current(self.dir + 'nothing.json', self.bam, 'fp1'), 'no sidecar: not current')
-        open(self.meta, 'w').write('{not json'); self.assertFalse(pn.sidecar_is_current(self.meta, self.bam, 'fp1'))
+    def test_the_same_name_and_size_is_the_same_bam(self):
+        self.write({'schema': 2, 'bam': 'S1.all.bam', 'bam_size_bytes': 100})
+        self.assertEqual(pn.identity_status(self.json, self.bam), ('same', ''))
+        self.assertEqual(pn.identity_status({'schema': 2, 'bam': '/other/machine/S1.all.bam', 'bam_size_bytes': 100}, self.bam)[0], 'same', 'only the file name counts, not the machine\'s path')
 
-    def test_an_unknown_fingerprint_matches_an_unknown_fingerprint(self):
-        pn.write_sidecar(self.meta, self.bam, 'S1', None, self.cfg)
-        self.assertTrue(pn.sidecar_is_current(self.meta, self.bam, ''))
+    def test_a_realigned_sample_keeps_its_name_but_not_its_size(self):
+        self.write({'schema': 2, 'bam': 'S1.all.bam', 'bam_size_bytes': 100})
+        open(self.bam, 'ab').write(b'more reads')
+        status, why = pn.identity_status(self.json, self.bam)
+        self.assertEqual(status, 'different'); self.assertIn('measured on a BAM of 100 bytes, this one has 110', why)
+
+    def test_another_file_name_is_a_different_bam(self):
+        self.write({'schema': 2, 'bam': 'S2.all.bam', 'bam_size_bytes': 100})
+        self.assertEqual(pn.identity_status(self.json, self.bam)[0], 'different')
+
+    def test_no_recorded_size_is_unknown_and_schema_1_is_still_read(self):
+        self.assertEqual(pn.identity_status({'schema': 1, 'sample': 'S1'}, self.bam)[0], 'unknown')
+        self.assertEqual(pn.identity_status({'schema': 2, 'bam': 'S1.all.bam', 'bam_size_bytes': 'unknown'}, self.bam)[0], 'unknown')
+        self.assertEqual(pn.identity_status({'schema': 2, 'bam': 'S1.all.bam', 'bam_size_bytes': 'many'}, self.bam)[0], 'unknown')
+        self.assertEqual(pn.identity_status({'schema': 1, 'bam': '/x/S1.all.bam', 'bam_size': 100}, self.bam)[0], 'same', 'schema 1 files that have bam and bam_size')
+        self.assertEqual(pn.identity_status({'schema': 1, 'bam': '/x/S1.all.bam', 'bam_size': 7}, self.bam)[0], 'different')
+
+    def test_a_missing_or_damaged_json_is_bad(self):
+        self.assertEqual(pn.identity_status(self.dir + 'nothing.json', self.bam)[0], 'bad')
+        open(self.json, 'w').write('{not json'); status, why = pn.identity_status(self.json, self.bam)
+        self.assertEqual(status, 'bad'); self.assertIn('cannot be read', why)
 
 
 if __name__ == '__main__':

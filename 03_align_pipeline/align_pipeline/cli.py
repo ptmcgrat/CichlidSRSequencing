@@ -75,17 +75,61 @@ def tool_versions(run=subprocess.run, pysam_version=None):
     return versions
 
 
+def read_git_head(path):
+    """The short commit of the checkout that contains `path`, read from the .git folder itself (no git program needed: an environment may have none). '' when there is no checkout or it cannot be read.
+    Handles a branch checked out normally, a detached HEAD, refs kept only in packed-refs, and linked worktrees (where .git is a file)."""
+    d = os.path.abspath(path)
+    while True:
+        g = os.path.join(d, '.git')
+        if os.path.exists(g):
+            break
+        parent = os.path.dirname(d)
+        if parent == d:
+            return ''
+        d = parent
+    try:
+        if os.path.isfile(g):                                                       # a linked worktree: ".git" is a file saying "gitdir: <path>"
+            line = open(g).read().strip()
+            if not line.startswith('gitdir:'):
+                return ''
+            g = line.split(':', 1)[1].strip()
+            g = g if os.path.isabs(g) else os.path.normpath(os.path.join(d, g))
+        head = open(os.path.join(g, 'HEAD')).read().strip()
+        if not head.startswith('ref:'):                                             # detached HEAD: the commit itself
+            return head[:7] if re.fullmatch(r'[0-9a-f]{40}', head) else ''
+        ref = head.split(':', 1)[1].strip()
+        common = g                                                                  # a worktree keeps its refs in the main .git folder
+        if os.path.exists(os.path.join(g, 'commondir')):
+            common = os.path.normpath(os.path.join(g, open(os.path.join(g, 'commondir')).read().strip()))
+        ref_file = os.path.join(common, ref)
+        if os.path.isfile(ref_file):
+            sha = open(ref_file).read().strip()
+            return sha[:7] if re.fullmatch(r'[0-9a-f]{40}', sha) else ''
+        packed = os.path.join(common, 'packed-refs')
+        if os.path.isfile(packed):
+            for line in open(packed):
+                parts = line.split()
+                if len(parts) == 2 and parts[1] == ref and re.fullmatch(r'[0-9a-f]{40}', parts[0]):
+                    return parts[0][:7]
+    except (OSError, UnicodeDecodeError):
+        pass
+    return ''
+
+
 def git_commit(path=MODULE_DIR, run=subprocess.run):
-    """The short commit of the checkout, or '' when it is not a git checkout: recorded in the ledger so BAMs made by an older pipeline can be found."""
+    """The short commit of the checkout, recorded in the ledger so BAMs made by an older pipeline can be found. `git` is asked first; when there is no git program or it refuses (an environment
+    without git, a checkout owned by another user), the .git folder is read directly."""
     try:
         r = run(['git', '-C', path, 'rev-parse', '--short', 'HEAD'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
-        return r.stdout.strip() if r.returncode == 0 else ''
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
     except OSError:
-        return ''
+        pass
+    return read_git_head(path)
 
 
-def pipeline_version(run=subprocess.run):
-    commit = git_commit(run=run)
+def pipeline_version(run=subprocess.run, path=MODULE_DIR):
+    commit = git_commit(path=path, run=run)
     return f'align_pipeline {__version__}' + (f' {commit}' if commit else '')
 
 
@@ -125,8 +169,9 @@ def build_parser(fm):
     r.add_argument('--no-slices', action='store_true', help='Do not cut region slices')
     r.add_argument('--no-panel', action='store_true', help='Do not run module 04\'s panel measurements (without this the run first checks that the panel is ready and stops if it is not)')
     r.add_argument('--panel-python', default=None, help='The interpreter that can import sd_genotypes (default: the one running this pipeline)')
-    r.add_argument('--panel-pythonpath', default=None, help='Where sd_genotypes is checked out when it is not installed, e.g. <repo>/04_genotype_sd_systems')
+    r.add_argument('--panel-pythonpath', default=None, help='Where sd_genotypes is checked out, only if `source tools/env.sh` was not run (it puts every module on PYTHONPATH, which the panel inherits)')
     r.add_argument('--panel-modules', default='all', help='Which panel modules to measure (default all)')
+    r.add_argument('--panel-expect', nargs='+', metavar='KEY', default=None, help='Definition keys that `panel check` must print, e.g. the pilot\'s frozen keys; the run does not start if one is missing')
     r.add_argument('--no-verify-counts', action='store_true', help='Skip counting the reads in the uBAMs (saves ~2 min per sample, loses the read-count cross-check)')
     r.add_argument('--no-upload', action='store_true', help='Test mode: do everything locally, upload nothing, write no ledger row, delete nothing')
     r.add_argument('--nice', type=int, default=5, help='nice value for every command (default 5)')
@@ -190,7 +235,7 @@ def main(argv=None, fm=None, which=shutil.which, run=subprocess.run, preflight=p
         if problems:
             out('Slice table does not fit the reference:\n  ' + '\n  '.join(problems))
             return 1
-    panel_cfg = None if args.no_panel else pn.PanelConfig(python=args.panel_python, modules=args.panel_modules, pythonpath=args.panel_pythonpath)
+    panel_cfg = None if args.no_panel else pn.PanelConfig(python=args.panel_python, modules=args.panel_modules, pythonpath=args.panel_pythonpath, expect=args.panel_expect)
     versions_for_plan = {}
     meta = sample_meta(fm.sample_dt, fm.reads_dt, samples)
     cfg = sp.Config(max_cores=args.max_cores, max_ram_gb=args.max_ram_gb, samples_in_flight=args.samples_in_flight, align_threads=args.align_threads, prefetch=args.prefetch,

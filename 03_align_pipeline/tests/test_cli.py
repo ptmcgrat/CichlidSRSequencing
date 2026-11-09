@@ -108,11 +108,55 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(cli.tool_versions(run=fake_run, pysam_version='0.24.1'), {'minimap2': '2.28', 'samtools': '1.21', 'gatk': '4.6.2.0', 'pysam': '0.24.1'})
 
     def test_the_pipeline_version_carries_the_commit_when_there_is_one(self):
-        self.assertEqual(cli.pipeline_version(run=fake_run), 'align_pipeline 3.0 abc1234')
-        self.assertEqual(cli.pipeline_version(run=lambda *a, **k: Proc('', 128)), 'align_pipeline 3.0')
+        nogit = tempfile.mkdtemp()                                                       # a folder that is in no checkout
+        self.assertEqual(cli.pipeline_version(run=fake_run, path=nogit), 'align_pipeline 3.0 abc1234')
+        self.assertEqual(cli.pipeline_version(run=lambda *a, **k: Proc('', 128), path=nogit), 'align_pipeline 3.0')
         def no_git(*a, **k):
             raise FileNotFoundError('git')
-        self.assertEqual(cli.pipeline_version(run=no_git), 'align_pipeline 3.0')
+        self.assertEqual(cli.pipeline_version(run=no_git, path=nogit), 'align_pipeline 3.0')
+
+
+class TestReadingTheCommitWithoutGit(unittest.TestCase):
+    """An environment may have no git program (yellowhead's `align` environment has none): the commit is then read from the .git folder."""
+    SHA = '4d55ab4f0123456789abcdef0123456789abcdef'
+
+    def checkout(self, head, refs=None, packed=None):
+        root = tempfile.mkdtemp(); os.makedirs(root + '/.git/refs/heads'); os.makedirs(root + '/03_align_pipeline/align_pipeline')
+        open(root + '/.git/HEAD', 'w').write(head)
+        for name, sha in (refs or {}).items():
+            open(root + '/.git/' + name, 'w').write(sha + '\n')
+        if packed:
+            open(root + '/.git/packed-refs', 'w').write('# pack-refs with: peeled fully-peeled sorted\n' + packed)
+        return root
+
+    def test_a_branch_a_detached_head_and_packed_refs(self):
+        root = self.checkout('ref: refs/heads/reorg_spec\n', refs={'refs/heads/reorg_spec': self.SHA})
+        self.assertEqual(cli.read_git_head(root + '/03_align_pipeline/align_pipeline'), '4d55ab4', 'found from a folder deep inside the checkout')
+        self.assertEqual(cli.read_git_head(self.checkout(self.SHA + '\n')), '4d55ab4', 'a detached HEAD holds the commit itself')
+        packed = self.checkout('ref: refs/heads/reorg_spec\n', packed=f'{self.SHA} refs/heads/reorg_spec\n{"1" * 40} refs/heads/other\n')
+        self.assertEqual(cli.read_git_head(packed), '4d55ab4', 'a branch that exists only in packed-refs')
+
+    def test_a_linked_worktree_keeps_its_refs_in_the_main_git_folder(self):
+        main = self.checkout('ref: refs/heads/main\n', refs={'refs/heads/reorg_spec': self.SHA})
+        wt = tempfile.mkdtemp(); gitdir = main + '/.git/worktrees/wt'; os.makedirs(gitdir)
+        open(gitdir + '/HEAD', 'w').write('ref: refs/heads/reorg_spec\n'); open(gitdir + '/commondir', 'w').write('../..\n')
+        open(wt + '/.git', 'w').write('gitdir: ' + gitdir + '\n')
+        self.assertEqual(cli.read_git_head(wt), '4d55ab4')
+
+    def test_no_checkout_a_broken_checkout_or_a_missing_ref_give_an_empty_string(self):
+        self.assertEqual(cli.read_git_head(tempfile.mkdtemp()), '')
+        self.assertEqual(cli.read_git_head(self.checkout('ref: refs/heads/nowhere\n')), '')
+        self.assertEqual(cli.read_git_head(self.checkout('not a head\n')), '')
+        self.assertEqual(cli.read_git_head(self.checkout('ref: refs/heads/x\n', refs={'refs/heads/x': 'not a sha'})), '')
+
+    def test_git_is_asked_first_and_the_folder_is_read_when_git_is_missing_or_refuses(self):
+        root = self.checkout('ref: refs/heads/reorg_spec\n', refs={'refs/heads/reorg_spec': self.SHA})
+        self.assertEqual(cli.git_commit(root, run=lambda *a, **k: Proc('abc1234\n')), 'abc1234', 'git, when there is one, is the authority')
+        def no_git(*a, **k):
+            raise FileNotFoundError('git')
+        self.assertEqual(cli.git_commit(root, run=no_git), '4d55ab4')
+        self.assertEqual(cli.git_commit(root, run=lambda *a, **k: Proc('', 128)), '4d55ab4', 'for example "dubious ownership": a checkout made by another user')
+        self.assertEqual(cli.pipeline_version(run=no_git, path=root), 'align_pipeline 3.0 4d55ab4')
 
 
 class TestSetupDatabase(Base):
@@ -172,6 +216,13 @@ class TestGates(Base):
         rc, rb = self.run_main(preflight=lambda cfg: (False, 'te: definition file missing; build it with `te.definition`'))
         self.assertEqual(rc, 1); rb.assert_not_called()
         self.assertIn('The panel is not ready, so nothing was started', self.text); self.assertIn('te: definition file missing', self.text); self.assertIn('--no-panel', self.text)
+
+    def test_expected_panel_keys_reach_the_preflight_and_a_different_key_stops_the_run(self):
+        real = lambda cfg: pn.preflight(cfg, run=lambda cmd, **kw: Proc('gsdf 5d71ee8d6c2b\nte ffffffffffff\n'), timeout=1)
+        rc, rb = self.run_main(['--panel-expect', '5d71ee8d6c2b', '2af781e90119'], preflight=real)
+        self.assertEqual(rc, 1); rb.assert_not_called(); self.assertIn('not the expected ones', self.text); self.assertIn('2af781e90119', self.text)
+        self.lines.clear()
+        rc, rb = self.run_main(['--panel-expect', '5d71ee8d6c2b'], preflight=real); self.assertEqual(rc, 0); rb.assert_called_once()
 
     def test_no_panel_does_not_ask_the_panel_anything(self):
         def must_not_be_called(cfg):
