@@ -132,7 +132,7 @@ def run():
     r_ = cli('panel', 'measure', '--bam', tmp + 'S1.all.bam', '--sample', 'S1', '--out-json', tmp + 'm/S1.panel.json', FAKE_RATIO=0.53, FAKE_JUNCTION=0)
     _ok('panel measure (command line, real subprocess) writes the JSON', r_.returncode == 0 and os.path.exists(tmp + 'm/S1.panel.json'), r_.stderr[-300:])
     j = json.load(open(tmp + 'm/S1.panel.json'))
-    _ok('JSON: sample, BAM size, panel version, samtools version, and the gsdf module with its definition key', j['sample'] == 'S1' and j['bam_size'] == 3 and j['panel_version'].startswith('v') and 'samtools 1.19' in j['samtools']
+    _ok('JSON: sample, BAM size, panel version, samtools version, and the gsdf module with its definition key', j['sample'] == 'S1' and j['schema'] == 2 and j['bam'] == 'S1.all.bam' and j['bam_size_bytes'] == 3 and 'bam_size' not in j and j['panel_version'].startswith('v') and 'samtools 1.19' in j['samtools']
         and j['modules']['gsdf']['definition'] == k and len(j['modules']['gsdf']['bins']) == 26)
     r_ = cli('panel', 'measure', '--bam', tmp + 'S1.all.bam', '--sample', 'S1', '--out-json', tmp + 'm/x.json', '--modules', 'lg5', FAKE_RATIO=0.53, FAKE_JUNCTION=0)
     _ok('an unknown module is refused with the list of the available ones', r_.returncode != 0 and 'gsdf' in (r_.stderr + r_.stdout))
@@ -152,7 +152,7 @@ def run():
     sheet = []
     def add(sid, species, sex, ratio, jr, flank=15.0, eco='Shallow_Benthic', sheet_value=None):
         x = raw_of(sid, ratio + rng.normal(0, 0.02), jr, flank + rng.normal(0, 0.5))
-        PM.write_json(f'{tmp}cohort/{sid}.panel.json', dict(schema=1, sample=sid, bam='x', bam_size=x.pop('bam_size'), panel_version='v34', measured=x.pop('measured'), samtools='s', modules={'gsdf': {k_: v for k_, v in x.items() if k_ not in ('SampleID', 'panel_version')}}))
+        PM.write_json(f'{tmp}cohort/{sid}.panel.json', dict(schema=2, sample=sid, bam=f'{sid}.all.bam', bam_size_bytes=x.pop('bam_size'), panel_version='v34', measured=x.pop('measured'), samtools='s', modules={'gsdf': {k_: v for k_, v in x.items() if k_ not in ('SampleID', 'panel_version')}}))
         sheet.append(dict(SampleID=sid, Species=species, Sex=sex, Ecogroup=eco, **{'gsdf number': sheet_value}))
     for i in range(12):
         add(f'XYF{i}', 'Xy species', 'F', 0.530, 0.0, sheet_value=2)
@@ -170,6 +170,7 @@ def run():
     r_ = cli('gsdf', 'call', '--measurements', tmp + 'cohort', '--out-dir', tmp + 'calls')
     _ok('gsdf call (command line, offline) runs', r_.returncode == 0 and os.path.exists(tmp + 'calls/gsdf_calls.tsv'), r_.stderr[-400:])
     calls = pd.read_csv(tmp + 'calls/gsdf_calls.tsv', sep='\t', keep_default_na=False, na_values=['']).fillna({'call_flags': ''})
+    _ok('gsdf_calls.tsv carries the identity of the BAM measured (file name and size in bytes) and no longer the old bam_size', {'bam', 'bam_size_bytes'} <= set(calls.columns) and 'bam_size' not in calls.columns and (calls.bam == calls.SampleID + '.all.bam').all())
     truth = {row['SampleID']: row['gsdf number'] for row in sheet if row['gsdf number'] == row['gsdf number']}
     good = calls[(calls.call_flags == '') & calls.SampleID.isin(truth)]
     _ok('every unflagged call equals the planted copy number', len(good) > 40 and all(int(r.gsdf_number) == truth[r.SampleID] for r in good.itertuples()), f'{len(good)} unflagged')

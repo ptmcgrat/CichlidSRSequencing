@@ -25,7 +25,7 @@ different key means a measurement setting or a definition file changed: stop and
 python -m sd_genotypes panel measure --bam <sample>.all.bam --sample <SampleID> --out-json <SampleID>.panel.json --modules all
 ```
 - Input: a coordinate-sorted BAM aligned to Mzebra_GT3_NCBI, duplicates marked, with its index next to it (`<name>.bam.bai` or `<name>.bai`). A BAM of another reference is refused (contig lengths are checked).
-- Output: one JSON (about 154 KB for all four modules), written atomically. On failure: a traceback, exit code 1, no JSON. The default is `--modules gsdf`; `all` means every registered module; a list such as `gsdf,te` works.
+- Output: one JSON (about 154 KB for all four modules), written atomically. It starts with `schema` (2), `sample`, **`bam` (the BAM's file name) and `bam_size_bytes` (its size)**, `panel_version`, `measured` and `samtools`, then one block per module with its definition key. On failure: a traceback, exit code 1, no JSON. The default is `--modules gsdf`; `all` means every registered module; a list such as `gsdf,te` works.
 - Cost on a 17x BAM: gsdf 0.3 s, te 0.5 s (with parasail), lg5inv 1.0 s, bchrom 4.3 s; under 80 MB of memory.
 - From another program, as a subprocess (preferred: no logic is copied):
 ```bash
@@ -35,6 +35,15 @@ measure_panel() {   # measure_panel <SampleID> <bam> <out_dir>
 ```
 - Or from Python: `from sd_genotypes.panel import measure as pm; d = pm.measure(bam, sample, modules='all'); pm.write_json(path, d)`.
 - Where the JSON lives is decided by the calling pipeline; module 03's plan is `Bamfiles/<genome>/<sample>/<sample>.panel.json`. Measuring again overwrites it.
+
+### Which BAM was this measured on? (realigned samples)
+A realigned sample usually keeps its file name (`<sample>.all.bam`) but not its size, so a stored measurement belongs to a BAM only if BOTH `bam` and `bam_size_bytes` match the file. To ask:
+```bash
+python -m sd_genotypes.panel.identity --json <sample>.panel.json --bam <sample>.all.bam    # exit 0 CURRENT, 1 STALE (re-measure), 2 UNKNOWN (no size recorded)
+```
+or in Python `from sd_genotypes.panel import identity as ID; status, reason = ID.same_bam(path_or_dict, bam_path)` with status `'same'`, `'different'` or `'unknown'`. Files written before the identity was stored (schema 1) are still read:
+their `bam` is reduced to the file name and the size is taken from the old `bam_size`; those of streamed samples have no usable size (`unknown`). A name and a size are not a checksum: two different alignments of exactly the same size would not be told apart.
+Every call table (`gsdf_calls.tsv`, `te_calls.tsv`, `lg5_calls.tsv`, `bchrom_scores.tsv`) carries `bam` and `bam_size_bytes`, so a called genotype can always be traced to the BAM it came from.
 
 ## 4. Measure many BAMs that are already on disk
 ```bash
@@ -46,8 +55,8 @@ mkdir -p panel && for b in /path/to/*.all.bam; do s=$(basename $b .all.bam); [ -
 python -m sd_genotypes.retro --remote 'ptm_dropbox:/COS/BioSci/BioSci-McGrath/Apps/CichlidSequencingData/Bamfiles/Mzebra_GT3_NCBI/' \
     --samples-file ids.txt --modules gsdf,te --out-dir retro_panel --jobs 4
 ```
-`ids.txt` has one SampleID per line (no spaces). Only the needed regions are streamed (a read-only `rclone serve http` and one `samtools view` per sample); nothing is written to Dropbox; samples already in
-`--out-dir` are skipped (`--refresh` measures them again); failures go to `retro_failures.tsv` (`no_bam`, `no_index`, `error`) and never stop the others. The JSONs are ordinary panel JSONs. `lg5inv` and
+`ids.txt` has one SampleID per line (no spaces). The JSON records the identity of the SOURCE BAM on Dropbox (name and size, read first with an HTTP HEAD request: a missing BAM is reported as `no_bam` before anything is fetched), not of the temporary regional BAM that is measured. Only the needed regions are streamed (a read-only `rclone serve http` and one `samtools view` per sample); nothing is written to Dropbox; samples already in
+`--out-dir` are skipped whatever BAM they were measured on (after a realignment use `--refresh` or delete the old JSON; `panel.identity` tells which JSONs are stale); failures go to `retro_failures.tsv` (`no_bam`, `no_index`, `error`) and never stop the others. The JSONs are ordinary panel JSONs. `lg5inv` and
 `bchrom` are refused: they read megabases or the whole BAM and are measured on disk.
 
 ## 6. Make the calls (on a folder of `*.panel.json`)

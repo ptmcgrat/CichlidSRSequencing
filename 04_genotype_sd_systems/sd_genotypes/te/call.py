@@ -27,7 +27,7 @@ def call_table(rows, cfg, copies=None):
         raise ValueError(f'sample measured more than once: {dup[:5]}')
     names = [s['name'] for s in d['sites']]; groups = d['groups']; out = []
     for r in rows:
-        row = dict(SampleID=r['SampleID'], definition=r['definition'], backend=r.get('backend', ''))
+        row = dict(SampleID=r['SampleID'], bam=r.get('bam', ''), bam_size_bytes=r.get('bam_size_bytes'), definition=r['definition'], backend=r.get('backend', ''))
         for n in names:
             m = r['sites'].get(n)
             if m is None:

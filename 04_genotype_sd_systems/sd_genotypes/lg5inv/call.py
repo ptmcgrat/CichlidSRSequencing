@@ -51,7 +51,7 @@ def call_table(rows, cfg):
     out = []
     for raw in rows:
         m = metrics(raw, cfg); c = call_one(m, cfg)
-        out.append(dict(SampleID=raw['SampleID'], definition=raw['definition'], **m, n_inverted=c['n_inverted'], genotype=c['genotype'], call_flags=';'.join(c['flags'])))
+        out.append(dict(SampleID=raw['SampleID'], bam=raw.get('bam', ''), bam_size_bytes=raw.get('bam_size_bytes'), definition=raw['definition'], **m, n_inverted=c['n_inverted'], genotype=c['genotype'], call_flags=';'.join(c['flags'])))
     return pd.DataFrame(out)
 
 

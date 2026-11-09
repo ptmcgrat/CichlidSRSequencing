@@ -5,9 +5,9 @@ BAM (bchrom) or megabases (lg5inv) have no regions(cfg) and are refused: they ar
   python -m sd_genotypes.retro --remote 'ptm_dropbox:.../Bamfiles/Mzebra_GT3_NCBI/' --samples S1,S2 (or --samples-file F) --modules gsdf,te --out-dir DIR [--jobs 4] [--keep-bams] [--refresh]
 
 As a library: measure_sample(sample, url, modules, workdir) for one sample (url may also be a local path), run_samples(...) for a list (resumable: existing JSONs are kept unless refresh)."""
-import argparse, importlib, os, re, socket, subprocess, threading, time
+import argparse, importlib, os, re, socket, subprocess, threading, time, urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from sd_genotypes.panel import measure as pm
+from sd_genotypes.panel import identity as ID, measure as pm
 
 
 class DiskOnly(Exception):
@@ -115,15 +115,22 @@ def fetch_region_bam(url, regions, workdir, sample, run, retries=2, sleep=time.s
     return bam, [raw, bam + '.bai']
 
 
-def measure_sample(sample, url, modules, workdir, run=None, cfgs=None, keep_bam=False, retries=2, sleep=time.sleep):
-    """The panel dict of one sample measured from the regions streamed from `url`. Raises FetchError (no_bam, no_index, error) or DiskOnly."""
+def measure_sample(sample, url, modules, workdir, run=None, cfgs=None, keep_bam=False, retries=2, sleep=time.sleep, head=None):
+    """The panel dict of one sample measured from the regions streamed from `url`. Its `bam` and `bam_size_bytes` are those of the SOURCE BAM at `url` (read first, with an HTTP HEAD request; `head(url)`
+    returns a size and is replaced in tests), not of the temporary regional BAM that is measured. Raises FetchError (no_bam, no_index, error) or DiskOnly."""
     from cichlid_common.common_light import sh
     run = run or sh
     regions = module_regions(modules, cfgs)
+    try:
+        ident = ID.source_identity(url, head or ID.http_size)
+    except urllib.error.HTTPError as e:
+        raise FetchError('no_bam' if e.code == 404 else 'error', f'cannot read the size of {url}: HTTP {e.code}') from None
+    except Exception as e:
+        raise FetchError('error', f'cannot read the size of {url}: {str(e)[:120]}') from None
     os.makedirs(workdir, exist_ok=True)
     bam, tmp = fetch_region_bam(url, regions, workdir, sample, run, retries, sleep)
     try:
-        res = pm.measure(bam, sample, modules, run=run, cfgs=cfgs)
+        res = pm.measure(bam, sample, modules, run=run, cfgs=cfgs, identity=ident)
         res['source'] = url; res['retro_regions'] = regions
         return res
     finally:
@@ -132,8 +139,11 @@ def measure_sample(sample, url, modules, workdir, run=None, cfgs=None, keep_bam=
                 os.remove(p)
 
 
-def run_samples(samples, remote, modules, out_dir, jobs=4, workdir=None, run=None, cfgs=None, keep_bams=False, refresh=False, server_factory=None, log=print, sleep=time.sleep):
+def run_samples(samples, remote, modules, out_dir, jobs=4, workdir=None, run=None, cfgs=None, keep_bams=False, refresh=False, server_factory=None, log=print, sleep=time.sleep, head=None):
     """Measure every sample not yet in out_dir (or all with refresh) and write <sample>.panel.json; failures go to retro_failures.tsv and never stop the others. Returns {'done', 'skipped', 'failed'}."""
+    bad = [x for x in samples if not x or re.search(r'\s', x)]
+    if bad:
+        raise ValueError(f'sample names must not contain whitespace (tabs turned into spaces when pasting?): {bad[:3]}')
     os.makedirs(out_dir, exist_ok=True); workdir = workdir or os.path.join(out_dir, 'region_bams')
     module_regions(modules, cfgs)                                                         # refuse disk-only modules before any network step
     todo = [s for s in samples if refresh or not os.path.exists(os.path.join(out_dir, f'{s}.panel.json'))]
@@ -143,7 +153,7 @@ def run_samples(samples, remote, modules, out_dir, jobs=4, workdir=None, run=Non
         factory = server_factory or (lambda: HttpServer(remote))
         with factory() as base:
             def job(s):
-                return measure_sample(s, f'{base}/{s}/{s}.all.bam', modules, workdir, run, cfgs, keep_bams, sleep=sleep)
+                return measure_sample(s, f'{base}/{s}/{s}.all.bam', modules, workdir, run, cfgs, keep_bams, sleep=sleep, head=head)
             with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
                 futs = {ex.submit(job, s): s for s in todo}
                 for i, f in enumerate(as_completed(futs), 1):

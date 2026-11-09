@@ -48,7 +48,7 @@ def call_table(rows, cfg):
         if len(raw['block_depth']) != len(blocks):
             raise ValueError(f"{raw['SampleID']}: {len(raw['block_depth'])} block depths, the definition has {len(blocks)} blocks")
         m = metrics(raw, cfg, blocks); c = call_one(m, cfg)
-        out.append(dict(SampleID=raw['SampleID'], definition=raw['definition'], **m, bchrom=c['status'], call_flags=';'.join(c['flags'])))
+        out.append(dict(SampleID=raw['SampleID'], bam=raw.get('bam', ''), bam_size_bytes=raw.get('bam_size_bytes'), definition=raw['definition'], **m, bchrom=c['status'], call_flags=';'.join(c['flags'])))
     return pd.DataFrame(out)
 
 

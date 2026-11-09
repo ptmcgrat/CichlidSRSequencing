@@ -1,6 +1,6 @@
 """Retrospective (streamed) measurement and the parity check with sexloci, on fake samtools: region merging, disk-only modules refused, fetch failures classified, a resumable run whose JSONs feed the
 usual call steps, and the comparison tables."""
-import os, sys, tempfile, threading, types, unittest
+import os, sys, tempfile, threading, types, unittest, urllib.error
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np
 import pandas as pd
@@ -14,6 +14,13 @@ import test_te_panel as T
 GCFG = GS.cfg_of(); LG = GCFG['region']['end'] - GCFG['region']['start']
 RATIO = {'S1': 0.530, 'S2': 0.798, 'S3': 0.530, 'S4': 0.798}                               # planted depth ratios (2 and 3 copies)
 FLAKY = {'n': 0}
+
+
+def fake_head(url):
+    """The size of the source BAM (an HTTP HEAD request in real use); a sample with no BAM answers 404."""
+    if '/S3/' in url:
+        raise urllib.error.HTTPError(url, 404, 'Not Found', {}, None)
+    return 7000 + len(url)
 
 
 class FakeServer:
@@ -78,44 +85,51 @@ class TestRegions(unittest.TestCase):
 class TestFetch(unittest.TestCase):
     def test_commands_and_cleanup(self):
         log = []; d = tempfile.mkdtemp()
-        res = R.measure_sample('S1', 'http://fake/S1/S1.all.bam', ['gsdf'], d, run=fake_run(log))
+        res = R.measure_sample('S1', 'http://fake/S1/S1.all.bam', ['gsdf'], d, run=fake_run(log), head=fake_head)
         v = [c for c in log if c[:3] == ['samtools', 'view', '-b']][0]
         self.assertEqual((v[v.index('-o') + 2], v[v.index('-o') + 3:]), ('http://fake/S1/S1.all.bam', ['NC_135173.1:50700001-50830000']))
         self.assertEqual([c[1] for c in log if c[1] in ('sort', 'index')], ['sort', 'index'])
         self.assertEqual((res['source'], res['retro_regions'], sorted(res['modules'])), ('http://fake/S1/S1.all.bam', ['NC_135173.1:50700001-50830000'], ['gsdf']))
         self.assertEqual(os.listdir(d), [])                                                  # the small BAM, its index and the raw file are removed
-        R.measure_sample('S1', 'http://fake/S1/S1.all.bam', ['gsdf'], d, run=fake_run(), keep_bam=True); self.assertIn('S1.regions.bam', os.listdir(d))
+        R.measure_sample('S1', 'http://fake/S1/S1.all.bam', ['gsdf'], d, run=fake_run(), keep_bam=True, head=fake_head); self.assertIn('S1.regions.bam', os.listdir(d))
 
     def test_failures_are_classified_and_only_transient_ones_are_retried(self):
         log = []; slept = []
         with self.assertRaises(R.FetchError) as e:
-            R.measure_sample('S3', 'http://fake/S3/S3.all.bam', ['gsdf'], tempfile.mkdtemp(), run=fake_run(log), sleep=slept.append)
-        self.assertEqual((e.exception.kind, sum(c[:3] == ['samtools', 'view', '-b'] for c in log), slept), ('no_bam', 1, []))
+            R.measure_sample('S3', 'http://fake/S3/S3.all.bam', ['gsdf'], tempfile.mkdtemp(), run=fake_run(log), sleep=slept.append, head=fake_head)
+        self.assertEqual((e.exception.kind, sum(c[:3] == ['samtools', 'view', '-b'] for c in log), slept), ('no_bam', 0, []))      # a missing BAM answers 404 at the size lookup: nothing is fetched, nothing retried
         FLAKY['n'] = 0
-        res = R.measure_sample('S4', 'http://fake/S4/S4.all.bam', ['gsdf'], tempfile.mkdtemp(), run=fake_run(), sleep=slept.append)      # two transient failures, then it works
+        res = R.measure_sample('S4', 'http://fake/S4/S4.all.bam', ['gsdf'], tempfile.mkdtemp(), run=fake_run(), sleep=slept.append, head=fake_head)      # two transient failures, then it works
         self.assertEqual((slept, 'gsdf' in res['modules']), ([2, 4], True))
         FLAKY['n'] = -10
         with self.assertRaises(R.FetchError) as e:
-            R.measure_sample('S4', 'http://fake/S4/S4.all.bam', ['gsdf'], tempfile.mkdtemp(), run=fake_run(), sleep=lambda s: None)
+            R.measure_sample('S4', 'http://fake/S4/S4.all.bam', ['gsdf'], tempfile.mkdtemp(), run=fake_run(), sleep=lambda s: None, head=fake_head)
         self.assertEqual(e.exception.kind, 'error'); FLAKY['n'] = 0
+
+    def test_sample_names_with_whitespace_are_refused_before_any_network_step(self):
+        log = []
+        for bad in (['SAMEA1904323 unknown'], ['S1', ''], ['S1\tgroup']):
+            with self.assertRaises(ValueError):
+                R.run_samples(bad, 'remote:', ['gsdf'], tempfile.mkdtemp(), run=fake_run(log), server_factory=lambda: FakeServer(), head=fake_head)
+        self.assertEqual(log, [])
 
     def test_a_disk_only_module_is_refused_before_any_network_step(self):
         log = []
         with self.assertRaises(R.DiskOnly):
-            R.run_samples(['S1'], 'remote:', ['bchrom'], tempfile.mkdtemp(), run=fake_run(log), server_factory=lambda: FakeServer())
+            R.run_samples(['S1'], 'remote:', ['bchrom'], tempfile.mkdtemp(), run=fake_run(log), server_factory=lambda: FakeServer(), head=fake_head)
         self.assertEqual(log, [])
 
 
 class TestRunSamples(unittest.TestCase):
     def test_a_resumable_run_whose_json_feeds_the_gsdf_call(self):
         out = tempfile.mkdtemp(); FLAKY['n'] = 0; msgs = []
-        r = R.run_samples(['S1', 'S2', 'S3'], 'remote:', ['gsdf'], out, jobs=2, run=fake_run(), server_factory=lambda: FakeServer(), log=msgs.append, sleep=lambda s: None)
+        r = R.run_samples(['S1', 'S2', 'S3'], 'remote:', ['gsdf'], out, jobs=2, run=fake_run(), server_factory=lambda: FakeServer(), log=msgs.append, sleep=lambda s: None, head=fake_head)
         self.assertEqual((sorted(r['done']), sorted(r['failed']), r['skipped']), (['S1', 'S2'], ['S3'], []))
         self.assertTrue(os.path.exists(out + '/S1.panel.json') and not os.path.exists(out + '/S3.panel.json'))
         self.assertIn('no_bam', open(out + '/retro_failures.tsv').read())
-        r2 = R.run_samples(['S1', 'S2', 'S3'], 'remote:', ['gsdf'], out, run=fake_run(), server_factory=lambda: FakeServer(), log=msgs.append, sleep=lambda s: None)
+        r2 = R.run_samples(['S1', 'S2', 'S3'], 'remote:', ['gsdf'], out, run=fake_run(), server_factory=lambda: FakeServer(), log=msgs.append, sleep=lambda s: None, head=fake_head)
         self.assertEqual((r2['skipped'], sorted(r2['failed'])), (['S1', 'S2'], ['S3']))        # finished samples are not fetched again
-        r3 = R.run_samples(['S1'], 'remote:', ['gsdf'], out, run=fake_run(), server_factory=lambda: FakeServer(), refresh=True, log=msgs.append)
+        r3 = R.run_samples(['S1'], 'remote:', ['gsdf'], out, run=fake_run(), server_factory=lambda: FakeServer(), refresh=True, log=msgs.append, head=fake_head)
         self.assertEqual(r3['done'], ['S1'])
         calls_dir = tempfile.mkdtemp(); GS.call_step(out, out_dir=calls_dir)                  # the retro JSONs are ordinary panel JSONs
         c = pd.read_csv(calls_dir + '/gsdf_calls.tsv', sep='\t', keep_default_na=False, na_values=['']).set_index('SampleID')

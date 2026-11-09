@@ -40,7 +40,7 @@ def call_step(measurements, out_dir=None, proj=None, cfg=None):
     if dup:
         raise SystemExit(f'sample measured more than once in {measurements}: {dup[:5]}')
     calls = C.call_table(rows, cfg)
-    calls = calls.merge(pd.DataFrame([dict(SampleID=r['SampleID'], bam_size=r['bam_size'], measured=r['measured'], panel_version=r['panel_version']) for r in rows]), on='SampleID')
+    calls = calls.merge(pd.DataFrame([dict(SampleID=r['SampleID'], bam=r['bam'], bam_size_bytes=r['bam_size_bytes'], measured=r['measured'], panel_version=r['panel_version']) for r in rows]), on='SampleID')
     clus = C.cluster_check(calls, cfg)
     fl = calls['call_flags'].str.split(';').explode(); fl = fl[fl != '']
     text = [f'gsdf copy number: {len(calls)} samples measured ({len(skipped)} panel files without a gsdf measurement skipped)',
