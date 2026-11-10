@@ -1,15 +1,14 @@
 # CichlidSRSequencing: specification
 
-Status: v5 (2026-11-09). Owner: McGrath lab. This file lives at the repository root and is the source of truth for what each part of the repository is for, what it consumes, what it produces, and when it is done. It extends v4 (2026-11-08), which merged the downloads, the alignment redesign and the SampleDatabase of v3 with the genotyping version. The log of decisions is `docs/decisions.md` (section 11).
+Status: v7 (2026-11-10). Owner: McGrath lab. This file lives at the repository root and is the source of truth for what each part of the repository is for, what it consumes, what it produces, and when it is done. It extends v6 (2026-11-10). The log of decisions is `docs/decisions.md` (section 11).
 Where a statement is not yet verified it is marked **(unverified)**; where a decision is still to be made it is marked **(open)**.
 
-## 0. What changed since v4
+## 0. What changed since v6
 
-* **Module 03 is built and validated on real data.** On one sample the old pipeline had aligned, the new pipeline gave `all.bam` and the chimeric BAM identical to the old ones, equal statistics and a current panel JSON, in 0.5 hours. Its first real batch (the 8 unaligned Deep_Benthic samples) is running on yellowhead; its upload, ledger write and cleanup are not yet exercised (section 6, module 03; decisions 46 to 52).
-* **Decisions of 2026-11-09 for module 03:** no quality thresholds in the ledger; reruns realign everything together, replace the BAMs and the row, and delete the stale GVCF and old splits; disjoint selections instead of claims; a pinned environment; three known defects to fix before the next batch.
-* **The PCA basis panel is proposed** (module 04): a second method for the inversion states of LG2, 9, 10, 11, 13 and 20, and the check of a sample's ecogroup, built from the large polymorphism file of the Malinsky species. Nothing is built; the first step is to describe the file and run a pilot on one inversion (decision 54).
-* **Three samples flagged `Error` or `Exclude`** were looked at (section 7): their species agree in SRA, Blumer and the sheet, and they cluster with their species in Blumer's tree (decision 53).
-* **The decision log has entries 46 to 54.**
+* **Calling for inbred and farmed stock** (decisions 63 to 68), after reading the Blumer supplement: the lab lines, vendor stocks and BC-cross parents are inbred, so cohorts are called with **no shared Hardy-Weinberg prior** (each sample its own group), a **run-of-homozygosity track** per fish, **genotype-level** heterozygote filtering with no population filters on sites, a **GT3 accessibility mask**, **relatedness and inbreeding checks** before a cohort reaches module 06, and a **brood benchmark** (Mendelian error, false and missed heterozygotes) that chooses the settings.
+* **Inversion genotyping by PCA does not follow Blumer's three-step method** (decision 69); decision 54's PCA basis panel stays the plan.
+* **A corrected sentence:** Blumer's inbreeding-coefficient filter ("below 0.2" in the project's text copy) probably lost a minus sign; it is marked unverified.
+* **The decision log has entries 63 to 69.**
 
 ---
 
@@ -267,7 +266,7 @@ One sample the old pipeline had aligned, `SAMEA1904833` (one run, 49,908,521 rec
 The local folder of the sample still held the old pipeline's files (per-contig GVCF fragments, `unmapped.bam`): a realigned sample must not upload them (decision 48).
 
 
-#### Decided (2026-11-07 to 2026-11-09)
+#### Decided (2026-11-07 to 2026-11-10)
 
 1. **No GVCF stage.** v6 has none; the old script made them. Downstream code builds them on demand: `callset.py` and the BC code call `ensure_gvcf` (a cloud GVCF if there is one, HaplotypeCaller from the BAM otherwise; `paper.yaml`: "only used if a GVCF is missing"). The yellowhead batch was stopped in its GVCF stage, uploaded without GVCFs and registered (decision 35).
 2. **The ledger has 22 columns** (confirmed 2026-11-09; decision 37; `alignment_db.LEDGER_COLUMNS`): SampleID, GenomeVersion, Species, RunIDs, NRuns, InputFingerprint, Coverage, UsableCoverage, TotalReads, MappedFraction, DuplicationRate, BamSize, Instrument, ReadLength, QCWarnings, PanelStatus, AlignedOn, Machine, PipelineVersion and the three tool versions. About 20 further statistics stay in `<sample>.qc.json`. `DuplicationRate` is Picard's PERCENT_DUPLICATION pooled over libraries, not the old `DuplicationReads` (the `.duplication.bam` split). `RunIDs` keeps the double-comma separator of the existing rows. `Species` is a copy made at alignment time and is **not** refreshed automatically (the audit flags a mismatch). The six split-read fractions are gone. **No quality thresholds** (coverage, mapping, duplication): the applications need different amounts of data, so `QCWarnings` flags pipeline faults only (decision 47).
@@ -278,19 +277,19 @@ The local folder of the sample still held the old pipeline's files (per-contig G
 7. **Splits (decision 41).** Only the chimeric BAM is kept. The old splits and GVCFs of the existing sample folders are never used: they are deleted when a sample is realigned (item 3) and cleaned from the rest, together with a backfill of the new slices and the corrected duplication rates, by a separate tool (**(open)**).
 8. **Slices (decision 42).** LG2, LG10 and LG13 as whole chromosomes (`slice_regions/Mzebra_GT3_NCBI.tsv`; `END` is the chromosome's length from the reference index; checked before a run starts); LG9, LG11 and LG20 are not sliced. **(open: whole chromosomes or 01's windows.)**
 9. **One checkout, one environment (decision 43).** `align` (from `03_align_pipeline/env.yml`) pins minimap2 2.31, gatk4 4.6.2.0, pysam 0.24.1 and samtools 1.24, the versions of yellowhead's `genomics`, so that a cohort is aligned with one set of tools. Git lives in `genomics` only, and is needed only to clone and pull; the pipeline does not need it.
-10. **The pilot.** The first real batch is the 8 unaligned `Deep_Benthic` samples (148 GB of uBAMs; IDs from the Blumer and Malinsky data), started on yellowhead on 2026-11-09 with `--samples-in-flight 4 --disk-reserve-factor 5.5`. The mbuna cohort follows: it calibrates the LG5 and B thresholds of the panel. Different machines get disjoint selections (decision 51).
+10. **The first batches (2026-11-09 and 2026-11-10).** The 8 unaligned `Deep_Benthic` samples (148 GB of uBAMs): **8 of 8 complete in 6.1 h** on yellowhead at four samples in flight, no failures. The 23 unaligned `Diplotaxodon` samples (239 GB): **23 of 23 in 9.3 h**, every `PanelStatus` ok and no QC warning, which confirms the unmapped-reads fix on real data (the 8 Deep_Benthic rows were written before it; the four that were read carry the false warning). The sheet held 1,304 rows after the first batch. The Dropbox folders of the first four Deep_Benthic samples hold exactly the 16 expected files, with sizes equal to the logged uploads, and the local folders of all 8 were deleted **(unverified: the Dropbox listings of the other samples)**. Measured, in the two batches: alignment 5.5 and 6.1 min per GB of uBAM at four in flight (2.7 for the single validation sample), duplicate marking 1.8 and 1.9 min per GB, upload 7 to 12 min per sample at 27 to 28 MB/s, download 19 to 23 MB/s, peak 78 of 88 cores and 107 of 1,098 GB RAM, local disk 3.2x the uBAM on average and 3.6x to 3.7x at the sampled peak. **Planning rate: about 25 GB of uBAM per hour per machine at four in flight (24.3 and 25.7 measured), so hours are GB divided by 25** (decision 55, which corrects an earlier 31). Four alignments at once slowed each alignment about 2x, so the cores that sit idle belong to the single-threaded duplicate-marking stage, and more samples in flight help only by overlapping it. The remaining ecogroups (Utaka, Shallow_Benthic, AC, Rhamphochromis: 233 samples, 2,340 GB) are cut into four chunks balanced by uBAM size, yellowhead taking chunks 1 and 3 and utaka chunks 2 and 4 (decision 56). The mbuna cohort follows and calibrates the LG5 and B thresholds of the panel.
 
-**Known defects, to fix before the next batch:** the unmapped-reads check (compare Picard's `UNMAPPED_READS` with `reads unmapped`, tested on the numbers above); the default disk reservation (3.5x, observed 4.6x: 5.5x); uploading only the files the pipeline wrote.
+**Known defects.** Fixed and confirmed on real data: the unmapped-reads check, and the disk reservation (now 5.5x). Open: uploading only the files the pipeline wrote, which matters for reruns (item 3 above).
 
 **Work.**
-1. **Done:** the port, its tests, the validation on one sample (above).
-2. **Running:** the Deep_Benthic batch on yellowhead; it exercises the upload, the ledger write, the cleanup and four samples at once. Its result is not yet known.
-3. The three fixes above; then the rerun logic of item 3, with the cleanup of stale files.
+1. **Done:** the port, its tests, the validation on one sample on each of two machines, and the first two batches (above).
+2. **Running:** the four chunks of the remaining ecogroups on yellowhead and utaka (233 samples, 2,340 GB; about 47 h on two machines at 25 GB per hour per machine, **unverified for utaka**).
+3. The rerun logic of item 3, with the cleanup of stale files and clearing of the false warning from the 8 Deep_Benthic rows.
 4. The journal for a Google outage.
 5. The cleanup and backfill tool for the existing sample folders (item 7), and the port of `audit_alignments.py` and `register_alignments.py` to `reorg_spec` with the audit's new list of usual files.
-6. After the first batches: the mbuna cohort, with every BAM measured while it is local; retire the old script.
+6. After the ecogroups: the mbuna cohort (about 477 samples; at 25 GB per hour about 8 days on one machine if the uBAMs average 10 GB, **an assumption**), with every BAM measured while it is local; retire the old script.
 
-**Done when.** One sample gives `all.bam` and a chimeric BAM identical to the old pipeline's (**met**); a batch runs on one machine without intervention, uploading, writing its rows and cleaning up (the Deep_Benthic batch); a killed run resumes without redoing finished samples; every sample has a ledger row and a panel JSON, or a recorded reason for the missing JSON; a sample with a new run is selected for rerun, replaced in place and its stale files deleted, and one without is not; a Google outage delays the ledger but loses nothing; tests pass offline.
+**Done when.** One sample gives `all.bam` and a chimeric BAM identical to the old pipeline's, on each machine (**met**: yellowhead and utaka); a batch runs on one machine without intervention, uploading, writing its rows and cleaning up (**met**: Deep_Benthic and Diplotaxodon); a killed run resumes without redoing finished samples; every sample has a ledger row and a panel JSON, or a recorded reason for the missing JSON; a sample with a new run is selected for rerun, replaced in place and its stale files deleted, and one without is not; a Google outage delays the ledger but loses nothing; tests pass offline.
 
 ### 04_genotype_sd_systems: gsdf duplication, transposon insertions, inversions, B chromosome
 
@@ -314,7 +313,7 @@ The local folder of the sample still held the old pipeline's files (per-contig G
 | 6 | inversions on LG2, 9, 10, 11, 13 and 20 | breakpoint-read evidence at the windows from 01 | disk; retro from 03's stored slices of LG2, LG10 and LG13 (LG9, LG11 and LG20 on disk only) | 01's windows | **deferred until the mbuna pilot is complete** |
 | 7 | ecogroup placement, and a second method for 6 (proposed) | reference and alternative read counts at a basis set of common SNPs, projected onto fixed principal components | disk (retro to be examined) | `sd_genotypes/pca/` and `basis/<version>/` (proposed) | **proposed 2026-11-09; nothing built** |
 
-The pilot starts with the 8 unaligned Deep_Benthic samples (running since 2026-11-09) and continues with the mbuna cohort. For the pilot, 4 and 5 and 1 to 3 are measured while the BAM is local; 6 is not started before it is complete. 7 is proposed (below).
+The first batches are done (Deep_Benthic, Diplotaxodon); the remaining ecogroups are running, and the mbuna cohort follows. For the pilot, 4 and 5 and 1 to 3 are measured while the BAM is local; 6 is not started before it is complete. 7 is proposed (below).
 
 **Current state, per goal.**
 - *1. gsdf duplication* (`gsdf`, `panel`; tests with fakes): raw 5 kb bins and junction coverage stored, copy number called with the calibration of the MC pedigree (0.530 and 0.268). Aligned with sexloci 0.1.26, the code that the calibration and the existing `gsdf number` column came from: a 5 kb bin belongs to a window when it *starts* inside it (unit 7 bins, flanks 8 + 4; an earlier version of 04 took only bins entirely inside); the junction ratio divides by the first flank only; the reported number is the rounded estimate clipped to 1-6 and named CNn outside -/-, dup/-, dup/dup; a call is flagged only when the unrounded estimate is below 0.6 or above 5.4 (the 2-4 range of an earlier draft was an assumption, and wrong: five copies exist in the sheet). The junction cross-check is kept in a separate `check_flags` column and does not change whether a call counts as unflagged. `fit_anchors` and a theory calibration are available for another aligner. The calibration was made on **minimap2 -x sr** alignments (confirmed by the lab; the `bwa` in `VARIANTS.md` is wrong and should be corrected there). In sexloci: MC family 51 samples, all 46 unflagged calls right; agreement with Munby et al. Table S5 98.9% of 629 fish. **Real-data results (D05, samples streamed with `retro`): in the MC family 46 of 46 unflagged calls equal the sheet's `gsdf number` (females 25 of 25 at 2 copies, males 21 of 21 at 3 copies, classed male-specific); the five MC samples flagged here (MC_049, MC_060, MC_061, MC_075, MC_092) are among those the sheet leaves blank. Depth ratios do not overlap: 2 copies median 0.535 (0.463-0.584), 3 copies 0.796 (0.752-0.885). The junction cross-check expected 0.5 and 1.0 for 3 and 4 copies and is wrong in magnitude: the unique-read junction ratio is at most 0.054 in the 25 two-copy samples and has median 0.243 (0 to 0.442, zero in at least 10%) in the 21 three-copy samples, at a median flank depth of only 5.8x (minimum 2.5x), so the old rule would flag most true three-copy males. It only ever set `check_flags`, never the call, and has been replaced (decisions.md 22) by a one-sided rule: a unique-read junction ratio above 0.15 in a sample called with two copies (all 25 two-copy MC samples were at or below 0.054) is reported as `junction_in_two_copy`; a missing junction in a sample called with three or more copies is not checked until well-covered samples are measured, because true three-copy samples are often at 0 at 5-6x. SAMEA117806076 is called 4 copies (ratio 0.99, estimate 3.7) with no junction reads at about 18x; VARIANTS.md says three copies (source not established; the sheet has no gsdf value for the Munby fish). (unverified: the 98% agreement over all 910 sheet values.)**
@@ -371,35 +370,100 @@ The pilot starts with the 8 unaligned Deep_Benthic samples (running since 2026-1
 **Reply from 04 (2026-11-09).** (1) Done: the panel JSON (schema 2) records `bam` (the file name) and `bam_size_bytes`; for samples measured with `retro` they are those of the source BAM on Dropbox; `python -m sd_genotypes.panel.identity --json J --bam B` exits 0 (current), 1 (stale: re-measure) or 2 (no size recorded); schema 1 files are still read (decision 45). 03 decides what to do with a stale measurement; the measurements already made by `retro` are schema 1 and report as unknown. (2) Confirmed: `panel measure` exits non-zero and writes no JSON if a module fails, and the JSON is written atomically. (3) The panel needs only samtools and Python with numpy, pandas and pyyaml (`envs/panel.yml`, environment `sdpanel`) and runs from a checkout after `source tools/env.sh`; `sd_genotypes` is not packaged for pip.
 
 
-### 05_variant_calling: VCFs for families and species
+### 05_variant_calling: VCFs for cohorts of 4 to 100 fish
 
-**Goal.** Reproducible VCFs for the cohorts the SD analyses need: broods and families with parents, and groups of related species where the sex system is unknown.
+**Goal.** Reproducible, annotated VCFs for the cohorts the SD analyses need: broods and families with their parents, sets of sexed fish of one species, and the parents of the BC cross. One cohort is one call (decision 60); related-species groups are not called jointly and split.
 
-**Inputs.** BAMs and slices (03), cohort definitions from the sample table (species, brood, parents, sex, ecogroup), a regions list, the reference.
+**Inputs.** The AlignmentDatabase (one BAM per sample, its genome, its coverage) and the BAMs on Dropbox (03); cohort definitions resolved from the SampleDatabase (species, brood, parents, sex, ecogroup, category); the reference.
 
-**Outputs.** One bgzipped, tabix-indexed VCF per cohort with a manifest (samples, caller, version, filters, regions, sites and their attrition).
+**Outputs.** Per cohort, on Dropbox in `Outputs/PedigreeVCFs/` (the folder `sexloci run-folder` reads): `<cohort>.vcf.gz` and `.tbi` (all variants, left-aligned and normalised, annotated, FILTER labelled but no site removed); `<cohort>.snps.vcf.gz` (biallelic SNPs on chromosome-scale contigs: what 06 reads); `<cohort>.manifest.json` (samples with the BAM each came from, caller and tool versions, every parameter, regions, sites per filter, the cohort check's result, date, machine).
 
-**Interface.** `variant_calling cohort build <name>`, `cohort list`, `qc <name>`.
+**Interface.** `variant_calling cohort check <name>` (read-only: the rules below, no calling); `cohort build <name>`; `cohort list`; `qc <name>`. Today: `callset build` (GATK) in `YH_SD_Paper`.
 
-**Current state.** `callset build` in `YH_SD_Paper` (callsets `bc_family`, `yh_broods`, `mc_broods`): per-sample GVCFs (cloud or HaplotypeCaller from the BAM through `ensure_gvcf`), `GenomicsDBImport`, `GenotypeGVCFs`. HaplotypeCaller is no longer part of alignment (module 03). **(open: the caller, joint versus per-family calling, region-restricted versus whole genome, the filter set, and how unknown species are grouped.)**
+**Cohort kinds and their rules (decision 61).** A cohort names its `kind`, and the kind decides the check that runs before any calling, because one call costs hours. The rules for `family` and `sex_set` are those of sexloci's preflight (its README), applied here so that 06 never receives a VCF it would block; sexloci is not changed and checks again when it reads the VCF. The `bc_parents` kind exists because the BC cross is exactly what sexloci refuses (more than one species in a VCF): its VCF is for module 07, not 06.
 
-**Work.** The cohort file format; a caller benchmarked on one brood against the existing VCFs; a cohort builder that needs no manual sample lists; QC (missingness, depth, Ti/Tv, Mendelian errors); the manifest.
+| kind | what it is | BLOCK (no call is started) | WARN |
+|---|---|---|---|
+| `family` | a brood with its parents, one species | every sample is in the sheet and has an alignment to the genome; Sex exactly `M` or `F` for every sample, parents included; one species; at least 3 offspring of each sex; each listed parent (`Parents` = `sire,dam`) is in the cohort | offspring below 2x or parents below 10x; fewer than 6 per sex; fewer than 12 offspring |
+| `sex_set` | 4 to 100 sexed fish of one species | as `family`, without the parent rules | coverage below 5x (below 3x is unusable); fewer than 6 per sex; sex confounded with project, brood or lab-reared |
+| `bc_parents` | the parents and F1s that define the informative sites of the BC cross (two species; the 7 samples of `bc_family`) | every sample is in the sheet and has an alignment to the genome; the pedigree is complete inside the cohort (each F1's parents are in it); coverage high enough to call genotypes **(open: threshold)** | Sex unknown; coverage |
 
-**Done when.** The BC and brood cohorts rebuilt from the sheet reproduce the existing VCFs' calls at the shared sites (stated concordance); every cohort VCF has a manifest; Mendelian-error rates are reported.
+The check reads the sheet and the ledger's `Coverage` and `UsableCoverage`, so it needs no BAM; relatedness and inbreeding checks that need genotypes come after calling, in `qc` (decision 67). **(open: whether 05 and 06 share one rules table or keep two copies.)**
 
-### 06_sd_region_discovery: SD regions in many species
+**The caller (decision 59).** The default is `bcftools mpileup` and `bcftools call -m`, the samtools suite's caller, following Blumer et al. 2025 (their supplement; the code they cite is the Zenodo release of `bef22/vcf_snakemake`, Fischer and Blumer 2024). Blumer's parameters for the main callset, taken as the defaults:
 
-**Goal.** For each species or cohort, the regions associated with sex, with the statistics and the evidence that identifies the kind of system (XY or ZW, inversion, dosage).
+* genotype likelihoods from primary mapped reads that are not duplicates and have no QC-fail flag, with minimum base quality 20 and mapping quality 13;
+* the multiallelic model (`call -m`) with a heterozygosity prior of 0.001 (`-P`) and a Hardy-Weinberg prior (`-G`) within groups, but not across them (Blumer: within the major clades, for wild-caught fish). **For lab and farm stock the default is no shared Hardy-Weinberg prior: each sample its own group** (decision 63);
+* candidate indels need at least 2 gapped reads and at least 5% of the reads at the site (`mpileup -p -m 2 -F 0.05`);
+* `bcftools norm` (left-alignment), then `bcftools fill-tags` (excess heterozygosity, number of samples with data).
 
-**Inputs.** VCFs (05), the sample table, 04's calls, 01's landmarks.
+Blumer used BCFtools 1.12 for the main callset and 1.14 for a second one. **(open: the environment's version, which keeps the toolset single, or 1.12 for comparability.)** GATK (`callset build`, Kumar's filters) stays as `caller: gatk` and is no longer the default.
 
-**Outputs.** Candidate regions per cohort (BED and statistics: association, Fst, heterozygosity by sex, male/female coverage ratio, parent-offspring inheritance) with plots, and a species-by-region summary.
+*Filters.* The cohort VCF is raw plus annotation: FILTER labels are set and no site is removed, so each consumer filters for itself. Blumer's population-scale filters are the reference list: accessibility masks from a QC subset (depth outside the 95% interpercentile range, RMS mapping quality below 35, MQ0 and BQ0 fractions, RMS base quality below 20); in the second callset variants within 10 bp of another, MQ below 50, a mapping-quality strand bias (Mann-Whitney p below 0.001), more than 10% of reads with MQ 0, an inbreeding coefficient below 0.2 (as printed in the project's text copy of the supplement: a minus sign may have been lost, which would make this a filter on excess heterozygosity, **unverified: check the original**), more than 20% missing genotypes, depth more than 1.5 SD above the mean, and heterozygotes with biased allele depth. **For sex mapping the inbreeding-coefficient, excess-heterozygosity and low-depth filters must not be applied**: sexloci omits them on purpose, because in an XY region every male is heterozygous and X or Y sequence has low depth in one sex. The annotations are written and 06 decides.
 
-**Interface.** `sd_regions scan <cohort>`, `sd_regions summarize`.
+*What this means for 06.* sexloci's default hard filters use GATK's QD, FS, SOR, MQRankSum and ReadPosRankSum; on a bcftools VCF a filter whose INFO field is absent is skipped, leaving QUAL below 30, MQ below 50 and the upper depth quantile **(unverified: which INFO fields the pinned bcftools writes)**. A 06 configuration for bcftools VCFs has to be written and tested on a brood.
 
-**Current state.** `parental_sex_region` and `sex_association fisher` exist and were tested on synthetic data; not run on real data. **(open: species list, minimum sample sizes, multiple-testing and permutation scheme.)** The SampleDatabase now carries Sex for the Blumer samples (section 7).
+**Calling for inbred and farmed stock (decisions 63 to 68).** Blumer's settings were made for wild-caught fish. The YH and MC lines, the vendor stocks and the parents of the BC cross are inbred and carry long runs of homozygosity (ROH), which changes the calling in six ways.
 
-**Done when.** It recovers the known systems (the chr10 Y inversion in the YH lineage, the gsdf dosage pattern in *M. conophoros*, the LG5 locus in the orange-blotch species) as positive controls and reports nothing in species known to have none.
+1. *No shared Hardy-Weinberg prior (decision 63).* The prior assumes random mating, so in inbred fish it expects far more heterozygotes than exist and favours false heterozygous calls; the worst case is the `bc_parents` cohort, where two lines and their F1s (heterozygous at every fixed difference) would share one group. The default for lab and farm stock is **each sample its own group** (`bcftools call -G -`; **unverified: check the pinned version's `bcftools call --help`**). Blumer's clade groups remain an option for cohorts of wild-caught fish.
+2. *A run-of-homozygosity track per fish (decision 64).* Heterozygous calls inside a ROH are enriched for collapsed paralogs and mapping errors. 05 finds each fish's ROH from the density of heterozygous sites in windows (Blumer's windowed heterozygosity used 1 Mbp windows with a 10 kb step; **open: the window size and threshold for lines whose runs are shorter or longer**), with `bcftools roh` as the alternative to compare **(unverified)**. The VCF annotates each heterozygous genotype inside a ROH and removes none; the manifest reports each fish's ROH fraction (F_ROH).
+3. *Genotype-level filtering, no site-level population filters (decision 65).* A heterozygous genotype is set to missing when its allele balance is biased (Blumer's second callset used a binomial test at PHRED 20 on heterozygous sites) or its depth is below a heterozygote minimum **(open: the values)**. Inbreeding-coefficient, excess-heterozygosity, Hardy-Weinberg and low-depth site filters are not used, because their null (random mating) is false for these fish and because they remove sex-linked sites. Heterozygosity is annotated per sex instead (the fraction heterozygous among called males and among called females): a paralog artifact is heterozygous in both sexes, a sex-linked region in one.
+4. *An accessibility mask for GT3, built once (decision 66).* Following Blumer's QC-subset approach: from the deepest samples across ecogroups, flag sites whose depth is outside the 95% interpercentile range, whose RMS mapping quality is below 35, whose MQ0 or BQ0 fraction exceeds twice the genome average, whose RMS base quality is below 20, or that have no reads; and flag sites whose VCF depth is outside the median plus or minus 25%. It is applied as FILTER labels to every cohort, because collapsed and repetitive regions are where inbred fish show false heterozygotes. **(open: built by 05 or 01, and from which samples; unverified: the cost.)**
+5. *Relatedness and inbreeding checks (decision 67).* The cohort check uses the sheet's brood and parent columns to warn when a `sex_set` pool contains siblings or parent and offspring; after calling, `qc` computes genotype-based kinship and F_ROH per sample, and warns when **F_ROH differs between the sexes**, because male-female heterozygosity then differs for reasons unrelated to sex determination. Close relatives are one effective animal, and sexloci counts the pool as a single independent unit. sexloci's own confound checks (batch, project, lab-reared, brood) do not include inbreeding and sexloci is unchanged, so the guard is here: such a cohort is reviewed before it goes to 06. **(open: the kinship tool and thresholds.)**
+6. *The brood benchmark (decision 68).* The broods are the truth set: where both parents are homozygous, the offspring genotype is predictable. On YH-22-09-06 (24 offspring and 2 parents) compare the shared prior (Blumer's default), groups by line, and no shared prior, with the heterozygosity prior at one lower and one higher value **(open: the values)**, by: Mendelian error where both parents are homozygous; false heterozygotes (offspring heterozygous where both parents are homozygous for the same allele); missed heterozygotes (offspring homozygous where the parents are homozygous for different alleles); heterozygous calls inside ROH; concordance with the existing GATK VCF; and what 06 reports from each.
+
+*Consequence for 06.* The pedigree transmission test needs informative markers (one parent heterozygous, the other homozygous), which are rarer when parents are inbred. The sex-linked region stays informative (the sire is heterozygous X/Y there), but windows elsewhere can fall below sexloci's marker minimums and drop out: a loss of power, not an error.
+
+**Reads and cost.** The VCF has to cover the whole genome: 06's permutation null is the genome-wide maximum, so a region-restricted VCF changes the null, and the BC analysis needs informative sites on every chromosome (decision 62: slices are for targeted genotyping, not for mapping). The BAMs are on Dropbox, and a cohort of 100 is up to about 2 TB of BAMs. Two ways: stage the BAMs with a disk ledger as in 03, or stream by region through a read-only `rclone serve` as sexloci's `sv-genotype` does, calling per chromosome in parallel and concatenating. **(open: choose by benchmark; unverified: the time per cohort.)** There is no per-sample GVCF, so nothing is cached between cohorts.
+
+**Current state.** `callset.py` and `callsets.yaml` (GATK `GenomicsDBImport` and `GenotypeGVCFs`, Kumar's filters, a bcftools cross-check; callsets `bc_family`, `yh_broods`, `mc_broods` and their `_plus_adults` variants) and the sample resolver `resolve_samples` (explicit lists, species with broods and their parents, categories), to be reused for the cohort file. Not run at scale.
+
+**Work.**
+1. The cohort file format: `kind`, selectors, genome, caller, groups.
+2. The cohort check (rules by kind, from the sheet and the ledger; pedigree-based relatedness warnings).
+3. The bcftools builder: per-region calls in parallel, `norm`, `fill-tags`, FILTER labels, the SNP subset, the manifest; the per-sample groups for lab and farm stock.
+4. The ROH track, the genotype-level heterozygote filter and the per-sex heterozygosity annotation (decisions 64 and 65).
+5. The GT3 accessibility mask (decision 66).
+6. The brood benchmark of decision 68 on YH-22-09-06, against the existing GATK VCF. The older YH VCFs use UMD2a accessions (`NC_0367xx`) and new ones `NC_1351xx`, so contigs are mapped first.
+7. QC: missingness, depth, Ti/Tv, Mendelian errors, genotype-based kinship, F_ROH per sample and by sex.
+8. Cohorts first: `yh_broods`, `mc_broods`, `bc_family` (the BC parents), then sex sets by species **(open: which species, in which order)**.
+
+**Done when.** The BC and brood cohorts rebuilt from the sheet reproduce the existing VCFs' calls at the shared sites (stated concordance); the brood benchmark reports Mendelian error, false and missed heterozygotes for each setting and the default is chosen from it; every cohort VCF has a manifest with its ROH fractions and has passed its cohort check; a cohort that 06 would block, or whose F_ROH differs between the sexes, is stopped or flagged before 06; tests pass offline.
+
+### 06_sd_region_discovery: sex-linked regions from cohort VCFs (sexloci)
+
+**Goal.** For each species cohort, the regions linked to sex, the system (XY or ZW), and the evidence, graded by how much independent replication supports each region.
+
+**What it is.** The mapping half of **sexloci 0.1.26** (the lab's package from a separate project; zip supplied 2026-11-10), taken in **unchanged** (decision 58): package name `sexloci`, in `06_sd_region_discovery/sexloci/`, with its tests and documents and a manifest of md5 checksums, as for the transposon sites in 04. From its README and METHODS:
+
+* **One VCF is one species is one analysis.** A preflight blocks a run (sample not in the sheet, Sex not exactly M or F, more than one species, alignments to another genome, fewer than 3 of either sex) and warns on the rest (low coverage, small families, sex confounded with batch, Mendelian errors, over-aggressive filtering).
+* **Variant filtering** before any statistic (a FILTER label other than PASS, the hard INFO filters, INFO/DP above the 99th percentile), and no allele-frequency, ExcessHet or low-depth filter, on purpose.
+* **Genotype thresholds by role:** the pedigree test tolerates low depth (offspring at least 2x without a GQ filter, parents at least 6x and GQ 20); the sex contrasts use depth at least 5, and a sample that keeps under half of its genotypes is left out of the contrasts.
+* **Statistics:** association per family and SNP (the larger of the squared dosage and heterozygosity correlations, within-stratum permutation, the genome-wide maximum for the family-wise error); pedigree transmission per window (the first principal component of the informative markers against offspring sex, Westfall-Young max-T); windowed Weir-Cockerham Fst, male-minus-female heterozygosity, diagnostic SNPs and the male-to-female depth ratio.
+* **Calls and grades:** a plateau and a differentiated core per region; tier **A** (the combined test and at least 2 independent units significant), **B** (the combined test only) and **C** (a population-genetic outlier only). A single family or pool can reach B at most; broods sharing a parent are counted by pair unless `family_independence: parent`.
+* **Plots** (genome overview, inheritance along the genome, per chromosome) and `run-folder`, which analyses every VCF of `Outputs/PedigreeVCFs/` and records OK, BLOCKED, ERROR or SKIPPED for each.
+
+**Inputs.** Cohort VCFs of kind `family` or `sex_set` (05); the SampleDatabase and AlignmentDatabase (read-only, through its own `LabData`: rclone and Google code that duplicates the shared file manager **(open: replace it)**).
+
+**Outputs.** Per VCF: `sex_linked_regions.tsv`, `window_stats.tsv`, `sex_associated_markers.tsv`, `stratum_window_stats.tsv`, `family_transmission_stats.tsv`, `variant_filter_summary.tsv`, `pedigree_chromosome_summary.tsv`, `sample_qc.tsv`, `findings.tsv`, `fix_list.tsv`, `report.md`, the plots and `run_summary.json`. Today they stay local (`~/Temp/SexDeterminationAnalysis/<vcf>/`). **(open: a Dropbox location, for example `Outputs/SexRegions/<cohort>/`.)**
+
+**Interface.** `sexloci list-vcfs | run-folder | run | check | describe | filter-audit | filter-compare | simulate`. Its genotyping commands (`gsdf-genotype`, `sv-genotype`, `gsdf-summary`, `write-builtin-vcf`) come along unchanged but belong to module 04, which holds their parity-tested equivalents, and are deprecated here; the guarded sheet writer stays with open decision 4. **(open: a thin `sd_regions` command, so that the module keeps the interface it was given; not needed first.)**
+
+**Checked here (2026-11-10).** Its simulator built a pedigree of 3 families of 16 offspring with an XY locus planted on chr2 (1.25 to 1.75 Mb): the offline analysis (built-in reader, 200 permutations) called chr2 1.0 to 2.0 Mb, XY, **tier A, supported by all 3 independent family groups**; with a wrong genome version the preflight refused to run. **Not run:** its 105 tests (they need pytest; the sandbox had no network), the scikit-allel backend, and the live rclone and Google sheets (as its README also says).
+
+**Inbred and farmed stock (decision 67).** sexloci does not look for inbreeding. For lab and farm cohorts 05's `qc` is read first: ROH fractions by sex, kinship, and the number of informative markers. Male-female contrasts (heterozygosity, Fst) are the statistics most open to a confound with inbreeding; the pedigree and association tests are less so.
+
+**Replaces.** The simple `sex_association fisher` and `parental_sex_region` of `YH_SD_Paper` (synthetic tests only), after parity.
+
+**Work.**
+1. Copy it in with the checksum manifest; give the module an environment (numpy, pandas, scipy, matplotlib; optional scikit-allel and parasail) and make its pytest-style tests run in the repo, with pytest in that environment and in `tools/run_tests.py`.
+2. Parity on the positive controls: the chr10 Y inversion in the YH pedigree VCF, the gsdf dosage pattern in *M. conophoros* (the MC pedigree), the LG5 locus in the orange-blotch species; and nothing in a species known to have no system.
+3. A configuration for bcftools VCFs (see 05), tested on one brood against the GATK VCF; and, for lab and farm stock, 05's `qc` (ROH by sex, kinship) is reviewed before a cohort is run.
+4. Retire the two simple scripts once item 2 holds.
+5. Replace `LabData` by the shared file manager.
+6. Decide where results go.
+
+**Done when.** The controls are recovered; every `family` and `sex_set` VCF from 05 runs under `run-folder`; results are on Dropbox with a manifest; its tests pass in the repo.
 
 ### 07_bc_analysis: backcross genotyping, recombination, transmission distortion, QTL mapping, fine mapping
 
@@ -453,25 +517,26 @@ The pilot starts with the 8 unaligned Deep_Benthic samples (running since 2026-1
 
 | Machine | Role | Notes |
 |---|---|---|
-| utaka | alignment and heavy work (96 cores); the machine for the pilot (reported ready by the lab, not verified here) | branch `mcgrath_dev`, Python 3.7 environment `CichlidSRSequencing`; the old file manager (no download-database methods, no retry); the alignment audit of 2026-11-07 ran here |
+| utaka | alignment and heavy work (96 cores) | **validated 2026-11-10** with the same code and tool versions as yellowhead: a new environment `align` (from `03_align_pipeline/env.yml`) and a clone at `~/CSRS_reorg`. The first validation differed from the old alignments (56 and 99 records) because `~/.bashrc` put `~/bin` (minimap2 2.28, samtools 1.20) in front of the activated environment; the line was removed, and the second validation was identical (decision 57). Activate the environment inside tmux and check `which -a minimap2 samtools`. The old checkout (branch `mcgrath_dev`, Python 3.7 environment `CichlidSRSequencing`) is untouched. |
 | mzebra | downloads, conversions, sheet maintenance (96 cores, 503 GB RAM) | login `bio-mcgrath-dropbox`; environment `enadl` (modules 02 and 04, decision 23); the download campaign ran here and the checks of this repository run here |
 | D07 (workstation) | the B-chromosome discovery (32 cores, 62 GB RAM) | Aspera blocked; SRA about 11 MB/s with 8 connections (2.7 MB/s with one) |
 | D05 (workstation) | module 04's real-data checks of 2026-11-08 (retrospective runs, one BAM through four modules) | rclone from snap, its configuration outside `~/.config/rclone` (decision 23) |
-| yellowhead | validation of the pipeline (student machine); the first real batch | the 45-sample batch of 2026-11-07 was uploaded and registered; the new pipeline was validated here on 2026-11-09 (environment `align`, from `03_align_pipeline/env.yml`; git only in `genomics`) and runs the Deep_Benthic batch; its old local BAMs stay as a reference until the validation is repeated if needed |
+| yellowhead | alignment (student machine); ran the first batches | the 45-sample batch of 2026-11-07 was uploaded and registered; the new pipeline was validated here on 2026-11-09 (environment `align`; git only in `genomics`) and ran the Deep_Benthic and Diplotaxodon batches; it takes chunks 1 and 3 of the remaining ecogroups. The old local BAM folders (699 GB with the validation sample) and `~/old_ref` are no longer needed: the pipeline deletes its own files after a verified upload |
 | laptop | development, tests, publishing | tests run offline; the `syri_env` environment has an installed package called `tests` that shadows the repository's, so run `python3 -m unittest discover -s tests`, not `tests.<module>`; `psutil` and `pysam` are missing there and on mzebra, so three older tests of the old alignment code cannot import |
 
 Each module has an `env.yml`. `envs/download.yml` (`enadl`) serves modules 02 and 04 and now also holds matplotlib and parasail-python (`tools/check_env.sh` verifies it); `sdpanel` (`envs/panel.yml`) is the minimal panel environment. A known conflict: `aria2` and `sra-tools` cannot be solved in one conda environment on macOS; on Linux they can.
 
 ## 9. Order of work
 
-1. **Done:** module 02 for both Run Info files; the Blumer update of the SampleDatabase; the yellowhead batch uploaded and registered (AlignmentDatabase 1,296 rows); the panel's goals 1 to 5 built and validated on real data, their definitions frozen for the pilot (decision 28); **module 03 built and validated on one real sample** (identical BAMs, equal statistics, the panel current; section 6).
-2. **Now:** the first real batch of the new pipeline, the 8 unaligned Deep_Benthic samples, running on yellowhead (upload, ledger write, cleanup and four samples at once are its test); finish 01 (LG20, schemas, the breakpoint windows that goal 6 and 03's slices need); decide the 186 samples without a sample row and the three flagged samples.
-3. **Next (module 03):** the three fixes (the unmapped-reads check, the disk reservation, uploading only what the pipeline wrote), then the rerun logic with the cleanup of stale files, then the journal for a Google outage.
-4. **The mbuna cohort** (about 477 samples), every BAM measured by the panel while local: refit the LG5 and B thresholds on the cohort's distributions, check the sex pattern of the calls and the agreement of gsdf with all 910 sheet values.
-5. **The PCA basis panel** (module 04): describe the 100 GB file, then a pilot on one inversion, then the genome-wide set; it verifies the inversion states of goal 6 and places samples in their ecogroups.
-6. **After the pilots:** goal 6 on the slices and on disk; then 05 and 06, 08, 07; 09 and 10 read everything.
+1. **Done:** module 02 for both Run Info files; the Blumer update of the SampleDatabase; the yellowhead batch of 45 uploaded and registered; the panel's goals 1 to 5 built and validated, definitions frozen for the pilot (decision 28); **module 03 built, validated on two machines and run on two ecogroups** (Deep_Benthic 8, Diplotaxodon 23).
+2. **Now:** the remaining ecogroups on two machines (four chunks; Utaka, Shallow_Benthic, AC, Rhamphochromis); finish 01 (LG20, schemas, the breakpoint windows that goal 6 and 03's slices need); decide the 186 samples without a sample row and the three flagged samples.
+3. **Module 03 next:** the rerun logic with the cleanup of stale files, then the journal for a Google outage.
+4. **Modules 05 and 06 (decisions 58 to 68):** copy sexloci into 06 and make its tests run; the cohort file and the cohort check in 05; the bcftools builder with per-sample groups for lab and farm stock; the ROH track, genotype-level heterozygote filter and accessibility mask; the brood benchmark of the calling settings; the BC parents VCF; then parity of 06 on the positive controls.
+5. **The mbuna cohort** (about 477 samples), every BAM measured by the panel while local: refit the LG5 and B thresholds on the cohort's distributions, check the sex pattern of the calls and the agreement of gsdf with all 910 sheet values.
+6. **The PCA basis panel** (module 04, decision 54): handed to a student; the first step is to describe the 100 GB file.
+7. **After the pilots:** goal 6 on the slices and on disk; then 08, 07; 09 and 10 read everything.
 
-Critical path to the mbuna cohort: the Deep_Benthic batch clean, the three fixes, 01's windows (for the slices and goal 6), the Ecogroup of every sample set.
+Critical path to the mbuna cohort: the remaining ecogroups, 01's windows (for the slices and goal 6), the Ecogroup of every sample set.
 
 ## 10. Migration from today's layout
 
@@ -497,12 +562,13 @@ Critical path to the mbuna cohort: the Deep_Benthic batch clean, the three fixes
 
 ## 11. Decisions and measurements
 
-The log is `docs/decisions.md` (newest last, entries 1 to 54; an entry that is refined later says so, and the later entry names it). The entries that shape this document:
+The log is `docs/decisions.md` (newest last, entries 1 to 69; an entry that is refined later says so, and the later entry names it). The entries that shape this document:
 
 * Downloads: 1 (NCBI's copy when ENA is slow), 2 and 31 (every SRA run checked; counts), 4 (binned qualities), 6 (the DownloadDatabase), 30 (bulk row addition; whole-sheet rewrites only with a single writer), 32 (the campaign is complete), 33 (supervision; the retry cannot break its program).
-* Alignment: 34 and 35 (the utaka crash and its recovery; the yellowhead batch), 36 (no GVCF), 37 (the ledger), 40 to 43 (the panel stage, the splits, the slices, the location of the code), 45 (the panel JSON records its BAM), 46 to 52 (validation of the new pipeline, no QC thresholds, the rerun rule, disjoint selections, the environment, the pilot, the defects found).
+* Alignment: 34 and 35 (the utaka crash and its recovery; the yellowhead batch), 36 (no GVCF), 37 (the ledger), 40 to 43 (the panel stage, the splits, the slices, the location of the code), 45 (the panel JSON records its BAM), 46 to 52 (validation of the new pipeline, no QC thresholds, the rerun rule, disjoint selections, the environment, the first batch, the defects found), 55 to 57 (the first two batches and the planning rate, the two-machine chunks, fix the machine and not the code).
 * SampleDatabase: 38 (Blumer is the correct species; `SRASpecies`), 53 (the three flagged samples).
 * Genotyping: 13 to 29 (measurement and call are separate; the panel contract; definitions frozen for the pilot; real-data results), 54 (the PCA basis panel, proposed).
+* Cohort VCFs and sex mapping: 58 to 62 (sexloci in 06; the bcftools caller; cohorts only; the rules by cohort kind; whole-genome VCFs), 63 to 68 (calling for inbred and farmed stock), 69 (inversion PCA does not follow Blumer's method).
 * Layout: 10 to 12, 43 and 44.
 
 ## 12. Open decisions
@@ -510,9 +576,9 @@ The log is `docs/decisions.md` (newest last, entries 1 to 54; an entry that is r
 1. LG20 and the other proposals of the module 01 finish plan: confirm or change them. (01)
 2. The reference-state convention for LG5 (`reference_is_standard` unset). (01)
 3. TE1 and TE2: phasing, the transposon family, a copy-number-aware chr7ins model, chr19-ins (VARIANTS.md section 7). (04)
-4. Who writes the genotype columns back to the SampleDatabase: sexloci or 04. (04)
-5. Variant caller, joint or per-family calling, filters, region scope. (05)
-6. Species list and sample-size rules for SD discovery. (06)
+4. Who writes the genotype columns back to the SampleDatabase: sexloci's guarded writer or 04. (04)
+5. The bcftools caller (05): the environment's version or 1.12; the `-G` groups for `bc_parents` (none for a single species); staging the BAMs with a disk ledger or streaming by region; the coverage threshold of the `bc_parents` rules; whether 05 and 06 share one rules table; which species and sex sets come first. For inbred stock: the window size and threshold of the ROH track and whether `bcftools roh` is also run; the minimum depth and allele-balance thresholds for heterozygous genotypes; whether the GT3 accessibility mask is built by 05 or 01, and from which samples; the kinship tool and its thresholds; the heterozygosity-prior values of the benchmark.
+6. sexloci in 06: where results go on Dropbox; replacing its `LabData` by the shared file manager; the configuration for bcftools VCFs; a thin `sd_regions` command; the species list and sample-size rules for SD discovery.
 7. QTL software. (07)
 8. Annotation and mappability sources for ASE. (08)
 9. Web server hosting, audience and data store. (09)
@@ -521,14 +587,13 @@ The log is `docs/decisions.md` (newest last, entries 1 to 54; an entry that is r
 12. Whether `SPEC.md` is edited directly in the repository, or changes go through the decision log.
 13. Slices: whole chromosomes or 01's windows; LG9, LG11 and LG20 are not sliced. (03)
 14. Whether runs can be excluded individually, or only whole samples. (03)
-15. Whether utaka's environment can host the panel or needs a new one. (03)
-16. The cleanup and backfill tool for the existing sample folders: new slices, corrected duplication rates, deleting the old splits and GVCFs. (03)
-17. The port of `audit_alignments.py` and `register_alignments.py` to `reorg_spec`, with the audit's new list of usual files (GVCFs and the five old splits are no longer expected). (layout)
-18. The 186 samples without a sample row, and an Ecogroup name for outgroups. (SampleDatabase)
-19. A metadata source for the remaining samples without Ecogroup, Sex and LabReared (the Malinsky supplement); `Subgroup` and `Category` for new samples. (SampleDatabase)
-20. The three flagged samples (section 7): whether to check their uBAMs, whether to realign them with `--include-excluded`, and what the `Error` marker means in the Subgroup column. (SampleDatabase)
-21. ERR14734399: stay excluded or fetch from ENA; the 4 runs accepted without the ENA comparison. (02)
-22. The PCA basis panel (04): the 100 GB file (format, individuals, reference, genotypes or frequencies); where the module lives (a panel module of `sd_genotypes` is proposed); the site-selection thresholds; the inversion for the pilot; the reference individuals and their ecogroup labels; the source of LG20 labels; which sheet columns hold the calls.
+15. The cleanup and backfill tool for the existing sample folders: new slices, corrected duplication rates, the false warning of the 8 early rows, deleting the old splits and GVCFs. (03)
+16. The port of `audit_alignments.py` and `register_alignments.py` to `reorg_spec`, with the audit's new list of usual files. (layout)
+17. The 186 samples without a sample row, and an Ecogroup name for outgroups. (SampleDatabase)
+18. A metadata source for the remaining samples without Ecogroup, Sex and LabReared (the Malinsky supplement); `Subgroup` and `Category` for new samples. (SampleDatabase)
+19. The three flagged samples (section 7): whether to check their uBAMs, whether to realign them with `--include-excluded`, and what the `Error` marker means in the Subgroup column. (SampleDatabase)
+20. ERR14734399: stay excluded or fetch from ENA; the 4 runs accepted without the ENA comparison. (02)
+21. The PCA basis panel (04): the 100 GB file (format, individuals, reference, genotypes or frequencies); where the module lives; the site-selection thresholds; the inversion for the pilot; the reference individuals and their ecogroup labels; the source of LG20 labels; which sheet columns hold the calls.
 
 ## Appendix A. For the methods
 
