@@ -90,3 +90,9 @@ genomes:
     species: Lethrinops sp. 'Chilingali', male (fLetChi2)
     role: query
     note: Shallow Lethrinops group (all inverted on chr9 and chr11 in Blumer Table S7). Independent check of LG9 and LG11.
+  fRhaChi2:
+    source: ncbi
+    accession: GCA_963969265.1
+    species: "Rhamphochromis sp. 'chilingali' (fRhaChi2.1, Wellcome Sanger Tree of Life; BioProject PRJEB72870; 921 Mb, chromosome level)"
+    role: query
+    note: "carries only the first (20a) of the two tandem inversions of chr20 (Kumar et al. 2025: its alignment to GT3a shows a single inversion on chr20, at the position of 20a). Used to place the internal breakpoint between 20a and 20b."

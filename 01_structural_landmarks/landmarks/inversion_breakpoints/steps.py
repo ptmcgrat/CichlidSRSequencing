@@ -13,6 +13,7 @@ from cichlid_common.runner import latest_dir
 from cichlid_common import paf as P
 from cichlid_common.genome_align import ensure_paf
 from ..centromeres import cen as cenmod
+from . import parts as parts_mod
 
 
 def cfg_of():
@@ -140,8 +141,18 @@ def call_step(proj, align_dir=None):
             if run_rows: pd.concat(run_rows).to_csv(f'{run.dir}{lg}_strand_runs.tsv', sep='\t', index=False)      # what the caller sees: strand runs per contig after despeckling
             cons = P.consensus(calls, cc['consensus_tolerance'], cc.get('consensus_gap', 100_000)) if len(calls) else pd.DataFrame()
             cons.to_csv(f'{run.dir}{lg}_consensus_breakpoints.tsv', sep='\t', index=False)
+            parts_info, parts_text = {}, ''
+            if spec.get('parts') and len(calls) and len(cons):                       # a tandem (double) inversion: where each part lies and who carries which (parts.py)
+                pt, st, pnotes = parts_mod.resolve_parts(calls, cons, spec['parts'], spec.get('expect'), cc['consensus_tolerance'], cc.get('consensus_gap', 100_000), spec['assemblies'])
+                pt.to_csv(f'{run.dir}{lg}_parts.tsv', sep='\t', index=False); st.to_csv(f'{run.dir}{lg}_assembly_states.tsv', sep='\t', index=False)
+                with open(f'{run.dir}{lg}_parts_breakpoint_regions.bed', 'w') as fb:
+                    fb.write('\n'.join(parts_mod.parts_bed(pt, tname, lg)) + ('\n' if len(pt) else ''))
+                parts_info = dict(parts=pt.to_dict('records'), assembly_states=dict(zip(st.assembly, st.state)), parts_notes=pnotes,
+                                  differs_from_literature=[r.assembly for r in st.itertuples() if r.matches_expectation is False])
+                parts_text = parts_mod.format_parts(pt, st, pnotes)
             info = dict(lg=lg, reference_chrom=tname, assemblies=spec['assemblies'], n_consensus=int(len(cons)),
                         reference_is_standard=spec.get('reference_is_standard'), polarity=(P.strand_polarity(spec.get('reference_is_standard')) if len(cons) else 'no inversion called: polarity not applicable'))
+            info.update(parts_info)
             json.dump(info, open(f'{run.dir}{lg}_polarity.json', 'w'), indent=1, default=str)
             with open(f'{run.dir}{lg}_breakpoint_regions.bed', 'w') as b1, open(f'{run.dir}{lg}_breakpoint_flanks_50kb.bed', 'w') as b2:
                 for i, c in enumerate(cons.itertuples() if len(cons) else []):
@@ -155,6 +166,8 @@ def call_step(proj, align_dir=None):
             print(f'\n== {lg} ({tname}) ==')
             print(cons.to_string(index=False) if len(cons) else 'no inversion found on this chromosome')
             print('polarity:', info['polarity'])
+            if parts_text:
+                print(f'-- the parts of {lg} --\n' + parts_text)
         json.dump(summary, open(run.dir + 'summary.json', 'w'), indent=1, default=str)
 
 

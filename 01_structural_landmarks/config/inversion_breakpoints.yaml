@@ -12,8 +12,15 @@ inversions:
   # chr11 is a tandem (double) inversion: the caller reports its segments and internal breakpoint.
   LG9:  {assemblies: [YH, fAulStu2, fDipLim2, fLetChi2], reference_is_standard: true, label: LG9}
   LG10: {assemblies: [YH], reference_is_standard: true, label: LG10}      # the NCBI YH chromosome carries the inverted X; the hifiasm X/Y contigs are for the separate QTN analysis
-  LG11: {assemblies: [YH, fAulStu2, fDipLim2], reference_is_standard: true, label: LG11}
+  LG11: {assemblies: [YH, fAulStu2, fDipLim2], reference_is_standard: true, label: LG11, parts: [11a, 11b], expect: {YH: [11a, 11b], fAulStu2: [11a, 11b], fDipLim2: [11a, 11b]}}
   LG13: {assemblies: [YH], reference_is_standard: true, label: LG13}
+  # chr20 is a tandem (double) inversion: 20a (the left arm) formed first, 20b (the right one, 4.1 Mb) after it, in that background (Kumar et al. 2025). The benthics, Diplotaxodon and utaka carry both,
+  # Rhamphochromis only 20a, the mbuna and A. calliptera neither, so GT3 (M. zebra) is the standard orientation. fRhaChi2 (Rhamphochromis sp. 'chilingali', Darwin Tree of Life) is the assembly
+  # that carries 20a alone (Kumar: its alignment to GT3a shows a single inversion on chr20), the independent check of where 20a ends and 20b begins. `parts` names the two parts left to right in
+  # reference coordinates; `expect` is what the literature says, compared with what the assemblies show (landmarks/inversion_breakpoints/parts.py). YH and fAulStu2 are benthic assemblies:
+  # the lab expects both parts in the benthics, but Blumer et al. 2025 (supplement) call chr20 differentially fixed between Diplotaxodon and all benthics, so a benthic assembly collinear with GT3
+  # is possible; their state is open and is deliberately not in `expect`.
+  LG20: {assemblies: [YH, fAulStu2, fDipLim2, fRhaChi2], reference_is_standard: true, label: LG20, parts: [20a, 20b], expect: {fDipLim2: [20a, 20b], fRhaChi2: [20a]}}
 minimap2:
   preset: asm5
   extra: []                       # e.g. ['--secondary=no']; threads come from `cores` in paper.yaml
