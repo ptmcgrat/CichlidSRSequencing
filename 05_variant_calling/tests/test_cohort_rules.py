@@ -187,6 +187,80 @@ class TestBcParents(Base):
         self.has(run(bc_spec(['YH_008_m', 'MC-1R6R-f']), self.cross(), ledger(['YH_008_m'])), 'BLOCK', 'no_alignment')
 
 
+class TestEmptySelectors(Base):
+    """Found on the live sheet (2026-11-10): a cohort that selected adults by a sheet label gave exactly the members of its brood and the check said ok, because a selector that matches
+    nothing is not an error. It is a WARN, so a cohort cannot silently come out smaller than meant."""
+    def test_an_ecogroup_that_matches_nobody_warns(self):
+        rows = brood() + [fish('A1', 'M', eco='Shallow_Benthic'), fish('A2', 'F', eco='Shallow_Benthic')]
+        rep = run(sexset_spec(ecogroups=['Deep_Benthic']), rows)
+        self.has(rep, 'WARN', 'selector_empty'); self.has(rep, 'BLOCK', 'no_members')
+        msgs = ' '.join(f.message for f in rep.findings if f.code == 'selector_empty')
+        self.assertIn('no sample in the sheet matches species', msgs); self.assertIn("ecogroup 'Deep_Benthic' appears nowhere in the sheet column Ecogroup", msgs)
+
+    def test_an_ecogroup_that_exists_but_not_for_this_species_warns_once(self):
+        rows = brood() + [fish('OTHER1', 'M', species='Other species', eco='Deep_Benthic'), fish('OTHER2', 'F', species='Other species', eco='Deep_Benthic')]
+        rep = run(sexset_spec(ecogroups=['Deep_Benthic']), rows)
+        msgs = [f.message for f in rep.findings if f.code == 'selector_empty']
+        self.assertEqual(len(msgs), 1); self.assertIn('no sample in the sheet matches', msgs[0])
+
+    def test_a_species_name_that_matches_nobody_blocks_and_explains(self):
+        rep = run(sexset_spec(species='Aulonocara nowhere'), brood())
+        self.has(rep, 'BLOCK', 'no_members'); self.has(rep, 'WARN', 'selector_empty')
+
+    def test_a_typo_among_several_broods_warns_and_the_rest_still_select(self):
+        rep = run(family_spec(broods=['B1', 'B1_TYPO']), brood())
+        self.has(rep, 'WARN', 'selector_empty'); self.assertIn("brood 'B1_TYPO'", rep.text()); self.assertEqual(len(rep.members), 26)
+
+    def test_selectors_that_match_do_not_warn(self):
+        self.lacks(run(family_spec(), brood()), 'selector_empty')
+        self.lacks(run(family_spec(species=YH), brood()), 'selector_empty')             # species next to broods only declares the species
+        self.lacks(run(sexset_spec(), brood()), 'selector_empty')
+
+    def test_an_empty_selection_both_blocks_and_explains(self):
+        rep = run(family_spec(broods=['NOPE']), brood()); self.has(rep, 'BLOCK', 'no_members'); self.has(rep, 'WARN', 'selector_empty')
+
+
+class TestBroodConsistency(Base):
+    """A BroodID is one family of two parents: the children must all name the same sire and dam. (On the older sheet export 3 of 11 broods, the BC broods, had children with a blank Parents field.)"""
+    def test_a_consistent_brood_has_no_such_warning(self):
+        rep = run(family_spec(), brood())
+        self.lacks(rep, 'brood_parents_inconsistent'); self.lacks(rep, 'brood_member_without_parents')
+
+    def test_children_naming_different_parent_pairs_warn(self):
+        rows = brood(); rows[4]['Parents'] = 'S_m,OTHER_f'; rows[5]['Parents'] = 'S_m,OTHER_f'
+        rows.append(fish('OTHER_f', 'F'))
+        rep = run(family_spec(), rows)
+        self.has(rep, 'WARN', 'brood_parents_inconsistent'); self.assertIn('2 different parent pairs', rep.text()); self.assertIn('S_m x OTHER_f: 2', rep.text())
+
+    def test_a_child_with_a_blank_parents_field_warns(self):
+        rows = brood(); rows[6]['Parents'] = ''; rows[7]['Parents'] = ''
+        rep = run(family_spec(), rows)
+        self.has(rep, 'WARN', 'brood_member_without_parents'); self.assertIn('2 of 24 children', rep.text()); self.lacks(rep, 'brood_parents_inconsistent')
+
+    def test_each_brood_is_judged_on_its_own(self):
+        rows = brood('B1') + brood('B2', sire='S2_m', dam='D2_f'); rows[-1]['Parents'] = ''
+        rep = run(family_spec(broods=['B1', 'B2']), rows)
+        msgs = [f.message for f in rep.findings if f.code == 'brood_member_without_parents']
+        self.assertEqual(len(msgs), 1); self.assertIn('brood B2', msgs[0])
+
+    def test_it_does_not_apply_to_a_sex_set_or_a_cross(self):
+        rows = [fish(f'U{i}', 'M' if i % 2 else 'F', brood='SAME') for i in range(12)]
+        self.lacks(run(sexset_spec(), rows), 'brood_member_without_parents')
+
+
+class TestRelatednessUnknown(Base):
+    def test_lab_reared_fish_with_no_pedigree_are_noted(self):
+        rows = [fish(f'U{i}', 'M' if i % 2 else 'F') for i in range(12)]
+        rep = run(sexset_spec(), rows)
+        self.has(rep, 'INFO', 'relatedness_unknown'); self.assertIn('12 of 12 analysed fish are lab-reared', rep.text()); self.assertFalse(rep.blocked); self.assertEqual(rep.count('WARN'), 0, rep.text())
+
+    def test_wild_caught_fish_and_fish_with_a_brood_are_not_noted(self):
+        rows = [fish(f'W{i}', 'M' if i % 2 else 'F', lab='0') for i in range(12)]
+        self.lacks(run(sexset_spec(), rows), 'relatedness_unknown')
+        rows = [fish(f'U{i}', 'M' if i % 2 else 'F', brood=f'FAM{i}') for i in range(12)]
+        self.lacks(run(sexset_spec(), rows), 'relatedness_unknown')
+
+
 class TestReport(Base):
     def test_text_dict_and_json(self):
         rep = run(family_spec(), brood(n_m=2, n_f=2))

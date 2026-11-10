@@ -2,12 +2,12 @@
 import pandas as pd
 
 G = 'Mzebra_GT3_NCBI'
-COLS = ['SampleID', 'Sex', 'Species', 'BroodID', 'Parents', 'Ecogroup', 'Subgroup', 'Category', 'LabReared', 'Project']
+COLS = ['SampleID', 'Sex', 'Species', 'BroodID', 'Parents', 'Ecogroup', 'Subgroup', 'LabReared', 'Project']
 YH = 'Aulonocara Nhkata Yellow Head'
 
 
-def fish(sid, sex='M', species=YH, brood='', parents='', eco='Shallow_Benthic', sub='', cat='', lab='1', project='P1'):
-    return dict(SampleID=sid, Sex=sex, Species=species, BroodID=brood, Parents=parents, Ecogroup=eco, Subgroup=sub, Category=cat, LabReared=lab, Project=project)
+def fish(sid, sex='M', species=YH, brood='', parents='', eco='Shallow_Benthic', sub='', lab='1', project='P1'):
+    return dict(SampleID=sid, Sex=sex, Species=species, BroodID=brood, Parents=parents, Ecogroup=eco, Subgroup=sub, LabReared=lab, Project=project)
 
 
 def brood(b='B1', n_m=12, n_f=12, sire='S_m', dam='D_f', species=YH, parents_in_sheet=True):

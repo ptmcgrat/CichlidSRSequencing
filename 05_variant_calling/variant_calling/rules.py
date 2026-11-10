@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 
 from cichlid_common.common_light import config_path
-from variant_calling.cohort import blank, norm_key, norm_species, parse_parents, parse_sex, resolve_members, validate
+from variant_calling.cohort import blank, empty_selectors, norm_key, norm_species, parse_parents, parse_sex, resolve_members, validate
 
 DEFAULT_RULES = dict(min_per_sex_block=3, min_per_sex_warn=6, family_min_offspring_warn=12, coverage_offspring_warn=2.0, coverage_other_warn=5.0, coverage_unusable=3.0,
                      coverage_parent_warn=10.0, bc_parents_min_coverage=5.0, confound_columns=['BroodID', 'Project', 'LabReared'])
@@ -176,8 +176,30 @@ def _coverage(R, rules, members, cov, fams, parents, analysed):
 
 
 # ------------------------------------------------------------------ the kinds
+def _brood_consistency(R, members, rows):
+    """A BroodID is a family of two parents: its children must all name the same sire and dam (SPEC module 05; the sheet's BroodID and Parents columns)."""
+    by_brood = {}
+    for s in members:
+        b = rows.at[s, 'BroodID'] if 'BroodID' in rows.columns else ''
+        if not blank(b):
+            by_brood.setdefault(str(b), []).append(s)
+    for b, kids in sorted(by_brood.items()):
+        pairs, none = Counter(), []
+        for s in kids:
+            st, sire, dam = parse_parents(rows.at[s, 'Parents'] if 'Parents' in rows.columns else None)
+            if st == 'none':
+                none.append(s)
+            else:
+                pairs[(sire, dam)] += 1
+        if len(pairs) > 1:
+            R.add('WARN', 'brood_parents_inconsistent', f"brood {b}: its children name {len(pairs)} different parent pairs ({'; '.join(f'{x} x {y}: {n}' for (x, y), n in pairs.items())}), but a BroodID is one family of two parents.", kids)
+        if none:
+            R.add('WARN', 'brood_member_without_parents', f"brood {b}: {len(none)} of {len(kids)} children list no parents in the Parents column: {short(none)}.", none)
+
+
 def _family(R, spec, rules, members, rows, present, cov):
     ped = _pedigree(members, rows)
+    _brood_consistency(R, members, rows)
     fams, parents = ped['families'], ped['parents']
     if not fams:
         R.add('BLOCK', 'no_pedigree', "no member lists parents ('sire,dam' in the Parents column): a family cohort needs offspring with their parents (sexloci would only warn).")
@@ -223,6 +245,11 @@ def _sex_set(R, spec, rules, members, rows, present, cov):
     ped = _pedigree(members, rows)
     analysed = _per_sex(R, rules, members, rows, present, ped['parents'])
     _coverage(R, rules, members, cov, ped['families'], ped['parents'], analysed)
+    lab = [s for s in analysed if str(rows.at[s, 'LabReared'] if 'LabReared' in rows.columns else '').strip().lower() in ('1', '1.0', 'true', 'yes')
+           and blank(rows.at[s, 'BroodID'] if 'BroodID' in rows.columns else '') and blank(rows.at[s, 'Parents'] if 'Parents' in rows.columns else '')]
+    if lab:
+        R.add('INFO', 'relatedness_unknown', f"{len(lab)} of {len(analysed)} analysed fish are lab-reared with no BroodID or Parents in the sheet: the sheet cannot rule out relatives, and inbred stock makes them likely "
+              '(kinship from the genotypes is planned for after calling).', lab)
     rel = _related_pairs(members, rows)
     if rel:
         inv = Counter(x for p in rel for x in p)
@@ -275,6 +302,8 @@ def check_cohort(name, spec, sample_dt, ledger_dt, rules=None):
     R.members = members
     for n in notes:
         R.add('INFO', 'selection', n)
+    for msg in empty_selectors(sample_dt, spec):
+        R.add('WARN', 'selector_empty', msg)
     if not members:
         R.add('BLOCK', 'no_members', 'the selectors match no sample.')
         return R

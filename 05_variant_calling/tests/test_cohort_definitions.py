@@ -33,12 +33,19 @@ class TestLoading(unittest.TestCase):
 
     def test_the_shipped_file_loads_and_every_entry_has_a_kind(self):
         c = C.load_cohorts()
-        self.assertTrue({'bc_family', 'yh_broods', 'mc_broods'} <= set(c))
+        self.assertTrue({'bc_family', 'yh_broods', 'mc_broods', 'gertrudae_orange_collar', 'saulosi_green_face_peacock'} <= set(c))
+        self.assertFalse([n for n in c if 'plus_adults' in n], 'the adult arms were dropped: Category is not used')
+        self.assertEqual(c['gertrudae_orange_collar']['kind'], 'sex_set'); self.assertEqual(c['saulosi_green_face_peacock']['species'], 'Aulonocara saulosi green face peacock')
+        self.assertFalse([n for n, v in c.items() if 'categories' in v], 'no shipped cohort selects by Category')
         self.assertEqual(c['bc_family']['kind'], 'bc_parents'); self.assertEqual(c['yh_broods']['kind'], 'family')
         for name, spec in c.items():
             self.assertEqual(C.validate(spec), [], name)
             self.assertEqual(spec['groups'], 'per_sample', 'lab and farm stock: no shared Hardy-Weinberg prior (decision 63)')
             self.assertEqual(spec['caller'], 'bcftools')
+
+    def test_category_is_not_a_selector_and_the_message_says_so(self):
+        msg = ' '.join(C.validate(family_spec(categories=['OtherYHs'])))
+        self.assertIn('categories is not a selector', msg); self.assertNotIn('typo', msg)
 
     def test_validation_names_the_problem(self):
         self.assertEqual(C.validate(family_spec()), [])
@@ -47,13 +54,13 @@ class TestLoading(unittest.TestCase):
         self.assertIn('groups', ' '.join(C.validate(family_spec(groups='clade'))))
         self.assertIn('typo', ' '.join(C.validate(family_spec(bloods=['B1']))))
         self.assertIn('selects nothing', ' '.join(C.validate(dict(kind='family', caller='bcftools', groups='per_sample'))))
+        self.assertIn('selects nothing', ' '.join(C.validate(dict(kind='family', caller='bcftools', groups='per_sample', categories=['X']))))
         self.assertIn('must be a list', ' '.join(C.validate(family_spec(broods='B1'))))
 
 
 class TestMembers(unittest.TestCase):
     def setUp(self):
-        extra = [fish('ADULT1', 'M', cat='OtherYHs'), fish('ADULT2', 'F', cat='OtherYHs'), fish('UNSEXED', 'U', cat='OtherYHs'), fish('BAD', 'M', cat='OtherYHs', eco='Error'),
-                 fish('OTHERSP', 'M', species='Other species', cat='OtherYHs')]
+        extra = [fish('ADULT1', 'M', eco='Deep_Benthic'), fish('ADULT2', 'F', eco='Deep_Benthic'), fish('UNSEXED', 'U'), fish('BAD', 'M', eco='Error'), fish('OTHERSP', 'M', species='Other species')]
         self.dt = sheet(brood() + extra)
 
     def test_a_brood_gives_offspring_then_parents(self):
@@ -77,9 +84,14 @@ class TestMembers(unittest.TestCase):
         ids, _ = C.resolve_members(self.dt, sexset_spec(require_sexed=False))
         self.assertIn('UNSEXED', ids)
 
-    def test_the_plus_adults_form_is_brood_members_plus_the_species_in_the_category(self):
-        ids, _ = C.resolve_members(self.dt, family_spec(species=YH, categories=['OtherYHs']))
-        self.assertTrue({'B1_m0', 'S_m', 'ADULT1', 'ADULT2'} <= set(ids)); self.assertNotIn('OTHERSP', ids, 'the species applies to the category selection')
+    def test_ecogroups_narrow_a_species_selection(self):
+        ids, _ = C.resolve_members(self.dt, sexset_spec(ecogroups=['Deep_Benthic']))
+        self.assertEqual(sorted(ids), ['ADULT1', 'ADULT2'])
+
+    def test_species_names_match_whatever_the_case_and_spacing(self):
+        dt = sheet([fish('A', 'M', species='Aulonocara  saulosi Green face PEACOCK'), fish('B', 'F', species='aulonocara saulosi green face peacock'), fish('C', 'F', species='Aulonocara saulosi')])
+        ids, _ = C.resolve_members(dt, sexset_spec(species='Aulonocara saulosi green face peacock'))
+        self.assertEqual(sorted(ids), ['A', 'B'], 'a shorter species name is another species')
 
     def test_explicit_samples_come_first_are_kept_even_when_unknown_and_are_not_repeated(self):
         ids, _ = C.resolve_members(self.dt, family_spec(samples=['NOT_IN_SHEET', 'B1_f3'], include_parents=False))
