@@ -1,0 +1,24 @@
+
+# Module 06 (sexloci, vendored): mapping sex-linked loci from cohort VCFs. The dependencies of sexloci 0.1.26 (its environment.yml), without the editable
+# install: the package is in 06_sd_region_discovery/sexloci and is found through `source tools/env.sh`.
+#   conda env create -f envs/sex_mapping.yml && conda activate sex_mapping && source tools/env.sh
+#   python tools/run_tests.py 06            # includes sexloci's own 105 pytest tests, because pytest is here
+name: sex_mapping
+channels: [conda-forge, bioconda]
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - matplotlib
+  - pyyaml
+  - gspread
+  - gspread-dataframe
+  - google-auth
+  - rclone
+  - scikit-allel        # the fast VCF reader (sexloci's [fast] extra); not exercised in sexloci's own development environment
+  - bcftools
+  - htslib
+  - pytest
+  - pip
+  # optional, for sexloci's indel genotyping (module 04 holds the parity-tested equivalent): pip install parasail

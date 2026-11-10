@@ -1,0 +1,48 @@
+BioSample	group	Munby_GT	Munby_ref	Munby_alt	Munby_alt_fraction	link	species	location	sex	depth
+SAMEA1904323	unknown					none				
+SAMEA1904326	unknown					none				
+SAMEA1904327	unknown					none				
+SAMEA1904328	unknown					none				
+SAMEA1904833	unknown					none				
+SAMEA1920090	non-carrier	0/0	34	0	0.0	exact (Table S1 sequence_id)	calliptera	Salima	M	46.15
+SAMEA1920091	non-carrier	0/0	36	0	0.0	exact (Table S1 sequence_id)	calliptera	Salima	U	44.74
+SAMEA1920092	non-carrier	0/0	33	0	0.0	exact (Table S1 sequence_id)	calliptera	Salima	F	48.3
+SAMEA2661291	non-carrier	0/0	6	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Lake Masoko		
+SAMEA2661293	unknown					none				
+SAMEA2661295	non-carrier	0/0	6	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Lake Masoko		
+SAMEA2661381	non-carrier	0/0	12	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Chitimba		
+SAMEA2661382	non-carrier	0/0	6	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	North Rukuru river		
+SAMEA2661383	het	0/1	1	24	0.96	inferred earlier (ID offset checked against labels)	A. calliptera	Songwe river		
+SAMEA2661384	het	0/1	6	13	0.68	inferred earlier (ID offset checked against labels)	A. calliptera	South Rukuru river		
+SAMEA2661385	non-carrier	0/0	11	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Enukweni		
+SAMEA2661386	non-carrier	0/0	22	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Lake Chidya		
+SAMEA2661387	non-carrier	0/0	12	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Kitai Dam		
+SAMEA2661388	non-carrier	0/0	11	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Rovuma river		
+SAMEA2661389	non-carrier	0/0	10	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Kyela		
+SAMEA2661390	non-carrier	0/0	19	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Luwawa		
+SAMEA2661391	non-carrier	0/0	16	0	0.0	inferred (ILBCDS = SAMEA number + 3,218,521)	calliptera	Bua river		
+SAMN06685759	unknown					none				
+SAMEA117806260	hom	1/1	0	50	1.0	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	17.21
+SAMEA117806261	het	0/1	12	25	0.68	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	16.59
+SAMEA117806264	het	0/1	10	23	0.7	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	18.84
+SAMEA117806266	het	0/1	10	31	0.76	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	16.71
+SAMEA117806267	het	0/1	6	14	0.7	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	15.73
+SAMEA117806272	non-carrier	0/0	18	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	18.36
+SAMEA117806270	hom	1/1	0	41	1.0	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	17.38
+SAMEA117806274	non-carrier	0/0	26	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	18.01
+SAMEA117806259	hom	1/1	0	40	1.0	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	16.52
+SAMEA117806263	het	0/1	6	23	0.79	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	16.91
+SAMEA117806262	het	0/1	10	25	0.71	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	16.78
+SAMEA117806265	het	0/1	21	22	0.51	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	18.11
+SAMEA117806269	non-carrier	0/0	21	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	15.99
+SAMEA117806268	non-carrier	0/0	17	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	15.45
+SAMEA117806271	het	0/1	11	31	0.74	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	18.63
+SAMEA117806273	het	0/1	15	30	0.67	exact (Table S1 sequence_id)	calliptera	Lake_Kingiri	M	18.54
+SAMEA117806043	non-carrier	0/0	12	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Malombe	M	16.35
+SAMEA117806044	non-carrier	0/0	16	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Malombe	M	17.87
+SAMEA117806046	non-carrier	0/0	10	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Malombe	M	18.12
+SAMEA117806045	non-carrier	0/0	10	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Malombe	M	18.92
+SAMEA117806047	non-carrier	0/0	14	0	0.0	exact (Table S1 sequence_id)	calliptera	Lake_Malombe	M	16.6
+SAMEA117806075	non-carrier	0/0	18	0	0.0	exact (Table S1 sequence_id)	calliptera	Southwest_arm	M	17.48
+SAMEA117806077	het	0/1	5	17	0.77	exact (Table S1 sequence_id)	calliptera	Southwest_arm	U	17.03
+SAMEA117806076	het	0/1	78	19	0.2	exact (Table S1 sequence_id)	calliptera	Southwest_arm	M	17.79

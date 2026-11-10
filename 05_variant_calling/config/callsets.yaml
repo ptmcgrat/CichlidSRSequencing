@@ -17,20 +17,29 @@ defaults:
     min_dp: 3              # per-sample genotype set to missing below this depth (AD is kept in the VCF)
     min_gq: 20
     snpgap: 10
+  # Defaults of every cohort (module 05; SPEC decisions 59 to 63). `kind` is required in each entry below: family | sex_set | bc_parents.
+  cohort:
+    genome: Mzebra_GT3_NCBI
+    caller: bcftools           # bcftools mpileup | call -m after Blumer et al. 2025; `gatk` keeps the HaplotypeCaller route (callset build)
+    groups: per_sample         # no shared Hardy-Weinberg prior: lab and farm stock are inbred (decision 63)
+    exclude_ecogroups: [Error, Exclude]
 
 callsets:
   # BC analysis: the 7 samples that define informative sites (extra MC females are used only in the bcftools cross-check)
   bc_family:
+    kind: bc_parents
     description: YH_008 x MC-1R6R F1 family plus BC dams
     samples: [YH_008_m, MC-1R6R-f, MC-3R6R-f, MC-1G2G-f, MC-5G11G-f, MCYHF1-002, MCYHF1-003]
 
   # Parental-species broods (24 offspring each: 12 M / 12 F), with their parents
   yh_broods:
+    kind: family
     description: two unrelated YH families (YH_005_m x YH_010_f; YH_011_m x YH_006_f)
     species: Aulonocara Nhkata Yellow Head
     broods: [YH-22-09-06, YH-23-02-27]
     include_parents: true
   mc_broods:
+    kind: family
     description: two MC half-sib families sharing STR_MC_M_001
     species: Mchenga conophoros
     broods: [MC-24-11-23-1, MC-24-11-26-1]
@@ -38,12 +47,21 @@ callsets:
 
   # Optional extended arms: add deep sexed adults (SampleDatabase Category) for population-level signals
   yh_broods_plus_adults:
+    kind: family
     species: Aulonocara Nhkata Yellow Head
     broods: [YH-22-09-06, YH-23-02-27]
     include_parents: true
     categories: [OtherYHs]
   mc_broods_plus_adults:
+    kind: family
     species: Mchenga conophoros
     broods: [MC-24-11-23-1, MC-24-11-26-1]
     include_parents: true
     categories: [InformativeLabFish]
+
+  # Template of a sex set (kind sex_set: 4 to 100 sexed fish of ONE species; `species` alone selects by species, and only fish with Sex M or F):
+  #   <species>_sex_set:
+  #     kind: sex_set
+  #     species: Aulonocara Nhkata Yellow Head
+  #     ecogroups: [Shallow_Benthic]        # optional narrowing; subgroups / categories likewise
+  #     exclude_samples: []

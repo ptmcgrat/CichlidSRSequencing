@@ -1,5 +1,7 @@
-"""python -m sd_regions parental_sex_region callset|depth|scan|summarize [--species YH,MC] | sex_association fisher [--table T --out D] | selftest"""
+"""python -m sd_regions sexloci <command> ...   (sexloci 0.1.26, vendored unchanged: list-vcfs | run-folder | run | check | describe | filter-audit | filter-compare | simulate)
+   python -m sd_regions parental_sex_region callset|depth|scan|summarize [--species YH,MC] | sex_association fisher [--table T --out D] | selftest"""
 import os
+import sys
 from cichlid_common import cli_base
 
 PSR_STEPS = ['callset', 'depth', 'scan', 'summarize']
@@ -29,4 +31,8 @@ def _psr(proj, a, cfg):
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] == 'sexloci':                      # the vendored package has its own parser: the shared one is a single global parser
+        from sexloci.cli import main as sexloci_main
+        return sexloci_main(argv[1:])
     return cli_base.main('python -m sd_regions', ['parental_sex_region', 'sex_association'], {'parental_sex_region': _psr, 'sex_association': _sa}, offline={'sex_association': _sa_offline}, tests_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests'), argv=argv)

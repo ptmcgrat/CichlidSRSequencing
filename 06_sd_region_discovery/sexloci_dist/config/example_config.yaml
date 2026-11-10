@@ -1,0 +1,55 @@
+# Any key in sexloci.config.Config can be set here (values shown are the defaults unless noted).
+window_size: 250000        # 100000 for finer mapping when many informative markers exist
+n_perm: 1000               # >= 1000 recommended for real runs
+alpha: 0.05
+
+# Restrict to chromosome-scale sequences (skip unplaced scaffolds):
+# contigs: [NC_036780.1, NC_036781.1]
+# contig_regex: '^NC_0367[89]|^NC_0368'
+
+backend: auto              # 'allel' (fast; needs scikit-allel) or 'builtin'
+min_dp: 5
+min_gq: 20
+
+# Preflight thresholds
+min_per_sex_block: 3       # fewer of either sex -> BLOCK
+min_per_sex_warn: 6
+family_min_offspring_warn: 12
+min_independent_families: 3
+cov_warn: 5.0
+cov_bad: 3.0
+parent_cov_warn: 10.0
+trio_error_warn: 0.05
+confound_p: 0.01           # Bonferroni-corrected over the batch variables examined
+
+# genome_version -> ecogroup of the reference species (reference-divergence warning)
+genome_ecogroup:
+  Mzebra_GT3_NCBI: Mbuna
+  Mconophoros_GT1: Shallow_Benthic
+
+# Variant filtering (see README "Bad-variant filtering")
+apply_variant_filter: true
+variant_filters:           # [INFO field | QUAL, operator, threshold]: a site is removed when the condition is true
+  - [QUAL, "<", 30.0]
+  - [QD, "<", 2.0]
+  - [FS, ">", 40.0]
+  - [MQ, "<", 50.0]
+  - [SOR, ">", 3.0]
+  - [MQRankSum, "<", -12.5]
+  - [ReadPosRankSum, "<", -8.0]
+variant_depth_quantiles: [null, 0.99]   # [lower, upper] of INFO/DP; null = off. Keep lower off (hemizygous regions).
+max_filtered_fraction_warn: 0.6
+
+# Reviewed warnings to show as notes instead of warnings (BLOCKs and tier caps are never removed):
+# acknowledged_codes: [reference_divergence]
+
+# Lab data access (read-only) and output location -- defaults shown
+# output_root: "~/Temp/SexDeterminationAnalysis/"
+# rclone_remote: "ptm_dropbox:/"
+# cloud_master_dir: "COS/BioSci/BioSci-McGrath/Apps/CichlidSequencingData/"
+# local_master_dir: null            # null -> ~/Temp/CichlidSequencingData/
+# cloud_vcf_subdir: "Outputs/PedigreeVCFs/"
+# sheets_read_only: true
+
+# genome_overview.png: mark the known sex-determination loci (gsdf on LG7, the two transposon insertions on LG10) -- default true
+# show_known_loci: true

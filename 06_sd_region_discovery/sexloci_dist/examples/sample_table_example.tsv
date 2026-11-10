@@ -1,0 +1,5 @@
+SampleID	Sex	Species	DoB	BroodID	Parents	Ecogroup	LabReared
+FAM1_sire_m	M	Aulonocara sp. 'chitande type north'			Deep_Benthic	1
+FAM1_dam_f	F	Aulonocara sp. 'chitande type north'			Deep_Benthic	1
+FAM1_o1	M	Aulonocara sp. 'chitande type north'	4/22/24	FAM1-brood	FAM1_sire_m,FAM1_dam_f	Deep_Benthic	1
+FAM1_o2	F	Aulonocara sp. 'chitande type north'	4/22/24	FAM1-brood	FAM1_sire_m,FAM1_dam_f	Deep_Benthic	1

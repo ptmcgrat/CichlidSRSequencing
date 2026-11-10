@@ -1,0 +1,10 @@
+# Thresholds of `variant_calling cohort check` (module 05). Defaults of sexloci 0.1.26's preflight, which module 06 applies again when it reads the VCF.
+min_per_sex_block: 3          # fewer analysed males or females than this -> BLOCK (parents are not counted)
+min_per_sex_warn: 6           # fewer -> WARN (low power)
+family_min_offspring_warn: 12 # offspring of one sire x dam pair
+coverage_offspring_warn: 2.0  # family offspring: the pedigree test tolerates low depth
+coverage_other_warn: 5.0      # every other analysed fish
+coverage_unusable: 3.0        # below this a non-family fish is listed as unusable
+coverage_parent_warn: 10.0    # parents: a miscalled parent mislabels every offspring
+bc_parents_min_coverage: 5.0  # PROVISIONAL, an open decision (SPEC section 12, item 5): bc_parents members below this -> BLOCK
+confound_columns: [BroodID, Project, LabReared]   # sex confounded with one of these (every level single-sex) -> WARN
