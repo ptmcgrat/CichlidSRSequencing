@@ -1,0 +1,23 @@
+
+# Module 05 `cohort build` (bcftools mpileup | call) and the cohort commands. A separate environment: `align` keeps its pinned alignment toolset (SPEC decision 50) and has no bcftools.
+# bcftools is pinned to the release of the samtools of `align` (1.24; the two ship together with the same htslib), and the version is recorded in every manifest.
+# bcftools 1.24 is assumed to exist next to samtools 1.24 on bioconda (unverified): if the solver cannot find it, use the nearest release and say so in decisions.
+#   conda env create -f envs/variant_calling.yml && conda activate variant_calling && source tools/env.sh
+#   python -m variant_calling cohort check yh_broods
+# rclone is the machine's own (it must see the machine's remote configuration), as for `align`.
+name: variant_calling
+channels: [conda-forge, bioconda]
+dependencies:
+  - python>=3.9
+  - pandas
+  - numpy
+  - pyyaml
+  - requests
+  - samtools=1.24
+  - bcftools=1.24
+  - htslib=1.24
+  - pip
+  - pip:
+      - gspread
+      - gspread-dataframe
+      - google-auth

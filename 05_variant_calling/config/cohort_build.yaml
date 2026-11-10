@@ -1,0 +1,18 @@
+# Parameters of `variant_calling cohort build` (module 05). The calling parameters are those of Blumer et al. 2025's main callset (supplement, "Short read sequencing,
+# alignment, SNP detection"): BCFtools mpileup then call -m. Lab and farm stock are called without a shared Hardy-Weinberg prior (SPEC decision 63: groups per_sample).
+bcftools:
+  min_base_quality: 20          # mpileup -Q
+  min_mapping_quality: 13       # mpileup -q
+  indel_min_reads: 2            # mpileup -p -m : candidate indels need at least this many gapped reads ...
+  indel_min_fraction: 0.05      # ... and at least this fraction of the reads at the site (-F)
+  prior: 0.001                  # call -P : the heterozygosity (substitution rate) prior; Blumer used 0.001
+  mpileup_annotate: [FORMAT/AD, FORMAT/DP]   # mpileup -a : allele depths (heterozygote filtering) and depth
+  call_format_fields: [GQ]      # call -f : genotype quality, which module 06 uses to mask genotypes
+fill_tags: [AN, AC, NS, F_MISSING, ExcHet]   # bcftools +fill-tags: annotated, nothing is filtered on them (decision 65)
+contigs: chromosomes            # chromosomes = the NC_ contigs of at least min_contig_bp (what sexloci reads); all = every contig of the reference
+min_contig_bp: 5000000          # leaves out the mitochondrion and small unplaced pieces
+workers: 8                      # contigs called at the same time (one mpileup | call each)
+stage_parallel: 4               # BAMs downloaded at the same time
+min_free_factor: 1.2            # the disk must hold the BAMs times this
+output_subdir: Outputs/PedigreeVCFs/        # under the master directory, local and Dropbox: the folder `sexloci run-folder` reads
+work_subdir: Cohorts/                       # under the local master directory: staged BAMs and per-contig calls (deleted after a build)
