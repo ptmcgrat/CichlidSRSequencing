@@ -59,8 +59,15 @@ def build_parser():
 
 
 def _text(v):
-    """A cell as text: the lab sheets give NaN (a float) for a blank cell, which is not an empty string and is truthy."""
-    return v.strip() if isinstance(v, str) else ''
+    """A cell as stripped text. The lab sheets reach us through gspread, which turns the text `1` into the number 1, `TRUE` into a boolean and a blank into NaN / None: a blank is '', anything else is
+    its text (1 -> '1', 1.0 -> '1.0', True -> 'True'). (A first version returned '' for everything that was not already a string, which read LabReared as blank everywhere: 2026-11-11.)"""
+    try:
+        import pandas as pd
+        if pd.isna(v):
+            return ''
+    except (TypeError, ValueError, ImportError):
+        pass
+    return str(v).strip()
 
 
 def sex_map(sample_dt):
@@ -105,6 +112,10 @@ def select_members(a, sample_dt, ledger, spec=None, notes=None):
             members = []
         else:
             flagged = {_text(s) for s, v in zip(sample_dt['SampleID'], sample_dt['LabReared']) if _text(s) and _text(v).lower() in TRUE_WORDS}
+            if not flagged:
+                from collections import Counter
+                seen = Counter(repr(v) for v in sample_dt['LabReared']).most_common(5)
+                notes.append(f"no sample has a true LabReared (1, 1.0, true or yes); the column holds {', '.join(f'{k} x{n}' for k, n in seen)}")
             members = [s for s in in_ledger if s in flagged]
             if len(flagged) > len(set(members)):
                 notes.append(f'{len(flagged - set(members))} samples marked LabReared have no row in the AlignmentDatabase and are skipped')

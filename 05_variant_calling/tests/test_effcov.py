@@ -590,6 +590,51 @@ class TestTheRealSheetsHaveNaN(EffBase):
         led = pd.DataFrame(dict(SampleID=['S1', 'S2', 'S3', 'S4', nan], GenomeVersion=[G] * 5, Coverage=[10.0, nan, 9.9, 10.0, nan], BamSize=[float(self.sizes[s]) for s in self.ids] + [nan]))
         return dt, led
 
+    def test_a_cell_is_its_text_whatever_gspread_made_of_it(self):
+        import numpy as np
+        t = effcov_cli._text
+        self.assertEqual([t(1), t(1.0), t(0), t(True), t(np.bool_(True)), t(np.int64(1)), t(' M '), t('1')], ['1', '1.0', '0', 'True', 'True', '1', 'M', '1'])
+        self.assertEqual([t(None), t(float('nan')), t(pd.NA), t('')], ['', '', '', ''])
+
+    def test_lab_reared_read_as_numbers_booleans_or_text(self):
+        """The live sheet gave LabReared as numbers and the first version found no sample at all."""
+        nan = float('nan')
+        for name, flags in (('ints', [1, 0, 1, nan]), ('floats', [1.0, 0.0, 1.0, nan]), ('bools', [True, False, True, None]), ('text', ['1', '0', 'TRUE', '']), ('words', ['yes', 'no', 'Yes', None])):
+            dt = pd.DataFrame(dict(SampleID=['S1', 'S2', 'S3', 'S4'], Sex=['M', 'F', 'M', 'F'], LabReared=flags, Ecogroup=['Deep_Benthic'] * 4))
+            led = self.ledger()
+            a = effcov_cli.build_parser().parse_args(['measure', '--lab-reared'])
+            members, notes = effcov_cli.select_members(a, dt, led)
+            self.assertEqual(members, ['S1', 'S3'], name)
+
+    def test_nothing_selected_says_what_the_column_holds(self):
+        dt = pd.DataFrame(dict(SampleID=['S1', 'S2'], LabReared=['maybe', float('nan')]))
+        a = effcov_cli.build_parser().parse_args(['measure', '--lab-reared'])
+        members, notes = effcov_cli.select_members(a, dt, self.ledger())
+        self.assertEqual(members, []); self.assertTrue(any("no sample has a true LabReared" in n and "'maybe' x1" in n for n in notes), notes)
+
+    def test_groups_by_a_numeric_column_are_not_blank(self):
+        dt = pd.DataFrame(dict(SampleID=['S1', 'S2', 'S3'], BroodID=[12, 12.0, float('nan')]))
+        self.assertEqual(effcov_cli.group_map('BroodID', dt, None), {'S1': '12.0', 'S2': '12.0', 'S3': ''}, 'a float column: the same label for the same group, and a blank stays blank')
+
+    def test_the_whole_path_with_tables_typed_like_gspread_delivers_them(self):
+        """measure --lab-reared --run, report --by and write, on tables whose LabReared, BamSize and Coverage are numbers and whose blanks are NaN."""
+        nan = float('nan')
+        dt = pd.DataFrame(dict(SampleID=['S1', 'S2', 'S3', 'S4', 'S9'], Sex=['M', nan, 'F', 'M', 'F'], Species=['A sp', 'A sp', 'B sp', nan, 'B sp'], LabReared=[1, 1, 0, 1, 1], BroodID=[12, 12, nan, nan, 3],
+                            Ecogroup=['Deep_Benthic', 'Deep_Benthic', 'Mbuna', 'Utaka', nan]))
+        led = pd.DataFrame(dict(SampleID=['S1', 'S2', 'S3', 'S4'], GenomeVersion=[G] * 4, Coverage=[10.0, 9.9, nan, 10], BamSize=[int(self.sizes[s]) for s in self.ids], RunIDs=['r1', 'r1', 'r2', 'r2']))
+        base = ['--local-master', self.local, '--cloud-master', self.cloud, '--fasta', self.fa, '--out', self.out, '--config', os.path.join(self.tmp, 'none.yaml')]
+        ws = FakeWorksheet(['SampleID', 'GenomeVersion', 'Coverage', 'DuplicationRate'], [[s, G, '10', ''] for s in self.ids])
+        with mock.patch('variant_calling.cohort_cli.load_tables', return_value=(dt, led)):
+            out, err = io.StringIO(), io.StringIO()
+            rc = effcov_cli.main(['measure', '--lab-reared', '--run'] + base, out=out, err=err, free_bytes=10 ** 12)
+            self.assertEqual(rc, 0, err.getvalue() + out.getvalue()); self.assertIn('3 samples (0 already', out.getvalue()); self.assertIn('1 samples marked LabReared have no row in the AlignmentDatabase', out.getvalue())
+            self.assertEqual(sorted(r['SampleID'] for r in E.read_rows(self.out)), ['S1', 'S2', 'S4'])
+            for by in ('Species', 'RunIDs', 'BroodID', 'Ecogroup'):
+                out = io.StringIO(); rc = effcov_cli.main(['report', '--by', by, '--summary-only'] + base, out=out, err=err)
+                self.assertEqual(rc, 0, f'{by}: {err.getvalue()}'); self.assertIn(by, out.getvalue().splitlines()[0])
+            out = io.StringIO(); rc = effcov_cli.main(['write', '--apply'] + base, out=out, err=err, worksheet_fn=lambda: ws)
+        self.assertEqual(rc, 0, err.getvalue() + out.getvalue()); self.assertEqual(ws.column('EffectiveCoverage'), [3.8, 3.8, '', 3.8]); self.assertEqual(ws.column('DuplicationRate'), [0.2925, 0.2925, '', 0.2925])
+
     def test_the_sex_map_keeps_only_real_values(self):
         self.assertEqual(effcov_cli.sex_map(self.tables()[0]), {'S1': 'M', 'S3': 'F'})
         self.assertEqual(effcov_cli.sex_map(pd.DataFrame(dict(SampleID=['A']))), {}); self.assertEqual(effcov_cli.sex_map(None), {})

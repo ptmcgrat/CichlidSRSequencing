@@ -152,7 +152,8 @@ duplicate rate is measured on the merged BAM and cannot be split between the run
 
 ### Selecting samples: `--lab-reared`
 
-`--lab-reared` selects the samples of the AlignmentDatabase that the SampleDatabase marks LabReared (1, true or yes, as the cohort rules read it; samples marked but without a row in the AlignmentDatabase are counted and skipped). It combines with
+`--lab-reared` selects the samples of the AlignmentDatabase that the SampleDatabase marks LabReared (1, true or yes, as the cohort rules read it; samples marked but without a row in the AlignmentDatabase are counted and skipped). The live sheets reach the code through gspread, which turns the text `1` into the number 1, `TRUE` into a boolean and a blank into NaN: every cell is read through one helper that handles all of them (a first version read only text and found no
+LabReared sample at all on 2026-11-11, and the plan said only "no samples are selected"); an empty selection now prints what the column holds. It combines with
 `--exclude-ecogroup Mbuna`. In the snapshot of the sample table (613 LabReared samples, the live sheet has more): 267 backcross hybrids, 91 *Mchenga conophoros*, 65 YH, 52 *Copadichromis virginalis*, 24 saulosi, 24 MCxCV F1, 21 gertrudae and others; 22 are Mbuna.
 
 ## Not built yet
