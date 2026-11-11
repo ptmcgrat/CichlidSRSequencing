@@ -1,0 +1,11 @@
+# Parameters of `variant_calling effcov` (module 05). The caller's own parameters (MAPQ, base quality, the pileup options) are read from cohort_build.yaml, so the measurement cannot drift from the calling.
+window_bp: 1000000          # one window of this length on every chromosome ...
+position_fraction: 0.4      # ... starting this far along it (away from the telomeres)
+min_depth: 5                # the depth below which `effcov report` flags a sample: sexloci's min_dp for the sex contrasts
+jobs: 4                     # samples measured at the same time (each downloads one BAM: Dropbox may throttle more)
+threads: 8                  # samtools threads per sample
+default_bam_bytes: 15000000000   # the size assumed for a sample that is not in the AlignmentDatabase
+min_free_factor: 1.2        # the disk must hold the largest `jobs` BAMs times this
+definition_version: 1       # bump when the arithmetic of a column changes: every sample is then measured again
+output_subdir: Outputs/EffectiveCoverage/   # under the local master directory
+work_subdir: Cohorts/effcov_staged/         # under the local master directory: the BAM being measured

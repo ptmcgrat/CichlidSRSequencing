@@ -1,4 +1,5 @@
 """python -m variant_calling cohort list | members <name> | check <name>   (see cohort_cli)
+   python -m variant_calling effcov measure ... | report ...                (effective coverage of BAMs: see effcov_cli)
    python -m variant_calling callset build <name> [--dry-run] | selftest"""
 import os
 import sys
@@ -17,4 +18,7 @@ def main(argv=None):
     if argv and argv[0] == 'cohort':                       # its own small parser: the shared one is a single global parser
         from variant_calling import cohort_cli
         return cohort_cli.main(argv[1:])
+    if argv and argv[0] == 'effcov':
+        from variant_calling import effcov_cli
+        return effcov_cli.main(argv[1:])
     return cli_base.main('python -m variant_calling', ['callset'], {'callset': _callset}, tests_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests'), argv=argv)

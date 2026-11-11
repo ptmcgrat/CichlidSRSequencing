@@ -14,6 +14,15 @@ def log(tool, argv):
             f.write(json.dumps(dict(tool=tool, argv=argv)) + '\n')
 
 
+def json_bam(path):
+    """The description a test wrote into a fake BAM ({"primary": ..., "dups": ..., "mapped_nondup": ..., "mapq_pass": ..., "raw": [..], "hq": [..], "cover": 0..1, "fail": ...}), or None for the plain fakes of the build tests."""
+    try:
+        text = open(path, 'rb').read(4096).decode('utf-8', 'ignore')
+        return json.loads(open(path).read()) if text.startswith('{') else None
+    except (OSError, ValueError):
+        return None
+
+
 def die(msg, code=1):
     sys.stderr.write(msg + '\n')
     return code
@@ -58,6 +67,16 @@ def bcftools(argv):
     if cmd == 'mpileup':
         paths = [l.strip() for l in open(opt(argv, '-b')) if l.strip()]
         region = opt(argv, '-r')
+        desc = json_bam(paths[0]) if paths else None
+        if desc is not None:                                           # effective coverage: depth lines for every window, already in the form `bcftools query` prints
+            if desc.get('fail') == 'mpileup':
+                return die('simulated failure of mpileup')
+            for w in region.split(','):
+                a, b = w.split(':')[1].split('-')
+                n = int(round(desc.get('cover', 1.0) * (int(b) - int(a) + 1)))
+                for i in range(n):
+                    sys.stdout.write(f"{desc['raw'][i % len(desc['raw'])]}\t{desc['hq'][i % len(desc['hq'])]}\n")
+            return 0
         contig = region.split(':')[0]
         flag = os.environ.get('FAKE_FAIL_FLAG')
         if os.environ.get('FAKE_FAIL_CONTIG') == contig and flag and os.path.exists(flag):
@@ -83,6 +102,9 @@ def bcftools(argv):
         if os.path.exists(f + '.tbi') and '-f' not in argv:
             return die('index exists')
         open(f + '.tbi', 'w').write('tbi')
+        return 0
+    if cmd == 'query' and argv[1] == '-f':                                  # reads what the fake mpileup wrote and prints it as it is
+        sys.stdout.write(sys.stdin.read())
         return 0
     if cmd == 'query' and argv[1] == '-l':
         head, _ = read_vcf(argv[2])
@@ -114,6 +136,22 @@ def samtools(argv):
     log('samtools', argv)
     if argv[:1] == ['--version']:
         print('samtools 1.99')
+        return 0
+    if argv[:1] == ['flagstat']:
+        d = json_bam(argv[-1])
+        if d is None:
+            return die('fake samtools flagstat: not a JSON bam')
+        if d.get('fail') == 'flagstat':
+            return die('simulated failure of flagstat')
+        p, u = d['primary'], d['dups']
+        print(f"{p} + 0 in total (QC-passed reads + QC-failed reads)\n{p} + 0 primary\n0 + 0 secondary\n0 + 0 supplementary\n{u} + 0 duplicates\n{u} + 0 primary duplicates\n"
+              f"{p - 5} + 0 mapped (99.99% : N/A)\n{p - 5} + 0 primary mapped (99.99% : N/A)")
+        return 0
+    if argv[:1] == ['view'] and '-c' in argv:
+        d = json_bam(argv[-1])
+        if d is None:
+            return die('fake samtools view -c: not a JSON bam')
+        print(d['mapq_pass'] if '-q' in argv else d['mapped_nondup'])
         return 0
     if argv[:1] == ['quickcheck']:
         return 1 if b'CORRUPT' in open(argv[-1], 'rb').read() else 0

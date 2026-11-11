@@ -259,29 +259,34 @@ def format_plan(plan, problems, cfg, env):
 
 
 # ------------------------------------------------------------------ staging
+def stage_bam(env, staged, s, want=None, run=run_cmd):
+    """Make `<staged><s>/<s>.all.bam` (+ `.all.bai` and a `.all.bam.bai` link) exist and be sound: kept when it is already there with the size the ledger gives, else downloaded from Dropbox and
+    checked (size, `samtools quickcheck`). Returns 'kept' or 'downloaded'. Used by the cohort build and by `effcov`."""
+    d = f'{staged}{s}/'
+    bam, bai = f'{d}{s}.all.bam', f'{d}{s}.all.bai'
+    ok = os.path.exists(bam) and os.path.exists(bai) and (want is None or os.path.getsize(bam) == int(want)) and run(['samtools', 'quickcheck', '-q', bam])[0] == 0
+    if ok:
+        return 'kept'
+    os.makedirs(d, exist_ok=True)
+    must(run(['rclone', 'copy', env.cloud_sample_dir(s), d, '--include', f'{s}.all.bam', '--include', f'{s}.all.bai']), f'downloading the BAM of {s}')
+    if not (os.path.exists(bam) and os.path.exists(bai)):
+        raise BuildError(f'{s}: {s}.all.bam or {s}.all.bai is not in {env.cloud_sample_dir(s)}')
+    if want is not None and os.path.getsize(bam) != int(want):
+        raise BuildError(f'{s}: the downloaded BAM is {os.path.getsize(bam)} bytes, the ledger says {int(want)}')
+    rc, _, err = run(['samtools', 'quickcheck', '-q', bam])
+    if rc:
+        raise BuildError(f'{s}: samtools quickcheck says the downloaded BAM is damaged: {err.strip()[-300:]}')
+    link = bam + '.bai'                                       # htslib finds either name; both are there so that nothing depends on that
+    if not os.path.lexists(link):
+        os.symlink(os.path.basename(bai), link)
+    return 'downloaded'
+
+
 def stage_bams(env, plan, cfg, log=print, run=run_cmd):
     os.makedirs(plan.staged, exist_ok=True)
 
     def one(s):
-        d = f'{plan.staged}{s}/'
-        bam, bai = f'{d}{s}.all.bam', f'{d}{s}.all.bai'
-        want = plan.sizes.get(s)
-        ok = os.path.exists(bam) and os.path.exists(bai) and (want is None or os.path.getsize(bam) == int(want)) and run(['samtools', 'quickcheck', '-q', bam])[0] == 0
-        if ok:
-            return s, 'kept'
-        os.makedirs(d, exist_ok=True)
-        must(run(['rclone', 'copy', env.cloud_sample_dir(s), d, '--include', f'{s}.all.bam', '--include', f'{s}.all.bai']), f'downloading the BAM of {s}')
-        if not (os.path.exists(bam) and os.path.exists(bai)):
-            raise BuildError(f'{s}: {s}.all.bam or {s}.all.bai is not in {env.cloud_sample_dir(s)}')
-        if want is not None and os.path.getsize(bam) != int(want):
-            raise BuildError(f'{s}: the downloaded BAM is {os.path.getsize(bam)} bytes, the ledger says {int(want)}')
-        rc, _, err = run(['samtools', 'quickcheck', '-q', bam])
-        if rc:
-            raise BuildError(f'{s}: samtools quickcheck says the downloaded BAM is damaged: {err.strip()[-300:]}')
-        link = bam + '.bai'                                       # htslib finds either name; both are there so that nothing depends on that
-        if not os.path.lexists(link):
-            os.symlink(os.path.basename(bai), link)
-        return s, 'downloaded'
+        return s, stage_bam(env, plan.staged, s, plan.sizes.get(s), run)
 
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=cfg['stage_parallel']) as ex:

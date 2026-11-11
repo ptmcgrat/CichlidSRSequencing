@@ -84,6 +84,43 @@ after a failed contig, renaming, the manifest, the trial's isolation and the ref
 `-G -` gives each sample its own group (`bcftools call` usage and manual say), that `--ignore-RG` gives one column per BAM in list order (the builder stops if the column count is wrong), the `-a FORMAT/AD,FORMAT/DP` and `-f GQ` tag names of the
 pinned version, that htslib finds the `.all.bai` index (a `.all.bam.bai` link is made as well), and the time and the size of a build (not measured).
 
+## Effective coverage (`effcov`, 2026-11-11)
+
+```
+python -m variant_calling effcov measure (--cohort NAME | --samples-file F | -s ID ... | --all [--exclude-ecogroup Mbuna])      # the plan
+python -m variant_calling effcov measure ... --run                                                                          # download, measure, delete, append
+python -m variant_calling effcov report [--tsv F] [selection]
+```
+
+The AlignmentDatabase's `Coverage` is raw yield. What the caller sees is much less and differs between libraries, so `effcov` measures it per sample from the sample's `all.bam` (downloaded, measured, deleted) and appends one row per
+sample to `<local master>/Outputs/EffectiveCoverage/effective_coverage.<genome>.tsv`. **It does not write to any Google sheet** (reads are read-only); writing the numbers to the AlignmentDatabase is a later step that reads this file.
+
+The definition (`effcov.py` docstring; parameters in `config/effcov.yaml`; the caller's own parameters come from `config/cohort_build.yaml`, so the measurement cannot drift from the calling):
+`EffectiveCoverage` is the mean FORMAT/DP of `bcftools mpileup` run exactly as `cohort build` runs it (one function builds both commands) over one 1 Mb window on each of the 22 chromosomes (about 2% of the genome), at the positions
+the caller emits, so it is the depth at covered sites, which is what a genotype is made from. Also: `WindowRawDepth` (INFO/DP: reads passing the read-level filters), `BaseSurvivalFraction` (the base-level filters: quality, BAQ, mate overlap),
+`WindowCoveredFraction`, and over the whole BAM `MapqPassFraction` and `DuplicateFraction`. Every row carries a `DefinitionKey`; a sample measured under another key is measured again. A rerun skips samples already measured, a failed sample is
+recorded with its reason and does not stop the others, `--redo` measures again, and the default of `measure` is the plan.
+
+Why this definition (measured 2026-11-11 on three BAMs with the same pileup over six windows; "caller" is the depth in the windows, "table" the AlignmentDatabase's Coverage):
+
+| sample | table | duplicates | MAPQ >= 13 | overlap (insert sizes) | base survival | caller | caller / table |
+|---|---|---|---|---|---|---|---|
+| ASG_212_1 (saulosi) | 9.9 | 29.1% | 72.6% | 34% | 68% | 4.1 | 41% |
+| YH_005_m (YH parent) | 19.9 | 2.7% | 80.9% | 0.8% | 95% | 16.9 | 85% |
+| SAMEA117805283 (Blumer) | 14.6 | 8.2% | 81.6% | 1.2% | 92% | 11.9 | 81% |
+
+The saulosi library keeps 41% of its nominal coverage (short inserts, heavy PCR), the other two 81 to 85%, so the usable depth cannot be derived from the table. A formula from counts (non-duplicate coverage x MAPQ pass x (1 - overlap)) under-predicted the
+caller by 12 to 34% (the windows are covered sites, the genome-wide mean is diluted by positions that are uncovered after filtering), and overlap is only part of the base loss (the two other libraries lose 5 to 8% of bases with about 1% overlap), so
+the pileup itself is the measurement. **(unverified)** that 22 windows of 1 Mb represent the genome: the 24 saulosi samples are the check (effective coverage against sexloci's per-sample mean depth of 3.8 to 7.9).
+
+Tests (37, with fake tools that describe a BAM by a few numbers, so every expected value is exact): arithmetic and parsing, the definition key, the output file, one sample (including that the pileup command equals the build's), a whole run with a
+failure and a resume, the preflight, and the command line. They found a real defect while being written: `15.0e9` in a YAML file is a string, not a number (the config loader now coerces and rejects).
+**The first real run is the check of the real tools** (`bcftools mpileup` over 22 comma-separated regions with the build's options, `samtools flagstat` and `view -c`): try one sample first, ASG_212_1, which has known numbers.
+
+Agreed next, not built (2026-11-11): write `MapqPassFraction`, `BaseSurvivalFraction` and `EffectiveCoverage` to the AlignmentDatabase (new columns at the END of the header, which is safe while batches run: the writer reads the header on every
+append) with a shared guarded writer (targeted cells by SampleID, read-back, TSV first); then drop `UsableCoverage`, `NRuns`, `Instrument` and `ReadLength` from the sheet **only after batches 3 and 4 have finished and the new code is deployed**
+(a running pipeline refuses to write a row when the header lacks a column it writes); the same pass over each BAM then runs the SD panel (gsdf, the three TE sites, LG5, B chromosome) and fills the SampleDatabase, fill-empty-cells-only.
+
 ## Not built yet
 
 The run-of-homozygosity track, the genotype-level heterozygote filter and the per-sex heterozygosity annotation, the accessibility mask, kinship and F_ROH in `qc`, hardy-weinberg groups other than `per_sample` (refused for now), and the
