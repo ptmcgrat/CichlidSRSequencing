@@ -45,6 +45,18 @@ def build_parser():
     return ap
 
 
+def _text(v):
+    """A cell as text: the lab sheets give NaN (a float) for a blank cell, which is not an empty string and is truthy."""
+    return v.strip() if isinstance(v, str) else ''
+
+
+def sex_map(sample_dt):
+    """{SampleID: Sex} for the samples that have both."""
+    if sample_dt is None or 'Sex' not in getattr(sample_dt, 'columns', []):
+        return {}
+    return {_text(s): _text(x) for s, x in zip(sample_dt['SampleID'], sample_dt['Sex']) if _text(s) and _text(x)}
+
+
 def read_ids(path):
     out = []
     for line in open(path):
@@ -66,7 +78,7 @@ def select_members(a, sample_dt, ledger, spec=None, notes=None):
     elif a.samples:
         members = list(a.samples)
     else:
-        members = [s for s in ledger['SampleID'].tolist() if str(s).strip()] if ledger is not None and len(ledger) else []
+        members = [_text(s) for s in ledger['SampleID'].tolist() if _text(s)] if ledger is not None and len(ledger) else []
     if a.exclude_ecogroup and sample_dt is not None and 'Ecogroup' in sample_dt.columns:
         gone = set(sample_dt.loc[sample_dt['Ecogroup'].isin(a.exclude_ecogroup), 'SampleID'])
         left_out = [s for s in members if s in gone]
@@ -116,7 +128,7 @@ def main(argv=None, out=None, err=None, run=None, script=None, which=None, free_
     except SystemExit as e:
         print(str(e), file=err)
         return 2
-    sex = dict(zip(sample_dt['SampleID'], sample_dt['Sex'])) if sample_dt is not None and 'Sex' in getattr(sample_dt, 'columns', []) else {}
+    sex = sex_map(sample_dt)
     if a.command == 'report':
         members = None
         if any(chosen):

@@ -2,6 +2,7 @@
 (fake_tools.py describes a BAM by a few numbers, so every expected value here is exact), resume and failure, the preflight, and the command line.
 The fakes establish that the right command lines are issued and the numbers are combined correctly. How real samtools and bcftools behave is what the first real run is for."""
 import contextlib, io, json, os, shutil, stat, sys, tempfile, unittest
+from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import pandas as pd
@@ -360,6 +361,46 @@ class TestCli(EffBase):
         with contextlib.redirect_stdout(out):
             rc = cli.main(['effcov', 'measure', '-s', 'S1'] + self.common)
         self.assertEqual(rc, 0); self.assertIn('1 samples', out.getvalue().replace('1 samples (', '1 samples ('))
+
+
+class TestTheRealSheetsHaveNaN(EffBase):
+    """The first real run (2026-11-11) measured a sample correctly and then crashed in the report: the lab sheets give NaN, a float, for a blank cell, and the test tables had empty strings."""
+    def tables(self):
+        nan = float('nan')
+        dt = pd.DataFrame(dict(SampleID=['S1', 'S2', 'S3', 'S4', nan], Sex=['M', nan, 'F', None, 'M'], Ecogroup=[nan, 'Deep_Benthic', 'Mbuna', 'Mbuna', nan]))
+        led = pd.DataFrame(dict(SampleID=['S1', 'S2', 'S3', 'S4', nan], GenomeVersion=[G] * 5, Coverage=[10.0, nan, 9.9, 10.0, nan], BamSize=[float(self.sizes[s]) for s in self.ids] + [nan]))
+        return dt, led
+
+    def test_the_sex_map_keeps_only_real_values(self):
+        self.assertEqual(effcov_cli.sex_map(self.tables()[0]), {'S1': 'M', 'S3': 'F'})
+        self.assertEqual(effcov_cli.sex_map(pd.DataFrame(dict(SampleID=['A']))), {}); self.assertEqual(effcov_cli.sex_map(None), {})
+
+    def test_the_report_survives_nan_and_none_in_the_sex_map(self):
+        rows = [dict(SampleID='A', Status='ok', DefinitionKey='k', EffectiveCoverage='3.8', TableCoverage='9.9', DuplicateFraction=0.29, MapqPassFraction=0.72, BaseSurvivalFraction=0.7, WindowCoveredFraction=0.9)]
+        t = E.report_text(rows, key='k', sex={'A': float('nan'), 'B': None, 'C': 'F'})
+        self.assertIn('1 samples', t); self.assertNotIn('nan', t)
+
+    def test_all_ignores_blank_rows_of_the_ledger(self):
+        dt, led = self.tables()
+        a = effcov_cli.build_parser().parse_args(['measure', '--all', '--exclude-ecogroup', 'Mbuna'])
+        members, notes = effcov_cli.select_members(a, dt, led)
+        self.assertEqual(members, ['S1', 'S2'], 'no sample called nan, and the Mbuna are left out'); self.assertTrue(any('2 samples of Ecogroup Mbuna' in n for n in notes))
+
+    def test_a_whole_run_on_nan_tables_ends_in_a_report_not_a_traceback(self):
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch('variant_calling.cohort_cli.load_tables', return_value=self.tables()):
+            rc = effcov_cli.main(['measure', '--all', '--run', '--local-master', self.local, '--cloud-master', self.cloud, '--fasta', self.fa, '--out', self.out,
+                                  '--config', os.path.join(self.tmp, 'none.yaml')], out=out, err=err, free_bytes=10 ** 12)
+        self.assertEqual(rc, 0, err.getvalue() + out.getvalue()); self.assertEqual(sorted(r['SampleID'] for r in E.read_rows(self.out)), self.ids)
+        self.assertIn('4 samples; effective coverage', out.getvalue()); self.assertIn('sex M: 1 samples', out.getvalue()); self.assertIn('sex F: 1 samples', out.getvalue())
+        with mock.patch('variant_calling.cohort_cli.load_tables', return_value=self.tables()):
+            out = io.StringIO()
+            rc = effcov_cli.main(['report', '--local-master', self.local, '--cloud-master', self.cloud, '--fasta', self.fa, '--out', self.out], out=out, err=err)
+        self.assertEqual(rc, 0); self.assertIn('4 samples;', out.getvalue())
+
+    def setUp(self):
+        super().setUp()
+        open(os.path.join(self.tmp, 'none.yaml'), 'w').write('window_bp: 1000\njobs: 2\nthreads: 2\n')
 
 
 if __name__ == '__main__':

@@ -318,7 +318,7 @@ def report_text(rows, key=None, sex=None, min_depth=5.0, members=None):
             best[r['SampleID']] = r
     if not best:
         return 'no successful measurement to report'
-    sex = sex or {}
+    sex = {k: v for k, v in (sex or {}).items() if isinstance(v, str) and v}                      # a blank cell of a lab sheet is NaN, not ''
     head = f"{'sample':<18}{'sex':>4}{'table':>8}{'effective':>10}{'eff/table':>10}{'dup%':>7}{'mapq13%':>9}{'bases kept%':>12}{'covered%':>10}  "
     lines = [head + 'note', '-' * (len(head) + 8)]
     ratios, eff = [], {}
