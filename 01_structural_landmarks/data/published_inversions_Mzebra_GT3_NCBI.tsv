@@ -1,0 +1,16 @@
+# The inversion breakpoints of this project (SPEC decision 70). Coordinates are in the reference Mzebra_GT3_NCBI (GT3a; chromosome accessions NC_135166 + LG number).
+# bp1_* and bp2_* are the start and end of the interval that contains the left and the right breakpoint. In a tandem (double) inversion the right breakpoint of the first part
+# is the left breakpoint of the second (11a/11b, 20a/20b): the two rows carry the identical interval.
+# Source of every `published` row: Kumar et al. 2025, eLife (doi 10.7554/eLife.104923), Supplementary File 4, copied by hand on 2026-11-11. Kumar et al. do not cover LG5:
+# its row is this pipeline's own call (`inversion_breakpoints`: LatrZW and MezeOBm; SPEC decisions 71 and 73). reference_state: Kumar et al. report
+# that the reference haplotype of GT3a is the ancestral (non-inverted) state for all six of their inversions.
+lg	part	chrom	bp1_start	bp1_end	bp2_start	bp2_end	reference_state	status	source	note
+LG2	2	NC_135168.1	19751534	19845509	43556655	43559056	ancestral	published	Kumar2025 Supplementary File 4	
+LG5	5	NC_135171.1	19657762	19657848	26726676	26726685	unset	pipeline	inversion_breakpoints (LatrZW, MezeOBm)	not in Kumar et al.; the high-confidence consensus row of run 20261110-183552_aa6580ae (LatrZW:A, MezeOBm:A; left_min to left_max, right_min to right_max), intervals 86 bp and 9 bp wide, 7.07 Mb; Behrens et al. 2025 give about 7 Mb (6.89 Mb in UMD2a); W / orange-blotch inversion
+LG9	9	NC_135175.1	14912159	14966448	32492000	32996230	ancestral	published	Kumar2025 Supplementary File 4	our own four-assembly call put the left breakpoint 291 kb to the left (14,621,505): see comparison_kumar_vs_pipeline_20261110.tsv
+LG10	10	NC_135176.1	11459086	11818098	29881276	29902559	ancestral	published	Kumar2025 Supplementary File 4	
+LG11	11a	NC_135177.1	8281988	8303032	18425177	18425215	ancestral	published	Kumar2025 Supplementary File 4	tandem with 11b: the right breakpoint of 11a is the left breakpoint of 11b
+LG11	11b	NC_135177.1	18425177	18425215	30372599	30387602	ancestral	published	Kumar2025 Supplementary File 4	tandem with 11a
+LG13	13	NC_135179.1	2398108	2412755	23074431	23124401	ancestral	published	Kumar2025 Supplementary File 4	
+LG20	20a	NC_135186.1	19616377	19623494	29682528	29698815	ancestral	published	Kumar2025 Supplementary File 4	tandem with 20b; 20a formed first; the four Rhamphochromis carry 20a only
+LG20	20b	NC_135186.1	29682528	29698815	33170004	33254382	ancestral	published	Kumar2025 Supplementary File 4	tandem with 20a; these intervals give 3.47 to 3.57 Mb, the text of Kumar et al. says 4.1 Mb
