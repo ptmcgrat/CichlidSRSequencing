@@ -117,9 +117,31 @@ Tests (37, with fake tools that describe a BAM by a few numbers, so every expect
 failure and a resume, the preflight, and the command line. They found a real defect while being written: `15.0e9` in a YAML file is a string, not a number (the config loader now coerces and rejects).
 **The first real run is the check of the real tools** (`bcftools mpileup` over 22 comma-separated regions with the build's options, `samtools flagstat` and `view -c`): try one sample first, ASG_212_1, which has known numbers.
 
-Agreed next, not built (2026-11-11): write `MapqPassFraction`, `BaseSurvivalFraction` and `EffectiveCoverage` to the AlignmentDatabase (new columns at the END of the header, which is safe while batches run: the writer reads the header on every
-append) with a shared guarded writer (targeted cells by SampleID, read-back, TSV first); then drop `UsableCoverage`, `NRuns`, `Instrument` and `ReadLength` from the sheet **only after batches 3 and 4 have finished and the new code is deployed**
+Agreed next: drop `UsableCoverage`, `NRuns`, `Instrument` and `ReadLength` from the sheet **only after batches 3 and 4 have finished and the new code is deployed**
 (a running pipeline refuses to write a row when the header lacks a column it writes); the same pass over each BAM then runs the SD panel (gsdf, the three TE sites, LG5, B chromosome) and fills the SampleDatabase, fill-empty-cells-only.
+
+### Writing to the AlignmentDatabase (`effcov write`, 2026-11-11)
+
+```
+python -m variant_calling effcov write                      # the PLAN: what would happen to every cell; writes nothing
+python -m variant_calling effcov write --apply --limit 3    # a first trial on the live sheet
+python -m variant_calling effcov write --apply              # the rest
+```
+
+It reads the output file, takes the newest successful row of every sample measured with the CURRENT definition (older rows are never written), and fills `EffectiveCoverage`, `MapqPassFraction` and `BaseSurvivalFraction` (rounded to 4 decimals)
+in the worksheet of the genome. The writer is `common/cichlid_common/sheet_writer.py` (also for the SampleDatabase later); its rules: only the named cells; the default is a plan; a cell that already holds a different value is
+left alone (`conflict`) unless `--overwrite`; a sample in no row or in more than one row is skipped and named; missing columns are added at the END of the header (what `align_pipeline setup-database` does, and running pipelines do not mind: they lay a row out
+by the header they read at that moment, so a column they do not know stays blank in their rows); it re-reads and re-plans immediately before writing, writes `RAW` values in batched calls (gspread_retry repeats them after a network error or HTTP 429),
+reads the sheet again and checks that every cell sits in the row of the right sample, and keeps a journal (`<output folder>/sheet_writes/`, planned and verified lines with the old values). Sheets has no conditional write, so a row inserted or deleted by
+a person in the few milliseconds between the final read and the write could put a value one row off: the check catches it and names the cells (docstring of the writer). For these new columns that cannot destroy anything; for the SampleDatabase it is why
+the first writes there will be `--limit` trials.
+**The old columns are not touched.** `UsableCoverage`, `NRuns`, `Instrument` and `ReadLength` stay in the sheet until batches 3 and 4 have finished and the new code is deployed (a running pipeline refuses to write a row when the header lacks a column it writes).
+52 + 168 tests with a worksheet test double (`cichlid_common/fake_sheet.py`); the guards were mutation-tested (a verification that always passes, a plan that treats a different value as writable, a row off by one and writing rows of every definition each make tests fail).
+
+### Selecting samples: `--lab-reared`
+
+`--lab-reared` selects the samples of the AlignmentDatabase that the SampleDatabase marks LabReared (1, true or yes, as the cohort rules read it; samples marked but without a row in the AlignmentDatabase are counted and skipped). It combines with
+`--exclude-ecogroup Mbuna`. In the snapshot of the sample table (613 LabReared samples, the live sheet has more): 267 backcross hybrids, 91 *Mchenga conophoros*, 65 YH, 52 *Copadichromis virginalis*, 24 saulosi, 24 MCxCV F1, 21 gertrudae and others; 22 are Mbuna.
 
 ## Not built yet
 

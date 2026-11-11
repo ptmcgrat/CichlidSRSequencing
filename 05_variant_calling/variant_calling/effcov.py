@@ -44,6 +44,8 @@ VIEW_EXCLUDE = 3844                      # samtools view -F: unmapped, secondary
 COLUMNS = ['SampleID', 'GenomeVersion', 'Status', 'Error', 'DefinitionKey', 'MeasuredOn', 'Machine', 'Tools', 'PrimaryReads', 'DuplicateFraction', 'MapqPassFraction', 'WindowRawDepth',
            'EffectiveCoverage', 'BaseSurvivalFraction', 'WindowCoveredFraction', 'TableCoverage', 'BamBytes', 'Seconds']
 TOOLS = ('samtools', 'bcftools', 'rclone', 'awk')
+SHEET_COLUMNS = ['EffectiveCoverage', 'MapqPassFraction', 'BaseSurvivalFraction']      # the columns of the AlignmentDatabase this tool fills, named as in this file
+SHEET_DECIMALS = 4
 
 
 class MeasureError(RuntimeError):
@@ -300,6 +302,19 @@ def run_effcov(env, cfg, plan, keep_bams=False, log=print, run=B.run_cmd, script
         list(ex.map(one, plan.todo))
     log(f'[effcov] {total - len(failed)} measured, {len(failed)} failed, {len(plan.done)} skipped (already measured), {(time.time() - t0) / 60:.1f} min')
     return dict(ok=total - len(failed), failed=failed, skipped=len(plan.done))
+
+
+# ------------------------------------------------------------------ the AlignmentDatabase
+def sheet_updates(ok_rows, members=None):
+    """{SampleID: {column: number}} for the sheet, from {SampleID: row} of successful measurements (see latest_ok), rounded to SHEET_DECIMALS. A value that is not a number is left out."""
+    out = {}
+    for s, r in sorted(ok_rows.items()):                                   # alphabetical: the plan, the journal and --limit are then deterministic
+        if members is not None and s not in members:
+            continue
+        vals = {c: round(_num(r.get(c)), SHEET_DECIMALS) for c in SHEET_COLUMNS if _num(r.get(c)) is not None}
+        if vals:
+            out[s] = vals
+    return out
 
 
 # ------------------------------------------------------------------ the report

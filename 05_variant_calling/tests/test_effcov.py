@@ -8,6 +8,7 @@ sys.path.insert(0, HERE)
 import pandas as pd
 from cohort_fixtures import *
 from variant_calling import build as B, cli, effcov as E, effcov_cli
+from cichlid_common.fake_sheet import FakeWorksheet
 
 CFG = B.load_build_config()
 ECFG = dict(E.load_config(), window_bp=1000, jobs=2, threads=2)
@@ -296,7 +297,7 @@ class TestPlanAndPreflight(EffBase):
         self.assertEqual(len([c for c in self.calls('rclone') if c[0] == 'copy']), 1)
 
 
-class TestCli(EffBase):
+class CliBase(EffBase):
     def setUp(self):
         super().setUp()
         rows = [fish(s, 'M' if i % 2 else 'F', eco='Deep_Benthic' if i < 3 else 'Mbuna') for i, s in enumerate(self.ids)]
@@ -313,6 +314,9 @@ class TestCli(EffBase):
         rc = effcov_cli.main(list(args) + self.common, out=out, err=err, free_bytes=10 ** 12)
         return rc, out.getvalue(), err.getvalue()
 
+
+
+class TestCli(CliBase):
     def test_the_default_is_the_plan_and_nothing_is_downloaded(self):
         rc, out, err = self.call('measure', '--samples-file', self.paths['ids'])
         self.assertEqual(rc, 0, err + out); self.assertIn('2 samples (0 already measured with this definition, 2 to measure)', out); self.assertIn('add --run', out)
@@ -361,6 +365,122 @@ class TestCli(EffBase):
         with contextlib.redirect_stdout(out):
             rc = cli.main(['effcov', 'measure', '-s', 'S1'] + self.common)
         self.assertEqual(rc, 0); self.assertIn('1 samples', out.getvalue().replace('1 samples (', '1 samples ('))
+
+
+class TestLabReared(CliBase):
+    def setUp(self):
+        super().setUp()
+        self.put('S5', GOOD); self.sizes.pop('S5')
+        rows = [fish('S1', 'M', lab='1', eco='Deep_Benthic'), fish('S2', 'F', lab='1', eco='Mbuna'), fish('S3', 'M', lab='0'), fish('S4', 'F', lab='TRUE', eco='Utaka'), fish('S6', 'M', lab='1')]
+        sheet(rows).to_csv(self.paths['sample'], sep='\t', index=False)               # S6 is LabReared but has no row in the AlignmentDatabase
+
+    def test_the_lab_reared_samples_that_have_a_bam(self):
+        rc, out, err = self.call('measure', '--lab-reared')
+        self.assertEqual(rc, 0, err + out); self.assertIn('3 samples (0 already measured', out); self.assertIn('1 samples marked LabReared have no row in the AlignmentDatabase and are skipped', out)
+
+    def test_it_combines_with_leaving_the_mbuna_out(self):
+        rc, out, _ = self.call('measure', '--lab-reared', '--exclude-ecogroup', 'Mbuna')
+        self.assertIn('2 samples (0 already', out); self.assertIn('1 samples of Ecogroup Mbuna are left out', out)
+
+    def test_it_is_one_selector_among_the_others(self):
+        self.assertEqual(self.call('measure', '--lab-reared', '--all')[0], 2); self.assertEqual(self.call('measure', '--lab-reared', '-s', 'S1')[0], 2)
+
+    def test_a_sheet_without_the_column_says_so(self):
+        sheet([fish('S1', 'M')]).drop(columns=['LabReared']).to_csv(self.paths['sample'], sep='\t', index=False)
+        rc, out, err = self.call('measure', '--lab-reared')
+        self.assertIn('no LabReared column', out); self.assertEqual(rc, 3)
+
+
+class TestWrite(CliBase):
+    HEAD = ['SampleID', 'GenomeVersion', 'Coverage', 'UsableCoverage', 'NRuns']
+
+    def setUp(self):
+        super().setUp()
+        self.ws = FakeWorksheet(self.HEAD, [[s, G, '10', '6.8', '1'] for s in self.ids] + [['OTHER', G, '5', '', '1']])
+        self.measured = self.call('measure', '--all', '--run')
+        self.assertEqual(self.measured[0], 0, self.measured[1] + self.measured[2])
+
+    def write(self, *args, ws=None, **kw):
+        out, err = io.StringIO(), io.StringIO()
+        rc = effcov_cli.main(['write'] + list(args) + self.common, out=out, err=err, worksheet_fn=lambda: (ws or self.ws), **kw)
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_the_default_is_a_plan_and_writes_nothing(self):
+        rc, out, err = self.write()
+        self.assertEqual(rc, 0, err); self.assertEqual(self.ws.writes(), []); self.assertIn('4 samples measured with definition', out)
+        self.assertIn('columns to ADD at the end of the header: EffectiveCoverage, MapqPassFraction, BaseSurvivalFraction', out); self.assertIn('nothing was written: add --apply', out)
+        self.assertEqual(self.ws.grid[0], self.HEAD)
+
+    def test_apply_adds_the_columns_at_the_end_and_fills_the_measured_samples(self):
+        rc, out, err = self.write('--apply')
+        self.assertEqual(rc, 0, err + out); self.assertEqual(self.ws.grid[0], self.HEAD + ['EffectiveCoverage', 'MapqPassFraction', 'BaseSurvivalFraction'])
+        self.assertEqual(self.ws.column('EffectiveCoverage'), [3.8, 3.8, 3.8, 3.8, '']); self.assertEqual(self.ws.column('MapqPassFraction'), [0.7143] * 4 + ['']); self.assertEqual(self.ws.column('BaseSurvivalFraction'), [0.6909] * 4 + [''])
+        self.assertEqual(self.ws.column('UsableCoverage'), ['6.8'] * 4 + ['']); self.assertEqual(self.ws.column('NRuns'), ['1'] * 5, 'no other column is touched')
+        self.assertIn('wrote 12 cells', out); self.assertIn('every written cell was read back and is in the right row', out)
+        j = [f for f in os.listdir(os.path.join(os.path.dirname(self.out), 'sheet_writes'))]; self.assertEqual(len(j), 1); self.assertTrue(j[0].startswith('alignment.Mzebra_GT3_NCBI.'))
+
+    def test_a_second_apply_writes_nothing(self):
+        self.write('--apply'); n = len(self.ws.calls)
+        rc, out, _ = self.write('--apply')
+        self.assertEqual(rc, 0); self.assertIn('nothing to write', out); self.assertEqual(len(self.ws.calls), n)
+
+    def test_a_cell_with_another_value_is_left_alone_unless_overwrite(self):
+        self.write('--apply'); self.ws.grid[1][5] = 99.0
+        rc, out, _ = self.write('--apply'); self.assertIn('conflict 1', out); self.assertEqual(self.ws.grid[1][5], 99.0)
+        rc, out, _ = self.write('--apply', '--overwrite'); self.assertEqual(self.ws.grid[1][5], 3.8); self.assertIn('wrote 1 cells', out)
+
+    def test_limit_is_a_first_trial_on_a_few_samples(self):
+        rc, out, _ = self.write('--apply', '--limit', '2')
+        self.assertEqual(rc, 0); self.assertEqual(self.ws.column('EffectiveCoverage'), [3.8, 3.8, '', '', '']); self.assertIn('wrote 6 cells', out)
+
+    def test_the_plan_is_alphabetical_and_says_what_a_limited_run_writes(self):
+        rc, out, _ = self.write('--limit', '2')
+        first = [l.split()[1] for l in out.splitlines() if l.startswith('    ') and '->' in l]
+        self.assertEqual(first, sorted(first)); self.assertIn('write 12', out)
+        self.assertIn('--limit 2: this run writes only 2 samples (S1, S2): 6 cells', out); self.assertEqual(self.ws.writes(), [])
+
+    def test_a_selection_restricts_what_is_written(self):
+        rc, out, _ = self.write('--apply', '-s', 'S1', 'S3')
+        self.assertEqual(self.ws.column('EffectiveCoverage'), [3.8, '', 3.8, '', ''])
+
+    def test_a_failed_measurement_is_never_written(self):
+        self.put('S2', dict(GOOD, fail='mpileup')); os.remove(self.out)
+        self.assertEqual(self.call('measure', '--all', '--run')[0], 1)                          # S2 fails now
+        ws = FakeWorksheet(self.HEAD, [[s, G, '10', '', '1'] for s in self.ids])
+        rc, out, _ = self.write('--apply', ws=ws)
+        self.assertEqual(rc, 0); self.assertEqual(ws.column('EffectiveCoverage'), [3.8, '', 3.8, 3.8])
+
+    def test_samples_missing_from_the_sheet_are_reported(self):
+        ws = FakeWorksheet(self.HEAD, [[s, G, '10', '', '1'] for s in ['S1', 'S3']])
+        rc, out, _ = self.write(ws=ws)
+        self.assertIn('the sample is not in the sheet: 2 samples (S2, S4)', out)
+
+    def test_nothing_is_written_without_a_measurement_of_the_current_definition(self):
+        os.remove(self.out)
+        rc, _, err = self.write(); self.assertEqual(rc, 2); self.assertIn('no rows', err)
+        lines = open(os.path.join(self.tmp, 'x.tsv'), 'w'); lines.write('\t'.join(E.COLUMNS) + '\n'); lines.write('\t'.join(['S1', G, 'ok', '', 'oldkey'] + [''] * (len(E.COLUMNS) - 5)) + '\n'); lines.close()
+        out, err = io.StringIO(), io.StringIO()
+        common = [a for a in self.common]; common[common.index('--out') + 1] = os.path.join(self.tmp, 'x.tsv')
+        rc = effcov_cli.main(['write'] + common, out=out, err=err, worksheet_fn=lambda: self.ws)
+        self.assertEqual(rc, 2); self.assertIn('no successful measurement under the current definition', err.getvalue()); self.assertEqual(self.ws.writes(), [])
+
+    def test_the_live_sheet_is_needed_and_the_offline_flags_cannot_reach_it(self):
+        out, err = io.StringIO(), io.StringIO()
+        rc = effcov_cli.main(['write'] + self.common, out=out, err=err)
+        self.assertEqual(rc, 2); self.assertIn('writing needs the live sheet', err.getvalue())
+
+    def test_a_sheet_that_changes_while_writing_is_a_loud_failure(self):
+        self.ws.after_write = lambda w: w.insert_row_at_top(['NEW', G, '1', '', '1'])
+        rc, out, _ = self.write('--apply')
+        self.assertEqual(rc, 1); self.assertIn('VERIFICATION FAILED', out); self.assertIn('the sheet changed while writing', out)
+
+    def test_two_selectors_are_refused(self):
+        self.assertEqual(self.write('--all', '--lab-reared')[0], 2)
+
+    def test_the_sheet_updates_are_rounded_numbers_and_only_the_known_columns(self):
+        ok = {'A': dict(SampleID='A', EffectiveCoverage='4.012345', MapqPassFraction='0.72601', BaseSurvivalFraction='', Seconds='9'), 'B': dict(EffectiveCoverage='x', MapqPassFraction='', BaseSurvivalFraction='')}
+        self.assertEqual(E.sheet_updates(ok), {'A': {'EffectiveCoverage': 4.0123, 'MapqPassFraction': 0.726}})
+        self.assertEqual(E.sheet_updates(ok, members={'B'}), {})
 
 
 class TestTheRealSheetsHaveNaN(EffBase):
