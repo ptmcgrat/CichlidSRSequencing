@@ -12,7 +12,10 @@ What is measured, per sample, from the sample's `all.bam` (downloaded, measured,
   * `BaseSurvivalFraction`     EffectiveCoverage / WindowRawDepth: what the base-level filters (base quality, BAQ, mate overlap) keep
   * `WindowCoveredFraction`    the share of the window positions the caller emits
   * `MapqPassFraction`         over the WHOLE BAM: reads that are mapped, primary, not duplicates and have MAPQ >= 13, divided by those without the MAPQ condition (`samtools view -c -F 3844 [-q 13]`)
-  * `DuplicateFraction`        over the whole BAM: primary reads flagged as duplicates / primary reads (`samtools flagstat`)
+  * `DuplicateFraction`        over the whole BAM: primary reads flagged as duplicates / ALL primary reads (`samtools flagstat`), kept for continuity
+  * `DuplicationRate`          primary duplicates / primary MAPPED reads: the definition of the alignment pipeline's own flag-based value (`DuplicateFractionFromBam`) and, to within pairing, of Picard's
+                               PERCENT_DUPLICATION (unmapped reads are in neither the numerator nor the denominator). THIS is what goes into the sheet's `DuplicationRate` column.
+                               `DuplicateFraction` over all primary reads is lower by the unmapped fraction (29.1% against about 29.8% for a library with 2.2% unmapped), so it is not written.
   * `PrimaryReads`, `TableCoverage` (the AlignmentDatabase's own number, for comparison), `BamBytes`, `Seconds`, `Machine`, `Tools`.
 A row carries a `DefinitionKey` (a hash of every parameter that changes the numbers); a row measured under another key is measured again.
 
@@ -42,9 +45,10 @@ DEFAULTS = dict(window_bp=1_000_000, position_fraction=0.4, min_depth=5, jobs=4,
                 output_subdir='Outputs/EffectiveCoverage/', work_subdir='Cohorts/effcov_staged/')
 VIEW_EXCLUDE = 3844                      # samtools view -F: unmapped, secondary, QC fail, duplicate, supplementary
 COLUMNS = ['SampleID', 'GenomeVersion', 'Status', 'Error', 'DefinitionKey', 'MeasuredOn', 'Machine', 'Tools', 'PrimaryReads', 'DuplicateFraction', 'MapqPassFraction', 'WindowRawDepth',
-           'EffectiveCoverage', 'BaseSurvivalFraction', 'WindowCoveredFraction', 'TableCoverage', 'BamBytes', 'Seconds']
+           'EffectiveCoverage', 'BaseSurvivalFraction', 'WindowCoveredFraction', 'TableCoverage', 'BamBytes', 'Seconds', 'PrimaryMappedReads', 'DuplicationRate']
+REQUIRED = ('DuplicationRate',)          # a row without these (measured by an older version) is not complete: its sample is measured again
 TOOLS = ('samtools', 'bcftools', 'rclone', 'awk')
-SHEET_COLUMNS = ['EffectiveCoverage', 'MapqPassFraction', 'BaseSurvivalFraction']      # the columns of the AlignmentDatabase this tool fills, named as in this file
+SHEET_COLUMNS = {'EffectiveCoverage': 'EffectiveCoverage', 'MapqPassFraction': 'MapqPassFraction', 'BaseSurvivalFraction': 'BaseSurvivalFraction', 'DuplicationRate': 'DuplicationRate'}   # this file's column -> the AlignmentDatabase's
 SHEET_DECIMALS = 4
 
 
@@ -98,11 +102,13 @@ def window_script(env, bamlist, windows, cfg):
 
 # ------------------------------------------------------------------ parsing and arithmetic (pure)
 def parse_flagstat(text):
-    """{'primary': n, 'primary_duplicates': n} from `samtools flagstat` (the QC-passed count of each line)."""
+    """{'primary': n, 'primary_duplicates': n, 'primary_mapped': n} from `samtools flagstat` (the QC-passed count of each line; primary_mapped is absent when the line is)."""
     out = {}
     for line in text.splitlines():
         parts = line.split()
-        if len(parts) >= 4 and parts[1] == '+' and parts[3:] == ['primary']:
+        if len(parts) >= 5 and parts[1] == '+' and parts[3:5] == ['primary', 'mapped']:
+            out['primary_mapped'] = int(parts[0])
+        elif len(parts) >= 4 and parts[1] == '+' and parts[3:] == ['primary']:
             out['primary'] = int(parts[0])
         elif len(parts) >= 5 and parts[1] == '+' and parts[3:5] == ['primary', 'duplicates']:
             out['primary_duplicates'] = int(parts[0])
@@ -121,14 +127,17 @@ def parse_window_line(text):
         raise MeasureError(f'the pileup summary is not three numbers: {text.strip()[-200:]!r}')
 
 
-def derive(primary, duplicates, mapped_nd, mapq_pass, n, raw_sum, hq_sum, window_bp_total):
+def derive(primary, duplicates, mapped_nd, mapq_pass, n, raw_sum, hq_sum, window_bp_total, primary_mapped=None):
     """The measured columns from the counts."""
     if primary <= 0 or mapped_nd <= 0:
         raise MeasureError(f'no usable reads in the BAM (primary {primary}, mapped and not duplicate {mapped_nd})')
     if n <= 0 or raw_sum <= 0:
         raise MeasureError('no position of the windows is covered after the caller\'s filters (the BAM does not match the reference, or the windows hold no reads)')
-    return dict(PrimaryReads=primary, DuplicateFraction=duplicates / primary, MapqPassFraction=mapq_pass / mapped_nd, WindowRawDepth=raw_sum / n, EffectiveCoverage=hq_sum / n,
-                BaseSurvivalFraction=hq_sum / raw_sum, WindowCoveredFraction=n / window_bp_total)
+    out = dict(PrimaryReads=primary, DuplicateFraction=duplicates / primary, MapqPassFraction=mapq_pass / mapped_nd, WindowRawDepth=raw_sum / n, EffectiveCoverage=hq_sum / n,
+               BaseSurvivalFraction=hq_sum / raw_sum, WindowCoveredFraction=n / window_bp_total)
+    if primary_mapped:
+        out.update(PrimaryMappedReads=primary_mapped, DuplicationRate=duplicates / primary_mapped)
+    return out
 
 
 def _fmt(v):
@@ -143,11 +152,34 @@ def _fmt(v):
 _lock = threading.Lock()
 
 
+def _migrate(path):
+    """A file written by an older version has fewer columns: rewrite it with the current header (the old rows get blanks), after copying it to `<file>.bak-<time>`. Appending a longer row under a shorter
+    header would shift every value of the new rows, so this runs before any append."""
+    with open(path) as f:
+        first = f.readline().rstrip('\n').split('\t')
+    if first == COLUMNS:
+        return False
+    unknown = [c for c in first if c not in COLUMNS]
+    if unknown:
+        raise RuntimeError(f'{path} has columns this version does not know ({", ".join(unknown)}): move it aside or use a newer version')
+    rows = read_rows(path)
+    shutil.copy2(path, f"{path}.bak-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}")
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        f.write('\t'.join(COLUMNS) + '\n')
+        for r in rows:
+            f.write('\t'.join(_fmt(r.get(c)) if r.get(c) not in (None, '') else '' for c in COLUMNS) + '\n')
+    os.replace(tmp, path)
+    return True
+
+
 def append_row(path, row):
-    """One line, written at once under a lock (the header first when the file is new)."""
+    """One line, written at once under a lock (the header first when the file is new; an older header is migrated first)."""
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     with _lock:
         new = not os.path.exists(path) or os.path.getsize(path) == 0
+        if not new:
+            _migrate(path)
         with open(path, 'a') as f:
             if new:
                 f.write('\t'.join(COLUMNS) + '\n')
@@ -161,11 +193,11 @@ def read_rows(path):
         return list(csv.DictReader(f, delimiter='\t'))
 
 
-def latest_ok(rows, key):
-    """{SampleID: row} of the newest successful row of each sample measured under `key`."""
+def latest_ok(rows, key, require=()):
+    """{SampleID: row} of the newest successful row of each sample measured under `key`; with `require`, a row that lacks any of those columns does not count (it was measured by an older version)."""
     out = {}
     for r in rows:
-        if r.get('Status') == 'ok' and r.get('DefinitionKey') == key:
+        if r.get('Status') == 'ok' and r.get('DefinitionKey') == key and all((r.get(c) or '').strip() for c in require):
             out[r['SampleID']] = r
     return out
 
@@ -188,7 +220,7 @@ def measure_sample(env, cfg, ecfg, sample, windows, key, staged, want_bytes=None
         mapped_nd = int(B.must(run(['samtools', 'view', '-@', str(threads), '-c', '-F', str(VIEW_EXCLUDE), bam]), f'counting the reads of {sample}').strip())
         mapq_pass = int(B.must(run(['samtools', 'view', '-@', str(threads), '-c', '-F', str(VIEW_EXCLUDE), '-q', mq, bam]), f'counting the MAPQ >= {mq} reads of {sample}').strip())
         n, raw, hq = parse_window_line(B.must(script(window_script(env, bamlist, windows, cfg)), f'the pileup of {sample} over the windows'))
-        row.update(derive(flag['primary'], flag['primary_duplicates'], mapped_nd, mapq_pass, n, raw, hq, sum(e - s + 1 for _, s, e in windows)))
+        row.update(derive(flag['primary'], flag['primary_duplicates'], mapped_nd, mapq_pass, n, raw, hq, sum(e - s + 1 for _, s, e in windows), flag.get('primary_mapped')))
         row['Status'], row['Error'] = 'ok', ''
     except Exception as e:                                          # noqa: one sample must never stop the others
         row['Status'], row['Error'] = 'failed', f'{type(e).__name__}: {e}'[:400]
@@ -217,7 +249,10 @@ def make_plan(env, cfg, ecfg, members, ledger, out_path, redo=False, jobs=None, 
     p.sizes = {s: (B._bytes(led.at[s, 'BamSize']) if led is not None and s in led.index and 'BamSize' in led.columns else None) for s in p.members}
     p.table_cov = {s: (B._bytes(led.at[s, 'Coverage']) if led is not None and s in led.index and 'Coverage' in led.columns else None) for s in p.members}
     p.unknown = [s for s in p.members if led is None or s not in led.index]
-    p.done = {} if redo else latest_ok(read_rows(out_path), p.key)
+    rows = read_rows(out_path)
+    p.done = {} if redo else latest_ok(rows, p.key, REQUIRED)
+    older = latest_ok(rows, p.key)
+    p.stale = [s for s in p.members if s in older and s not in p.done and not redo]            # measured by an older version, without the newest columns
     p.todo = [s for s in p.members if s not in p.done]
     p.staged = f"{env.local_master}{ecfg['work_subdir']}"
     return p
@@ -261,6 +296,8 @@ def format_plan(plan, problems, cfg, running=False):
              f"  download: {total / 1e9:.0f} GB in all, {plan.jobs} samples at a time ({plan.threads} samtools threads each), each BAM deleted after its measurement"
              + (f'; {len(plan.unknown)} samples are not in the AlignmentDatabase (their size is assumed {plan.ecfg["default_bam_bytes"] / 1e9:.0f} GB and the download is not verified)' if plan.unknown else ''),
              f'  output: {plan.out}']
+    if plan.stale:
+        lines.insert(2, f'  {len(plan.stale)} of the samples to measure were measured by an older version (no DuplicationRate): they are measured again')
     for p in problems:
         lines.append(f'  PROBLEM: {p}')
     if not problems:
@@ -311,7 +348,7 @@ def sheet_updates(ok_rows, members=None):
     for s, r in sorted(ok_rows.items()):                                   # alphabetical: the plan, the journal and --limit are then deterministic
         if members is not None and s not in members:
             continue
-        vals = {c: round(_num(r.get(c)), SHEET_DECIMALS) for c in SHEET_COLUMNS if _num(r.get(c)) is not None}
+        vals = {sheet: round(_num(r.get(c)), SHEET_DECIMALS) for c, sheet in SHEET_COLUMNS.items() if _num(r.get(c)) is not None}
         if vals:
             out[s] = vals
     return out
@@ -325,7 +362,28 @@ def _num(x):
         return None
 
 
-def report_text(rows, key=None, sex=None, min_depth=5.0, members=None):
+def group_text(best, groups, min_depth=5.0, label='group'):
+    """One line per group (a species, a sequencing run, a brood ...): how many samples and the MEDIAN of the quality measures, with the duplicate rate's range: the way to see which libraries are poor."""
+    by = {}
+    for sample, r in best.items():
+        by.setdefault((groups.get(sample) or '').strip() or '(blank)', []).append(r)
+    med = lambda v: statistics.median(v) if v else None
+    f = lambda x, d=1, k=100.0: '' if x is None else f'{x * k:.{d}f}'
+    head = f"{label[:38]:<40}{'n':>5}{'dup% med':>10}{'dup% range':>14}{'mapq13%':>9}{'kept%':>7}{'eff/table':>10}{'effective':>10}{'<' + f'{min_depth:g}x':>6}"
+    lines = [head, '-' * len(head)]
+    for g in sorted(by):
+        rs = by[g]
+        dup = [v for v in (_num(r.get('DuplicationRate') or r.get('DuplicateFraction')) for r in rs) if v is not None]
+        mq = [v for v in (_num(r.get('MapqPassFraction')) for r in rs) if v is not None]
+        bk = [v for v in (_num(r.get('BaseSurvivalFraction')) for r in rs) if v is not None]
+        eff = [v for v in (_num(r.get('EffectiveCoverage')) for r in rs) if v is not None]
+        ratio = [e / t for e, t in ((_num(r.get('EffectiveCoverage')), _num(r.get('TableCoverage'))) for r in rs) if e is not None and t]
+        rng = f'{f(min(dup))}-{f(max(dup))}' if dup else ''
+        lines.append(f"{g[:38]:<40}{len(rs):>5}{f(med(dup)):>10}{rng:>14}{f(med(mq)):>9}{f(med(bk), 0):>7}{f(med(ratio), 2, 1):>10}{f(med(eff), 2, 1):>10}{sum(1 for v in eff if v < min_depth):>6}")
+    return '\n'.join(lines)
+
+
+def report_text(rows, key=None, sex=None, min_depth=5.0, members=None, groups=None, summary_only=False, group_label='group'):
     """The table of the newest successful row of every sample (of one definition when `key` is given), and what stands out. `sex` is {SampleID: 'M'|'F'|...}, `members` restricts the samples."""
     best = {}
     for r in rows:
@@ -333,6 +391,8 @@ def report_text(rows, key=None, sex=None, min_depth=5.0, members=None):
             best[r['SampleID']] = r
     if not best:
         return 'no successful measurement to report'
+    if groups is not None and summary_only:
+        return group_text(best, groups, min_depth, group_label)
     sex = {k: v for k, v in (sex or {}).items() if isinstance(v, str) and v}                      # a blank cell of a lab sheet is NaN, not ''
     head = f"{'sample':<18}{'sex':>4}{'table':>8}{'effective':>10}{'eff/table':>10}{'dup%':>7}{'mapq13%':>9}{'bases kept%':>12}{'covered%':>10}  "
     lines = [head + 'note', '-' * (len(head) + 8)]
@@ -345,7 +405,7 @@ def report_text(rows, key=None, sex=None, min_depth=5.0, members=None):
         if ratio is not None:
             ratios.append(ratio)
         note = f'below {min_depth:g}x' if (e is not None and e < min_depth) else ''
-        lines.append(f"{s:<18}{sex.get(s, ''):>4}{(f'{t:.1f}' if t else ''):>8}{e:>10.2f}{(f'{ratio:.2f}' if ratio is not None else ''):>10}{100 * _num(r['DuplicateFraction']):>7.1f}"
+        lines.append(f"{s:<18}{sex.get(s, ''):>4}{(f'{t:.1f}' if t else ''):>8}{e:>10.2f}{(f'{ratio:.2f}' if ratio is not None else ''):>10}{100 * _num(r.get('DuplicationRate') or r['DuplicateFraction']):>7.1f}"
                      f"{100 * _num(r['MapqPassFraction']):>9.1f}{100 * _num(r['BaseSurvivalFraction']):>12.1f}{100 * _num(r['WindowCoveredFraction']):>10.1f}  {note}")
     low = [s for s, e in eff.items() if e is not None and e < min_depth]
     lines.append('')
@@ -357,4 +417,6 @@ def report_text(rows, key=None, sex=None, min_depth=5.0, members=None):
         vals = [eff[s] for s in eff if sex.get(s) == sx and eff[s] is not None]
         if vals:
             lines.append(f'  sex {sx}: {len(vals)} samples, median effective {statistics.median(vals):.2f}x, {sum(1 for v in vals if v < min_depth)} below {min_depth:g}x')
+    if groups is not None:
+        lines += ['', group_text(best, groups, min_depth, group_label)]
     return '\n'.join(lines)

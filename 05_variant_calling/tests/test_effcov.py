@@ -80,7 +80,9 @@ class TestArithmetic(unittest.TestCase):
     def test_flagstat_takes_the_primary_lines_only(self):
         text = ('63075860 + 0 in total (QC-passed reads + QC-failed reads)\n63075860 + 0 primary\n0 + 0 secondary\n641137 + 0 supplementary\n18341603 + 0 duplicates\n'
                 '18341603 + 0 primary duplicates\n62336968 + 0 mapped (97.83% : N/A)\n61695831 + 0 primary mapped (97.81% : N/A)\n')
-        self.assertEqual(E.parse_flagstat(text), dict(primary=63075860, primary_duplicates=18341603))
+        self.assertEqual(E.parse_flagstat(text), dict(primary=63075860, primary_duplicates=18341603, primary_mapped=61695831), 'primary mapped is not confused with primary')
+        no_mapped = '1000 + 0 primary\n291 + 0 primary duplicates\n'
+        self.assertEqual(E.parse_flagstat(no_mapped), dict(primary=1000, primary_duplicates=291), 'older output: the count is simply absent')
         with self.assertRaises(E.MeasureError):
             E.parse_flagstat('1000 + 0 in total\n291 + 0 duplicates\n')
 
@@ -95,6 +97,12 @@ class TestArithmetic(unittest.TestCase):
         self.assertAlmostEqual(d['DuplicateFraction'], 0.291); self.assertAlmostEqual(d['MapqPassFraction'], 500 / 700)
         self.assertAlmostEqual(d['WindowRawDepth'], 5.5); self.assertAlmostEqual(d['EffectiveCoverage'], 3.8)
         self.assertAlmostEqual(d['BaseSurvivalFraction'], 3.8 / 5.5); self.assertAlmostEqual(d['WindowCoveredFraction'], 0.9); self.assertEqual(d['PrimaryReads'], 1000)
+
+    def test_the_duplication_rate_is_over_mapped_reads_like_the_pipelines_own(self):
+        d = E.derive(63075860, 18341603, 43354228, 31489962, 2700, 14850, 10260, 3000, primary_mapped=61695831)
+        self.assertAlmostEqual(d['DuplicationRate'], 18341603 / 61695831); self.assertAlmostEqual(d['DuplicateFraction'], 18341603 / 63075860)
+        self.assertGreater(d['DuplicationRate'], d['DuplicateFraction'], 'the all-primary fraction is lower by the unmapped share'); self.assertEqual(d['PrimaryMappedReads'], 61695831)
+        self.assertNotIn('DuplicationRate', E.derive(1000, 291, 700, 500, 2700, 14850, 10260, 3000))
 
     def test_nothing_to_divide_by_is_an_error_not_a_nan(self):
         for args in ((0, 0, 0, 0, 10, 10, 10, 100), (1000, 5, 0, 0, 10, 10, 10, 100), (1000, 5, 700, 500, 0, 0, 0, 100)):
@@ -148,6 +156,33 @@ class TestOutputFile(unittest.TestCase):
         self.assertEqual(sorted(got), ['A']); self.assertEqual(got['A']['EffectiveCoverage'], '2')
 
 
+class TestMigration(unittest.TestCase):
+    def test_a_file_from_an_older_version_is_migrated_before_a_longer_row_is_appended(self):
+        d = tempfile.mkdtemp(); path = os.path.join(d, 'eff.tsv')
+        old = E.COLUMNS[:-2]
+        open(path, 'w').write('\t'.join(old) + '\n' + '\t'.join(['A', G, 'ok', '', 'k', '2026-11-11', 'host', 'tools', '1000', '0.29', '0.72', '5.5', '3.8', '0.69', '0.9', '9.9', '123', '40.0']) + '\n')
+        E.append_row(path, dict(SampleID='B', Status='ok', DefinitionKey='k', EffectiveCoverage=4.0, PrimaryMappedReads=995, DuplicationRate=0.29246))
+        lines = open(path).read().splitlines()
+        self.assertEqual(lines[0].split('\t'), E.COLUMNS); self.assertEqual(len(lines), 3)
+        rows = E.read_rows(path); a, b = rows[0], rows[1]
+        self.assertEqual((a['SampleID'], a['EffectiveCoverage'], a['TableCoverage'], a['Seconds'], a['DuplicationRate']), ('A', '3.8', '9.9', '40.0', ''))
+        self.assertEqual((b['SampleID'], b['EffectiveCoverage'], b['PrimaryMappedReads'], b['DuplicationRate']), ('B', '4', '995', '0.29246'))
+        bak = [f for f in os.listdir(d) if '.bak-' in f]
+        self.assertEqual(len(bak), 1, 'the old file is kept'); self.assertEqual(open(os.path.join(d, bak[0])).read().count('\n'), 2)
+
+    def test_a_current_file_is_not_touched_and_an_unknown_column_is_refused(self):
+        d = tempfile.mkdtemp(); path = os.path.join(d, 'eff.tsv')
+        E.append_row(path, dict(SampleID='A', Status='ok')); E.append_row(path, dict(SampleID='B', Status='ok'))
+        self.assertEqual(os.listdir(d), ['eff.tsv'])
+        open(path, 'w').write('SampleID\tFromTheFuture\nA\t1\n')
+        with self.assertRaises(RuntimeError):
+            E.append_row(path, dict(SampleID='B', Status='ok'))
+
+    def test_latest_ok_can_require_the_newest_columns(self):
+        rows = [dict(SampleID='A', Status='ok', DefinitionKey='k', DuplicationRate=''), dict(SampleID='B', Status='ok', DefinitionKey='k', DuplicationRate='0.3')]
+        self.assertEqual(sorted(E.latest_ok(rows, 'k')), ['A', 'B']); self.assertEqual(sorted(E.latest_ok(rows, 'k', E.REQUIRED)), ['B'])
+
+
 class TestReport(unittest.TestCase):
     def rows(self):
         def r(s, eff, table, dup=0.1, mq=0.8, bs=0.9, cov=0.95):
@@ -179,6 +214,7 @@ class TestOneSample(EffBase):
         self.assertAlmostEqual(r['EffectiveCoverage'], 3.8); self.assertAlmostEqual(r['WindowRawDepth'], 5.5); self.assertAlmostEqual(r['BaseSurvivalFraction'], 3.8 / 5.5)
         self.assertAlmostEqual(r['WindowCoveredFraction'], 0.9); self.assertAlmostEqual(r['DuplicateFraction'], 0.291); self.assertAlmostEqual(r['MapqPassFraction'], 500 / 700)
         self.assertEqual((r['PrimaryReads'], r['TableCoverage'], r['GenomeVersion'], r['SampleID']), (1000, 10.0, G, 'S1')); self.assertEqual(r['BamBytes'], self.sizes['S1'])
+        self.assertEqual(r['PrimaryMappedReads'], 995); self.assertAlmostEqual(r['DuplicationRate'], 291 / 995)
 
     def test_the_pileup_is_the_one_the_build_issues_over_the_windows(self):
         self.measure()
@@ -367,6 +403,41 @@ class TestCli(CliBase):
         self.assertEqual(rc, 0); self.assertIn('1 samples', out.getvalue().replace('1 samples (', '1 samples ('))
 
 
+class TestGroupedReport(CliBase):
+    def setUp(self):
+        super().setUp()
+        for s, d in (('S1', dict(GOOD, dups=500)), ('S2', dict(GOOD, dups=100)), ('S3', dict(GOOD, dups=300)), ('S4', dict(GOOD))):
+            self.put(s, d)
+        rows = [fish('S1', 'M', species='Mchenga conophoros'), fish('S2', 'F', species='Mchenga conophoros'), fish('S3', 'M', species='Aulonocara saulosi'), fish('S4', 'F', species='Aulonocara saulosi')]
+        sheet(rows).to_csv(self.paths['sample'], sep='\t', index=False)
+        led = self.ledger(); led['RunIDs'] = ['run1,,run2', 'run1', 'run3', 'run3']; led.to_csv(self.paths['ledger'], sep='\t', index=False)
+        self.assertEqual(self.call('measure', '--all', '--run')[0], 0)
+
+    def test_the_medians_by_species(self):
+        rc, out, err = self.call('report', '--by', 'Species', '--summary-only')
+        self.assertEqual(rc, 0, err); lines = out.splitlines()
+        self.assertTrue(lines[0].startswith('Species')); self.assertFalse([l for l in lines if l.startswith('S1 ')], 'summary only: no per-sample lines')
+        mc = [l for l in lines if l.startswith('Mchenga')][0]; sa = [l for l in lines if l.startswith('Aulonocara')][0]
+        self.assertIn('30.2', mc, 'median of S1 50.3 and S2 10.1'); self.assertIn('10.1-50.3', mc); self.assertIn('29.2-30.2', sa, 'S4 29.2 and S3 30.2')
+
+    def test_by_a_column_of_the_alignment_database(self):
+        rc, out, err = self.call('report', '--by', 'RunIDs', '--summary-only')
+        self.assertEqual(rc, 0, err); self.assertIn('run1,,run2', out); self.assertIn('run3', out)
+
+    def test_the_groups_follow_the_per_sample_table_unless_summary_only(self):
+        rc, out, _ = self.call('report', '--by', 'Species')
+        self.assertIn('4 samples; effective coverage', out); self.assertIn('Species', out.split('4 samples;')[1])
+
+    def test_an_unknown_column_is_refused(self):
+        rc, out, err = self.call('report', '--by', 'NoSuchColumn')
+        self.assertEqual(rc, 2); self.assertIn("no column 'NoSuchColumn'", err)
+
+    def test_a_blank_group_is_labelled_not_dropped(self):
+        sheet([fish('S1', 'M', species=''), fish('S2', 'F', species='X'), fish('S3', 'M', species='X'), fish('S4', 'F', species='X')]).to_csv(self.paths['sample'], sep='\t', index=False)
+        rc, out, _ = self.call('report', '--by', 'Species', '--summary-only')
+        self.assertIn('(blank)', out)
+
+
 class TestLabReared(CliBase):
     def setUp(self):
         super().setUp()
@@ -392,11 +463,11 @@ class TestLabReared(CliBase):
 
 
 class TestWrite(CliBase):
-    HEAD = ['SampleID', 'GenomeVersion', 'Coverage', 'UsableCoverage', 'NRuns']
+    HEAD = ['SampleID', 'GenomeVersion', 'Coverage', 'UsableCoverage', 'NRuns', 'DuplicationRate']          # the real header has DuplicationRate (the pipeline fills it for its own rows)
 
     def setUp(self):
         super().setUp()
-        self.ws = FakeWorksheet(self.HEAD, [[s, G, '10', '6.8', '1'] for s in self.ids] + [['OTHER', G, '5', '', '1']])
+        self.ws = FakeWorksheet(self.HEAD, [[s, G, '10', '6.8', '1', ''] for s in self.ids] + [['OTHER', G, '5', '', '1', '']])
         self.measured = self.call('measure', '--all', '--run')
         self.assertEqual(self.measured[0], 0, self.measured[1] + self.measured[2])
 
@@ -407,7 +478,7 @@ class TestWrite(CliBase):
 
     def test_the_default_is_a_plan_and_writes_nothing(self):
         rc, out, err = self.write()
-        self.assertEqual(rc, 0, err); self.assertEqual(self.ws.writes(), []); self.assertIn('4 samples measured with definition', out)
+        self.assertEqual(rc, 0, err); self.assertEqual(self.ws.writes(), []); self.assertIn('4 samples measured with definition', out); self.assertIn('DuplicationRate: write 4', out)
         self.assertIn('columns to ADD at the end of the header: EffectiveCoverage, MapqPassFraction, BaseSurvivalFraction', out); self.assertIn('nothing was written: add --apply', out)
         self.assertEqual(self.ws.grid[0], self.HEAD)
 
@@ -415,8 +486,9 @@ class TestWrite(CliBase):
         rc, out, err = self.write('--apply')
         self.assertEqual(rc, 0, err + out); self.assertEqual(self.ws.grid[0], self.HEAD + ['EffectiveCoverage', 'MapqPassFraction', 'BaseSurvivalFraction'])
         self.assertEqual(self.ws.column('EffectiveCoverage'), [3.8, 3.8, 3.8, 3.8, '']); self.assertEqual(self.ws.column('MapqPassFraction'), [0.7143] * 4 + ['']); self.assertEqual(self.ws.column('BaseSurvivalFraction'), [0.6909] * 4 + [''])
+        self.assertEqual(self.ws.column('DuplicationRate'), [0.2925] * 4 + [''], '291 duplicates / 995 mapped primary reads')
         self.assertEqual(self.ws.column('UsableCoverage'), ['6.8'] * 4 + ['']); self.assertEqual(self.ws.column('NRuns'), ['1'] * 5, 'no other column is touched')
-        self.assertIn('wrote 12 cells', out); self.assertIn('every written cell was read back and is in the right row', out)
+        self.assertIn('wrote 16 cells', out); self.assertIn('every written cell was read back and is in the right row', out)
         j = [f for f in os.listdir(os.path.join(os.path.dirname(self.out), 'sheet_writes'))]; self.assertEqual(len(j), 1); self.assertTrue(j[0].startswith('alignment.Mzebra_GT3_NCBI.'))
 
     def test_a_second_apply_writes_nothing(self):
@@ -425,19 +497,46 @@ class TestWrite(CliBase):
         self.assertEqual(rc, 0); self.assertIn('nothing to write', out); self.assertEqual(len(self.ws.calls), n)
 
     def test_a_cell_with_another_value_is_left_alone_unless_overwrite(self):
-        self.write('--apply'); self.ws.grid[1][5] = 99.0
-        rc, out, _ = self.write('--apply'); self.assertIn('conflict 1', out); self.assertEqual(self.ws.grid[1][5], 99.0)
-        rc, out, _ = self.write('--apply', '--overwrite'); self.assertEqual(self.ws.grid[1][5], 3.8); self.assertIn('wrote 1 cells', out)
+        self.write('--apply'); c = self.ws.grid[0].index('EffectiveCoverage'); self.ws.grid[1][c] = 99.0
+        rc, out, _ = self.write('--apply'); self.assertIn('conflict 1', out); self.assertEqual(self.ws.grid[1][c], 99.0)
+        rc, out, _ = self.write('--apply', '--overwrite'); self.assertEqual(self.ws.grid[1][c], 3.8); self.assertIn('wrote 1 cells', out)
 
     def test_limit_is_a_first_trial_on_a_few_samples(self):
         rc, out, _ = self.write('--apply', '--limit', '2')
-        self.assertEqual(rc, 0); self.assertEqual(self.ws.column('EffectiveCoverage'), [3.8, 3.8, '', '', '']); self.assertIn('wrote 6 cells', out)
+        self.assertEqual(rc, 0); self.assertEqual(self.ws.column('EffectiveCoverage'), [3.8, 3.8, '', '', '']); self.assertIn('wrote 8 cells', out)
+
+    def test_the_pipelines_own_duplication_rate_is_kept_and_the_difference_is_shown(self):
+        for r, v in ((1, '0.2931'), (2, '0.2925')):                                                # S1: Picard's slightly different figure; S2: the same value
+            self.ws.grid[r][self.ws.grid[0].index('DuplicationRate')] = v
+        rc, out, _ = self.write('--apply')
+        self.assertEqual(rc, 0, out); self.assertEqual(self.ws.column('DuplicationRate'), ['0.2931', '0.2925', 0.2925, 0.2925, ''])
+        self.assertIn("DuplicationRate: write 2, same 1, conflict 1", out); self.assertIn("sheet '0.2931', measured 0.2925", out)
+
+    def _as_an_older_version_wrote_it(self):
+        rows = E.read_rows(self.out)
+        with open(self.out, 'w') as f:
+            f.write('\t'.join(E.COLUMNS[:-2]) + '\n')
+            for r in rows:
+                f.write('\t'.join(r[c] for c in E.COLUMNS[:-2]) + '\n')
+
+    def test_rows_from_an_older_version_still_write_the_other_columns_and_not_a_guess(self):
+        self._as_an_older_version_wrote_it()
+        rc, out, _ = self.write('--apply')
+        self.assertEqual(rc, 0, out); self.assertEqual(self.ws.column('EffectiveCoverage'), [3.8, 3.8, 3.8, 3.8, '']); self.assertEqual(self.ws.column('DuplicationRate'), [''] * 5, 'no mapped count, no DuplicationRate')
+
+    def test_the_plan_for_older_rows_says_they_will_be_measured_again(self):
+        self._as_an_older_version_wrote_it()
+        rc, out, _ = self.call('measure', '--all')
+        self.assertIn('0 already measured with this definition, 4 to measure', out); self.assertIn('4 of the samples to measure were measured by an older version (no DuplicationRate)', out)
+        rc, out, _ = self.call('measure', '--all', '--run')
+        self.assertEqual(rc, 0, out); rc, out, _ = self.call('measure', '--all'); self.assertIn('4 already measured', out)
+        self.assertEqual(len(E.read_rows(self.out)), 8, 'the older rows stay as history'); self.assertTrue(any(f.startswith('eff.tsv.bak-') for f in os.listdir(os.path.dirname(self.out))))
 
     def test_the_plan_is_alphabetical_and_says_what_a_limited_run_writes(self):
         rc, out, _ = self.write('--limit', '2')
         first = [l.split()[1] for l in out.splitlines() if l.startswith('    ') and '->' in l]
-        self.assertEqual(first, sorted(first)); self.assertIn('write 12', out)
-        self.assertIn('--limit 2: this run writes only 2 samples (S1, S2): 6 cells', out); self.assertEqual(self.ws.writes(), [])
+        self.assertEqual(first, sorted(first)); self.assertIn('write 16', out)
+        self.assertIn('--limit 2: this run writes only 2 samples (S1, S2): 8 cells', out); self.assertEqual(self.ws.writes(), [])
 
     def test_a_selection_restricts_what_is_written(self):
         rc, out, _ = self.write('--apply', '-s', 'S1', 'S3')
@@ -446,12 +545,12 @@ class TestWrite(CliBase):
     def test_a_failed_measurement_is_never_written(self):
         self.put('S2', dict(GOOD, fail='mpileup')); os.remove(self.out)
         self.assertEqual(self.call('measure', '--all', '--run')[0], 1)                          # S2 fails now
-        ws = FakeWorksheet(self.HEAD, [[s, G, '10', '', '1'] for s in self.ids])
+        ws = FakeWorksheet(self.HEAD, [[s, G, '10', '', '1', ''] for s in self.ids])
         rc, out, _ = self.write('--apply', ws=ws)
-        self.assertEqual(rc, 0); self.assertEqual(ws.column('EffectiveCoverage'), [3.8, '', 3.8, 3.8])
+        self.assertEqual(rc, 0); self.assertEqual(ws.column('EffectiveCoverage'), [3.8, '', 3.8, 3.8]); self.assertEqual(ws.column('DuplicationRate'), [0.2925, '', 0.2925, 0.2925])
 
     def test_samples_missing_from_the_sheet_are_reported(self):
-        ws = FakeWorksheet(self.HEAD, [[s, G, '10', '', '1'] for s in ['S1', 'S3']])
+        ws = FakeWorksheet(self.HEAD, [[s, G, '10', '', '1', ''] for s in ['S1', 'S3']])
         rc, out, _ = self.write(ws=ws)
         self.assertIn('the sample is not in the sheet: 2 samples (S2, S4)', out)
 

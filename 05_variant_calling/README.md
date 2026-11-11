@@ -128,8 +128,8 @@ python -m variant_calling effcov write --apply --limit 3    # a first trial on t
 python -m variant_calling effcov write --apply              # the rest
 ```
 
-It reads the output file, takes the newest successful row of every sample measured with the CURRENT definition (older rows are never written), and fills `EffectiveCoverage`, `MapqPassFraction` and `BaseSurvivalFraction` (rounded to 4 decimals)
-in the worksheet of the genome. The writer is `common/cichlid_common/sheet_writer.py` (also for the SampleDatabase later); its rules: only the named cells; the default is a plan; a cell that already holds a different value is
+It reads the output file, takes the newest successful row of every sample measured with the CURRENT definition (older rows are never written), and fills `EffectiveCoverage`, `MapqPassFraction`, `BaseSurvivalFraction` and `DuplicationRate` (rounded to 4 decimals)
+in the worksheet of the genome, and, since 2026-11-11 (later the same day), **`DuplicationRate`**. The writer is `common/cichlid_common/sheet_writer.py` (also for the SampleDatabase later); its rules: only the named cells; the default is a plan; a cell that already holds a different value is
 left alone (`conflict`) unless `--overwrite`; a sample in no row or in more than one row is skipped and named; missing columns are added at the END of the header (what `align_pipeline setup-database` does, and running pipelines do not mind: they lay a row out
 by the header they read at that moment, so a column they do not know stays blank in their rows); it re-reads and re-plans immediately before writing, writes `RAW` values in batched calls (gspread_retry repeats them after a network error or HTTP 429),
 reads the sheet again and checks that every cell sits in the row of the right sample, and keeps a journal (`<output folder>/sheet_writes/`, planned and verified lines with the old values). Sheets has no conditional write, so a row inserted or deleted by
@@ -137,6 +137,18 @@ a person in the few milliseconds between the final read and the write could put 
 the first writes there will be `--limit` trials.
 **The old columns are not touched.** `UsableCoverage`, `NRuns`, `Instrument` and `ReadLength` stay in the sheet until batches 3 and 4 have finished and the new code is deployed (a running pipeline refuses to write a row when the header lacks a column it writes).
 52 + 168 tests with a worksheet test double (`cichlid_common/fake_sheet.py`); the guards were mutation-tested (a verification that always passes, a plan that treats a different value as writable, a row off by one and writing rows of every definition each make tests fail).
+
+**`DuplicationRate`** is the column the alignment pipeline already fills for the samples it aligns (`DuplicationRate` <- `DuplicateFraction`: Picard's PERCENT_DUPLICATION, or the flag-based value when there are no Picard metrics). Picard
+examines MAPPED reads only (unmapped reads are in neither the numerator nor the denominator), and so does the pipeline's own flag-based value (`reads duplicated / mapped`). `effcov` therefore writes `primary duplicates / primary MAPPED reads` (the new
+TSV columns `PrimaryMappedReads` and `DuplicationRate`, from the `primary mapped` line of `samtools flagstat`), NOT its older `DuplicateFraction`, which divides by all primary reads and is lower by the unmapped share (29.1% against about 29.8% for a library with
+2.2% unmapped). The sheet column is filled in EMPTY cells only: the old-pipeline rows get a value, the pipeline's own rows keep Picard's, and where the two differ the plan prints `conflict` with both values so the difference can be judged
+(`--overwrite` would replace them, and it applies to all four columns). **Rows measured before this column existed cannot be corrected afterwards** (the mapped count was not stored): they are not written for `DuplicationRate` and a plain `measure` of
+their samples measures them again (the plan says so); the output file, whose header is older, is migrated automatically before the first new row is appended (a copy is kept as `<file>.bak-<time>`).
+`DuplicationRate` is not `DuplicationReads`, the legacy column of the old sheet (reads that suggest a structural duplication).
+
+`effcov report --by COLUMN [--summary-only]` groups the samples by any column of the SampleDatabase or the AlignmentDatabase (Species, RunIDs, BroodID, Ecogroup ...) and prints, per group, the number of samples and the medians of the duplicate rate (with its range),
+the MAPQ pass, the bases kept and effective / table coverage, and how many samples are below the minimum depth: the view for judging which libraries are poor. A sample sequenced in several runs has a RunIDs like `run1,,run2` and forms its own group: its
+duplicate rate is measured on the merged BAM and cannot be split between the runs.
 
 ### Selecting samples: `--lab-reared`
 

@@ -1,5 +1,5 @@
 """python -m variant_calling effcov measure (--cohort NAME | --samples-file F | -s ID [ID ...] | --all [--exclude-ecogroup E]) [--run] [options]
-   python -m variant_calling effcov report [--tsv F] [selection]
+   python -m variant_calling effcov report [--tsv F] [--by COLUMN [--summary-only]] [selection]
    python -m variant_calling effcov write [--apply] [--overwrite] [--limit N] [--tsv F] [selection]
 
     effcov measure ...   the plan (default): which samples, how much to download, the definition and any problem; with --run it downloads each BAM, measures the effective coverage (see
@@ -8,7 +8,9 @@
     effcov write ...     put the measured EffectiveCoverage, MapqPassFraction and BaseSurvivalFraction into the AlignmentDatabase (see cichlid_common/sheet_writer.py): the default is a PLAN that writes
                          nothing; --apply adds the three columns at the END of the header if they are missing, fills EMPTY cells of the named samples only, re-reads the sheet and checks every cell, and keeps a
                          journal. A cell that already holds a different value is left alone unless --overwrite. --limit N writes only the first N samples (a first trial on the live sheet).
-    effcov report ...    the table of what is in the file: effective against table coverage, duplicates, MAPQ and base survival, the samples below the minimum depth of the sex analysis.
+    effcov report ...    the table of what is in the file; --by COLUMN (a column of the SampleDatabase or the AlignmentDatabase: Species, RunIDs, BroodID, Ecogroup ...) adds one line per group with the medians of the
+                         quality measures (duplicate rate and its range, MAPQ pass, bases kept, effective/table), --summary-only prints only those lines. Read-only.
+                         The table of what is in the file: effective against table coverage, duplicates, MAPQ and base survival, the samples below the minimum depth of the sex analysis.
 
 Exit codes: 0 ok, 1 some samples failed, 2 usage, 3 the plan has problems. Data: the lab sheets through the shared file manager (read-only), or offline from TSV exports (--sample-table, --alignment-table).
 This command does not write to any Google sheet."""
@@ -35,6 +37,8 @@ def build_parser():
     ap.add_argument('--apply', action='store_true', help='write: really write to the sheet (default: print the plan only)')
     ap.add_argument('--overwrite', action='store_true', help='write: replace a different value already in a cell (default: leave it and say so)')
     ap.add_argument('--limit', type=int, default=None, help='write: only the first N samples, alphabetically')
+    ap.add_argument('--by', default=None, help='report: group the samples by this column of the SampleDatabase or the AlignmentDatabase (Species, RunIDs, BroodID, Ecogroup, ...)')
+    ap.add_argument('--summary-only', action='store_true', help='report with --by: only the group lines')
     ap.add_argument('--redo', action='store_true', help='measure again samples already measured with this definition')
     ap.add_argument('--jobs', type=int, default=None, help='samples measured at the same time (default: config/effcov.yaml)')
     ap.add_argument('--threads', type=int, default=None, help='samtools threads per sample (default: config/effcov.yaml)')
@@ -64,6 +68,14 @@ def sex_map(sample_dt):
     if sample_dt is None or 'Sex' not in getattr(sample_dt, 'columns', []):
         return {}
     return {_text(s): _text(x) for s, x in zip(sample_dt['SampleID'], sample_dt['Sex']) if _text(s) and _text(x)}
+
+
+def group_map(column, sample_dt, ledger):
+    """{SampleID: label} from `column` of the SampleDatabase, else of the AlignmentDatabase; None when neither has it."""
+    for table in (sample_dt, ledger):
+        if table is not None and column in getattr(table, 'columns', []) and 'SampleID' in table.columns:
+            return {_text(s): _text(v) for s, v in zip(table['SampleID'], table[column]) if _text(s)}
+    return None
 
 
 def read_ids(path):
@@ -221,7 +233,13 @@ def main(argv=None, out=None, err=None, run=None, script=None, which=None, free_
             key = E.definition_key(cfg, ecfg, E.windows_from_fai(fai, ecfg['window_bp'], ecfg['position_fraction'], cfg['min_contig_bp']))
             if not any(r.get('DefinitionKey') == key for r in rows):
                 key = None                                   # nothing under the current definition: show what there is
-        print(E.report_text(rows, key=key, sex=sex, min_depth=min_depth, members=members), file=out)
+        groups = None
+        if a.by:
+            groups = group_map(a.by, sample_dt, ledger)
+            if groups is None:
+                print(f"no column {a.by!r} in the SampleDatabase or the AlignmentDatabase", file=err)
+                return 2
+        print(E.report_text(rows, key=key, sex=sex, min_depth=min_depth, members=members, groups=groups, summary_only=a.summary_only, group_label=a.by or 'group'), file=out)
         return 0
     members, notes = select_members(a, sample_dt, ledger, spec)
     for n in notes:

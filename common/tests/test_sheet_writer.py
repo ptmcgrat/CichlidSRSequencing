@@ -44,6 +44,11 @@ class TestPlan(unittest.TestCase):
         self.assertEqual([c['status'] for c in p.changes], ['write', 'write', 'write'])
         self.assertIn('columns to ADD at the end of the header: EffectiveCoverage', p.format()); self.assertIn('first cells to write', p.format())
 
+    def test_a_conflict_shows_both_values_so_a_definition_difference_can_be_judged(self):
+        ws = FakeWorksheet(HEADER, ROWS)
+        t = updater(ws).plan({'A': {'UsableCoverage': 3.8}}).format()
+        self.assertIn("conflict 1", t); self.assertIn("sheet '6.8', measured 3.8", t); self.assertIn('D2', t)
+
     def test_a_missing_column_is_planned_at_the_end_of_the_header(self):
         ws = FakeWorksheet(HEADER, ROWS)
         p = updater(ws).plan({'B': {'M1': 1.0, 'M2': 2.0}})

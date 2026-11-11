@@ -90,6 +90,9 @@ class Plan:
             if bad:
                 names = ', '.join(sorted({c['sample'] for c in bad})[:preview])
                 lines.append(f'  {what}: {len({c["sample"] for c in bad})} samples' + (f' ({names}{", ..." if len({c["sample"] for c in bad}) > preview else ""})' if names else ''))
+                if status == 'conflict':
+                    for c in bad[:5]:
+                        lines.append(f"    {a1(c['row'], c['col']):>7}  {c['sample']:<18}{c['column']:<22}sheet {c['old']!r}, measured {c['new']}")
         w = self.writable
         if w:
             lines.append('  first cells to write:')
