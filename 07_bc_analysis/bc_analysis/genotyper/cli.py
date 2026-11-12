@@ -88,15 +88,31 @@ def read_fai(a, env=None):
 
 
 # ------------------------------------------------------------------ which fish, with which dam
-def bc_fish(sample_dt, cfg):
-    """DataFrame SampleID, BroodID, Sire, Dam of the fish whose dam is one of the configured BC dams (so the four 'BC1 hybrid' fish of another cross are not included)."""
+def _dam_fish(sample_dt, cfg):
+    """Fish whose dam is one of the configured BC dams (so the four 'BC1 hybrid' fish of another cross are not included), with their Sire and Dam."""
     df = sample_dt.copy()
     if 'BroodID' not in df.columns or 'Parents' not in df.columns:
         raise SystemExit('the sample table needs the columns SampleID, BroodID and Parents')
     df = df[df.Parents.astype(str).str.contains(',') & df.BroodID.astype(str).ne('')]
     df = df.assign(Sire=df.Parents.str.split(',').str[0].str.strip(), Dam=df.Parents.str.split(',').str[1].str.strip())
-    df = df[df.Dam.isin(cfg['sites']['dams'])]
-    return df[['SampleID', 'BroodID', 'Sire', 'Dam']].drop_duplicates('SampleID').reset_index(drop=True)
+    return df[df.Dam.isin(cfg['sites']['dams'])][['SampleID', 'BroodID', 'Sire', 'Dam']].drop_duplicates('SampleID').reset_index(drop=True)
+
+
+def _is_backcross(df, cfg):
+    pre = tuple(cfg['sites'].get('brood_prefixes') or ())
+    return df.BroodID.astype(str).str.startswith(pre) if pre else pd.Series(True, index=df.index)
+
+
+def bc_fish(sample_dt, cfg):
+    """DataFrame SampleID, BroodID, Sire, Dam of the BACKCROSS fish: the dam is one of the configured BC dams and the brood is a backcross brood (BroodID starts with a configured prefix, MCYH-BC1-)."""
+    df = _dam_fish(sample_dt, cfg)
+    return df[_is_backcross(df, cfg)].reset_index(drop=True)
+
+
+def left_out(sample_dt, cfg):
+    """The fish of a configured dam that are NOT backcross fish (an F1 brood, say), counted by brood, sire and dam."""
+    df = _dam_fish(sample_dt, cfg)
+    return df[~_is_backcross(df, cfg)].groupby(['BroodID', 'Sire', 'Dam']).size()
 
 
 # ------------------------------------------------------------------ steps
@@ -147,7 +163,10 @@ def step_counts(a, cfg, out=print):
         todo = todo.head(a.max_samples)
     gb = todo.bytes.sum() / 1e9
     out(f'{len(fish)} BC fish with an alignment ({len(missing)} without one), definition key {key}; {len(todo)} to count ({gb:.0f} GB of BAMs), {len(fish) - len(todo)} current')
-    out(fish.groupby(['BroodID', 'Dam']).size().to_string())
+    out(fish.groupby(['BroodID', 'Sire', 'Dam']).size().to_string())
+    lo = left_out(sample_dt, cfg)
+    if len(lo):
+        out('left out, not backcross broods (BroodID does not start with ' + ' or '.join(cfg['sites'].get('brood_prefixes') or []) + '): ' + '; '.join(f'{b} (sire {s}, dam {d}): {n}' for (b, s, d), n in lo.items()))
     if missing:
         out('not in the AlignmentDatabase: ' + ', '.join(missing[:12]) + (' ...' if len(missing) > 12 else ''))
     if not a.run:

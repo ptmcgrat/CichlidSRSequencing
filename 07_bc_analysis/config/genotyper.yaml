@@ -3,6 +3,8 @@ sites:
   yh_sire: YH_008_m              # the YH grandsire of the F1 sires (MCYHF1-002 and -003 are his sons by MC-1R6R-f)
   f1_dam: MC-1R6R-f              # the MC grandmother
   dams: [MC-3R6R-f, MC-1G2G-f, MC-5G11G-f]        # the MC mothers of the BC broods; each brood is analysed with the sites of ITS OWN dam only
+  brood_prefixes: [MCYH-BC1-]    # backcross broods only (the BroodID starts with this). An F1 brood of the same mothers (MCYH-F1-...) is not a backcross: its fish are heterozygous everywhere and carry no recombination to map
+                                 # (`genotype counts` lists the fish it leaves out for this reason)
   min_dp: 6                      # a parent's genotype needs at least this many reads ...
   dp_frac_lo: 0.5                # ... and at least this fraction of the parent's median depth (the new alignments have 9-13x effective depth, not the 12x+ of the old filter)
   dp_frac_hi: 2.0                # ... and at most this multiple of it (collapsed repeats and copy-number variants have too much depth)

@@ -462,11 +462,18 @@ class TestLabelsAndFish(unittest.TestCase):
         self.assertEqual([GC.lg_label(c) for c in ('NC_135167.1', 'NC_135176.1', 'NC_135189.1', 'NC_135190.1', 'chr1', 'NW_0001.1')], ['LG1', 'LG10', 'LG23', 'NC_135190.1', 'chr1', 'NW_0001.1'])
 
     def test_only_fish_of_the_configured_dams_are_taken(self):
-        t = pd.DataFrame({'SampleID': ['A', 'B', 'C', 'D', 'E', 'A'], 'BroodID': ['B1', 'B1', 'B2', 'B3', '', 'B1'],
+        t = pd.DataFrame({'SampleID': ['A', 'B', 'C', 'D', 'E', 'A'], 'BroodID': ['MCYH-BC1-B1', 'MCYH-BC1-B1', 'MCYH-BC1-B2', 'MCYH-BC1-B3', '', 'MCYH-BC1-B1'],
                           'Parents': ['MCYH-F1-003m,MC-3R6R-f', 'MCYH-F1-003m,MC-3R6R-f', 'MCYH-F1-002m,MC-1G2G-f', 'X,MC-OTHER-f', 'MCYH-F1-003m,MC-3R6R-f', 'MCYH-F1-003m,MC-3R6R-f']})
         f = GC.bc_fish(t, CFG)
         self.assertEqual(f.SampleID.tolist(), ['A', 'B', 'C']); self.assertEqual(f.Dam.tolist(), ['MC-3R6R-f', 'MC-3R6R-f', 'MC-1G2G-f']); self.assertEqual(f.Sire.iloc[2], 'MCYH-F1-002m')
         with self.assertRaises(SystemExit): GC.bc_fish(pd.DataFrame({'SampleID': ['A']}), CFG)
+
+    def test_an_f1_brood_of_the_same_mothers_is_not_a_backcross(self):
+        t = pd.DataFrame({'SampleID': ['A', 'B', 'F1a', 'F1b', 'Z'], 'BroodID': ['MCYH-BC1-24-01-10-1', 'MCYH-BC1-24-03-27-1', 'MCYH-F1-23-02-21', 'MCYH-F1-23-02-21', 'OTHER-1'],
+                          'Parents': ['MCYHF1-002,MC-3R6R-f', 'MCYHF1-003,MC-5G11G-f', 'YH_008_m,MC-3R6R-f', 'YH_008_m,MC-3R6R-f', 'X,MC-OTHER-f']})
+        self.assertEqual(GC.bc_fish(t, CFG).SampleID.tolist(), ['A', 'B'])
+        lo = GC.left_out(t, CFG); self.assertEqual(lo.to_dict(), {('MCYH-F1-23-02-21', 'YH_008_m', 'MC-3R6R-f'): 2})        # fish of another dam are not listed: they are not ours at all
+        cfg = {'sites': dict(CFG['sites'], brood_prefixes=[])}; self.assertEqual(GC.bc_fish(t, cfg).SampleID.tolist(), ['A', 'B', 'F1a', 'F1b']); self.assertEqual(len(GC.left_out(t, cfg)), 0)
 
 
 class TestCommands(unittest.TestCase):
@@ -484,13 +491,15 @@ class TestCommands(unittest.TestCase):
         for frag in ('definition key', 'snp_biallelic', 'dam_opposite', 'MC-3R6R-f'): self.assertIn(frag, text)
         for dam in DAMS:
             self.assertTrue(os.path.exists(f'{self.root}sites/sites_{dam}.tsv.gz') and os.path.exists(f'{self.root}sites/targets_{dam}.tsv'))
-        st = pd.DataFrame({'SampleID': ['F1', 'F2', 'F3', 'F4', 'F5'], 'BroodID': ['B1', 'B1', 'B2', 'B9', 'B1'],
-                           'Parents': ['S,MC-3R6R-f', 'S,MC-3R6R-f', 'S,MC-1G2G-f', 'S,MC-OTHER-f', 'S,MC-3R6R-f']})
-        al = pd.DataFrame({'SampleID': ['F1', 'F2', 'F3', 'F4'], 'BamSize': [1000, 1000, 1000, 1000], 'GenomeVersion': 'G'})      # F5 has no alignment row
+        st = pd.DataFrame({'SampleID': ['F1', 'F2', 'F3', 'F4', 'F5', 'F6'], 'BroodID': ['MCYH-BC1-B1', 'MCYH-BC1-B1', 'MCYH-BC1-B2', 'MCYH-BC1-B9', 'MCYH-BC1-B1', 'MCYH-F1-X'],
+                           'Parents': ['S,MC-3R6R-f', 'S,MC-3R6R-f', 'S,MC-1G2G-f', 'S,MC-OTHER-f', 'S,MC-3R6R-f', 'YH_008_m,MC-3R6R-f']})
+        al = pd.DataFrame({'SampleID': ['F1', 'F2', 'F3', 'F4', 'F6'], 'BamSize': [1000, 1000, 1000, 1000, 1000], 'GenomeVersion': 'G'})      # F5 has no alignment row; F6 is an F1 fish
         stf, alf = self.dir + '/st.tsv', self.dir + '/al.tsv'; st.to_csv(stf, sep='\t', index=False); al.to_csv(alf, sep='\t', index=False)
         off = ['--sample-table', stf, '--alignment-table', alf, '--local-master', self.dir + '/local', '--cloud-master', self.dir + '/cloud', '--fasta', '/ref.fa', '--out', self.root, '--genome', 'G']
         rc, text = run_cmd(['counts'] + off); self.assertEqual(rc, 0)
         self.assertIn('3 BC fish with an alignment (1 without one)', text); self.assertIn('3 to count', text); self.assertIn('PLAN ONLY', text); self.assertIn('F5', text)
+        self.assertRegex(text, r'MCYH-BC1-B1\s+S\s+MC-3R6R-f\s+2'); self.assertRegex(text, r'MCYH-BC1-B2\s+S\s+MC-1G2G-f\s+1')        # the plan shows brood, sire, dam and the number of fish
+        self.assertIn('left out, not backcross broods', text); self.assertIn('MCYH-F1-X (sire YH_008_m, dam MC-3R6R-f): 1', text); self.assertNotIn('F6', text.split('left out')[0])
         self.assertFalse(os.path.exists(self.root + 'counts'))                                    # a plan writes nothing
         fake = Fake()
         saved = dict(C.RUNNERS); C.RUNNERS.update(run=fake.run, script=fake.script)
