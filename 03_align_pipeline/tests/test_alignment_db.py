@@ -2,7 +2,7 @@
 import os, sys, threading, time, unittest
 import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from align_pipeline.alignment_db import AppendingDatabaseWriter, REQUIRED_KEYS, LEDGER_COLUMNS, ledger_row
+from align_pipeline.alignment_db import AppendingDatabaseWriter, REQUIRED_KEYS, LEDGER_COLUMNS, RETIRED_COLUMNS, ledger_row
 
 
 class FakeSheet:
@@ -63,11 +63,11 @@ HEADER = OLD + [c for c in LEDGER_COLUMNS if c not in OLD]                      
 class TestAppend(unittest.TestCase):
     def test_the_row_follows_the_sheets_column_order_blank_where_unknown_and_python_types(self):
         sh = FakeSheet(HEADER, [['OLD', 'G', 'a note', 'r'] + [''] * 14])
-        out = writer(sh).add_row(row('NEW', NRuns=np.int64(7), DuplicationRate=np.float64('nan')))
+        out = writer(sh).add_row(row('NEW', InputFingerprint=np.int64(7), DuplicationRate=np.float64('nan')))
         self.assertEqual(out, 'added')
         new = sh.shared['cells'][-1]
         self.assertEqual(new[0], 'NEW'); self.assertEqual(new[HEADER.index('Notes')], '', 'a sheet column we know nothing about stays blank')
-        self.assertEqual(new[HEADER.index('NRuns')], 7); self.assertIsInstance(new[HEADER.index('NRuns')], int)
+        self.assertEqual(new[HEADER.index('InputFingerprint')], 7); self.assertIsInstance(new[HEADER.index('InputFingerprint')], int)
         self.assertEqual(new[HEADER.index('DuplicationRate')], '', 'NaN is written as an empty cell')
         self.assertEqual(new[HEADER.index('UnmappedReads')], '', 'an old column that new rows no longer fill stays blank')
         self.assertEqual(len(sh.shared['cells']), 3)
@@ -115,7 +115,7 @@ class TestAppend(unittest.TestCase):
         def work(w, prefix):
             try:
                 for i in range(60):
-                    w.add_row(row(f'{prefix}{i:03d}', NRuns=i))
+                    w.add_row(row(f'{prefix}{i:03d}', InputFingerprint=i))
             except Exception as e:
                 errors.append(e)
         ts = [threading.Thread(target=work, args=(machines[0], 'A')), threading.Thread(target=work, args=(machines[1], 'B'))]
@@ -159,6 +159,54 @@ class TestAppend(unittest.TestCase):
         self.assertTrue(any('appears 2 times' in m for m in logs), logs)
 
 
+class TestSheetsWithAndWithoutTheRetiredColumns(unittest.TestCase):
+    """The columns are dropped from the sheet BY HAND, after this code is on every machine, so the code must work before, after, and with the columns the effcov tool appended."""
+    @staticmethod
+    def full_row(sample, **extra):
+        """What the pipeline passes: the FULL ledger row, every LEDGER_COLUMNS key (blank when unknown); the writer refuses when the sheet's header lacks any of its keys."""
+        return ledger_row({}, dict({k: 1 for k in REQUIRED_KEYS}, SampleID=sample, **extra))
+
+    def new_row_in(self, header):
+        sh = FakeSheet(header, [['OLD'] + [''] * (len(header) - 1)])
+        self.assertEqual(writer(sh).add_row(self.full_row('NEW', DuplicationRate=0.04)), 'added')
+        return dict(zip(header, sh.shared['cells'][-1]))
+
+    def test_a_sheet_that_still_has_the_retired_columns_gets_blank_cells_there(self):
+        header = HEADER + list(RETIRED_COLUMNS)
+        new = self.new_row_in(header)
+        self.assertEqual(new['SampleID'], 'NEW'); self.assertEqual(new['DuplicationRate'], 0.04)
+        for c in RETIRED_COLUMNS:
+            self.assertEqual(new[c], '', c)
+
+    def test_a_sheet_that_has_dropped_them_works(self):
+        header = [c for c in HEADER if c not in RETIRED_COLUMNS]
+        new = self.new_row_in(header)
+        self.assertEqual((new['SampleID'], new['DuplicationRate']), ('NEW', 0.04))
+
+    def test_columns_appended_by_effcov_stay_blank_in_new_rows(self):
+        header = HEADER + ['EffectiveCoverage', 'MapqPassFraction', 'BaseSurvivalFraction']
+        new = self.new_row_in(header)
+        self.assertEqual(new['DuplicationRate'], 0.04)
+        for c in ('EffectiveCoverage', 'MapqPassFraction', 'BaseSurvivalFraction'):
+            self.assertEqual(new[c], '', c)
+
+    def test_a_missing_column_that_IS_still_needed_still_stops_the_run(self):
+        header = [c for c in HEADER if c != 'PanelStatus']
+        sh = FakeSheet(header, [['OLD'] + [''] * (len(header) - 1)])
+        with self.assertRaises(RuntimeError) as cm:
+            writer(sh).add_row(self.full_row('NEW'))
+        self.assertIn('PanelStatus', str(cm.exception)); self.assertEqual(len(sh.shared['cells']), 2)                # nothing was appended
+
+    def test_the_OLD_ledger_would_have_refused_a_sheet_without_the_retired_columns(self):
+        """Why the order is code first, sheet second: a row that still carries the four columns is refused by a sheet that dropped them."""
+        header = [c for c in HEADER if c not in RETIRED_COLUMNS]
+        sh = FakeSheet(header, [['OLD'] + [''] * (len(header) - 1)])
+        old_row = dict(self.full_row('NEW'), **{c: '' for c in RETIRED_COLUMNS})
+        with self.assertRaises(RuntimeError) as cm:
+            writer(sh).add_row(old_row)
+        self.assertIn('NRuns', str(cm.exception))
+
+
 class TestLedgerRow(unittest.TestCase):
     QC = dict(TotalReads=100, Coverage=16.3, MappedFraction=0.997, DuplicateFraction=0.04, CoverageNonDuplicate=15.1, QCWarnings='', PrimaryReads=100, InsertSizeMean=400.0, UnmappedReads=0.3)
     META = dict(SampleID='S1', GenomeVersion='G', Species='Maylandia zebra', RunIDs='R1,,R2', NRuns=2, InputFingerprint='abc123', BamSize=7, Instrument='HiSeq', ReadLength=250,
@@ -167,8 +215,15 @@ class TestLedgerRow(unittest.TestCase):
     def test_the_row_has_exactly_the_ledger_columns_with_the_agreed_names(self):
         r = ledger_row(self.QC, self.META)
         self.assertEqual(list(r), list(LEDGER_COLUMNS))
-        self.assertEqual((r['DuplicationRate'], r['UsableCoverage'], r['MappedFraction'], r['TotalReads'], r['Coverage']), (0.04, 15.1, 0.997, 100, 16.3))
-        self.assertEqual((r['Species'], r['RunIDs'], r['NRuns'], r['InputFingerprint'], r['PanelStatus']), ('Maylandia zebra', 'R1,,R2', 2, 'abc123', 'ok'))
+        self.assertEqual((r['DuplicationRate'], r['MappedFraction'], r['TotalReads'], r['Coverage']), (0.04, 0.997, 100, 16.3))
+        self.assertEqual((r['Species'], r['RunIDs'], r['InputFingerprint'], r['PanelStatus']), ('Maylandia zebra', 'R1,,R2', 'abc123', 'ok'))
+
+    def test_the_retired_columns_are_no_longer_written_even_when_the_meta_and_the_qc_know_them(self):
+        self.assertEqual(RETIRED_COLUMNS, ('NRuns', 'UsableCoverage', 'Instrument', 'ReadLength'))
+        r = ledger_row(self.QC, self.META)                                          # META still carries NRuns, Instrument and ReadLength (the pipeline reads them), QC carries CoverageNonDuplicate
+        for c in RETIRED_COLUMNS:
+            self.assertNotIn(c, r); self.assertNotIn(c, LEDGER_COLUMNS); self.assertNotIn(c, AppendingDatabaseWriter.needed_columns())
+        self.assertEqual(self.QC['CoverageNonDuplicate'], 15.1)                      # the statistic itself stays in qc.json: only the sheet column goes
 
     def test_what_is_not_a_ledger_column_stays_out_of_the_sheet(self):
         r = ledger_row(self.QC, self.META)

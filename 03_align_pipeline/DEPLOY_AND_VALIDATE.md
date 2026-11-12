@@ -96,3 +96,13 @@ exactly); the panel JSON exists, `panel.identity` exits 0, and `QCWarnings` is e
 * "No samples to run": forgot `-r`, or a typo in the sample name.
 * A failed sample: `FAILED at <stage>` in the log, with the tail of the tool's error output; the temp folder of the sample has the full logs.
 * Ctrl-C stops every command it started; run the same command again and it continues where it stopped.
+
+## Retiring `NRuns`, `UsableCoverage`, `Instrument` and `ReadLength` (2026-11-12)
+
+Done after batches 3 and 4 finished; nothing is running on utaka or yellowhead, which is the point: the pipeline refuses to write a row when the sheet's header lacks a column it writes, so the order is code first, sheet second (README, "The ledger row").
+
+1. Laptop: apply the zip, `python3 tools/run_tests.py 03`, commit, push.
+2. On **each** of utaka and yellowhead: `cd ~/CSRS_reorg && git pull --ff-only origin reorg_spec`. Then `python3 -c "from align_pipeline.alignment_db import LEDGER_COLUMNS, RETIRED_COLUMNS; print(sorted(set(RETIRED_COLUMNS) & set(LEDGER_COLUMNS)))"` must print `[]`.
+3. Export the AlignmentDatabase worksheet of each genome (File, Download, CSV): the only copy of the old `UsableCoverage` and `NRuns`.
+4. Delete the four columns from the worksheet(s) by hand.
+5. Nothing to run: the writer's header check is covered by the tests (a sheet with the columns, without them, and with the `effcov` columns). The first real append, in the next batch, is the live check; a refusal names the missing column.

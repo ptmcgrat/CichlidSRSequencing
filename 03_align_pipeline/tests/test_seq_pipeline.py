@@ -136,7 +136,7 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(list(r), list(LEDGER_COLUMNS), 'the row has exactly the ledger columns, in their order')
         self.assertAlmostEqual(r['DuplicationRate'], 0.09)
         self.assertAlmostEqual(r['MappedFraction'], 0.97)
-        self.assertGreater(r['UsableCoverage'], 0)
+        self.assertGreater(r['Coverage'], 0); self.assertNotIn('UsableCoverage', r)     # the usable coverage is measured by effcov now, not written by the pipeline
         self.assertEqual(r['QCWarnings'], '', r['QCWarnings'])
         self.assertEqual(r['RunIDs'], 'run_SMP_1')
         self.assertEqual((r['PanelStatus'], r['PipelineVersion'], r['GenomeVersion']), ('off', 'align_pipeline 3.0', 'Mzebra_GT3_NCBI'))
@@ -464,7 +464,9 @@ class TestPanelStage(unittest.TestCase):
         cmd = next(text for _, kind, _, text in fake.calls if kind == 'panel')
         self.assertEqual(cmd.replace('nice ', ''), f'/env/bin/python3 -m sd_genotypes panel measure --bam {paths[0].all_bam} --sample SMP_1 --out-json {paths[0].panel_json} --modules all')
         r = rows[0]
-        self.assertEqual((r['PanelStatus'], r['Species'], r['Instrument'], r['ReadLength'], r['NRuns'], r['InputFingerprint']), ('ok', 'Maylandia zebra', 'HiSeq', 250, 1, 'fp_SMP_1'))
+        self.assertEqual((r['PanelStatus'], r['Species'], r['InputFingerprint']), ('ok', 'Maylandia zebra', 'fp_SMP_1'))
+        for retired in ('Instrument', 'ReadLength', 'NRuns', 'UsableCoverage'):
+            self.assertNotIn(retired, r)                                                  # known to the pipeline (sample_meta) but no longer written
         rec = json.load(open(paths[0].panel_json))
         self.assertEqual((rec['schema'], rec['bam'], rec['bam_size_bytes']), (2, 'SMP_1.all.bam', os.path.getsize(paths[0].all_bam)))
         self.assertEqual(self.pn.identity_status(paths[0].panel_json, paths[0].all_bam)[0], 'same')

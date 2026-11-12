@@ -41,10 +41,16 @@ record the BAM they were measured on: calls are made offline from them). The uBA
 
 ## The ledger row (the sheet)
 
-`SampleID, GenomeVersion, Species, RunIDs, NRuns, InputFingerprint, Coverage, UsableCoverage, TotalReads, MappedFraction, DuplicationRate, BamSize, Instrument, ReadLength, QCWarnings, PanelStatus, AlignedOn,
-Machine, PipelineVersion, minimap2_version, gatk_version, pysam_version`. `DuplicationRate` is Picard's PERCENT_DUPLICATION pooled over libraries (not the old `DuplicationReads`, the `.duplication.bam` split);
-`UsableCoverage` is the measured non-duplicate coverage; `RunIDs` is joined with `,,` as in the existing rows; `InputFingerprint` hashes the sorted (RunID, uBAM size) pairs (the input of the rerun rule, which compares it with the runs now in the DNAReadsDatabase: not built yet);
-`PanelStatus` is `ok`, `failed` or `off`; `PipelineVersion` is `align_pipeline <version> <commit>` (the commit is read from the .git folder when there is no git program); `QCWarnings` is empty when nothing is wrong. Old rows keep their old columns. **Which columns the sheet carries is an open decision (SPEC.md 12.13): it is one constant.**
+`SampleID, GenomeVersion, Species, RunIDs, InputFingerprint, Coverage, TotalReads, MappedFraction, DuplicationRate, BamSize, QCWarnings, PanelStatus, AlignedOn, Machine, PipelineVersion, minimap2_version, gatk_version, pysam_version`
+(`alignment_db.LEDGER_COLUMNS`). **Retired in the 2026-11-12 increment (SPEC decision 75): `NRuns`, `UsableCoverage`, `Instrument`, `ReadLength`** (`alignment_db.RETIRED_COLUMNS`): `UsableCoverage` is replaced by `EffectiveCoverage`, which module 05's
+`effcov` measures with the variant caller's own pileup (the pipeline's figure was the non-duplicate share of the raw bases, which is not what the caller sees); `NRuns` is the number of entries of `RunIDs`; `Instrument` and `ReadLength` are in the ReadsDatabase.
+The pipeline still READS the instrument and the read length (the legacy `Coverage` is bases over genome, which needs the read length) and still computes `CoverageNonDuplicate` in `qc.json`; only the sheet columns go. `DuplicationRate` is Picard's PERCENT_DUPLICATION pooled over libraries
+(not the old `DuplicationReads`, the `.duplication.bam` split); `RunIDs` is joined with `,,` as in the existing rows; `InputFingerprint` hashes the sorted (RunID, uBAM size) pairs (the input of the rerun rule, which compares it with the runs now in the DNAReadsDatabase: not built yet);
+`PanelStatus` is `ok`, `failed` or `off`; `PipelineVersion` is `align_pipeline <version> <commit>` (the commit is read from the .git folder when there is no git program); `QCWarnings` is empty when nothing is wrong. Old rows keep their old columns.
+
+**Order of operations when retiring columns, and why.** The writer refuses to append when the sheet's header lacks any key of the row it is given, so code that still writes the four columns stops on a sheet that dropped them. Therefore: (1) every machine on this code, (2) only then
+delete the four columns from the sheet. This code works against a sheet that still has them (their cells stay blank in new rows), against one that has dropped them, and against one with the columns `effcov write` appended; tests of each case are in `tests/test_alignment_db.py`. Deleting a column loses its values:
+export the worksheet first (File, Download, CSV) if anyone may still want the old `UsableCoverage`.
 
 ## The panel stage
 

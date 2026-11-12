@@ -11,9 +11,13 @@ import threading
 import time
 
 REQUIRED_KEYS = ('SampleID', 'GenomeVersion', 'RunIDs', 'Coverage', 'TotalReads', 'minimap2_version', 'gatk_version', 'pysam_version', 'BamSize')
-LEDGER_COLUMNS = ('SampleID', 'GenomeVersion', 'Species', 'RunIDs', 'NRuns', 'InputFingerprint', 'Coverage', 'UsableCoverage', 'TotalReads', 'MappedFraction', 'DuplicationRate', 'BamSize',
-                  'Instrument', 'ReadLength', 'QCWarnings', 'PanelStatus', 'AlignedOn', 'Machine', 'PipelineVersion', 'minimap2_version', 'gatk_version', 'pysam_version')
-FROM_QC = {'DuplicationRate': 'DuplicateFraction', 'UsableCoverage': 'CoverageNonDuplicate'}              # ledger name <- name in qc.json (v6's statistics keep their names there)
+LEDGER_COLUMNS = ('SampleID', 'GenomeVersion', 'Species', 'RunIDs', 'InputFingerprint', 'Coverage', 'TotalReads', 'MappedFraction', 'DuplicationRate', 'BamSize',
+                  'QCWarnings', 'PanelStatus', 'AlignedOn', 'Machine', 'PipelineVersion', 'minimap2_version', 'gatk_version', 'pysam_version')
+# Columns the pipeline wrote until 2026-11 and no longer does (SPEC decision 75): UsableCoverage is replaced by EffectiveCoverage (module 05, `effcov`, the depth the variant caller sees), NRuns by RunIDs, and Instrument and
+# ReadLength live in the ReadsDatabase. The pipeline still READS the instrument and the read length (the coverage of the legacy columns needs the read length); it just does not write them to the sheet. A sheet that still has
+# these columns is fine (their cells stay blank in new rows); a sheet without them is fine too. They are dropped from the sheet by hand, after this code is on every machine.
+RETIRED_COLUMNS = ('NRuns', 'UsableCoverage', 'Instrument', 'ReadLength')
+FROM_QC = {'DuplicationRate': 'DuplicateFraction'}              # ledger name <- name in qc.json (v6's statistics keep their names there)
 
 
 def ledger_row(qc, meta):
