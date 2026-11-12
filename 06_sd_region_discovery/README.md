@@ -42,8 +42,10 @@ Sample and sex come from sexloci's `sample_qc.tsv` (`--qc`) or any table with th
 | Is there a block of linkage disequilibrium, in which sex? | r^2 of up to 300 thinned SNPs in the region and in the rest of the chromosome, for all fish, males, females; r^2 by distance | `ld.png`, `ld_decay.tsv` |
 | How robust is the male-diagnostic count? | sexloci's rule (up to 10% exceptions) and a strict rule (none), at depth 3, 5 and 8; random subsets of fewer fish (default 9+7 and 8+8); the heterozygous share of every fish at the diagnostic sites | `diagnostic.png`, `diagnostic.tsv`, `diagnostic_subsample.tsv` |
 | Is the region the only place where the sexes differ? | male and female heterozygosity of every chromosome | `chromosome_sex_het.tsv` |
+| Which fish decide the diagnostic count? | the count with each fish left out in turn and without the fish that contradict the block (a male homozygous, or a female heterozygous, at the diagnostic SNPs) | `diagnostic_leave_one_out.tsv`, `diagnostic.png` |
+| Is the region's separation of the sexes unusual **in these fish**? | the region PCA repeated on every window of the same length of the genome (default step a quarter of the region): where does the region's AUC rank? (windows overlap: an approximate rank, not a p-value) | `null_scan.tsv`, `null_scan.png`, section 8 of `summary.md` |
 
-`--subregion START-END` (repeatable) repeats the PCA and the diagnostic counts for parts of the region (to find where a block starts or ends). Why the diagnostic count is not compared between runs: with 12 fish of a sex the rule allows one
+`--subregion START-END` (repeatable) repeats the PCA, the diagnostic counts, the heterozygosity and the runs of homozygosity by sex for parts of the region (to find where a block starts or ends); the whole region and `--core` get the same row (`subregions.tsv`). Why the diagnostic count is not compared between runs: with 12 fish of a sex the rule allows one
 exception per sex, with 9 or 7 none, so the same data give very different counts (the first saulosi run, 9 males and 7 females at depth 5, found 16 in LG10's block; the run of 12 and 12 at depth 3 found 605, while the window heterozygosity
 profiles of the two runs correlate at r = 0.97).
 
@@ -54,7 +56,7 @@ three components; runs of homozygosity are called by a threshold on window heter
 
 ## Tests
 
-`tests/test_region_block.py` (46 tests): every statistic on data with a known answer (windows, runs of homozygosity, relatedness and its sex test, PCA, LD, the diagnostic rule and its dependence on the number of fish), the VCF reader (depth mask, call-rate rule, exact region boundaries, which sites feed the relatedness), and the command end to end on a planted VCF (a Y haplotype, homozygous females, one inbred female) with its outputs and summary. The mutation checks and what they found are in the increment notes below.
+`tests/test_region_block.py` (58 tests): every statistic on data with a known answer (windows, runs of homozygosity, relatedness and its sex test, PCA, LD, the diagnostic rule and its dependence on the number of fish), the VCF reader (depth mask, call-rate rule, exact region boundaries, which sites feed the relatedness), and the command end to end on a planted VCF (a Y haplotype, homozygous females, one inbred female) with its outputs and summary. The mutation checks and what they found are in the increment notes below.
 `tests/test_vendored_sexloci.py`: the manifest; the import and version; the command-line delegation; sexloci's simulator (an XY locus planted on chr2 is recovered at tier A by all 3 families; a wrong genome version is
 refused by the preflight); and, **when pytest is installed**, sexloci's own 105 tests (skipped otherwise: they were not run when this module was built, because the sandbox had no pytest).
 Not exercised, as in sexloci's own README: the scikit-allel backend, the live rclone and the live Google sheets.
@@ -79,3 +81,19 @@ variation within the group, and an empty group shows as a labelled panel and as 
 **Not exercised:** the `allel` backend (not installed in the sandbox; its code path returns the same `Chunk`, with the raw dosage and the depth, and the tool reads only those), a real VCF, the run time of a whole-genome VCF, the figures on real data.
 **Not done:** allele balance of the heterozygous calls (a check for mapping artifacts); a hidden Markov model for runs of homozygosity (`bcftools roh` as the cross-check); comparing two runs' window tables (done by hand above); sub-block scans of
 the whole chromosome (local PCA in sliding windows). Open question of the module unchanged: SPEC open decision 4 (who writes results back).
+
+## Increment 2: what the first real run showed (2026-11-12)
+
+The first run on a real VCF (`saulosi_green_face_peacock.snps`, 24 fish, `min_dp` 3, region NC_135176.1:10-30 Mb, 3,214,354 of 4,697,956 sites) and what it taught, about the fish and about the tool.
+
+**About the fish (not conclusions, a record):** F_ROH outside the region is 0.069 in females and 0.075 in males (no difference, p = 0.17): the sample is moderately inbred in both sexes (814 runs, the longest 7.8 Mb), no two fish reach a relationship of 0.2 and relatedness does not line up with sex (p = 0.45).
+Inside the region 8 of 12 females have at least 20% of the 20 Mb in a run of homozygosity, 3.8 times their genome-wide rate, against 0.4 times in the males (0 of 12); female heterozygosity is 0.162 inside against 0.248 outside, male 0.295 against 0.251. The shallow fish (under 4.5x) and the deeper ones give the same ratio, so depth does not explain it.
+The region PCA separates the sexes perfectly (AUC 1.00, PC2) and the genome-wide PCA does not (0.69). The strict diagnostic rule finds 3 SNPs and sexloci's rule 614; the count is carried by 22 of the 24 fish: ASG_588_1 (a male, homozygous at the diagnostic SNPs) and ASG_209_1 (a female, 88% heterozygous) contradict it,
+both with TE1/TE2 genotypes that match their recorded sex (the TE and the block disagree for these two). Background LD is very high on the whole chromosome (r^2 about 0.2 at 5 to 10 Mb against about 0.04 expected for 24 unlinked fish), so the LD of the region cannot be told from it.
+
+**Gaps in the first version, found by this run and fixed here:** (1) the summary counted fish with at least **50%** of a 20 Mb region in a run and reported 1 of 12 females, while 8 of 12 have a fifth or more: now 20%, and the share is given as a multiple of the fish's own F_ROH outside the region;
+(2) the median of the random-subset counts hid a bimodal distribution (about 30 or about 1,000, depending on whether the two contradicting fish were drawn): added the leave-one-out counts, the count without the fish that contradict the block, and a panel of it; (3) nothing said how unusual an AUC of 1.00 is in a sample with long shared haplotypes everywhere:
+added the null scan (the region PCA on every window of the genome); (4) the control for LD was two flanks joined, which looked like two blocks: labelled; and the baseline r^2 of 1/n is now printed; (5) every p-value is post hoc, because the region was chosen from the same fish: a caution is now in the summary; (6) `subregions.tsv` gains heterozygosity and runs by sex, and the whole region and the core get a row.
+**Tests: 58 in this file, module 06 in all 66** (the planted VCF gains two fish that contradict the block, a quarter-block region and a null-scan case). Mutation checks of the new code: 11, one survived at first (the 20% threshold was indistinguishable from 50% when every female is in a run over the whole block) and a test with the share between them was added.
+A finding of the planted data worth remembering for real ones: the strict rule counts a SNP as clean when the fish that contradicts it is **missing** there, so low-depth masking can hide an exception fish at random sites (33 of 2,000 SNPs in the planted data at 2% masking).
+**Not exercised:** the `allel` backend, the run time and memory of the null scan on a whole-genome VCF (it keeps every genotype in memory at one byte each: about 80 MB for 3 million SNPs and 24 fish).

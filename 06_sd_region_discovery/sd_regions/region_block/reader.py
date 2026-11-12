@@ -27,9 +27,9 @@ class Collected:
     pass
 
 
-def stream(vcf, names, region, config_path=None, min_dp=3, min_call_rate=0.8, window=250_000, min_maf=0.05, exclude=(), keep_region_chromosome=False, backend=None, log=print):
+def stream(vcf, names, region, config_path=None, min_dp=3, min_call_rate=0.8, window=250_000, min_maf=0.05, exclude=(), keep_region_chromosome=False, backend=None, log=print, keep_genome=False):
     """Stream `vcf` for the samples `names` (in that order) and return a Collected with: names, windows (WindowAccumulator), grm_out (GrmAccumulator over the sites outside the region and, unless kept, outside its chromosome),
-    chr_pos, chr_raw, chr_dp (the sites of the region's chromosome that passed, with raw genotypes and depths), n_seen, n_used, cfg."""
+    chr_pos, chr_raw, chr_dp (the sites of the region's chromosome that passed, with raw genotypes and depths), genome ({chromosome: (positions, genotypes)} when keep_genome), n_seen, n_used, cfg."""
     from sexloci.config import load_config
     from sexloci.vcf import VariantFilter, iter_chunks, read_header_info, read_samples
     rc, rs, re_ = region
@@ -51,6 +51,7 @@ def stream(vcf, names, region, config_path=None, min_dp=3, min_call_rate=0.8, wi
     out.windows = A.WindowAccumulator(n, window)
     out.grm_out = A.GrmAccumulator(n, min_maf)
     pos_l, raw_l, dp_l = [], [], []
+    gen = {}
     out.n_seen = out.n_used = 0
     excl = [(c, a, b) for c, a, b in exclude]
     for k, chunk in enumerate(iter_chunks(vcf, idx, all_samples, cfg, vf)):
@@ -61,6 +62,10 @@ def stream(vcf, names, region, config_path=None, min_dp=3, min_call_rate=0.8, wi
         c = chunk.subset(ok)
         out.n_used += len(c.pos)
         out.windows.add(c.chrom, c.pos, c.dos)
+        if keep_genome:
+            for ch in dict.fromkeys(c.chrom.tolist()):
+                sel = c.chrom == ch
+                gen.setdefault(ch, []).append((c.pos[sel], c.dos[sel]))
         on_chr = c.chrom == rc
         in_region = on_chr & (c.pos >= rs) & (c.pos < re_)
         skip = in_region.copy() if keep_region_chromosome else on_chr.copy()
@@ -73,6 +78,7 @@ def stream(vcf, names, region, config_path=None, min_dp=3, min_call_rate=0.8, wi
             dp_l.append((c.dp if c.dp is not None else np.full(c.dos.shape, np.nan, np.float32))[on_chr])
         if (k + 1) % 20 == 0:
             log(f'  ... {out.n_seen:,} sites read, {out.n_used:,} kept')
+    out.genome = {ch: (np.concatenate([p for p, _ in v]), np.vstack([d for _, d in v])) for ch, v in gen.items()}
     out.chr_pos = np.concatenate(pos_l) if pos_l else np.zeros(0, np.int64)
     out.chr_raw = np.vstack(raw_l) if raw_l else np.zeros((0, n), np.int8)
     out.chr_dp = np.vstack(dp_l) if dp_l else np.zeros((0, n), np.float32)

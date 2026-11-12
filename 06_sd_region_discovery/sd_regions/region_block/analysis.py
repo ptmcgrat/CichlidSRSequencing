@@ -262,6 +262,8 @@ def auc_sex(score, is_male, n_perm=5000, seed=1):
         a = u / (n1 * n0)
         return max(a, 1 - a)
     obs = folded(is_male)
+    if n_perm == 0:
+        return float(obs), np.nan
     rng = np.random.default_rng(seed)
     cnt = sum(folded(rng.permutation(is_male)) >= obs - 1e-12 for _ in range(n_perm))
     return float(obs), float((cnt + 1) / (n_perm + 1))
@@ -372,3 +374,60 @@ def diag_sample_het(dos, sites_mask):
     called = (d >= 0).sum(axis=0)
     with np.errstate(invalid='ignore', divide='ignore'):
         return (d == 1).sum(axis=0) / called
+
+
+def exception_fish(share, male, female, lo=0.8, hi=0.2):
+    """Indices of the fish that contradict the block: a male with less than `lo` of the diagnostic sites heterozygous, or a female with more than `hi`."""
+    share = np.asarray(share, float)
+    bad = ((male) & (share < lo)) | ((female) & (share > hi))
+    return np.flatnonzero(bad & np.isfinite(share))
+
+
+def diag_leave_one_out(dos, male, female, tol=0.1):
+    """Array (n_fish x 2): the count under sexloci's rule and under the strict rule with each fish left out in turn. A fish whose removal raises the strict count a lot is one that contradicts the block."""
+    out = []
+    for i in range(dos.shape[1]):
+        m, f = male.copy(), female.copy()
+        m[i] = f[i] = False
+        out.append((int(diag_sexloci(dos, m, f, tol).sum()), int(diag_strict(dos, m, f).sum())))
+    return np.array(out)
+
+
+def diag_without(dos, male, female, drop, tol=0.1):
+    """(sexloci count, strict count) with the fish in `drop` (indices) left out."""
+    m, f = male.copy(), female.copy()
+    m[list(drop)] = f[list(drop)] = False
+    return int(diag_sexloci(dos, m, f, tol).sum()), int(diag_strict(dos, m, f).sum())
+
+
+# ====================================================================== a null for the region: the same analysis on every window of the genome
+def null_scan(genome, male, length, step, min_maf=0.05, min_sites=2000):
+    """The region PCA on every window of `length` bases (start every `step`) of every chromosome: how well does the best of the first three PCs separate the sexes in a stretch of the genome where nothing is
+    known? `genome` = {chrom: (positions, dosage matrix sites x fish)}. Returns a list of dict(chrom, start, end, sites, auc, pc). AUC is the folded Mann-Whitney AUC (1.0 = perfect separation), no permutation.
+    Windows overlap when step < length, so they are not independent: read the share of windows at or above the region's AUC as an approximate rank, not a p-value."""
+    rows = []
+    for chrom, (pos, dos) in genome.items():
+        if len(pos) == 0:
+            continue
+        s = int(pos.min())
+        while s + length <= int(pos.max()) + 1:
+            lo, hi = np.searchsorted(pos, s), np.searchsorted(pos, s + length)
+            if hi - lo >= min_sites:
+                try:
+                    sc, _, used = pca_scores(dos[lo:hi], min_maf)
+                    auc, _, pc = best_pc_auc(sc, male, n_perm=0)
+                    rows.append(dict(chrom=chrom, start=s, end=s + length, sites=int(hi - lo), auc=auc, pc=pc))
+                except ValueError:
+                    pass
+            s += int(step)
+    return rows
+
+
+def scan_dhet(keys, called, het, male, female, chrom, start, end, size):
+    """Male minus female heterozygosity over the windows of chrom:start-end (NaN if no window)."""
+    idx = region_windows(keys, chrom, start, end, size)
+    if len(idx) == 0:
+        return np.nan
+    m = het[idx][:, male].sum() / max(1, called[idx][:, male].sum())
+    f = het[idx][:, female].sum() / max(1, called[idx][:, female].sum())
+    return float(m - f)

@@ -250,13 +250,78 @@ class TestDiagnostic(unittest.TestCase):
 
 
 
+class TestInfluenceAndNull(unittest.TestCase):
+    def planted_with_two_exceptions(self):
+        """100 block SNPs; male M01 is homozygous on SNPs 50-99, female F01 heterozygous on SNPs 0-49: neither contradicts the other at any SNP."""
+        dos, male = planted_xy(m=100, block_frac=1.0)
+        dos = dos.copy(); dos[50:, 0] = 2 * (dos[50:, 12] // 2)                       # M01 takes the female (X) homozygous genotype on the second half
+        dos[:50, 12] = 1                                                              # F01 heterozygous on the first half
+        return dos, male, ~male
+
+    def test_leave_one_out_shows_the_two_fish_that_contradict_the_block(self):
+        dos, male, female = self.planted_with_two_exceptions()
+        strict_all = int(A.diag_strict(dos, male, female).sum()); self.assertEqual(strict_all, 0)               # both exceptions together block every SNP
+        loo = A.diag_leave_one_out(dos, male, female)
+        self.assertEqual(loo.shape, (24, 2))
+        self.assertEqual(int(loo[0, 1]), 50); self.assertEqual(int(loo[12, 1]), 50)                              # without M01 the second half is clean, without F01 the first half
+        others = np.delete(loo[:, 1], [0, 12]); self.assertTrue((others == 0).all())
+        self.assertEqual(A.diag_without(dos, male, female, [0, 12]), (100, 100))                                 # without both: every SNP, under both rules
+
+    def test_exception_fish_are_found_from_the_diagnostic_heterozygous_share(self):
+        male = np.array([True] * 12 + [False] * 12); female = ~male
+        sh = np.array([1.0] * 12 + [0.0] * 12); sh[3] = 0.05; sh[15] = 0.88; sh[20] = np.nan
+        self.assertEqual(list(A.exception_fish(sh, male, female)), [3, 15])                                       # the male that is homozygous and the female that is heterozygous; NaN is ignored
+        self.assertEqual(list(A.exception_fish(np.array([1.0] * 12 + [0.0] * 12), male, female)), [])             # a clean block has none
+        sh2 = np.array([0.8] * 12 + [0.2] * 12)
+        self.assertEqual(list(A.exception_fish(sh2, male, female)), [])                                           # exactly at the limits is not an exception
+
+    def test_auc_without_permutations_returns_nan_p(self):
+        a, p = A.auc_sex(np.arange(10.0), np.array([True] * 5 + [False] * 5), n_perm=0)
+        self.assertEqual(a, 1.0); self.assertTrue(np.isnan(p))
+
+    def build_genome(self, seed=9):
+        """c1: 4 Mb, SNPs every kb; the block 1.0-2.0 Mb is a Y haplotype (males X/Y, females XX); c2: 2 Mb random."""
+        rng = np.random.default_rng(seed); n_m = n_f = 12; male = np.array([True] * n_m + [False] * n_f); genome = {}
+        for chrom, length in (('c1', 4_000_000), ('c2', 2_000_000)):
+            pos = np.arange(1000, length, 1000); rows = []
+            for q in pos:
+                if chrom == 'c1' and 1_000_000 <= q < 2_000_000:
+                    x = int(rng.random() < 0.5); rows.append([1] * n_m + [2 * x] * n_f)
+                else:
+                    f = rng.uniform(0.15, 0.5); g = (rng.random((n_m + n_f, 2)) < f).sum(axis=1); rows.append(g)
+            genome[chrom] = (pos, np.array(rows, dtype=np.int8))
+        return genome, male
+
+    def test_null_scan_finds_the_planted_block_and_not_elsewhere(self):
+        genome, male = self.build_genome()
+        rows = A.null_scan(genome, male, length=1_000_000, step=500_000, min_sites=500)
+        on_block = [r for r in rows if r['chrom'] == 'c1' and 1_000_000 <= r['start'] < 1_100_000]               # the window that starts at 1.0 Mb covers the block exactly
+        self.assertEqual(len(on_block), 1); self.assertEqual(on_block[0]['auc'], 1.0)
+        elsewhere = [r['auc'] for r in rows if r['chrom'] == 'c2' or (r['chrom'] == 'c1' and (r['end'] <= 1_000_000 or r['start'] >= 2_000_000))]
+        self.assertGreater(len(elsewhere), 3); self.assertLess(np.median(elsewhere), 0.9); self.assertLess(max(elsewhere), 1.0)
+
+    def test_null_scan_skips_windows_with_too_few_sites_and_those_that_do_not_fit(self):
+        genome, male = self.build_genome()
+        self.assertEqual(A.null_scan(genome, male, length=1_000_000, step=500_000, min_sites=5000), [])         # no window holds 5000 SNPs
+        rows = A.null_scan(genome, male, length=3_000_000, step=1_000_000, min_sites=100)
+        self.assertTrue(all(r['end'] <= 4_000_000 + 1 for r in rows) and not any(r['chrom'] == 'c2' for r in rows))   # c2 is only 2 Mb: no 3 Mb window fits
+
+    def test_window_dhet(self):
+        keys = [('c1', w) for w in range(8)]
+        called = np.full((8, 4), 100); het = np.zeros((8, 4), int); het[2:6, :2] = 50; het[2:6, 2:] = 10                 # males (first two) 0.5, females 0.1 in windows 2-5
+        male = np.array([True, True, False, False])
+        self.assertAlmostEqual(A.scan_dhet(keys, called, het, male, ~male, 'c1', 500_000, 1_500_000, 250_000), 0.4)
+        self.assertAlmostEqual(A.scan_dhet(keys, called, het, male, ~male, 'c1', 0, 500_000, 250_000), 0.0)
+        self.assertTrue(np.isnan(A.scan_dhet(keys, called, het, male, ~male, 'zz', 0, 10, 250_000)))
+
+
 # ====================================================================== the VCF reader and the command, end to end
 from sd_regions.region_block import reader as RD, cli as CLI
 
 
-def write_planted_vcf(path, seed=11, n_m=12, n_f=12, block=(1_000_000, 3_000_000), c1_len=4_000_000, c2_len=2_000_000, step=1000, low_dp_share=0.02):
+def write_planted_vcf(path, seed=11, n_m=12, n_f=12, block=(1_000_000, 3_000_000), c1_len=4_000_000, c2_len=2_000_000, step=1000, low_dp_share=0.02, exceptions=False):
     """Two chromosomes, SNPs every `step` bases. c1 block: females XX with ONE X haplotype (so homozygous), males X/Y with the Y differing from the X at every SNP of the block. Elsewhere unrelated fish
-    drawn from allele frequencies. The first female (F01) is homozygous over c1 0-1 Mb (a run of homozygosity). Depth is about 8; a few genotypes get depth 1 (masked at min_dp 3). Returns (names, sex)."""
+    drawn from allele frequencies. The first female (F01) is homozygous over c1 0-1 Mb (a run of homozygosity). Depth is about 8; a few genotypes get depth 1 (masked at min_dp 3). With exceptions=True the first male is homozygous on the second half of the block and the first female heterozygous on the first half (fish that contradict the block, never both at one SNP). Returns (names, sex)."""
     rng = np.random.default_rng(seed)
     names = [f'M{i + 1:02d}' for i in range(n_m)] + [f'F{i + 1:02d}' for i in range(n_f)]
     sex = np.array(['M'] * n_m + ['F'] * n_f); n = len(names)
@@ -268,6 +333,11 @@ def write_planted_vcf(path, seed=11, n_m=12, n_f=12, block=(1_000_000, 3_000_000
             if in_block:
                 x = int(rng.random() < 0.5)
                 g = np.array([x + (1 - x)] * n_m + [2 * x] * n_f)                       # males X + Y (Y is the other allele): heterozygous; females XX: homozygous
+                if exceptions:
+                    if (pos - block[0]) // step < (block[1] - block[0]) // step // 2:
+                        g[n_m] = 1                                                        # the first female is heterozygous on the first half
+                    else:
+                        g[0] = 2 * x                                                      # the first male is homozygous on the second half
             else:
                 q = rng.uniform(0.15, 0.5)
                 g = (rng.random((n, 2)) < q).sum(axis=1)
@@ -423,7 +493,7 @@ class TestCommandEndToEnd(unittest.TestCase):
     def test_ld_is_complete_in_the_block_and_low_elsewhere(self):
         import pandas as pd
         t = pd.read_csv(os.path.join(self.out, 'ld_decay.tsv'), sep='\t')
-        reg = t[(t.set == 'region') & (t.group == 'all fish')].iloc[0]; rest = t[(t.set == 'rest of the chromosome') & (t.group == 'all fish')].iloc[0]
+        reg = t[(t.set == 'region') & (t.group == 'all fish')].iloc[0]; rest = t[(t.set == 'rest of the chromosome (flanks joined)') & (t.group == 'all fish')].iloc[0]
         self.assertGreater(reg['r2_1000-2000kb'], 0.9)                                                    # the block: every pair of SNPs is in complete LD (sex alone explains the genotypes)
         self.assertLess(rest['r2_2000-5000kb'], 0.2)                                                       # the flanks are two 1 Mb pieces, so the first pairs far apart are 2-5 Mb apart
         self.assertTrue(np.isnan(rest['r2_1000-2000kb']))                                                  # ... and the 1-2 Mb bin is empty, which the table must show as empty, not as 0
@@ -454,6 +524,95 @@ class TestCommandEndToEnd(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(d, 'o', 'summary.md')))
         finally:
             shutil.rmtree(d, ignore_errors=True)
+
+
+class TestNullScanAndInfluenceEndToEnd(unittest.TestCase):
+    """A planted block of 1-3 Mb; the region examined is its first Mb, so the windows of the null scan that sit on the rest of the block are 'other windows' that carry the same signal, as neighbours do in real data."""
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = tempfile.mkdtemp(); cls.vcf = os.path.join(cls.dir, 'planted.vcf'); cls.names, cls.sex = write_planted_vcf(cls.vcf, seed=5)
+        cls.qc = os.path.join(cls.dir, 'qc.tsv'); open(cls.qc, 'w').write('sample\tsex\n' + ''.join(f'{n}\t{s}\n' for n, s in zip(cls.names, cls.sex)))
+        cls.out = os.path.join(cls.dir, 'out')
+        args = CLI.build_parser().parse_args(['--vcf', cls.vcf, '--qc', cls.qc, '--region', 'c1:1000000-2000000', '--core', '1200000-1800000', '--outdir', cls.out, '--backend', 'builtin', '--n-perm', '200',
+                                              '--n-draws', '10', '--scan-step', '250000', '--scan-min-sites', '300', '--subregion', '1000000-1500000'])
+        cls.r = CLI.run(args, log=lambda *_: None)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.dir, ignore_errors=True)
+
+    def test_the_null_scan_is_written_and_ranks_the_region(self):
+        import pandas as pd
+        t = pd.read_csv(os.path.join(self.out, 'null_scan.tsv'), sep='\t')
+        self.assertTrue(os.path.getsize(os.path.join(self.out, 'null_scan.png')) > 1000)
+        self.assertTrue((t.end - t.start == 1_000_000).all()); self.assertEqual(set(['chrom', 'start', 'end', 'sites', 'auc', 'pc', 'dhet', 'overlaps_region']), set(t.columns))
+        self.assertTrue(t[t.chrom == 'c2'].auc.max() < 0.95)                                                    # random stretches do not separate the sexes
+        self.assertTrue(t[(t.chrom == 'c1') & (t.start >= 2_000_000) & (t.start < 2_700_000)].auc.eq(1.0).all()) # the rest of the block does, as neighbours would
+        self.assertEqual(t[t.overlaps_region].shape[0], int(((t.chrom == 'c1') & (t.start < 2_000_000) & (t.end > 1_000_000)).sum()))
+        self.assertGreater(t[(t.chrom == 'c1') & (t.start == 2_001_000)].dhet.iloc[0], 0.5) if (t.start == 2_001_000).any() else None
+        s = self.r['summary']; self.assertIn('## 8. Is this unusual for these fish?', s); self.assertIn('windows of the same length (1 Mb', s); self.assertIn('read this as an approximate rank, not as a p-value', s)
+
+    def test_parts_table_has_the_whole_region_the_core_and_the_subregion_with_runs_by_sex(self):
+        import pandas as pd
+        p = pd.read_csv(os.path.join(self.out, 'subregions.tsv'), sep='\t')
+        self.assertEqual(list(p.part)[:2], ['whole region', 'core']); self.assertEqual(len(p), 3)
+        self.assertTrue((p.females_roh20 == 12).all() and (p.males_roh20 == 0).all())                          # every female is in a run over the block, no male is
+        self.assertTrue((p.het_female < 0.05).all() and (p.het_male > 0.9).all())
+        self.assertIn('## 6. Parts of the region', self.r['summary']); self.assertIn('females / males with >= 20% in a run', self.r['summary'])
+
+    def test_the_post_hoc_caution_and_the_ld_baseline_are_in_the_summary(self):
+        s = self.r['summary']
+        self.assertIn('Every p-value above is descriptive', s); self.assertIn('1/n = 0.04', s); self.assertIn('the multiplier in the table', s); self.assertIn('>= 20% of the region inside a run', s)
+
+
+class TestShareThresholdEndToEnd(unittest.TestCase):
+    def test_a_region_that_is_a_quarter_block_counts_the_females_at_20_percent_not_at_50(self):
+        d = tempfile.mkdtemp()
+        try:
+            vcf = os.path.join(d, 'p.vcf'); names, sex = write_planted_vcf(vcf, seed=8, c1_len=8_000_000, c2_len=1_000_000, low_dp_share=0.0)         # the block (1-3 Mb) is a quarter of c1 (8 Mb)
+            q = os.path.join(d, 'q.tsv'); open(q, 'w').write('sample\tsex\n' + ''.join(f'{n}\t{x}\n' for n, x in zip(names, sex)))
+            args = CLI.build_parser().parse_args(['--vcf', vcf, '--qc', q, '--region', 'c1:1000-8000000', '--outdir', os.path.join(d, 'o'), '--backend', 'builtin', '--n-perm', '50', '--n-draws', '5', '--no-null-scan'])
+            r = CLI.run(args, log=lambda *_: None)
+            whole = [p for p in r['parts'] if p['part'] == 'whole region'][0]
+            share = float(r['st'][r['st'].sex == 'F'].region_in_roh_share.mean())
+            self.assertTrue(0.2 < share < 0.5, share)                                                         # the females are in a run over about a quarter of the region
+            self.assertEqual(whole['females_roh20'], 12); self.assertEqual(whole['males_roh20'], 0)
+            self.assertIn('| fish with >= 20% of the region inside a run of homozygosity | 0 of 12 | 12 of 12 |', r['summary'])
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+
+class TestExceptionFishEndToEnd(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.dir = tempfile.mkdtemp(); cls.vcf = os.path.join(cls.dir, 'planted.vcf'); cls.names, cls.sex = write_planted_vcf(cls.vcf, seed=6, exceptions=True, low_dp_share=0.0)        # no masking: the strict rule counts a SNP as clean when the exception fish is MISSING, so masking would hide them at random
+        cls.qc = os.path.join(cls.dir, 'qc.tsv'); open(cls.qc, 'w').write('sample\tsex\n' + ''.join(f'{n}\t{s}\n' for n, s in zip(cls.names, cls.sex)))
+        cls.out = os.path.join(cls.dir, 'out')
+        args = CLI.build_parser().parse_args(['--vcf', cls.vcf, '--qc', cls.qc, '--region', 'c1:1000000-3000000', '--outdir', cls.out, '--backend', 'builtin', '--n-perm', '100', '--n-draws', '40', '--no-null-scan'])
+        cls.r = CLI.run(args, log=lambda *_: None)
+        cls.n_block = sum(1 for l in open(cls.vcf) if l.startswith('c1\t') and 1_000_000 <= int(l.split('\t')[1]) < 3_000_000)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.dir, ignore_errors=True)
+
+    def test_the_two_exception_fish_are_found_and_decide_the_strict_count(self):
+        import pandas as pd
+        self.assertEqual(sorted(self.r['res']['exceptions']), ['F01', 'M01'])
+        self.assertEqual(self.r['diag_strict'], 0); self.assertEqual(self.r['diag_loose'], self.n_block)                    # one exception per sex is inside sexloci's tolerance at 12 + 12
+        self.assertEqual(self.r['res']['without'], (self.n_block, self.n_block))                                            # without them every SNP is diagnostic under both rules
+        loo = pd.read_csv(os.path.join(self.out, 'diagnostic_leave_one_out.tsv'), sep='\t').set_index('sample')
+        half = self.n_block // 2
+        self.assertEqual(int(loo.loc['M01', 'strict_count_without_this_fish']), self.n_block - half); self.assertEqual(int(loo.loc['F01', 'strict_count_without_this_fish']), half)
+        self.assertTrue((loo.drop(index=['M01', 'F01']).strict_count_without_this_fish == 0).all())
+        top2 = loo.strict_count_without_this_fish.sort_values(ascending=False).index[:2]; self.assertEqual(sorted(top2), ['F01', 'M01'])
+
+    def test_the_summary_and_the_table_say_so(self):
+        s = self.r['summary']
+        self.assertIn('The fish that contradict the block decide the count', s); self.assertIn('Without M01, F01', s)
+        import pandas as pd
+        d = pd.read_csv(os.path.join(self.out, 'diagnostic.tsv'), sep='\t'); self.assertTrue(d.min_depth.astype(str).str.contains('without M01, F01').sum() == 2)
+        self.assertFalse(os.path.exists(os.path.join(self.out, 'null_scan.tsv')))                                           # --no-null-scan
 
 
 if __name__ == '__main__':

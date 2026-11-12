@@ -108,9 +108,12 @@ def ld_plot(path, mats, title='', ncols=3):
     return path
 
 
-def diag_plot(path, by_depth, subsamples, full_count, n_full):
-    """Left: the count of sex-diagnostic SNPs under each rule and minimum depth. Right: the count in random subsets of fewer fish against all of them."""
-    fig, (a, b) = plt.subplots(1, 2, figsize=(12.5, 4.6))
+def diag_plot(path, by_depth, subsamples, full_count, n_full, names=None, sex=None, loo=None):
+    """Left: the count of sex-diagnostic SNPs under each rule and minimum depth. Middle: the count in random subsets of fewer fish against all of them. Right (when given): the strict count with each fish left
+    out in turn: the fish that contradict the block stand out."""
+    three = loo is not None
+    fig, axes = plt.subplots(1, 3 if three else 2, figsize=(18.5 if three else 12.5, 4.8))
+    a, b = axes[0], axes[1]
     ts = sorted(by_depth)
     w = 0.38
     a.bar(np.arange(len(ts)) - w / 2, [by_depth[t][0] for t in ts], w, label="sexloci's rule (up to 10% exceptions)", color='#6a3d9a')
@@ -126,7 +129,36 @@ def diag_plot(path, by_depth, subsamples, full_count, n_full):
         b.scatter(i + rng.uniform(-0.15, 0.15, len(arr)), arr, s=9, color='#999', alpha=.7, zorder=2)
         b.plot([i - 0.25, i + 0.25], [np.median(arr)] * 2, color='k', lw=2, zorder=3)
     b.scatter([len(data)], [full_count], color='#6a3d9a', zorder=3, s=70); b.set_xticks(range(1, len(data) + 1)); b.set_xticklabels(labels); b.set_xlim(0.4, len(data) + 0.6)
-    b.set_ylim(bottom=0)
-    b.set_ylabel('male-diagnostic SNPs (sexloci rule)'); b.set_title('... or on how many fish are analysed?', loc='left', fontweight='bold', fontsize=10)
+    b.set_ylim(bottom=0); b.set_ylabel('male-diagnostic SNPs (sexloci rule)'); b.set_title('... or on how many fish are analysed?', loc='left', fontweight='bold', fontsize=10)
+    if three:
+        c = axes[2]
+        order = np.argsort(np.array(sex) != 'M')                           # males first, then females
+        order = list(sorted(range(len(names)), key=lambda i: (sex[i], names[i])))
+        c.bar(range(len(order)), [loo[i, 1] for i in order], color=[MALE if sex[i] == 'M' else FEMALE for i in order])
+        c.set_xticks(range(len(order))); c.set_xticklabels([names[i] for i in order], rotation=90, fontsize=7)
+        for t, i in zip(c.get_xticklabels(), order):
+            t.set_color(MALE if sex[i] == 'M' else FEMALE)
+        c.set_ylabel('strict diagnostic SNPs without this fish'); c.set_title('Which fish decide it? (one left out at a time)', loc='left', fontweight='bold', fontsize=10)
+    fig.savefig(path, dpi=140, bbox_inches='tight'); plt.close(fig)
+    return path
+
+
+def null_plot(path, rows, region_auc, rs, re_, chrom):
+    """The sex AUC of the region PCA on every window of the genome: the region (red line) against the distribution of the others, and the AUC along the genome."""
+    fig, (a, b) = plt.subplots(1, 2, figsize=(14, 4.6), gridspec_kw=dict(width_ratios=[1, 2]))
+    other = [r for r in rows if not r['overlaps_region']]
+    aucs = np.array([r['auc'] for r in other])
+    a.hist(aucs, bins=np.linspace(0.5, 1.0, 26), color='#999', edgecolor='white')
+    a.axvline(region_auc, color='#d6604d', lw=2.5); a.text(region_auc, a.get_ylim()[1] * 0.92, ' region', color='#d6604d', ha='right' if region_auc > 0.9 else 'left', fontweight='bold')
+    a.set_xlabel('AUC for sex of the best of three PCs'); a.set_ylabel('windows'); a.set_title(f'{len(aucs)} windows elsewhere in the genome', loc='left', fontweight='bold', fontsize=10)
+    chroms = list(dict.fromkeys(r['chrom'] for r in rows)); offs, tot = {}, 0
+    for c in chroms:
+        offs[c] = tot; tot += max(r['end'] for r in rows if r['chrom'] == c) + 2_000_000
+    for i, c in enumerate(chroms):
+        rr = [r for r in rows if r['chrom'] == c]
+        b.scatter([offs[c] + (r['start'] + r['end']) / 2 for r in rr], [r['auc'] for r in rr], s=14, color='#d6604d' if c == chrom else ('#555' if i % 2 == 0 else '#999'), zorder=3)
+    b.axhline(region_auc, color='#d6604d', lw=1, ls='--')
+    b.set_xticks([offs[c] + max(r['end'] for r in rows if r['chrom'] == c) / 2 for c in chroms]); b.set_xticklabels([c.replace('NC_1351', '').replace('.1', '') for c in chroms], fontsize=7, rotation=90)
+    b.set_ylabel('AUC for sex'); b.set_title('along the genome (windows of the same length as the region; red = the region\'s chromosome)', loc='left', fontweight='bold', fontsize=10); b.set_ylim(0.45, 1.03)
     fig.savefig(path, dpi=140, bbox_inches='tight'); plt.close(fig)
     return path
