@@ -1,0 +1,33 @@
+# Parameters of `python -m bc_analysis genotype ...` (module 07). Every value here is a decision that can be changed and the step rerun; the definition key of the sites and of the counts records the ones that matter.
+sites:
+  yh_sire: YH_008_m              # the YH grandsire of the F1 sires (MCYHF1-002 and -003 are his sons by MC-1R6R-f)
+  f1_dam: MC-1R6R-f              # the MC grandmother
+  dams: [MC-3R6R-f, MC-1G2G-f, MC-5G11G-f]        # the MC mothers of the BC broods; each brood is analysed with the sites of ITS OWN dam only
+  min_dp: 6                      # a parent's genotype needs at least this many reads ...
+  dp_frac_lo: 0.5                # ... and at least this fraction of the parent's median depth (the new alignments have 9-13x effective depth, not the 12x+ of the old filter)
+  dp_frac_hi: 2.0                # ... and at most this multiple of it (collapsed repeats and copy-number variants have too much depth)
+  hom_max_minor_reads: 2         # a homozygous call may carry at most this many reads of the other allele ...
+  hom_max_minor_frac: 0.1        # ... and at most this fraction
+  depth_sample_sites: 300000     # the median depth of each parent is taken from the first this many SNPs of the VCF
+counts:
+  mapq: 20                       # the original had no mapping-quality filter and -Q 0
+  baseq: 20
+  max_depth: 200
+  exclude_flags: UNMAP,SECONDARY,QCFAIL,DUP
+hmm:
+  bin_bp: 100000                 # the resolution of the calls (the original used a 100 kb grid as well)
+  site_cap: 2                    # at most this many reads of an allele per site count (a repeat cluster cannot outweigh the rest)
+  bin_cap: 20                    # ... and at most this many reads per bin
+  rho: 1.0e-8                    # crossovers per bp in the F1 sire's meiosis (1 cM per Mb)
+  min_interior_segment_mb: 0     # 0 = no limit: the FIRST run, to measure how large the problem is (short_segments.tsv). 2.0 is the sensitivity run (--interior-min-mb 2 --tag _int2): a segment between two switches shorter than this
+                                 # then needs about 70 nats of extra evidence, because two crossovers that close do not happen (interference) and such a segment is an artifact; then `genotype compare` shows what it changed
+  min_terminal_segment_mb: 0.2   # a terminal segment shorter than this is stretched to it when its reads are strong and not called when they are weak (0 = no limit): ONE switch near the end is a plausible crossover, so this limit is kept small
+  short_segment_mb: 2.0          # interior segments shorter than this are LISTED in short_segments.tsv whatever the limit (with the limit off they are what the limit would remove)
+  terminal_low_confidence_mb: 0.5   # terminal calls shorter than this are reported but flagged low-confidence
+  em_iterations: 3
+  eps_bounds: [0.002, 0.05]      # P(YH-looking read | MC/MC): sequencing error and mismapping, fitted per fish
+  q_bounds: [0.3, 0.7]           # P(reference-allele read | heterozygous): the reference bias, fitted per fish, applied by each site's polarity
+  call_threshold: 0.5
+  uncertain_band: [0.1, 0.9]
+  flag_max_eps: 0.03
+  flag_max_switches_per_chromosome: 1.5

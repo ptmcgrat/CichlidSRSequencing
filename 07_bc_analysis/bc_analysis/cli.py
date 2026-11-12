@@ -1,5 +1,8 @@
-"""python -m bc_analysis bc_genotyping provenance|flagstat|original-vcfs|original|v2-sites|v2-counts|v2-hmm|validate|compare|stage-legacy | selftest"""
+"""python -m bc_analysis genotype sites|counts|hmm|simulate   (the new BC genotyper: informative sites per dam, allele counts, a 100 kb HMM)
+   python -m bc_analysis bc_genotyping provenance|flagstat|original-vcfs|original|v2-sites|v2-counts|v2-hmm|validate|compare|stage-legacy | selftest"""
+import glob
 import os
+import sys
 from cichlid_common import cli_base
 
 BC_STEPS = ['provenance', 'flagstat', 'original-vcfs', 'original', 'v2-sites', 'v2-counts', 'v2-hmm', 'validate', 'compare', 'stage-legacy']
@@ -46,4 +49,8 @@ def _bc(proj, a, cfg):
 
 
 def main(argv=None):
+    av = sys.argv[1:] if argv is None else list(argv)
+    if av and av[0] == 'genotype':                      # the new genotyper has its own parser: python -m bc_analysis genotype sites|counts|hmm|simulate
+        from bc_analysis.genotyper.cli import main as genotype_main
+        return genotype_main(av[1:])
     return cli_base.main('python -m bc_analysis', ['bc_genotyping'], {'bc_genotyping': _bc}, tests_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests'), argv=argv)
