@@ -1,4 +1,5 @@
-"""python -m sd_regions sexloci <command> ...   (sexloci 0.1.26, vendored unchanged: list-vcfs | run-folder | run | check | describe | filter-audit | filter-compare | simulate)
+"""python -m sd_regions region_block --vcf V --qc sample_qc.tsv --region CHROM:START-END [--core S-E]   (is a block of sex-linked signal real? ROH, relatedness, PCA, LD, diagnostic SNPs)
+   python -m sd_regions sexloci <command> ...   (sexloci 0.1.26, vendored unchanged: list-vcfs | run-folder | run | check | describe | filter-audit | filter-compare | simulate)
    python -m sd_regions parental_sex_region callset|depth|scan|summarize [--species YH,MC] | sex_association fisher [--table T --out D] | selftest"""
 import os
 import sys
@@ -32,6 +33,9 @@ def _psr(proj, a, cfg):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else list(argv)
+    if argv and argv[0] == 'region_block':                  # its own parser as well: python -m sd_regions region_block --vcf ... --region CHROM:START-END
+        from sd_regions.region_block.cli import main as rb_main
+        return rb_main(argv[1:])
     if argv and argv[0] == 'sexloci':                      # the vendored package has its own parser: the shared one is a single global parser
         from sexloci.cli import main as sexloci_main
         return sexloci_main(argv[1:])
