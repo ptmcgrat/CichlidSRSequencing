@@ -1,6 +1,7 @@
 """python -m bc_analysis genotype sites    --vcf <bc_family VCF> [--out DIR]                  informative sites per BC dam, from the parents' cohort VCF
    python -m bc_analysis genotype counts   [--run] [--jobs N] [--samples A,B]                  allele counts of every BC fish at its dam's sites (a plan unless --run); downloads each BAM, counts, deletes it
    python -m bc_analysis genotype hmm      [--jobs N]                                          the HMM on the counts: calls and posteriors on the 100 kb grid, breakpoints, per-fish QC, end support
+   python -m bc_analysis genotype mask [--a hmm] [--min-segment-fraction F] [--min-breakpoint-fraction F] [--pad N]     the bins whose signal recurs in many fish, from a run (then: hmm --mask --tag _mask)
    python -m bc_analysis genotype compare --b hmm_int2 [--a hmm]                               what a second run (e.g. with --interior-min-mb 2 --tag _int2) changed
    python -m bc_analysis genotype simulate [--scenario S1|S2] [--coverage 0.3 0.5] [--fish N]  the simulated comparison with the original script's model
 
@@ -19,6 +20,7 @@ import pandas as pd
 
 from . import counts as C
 from . import hmm as H
+from . import mask as M
 from . import sites as S
 
 
@@ -32,7 +34,7 @@ def lg_label(chrom):
 
 def build_parser():
     ap = argparse.ArgumentParser(prog='python -m bc_analysis genotype', description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('step', choices=['sites', 'counts', 'hmm', 'compare', 'simulate'])
+    ap.add_argument('step', choices=['sites', 'counts', 'hmm', 'compare', 'mask', 'simulate'])
     ap.add_argument('--genome', default='Mzebra_GT3_NCBI')
     ap.add_argument('--config', default=None)
     ap.add_argument('--out', default=None, help='the genome folder of the outputs (default <local master>/Outputs/BCGenotypes/<genome>/)')
@@ -48,6 +50,10 @@ def build_parser():
     ap.add_argument('--interior-min-mb', type=float, default=None, help='hmm: min_interior_segment_mb')
     ap.add_argument('--terminal-min-mb', type=float, default=None, help='hmm: min_terminal_segment_mb')
     ap.add_argument('--tag', default='', help='hmm: suffix of the output folder (hmm<tag>/), for sensitivity runs')
+    ap.add_argument('--mask', nargs='?', const='default', default=None, help='hmm: leave out the bins of a mask file (no value: <genome folder>/mask/mask_bins.tsv)')
+    ap.add_argument('--min-segment-fraction', type=float, default=None, help='mask: segment_fish_fraction')
+    ap.add_argument('--min-breakpoint-fraction', type=float, default=None, help='mask: breakpoint_fish_fraction')
+    ap.add_argument('--pad', type=int, default=None, help='mask: pad_bins')
     ap.add_argument('--a', default='hmm', help='compare: the first run (a folder of the genome folder)')
     ap.add_argument('--b', default=None, help='compare: the second run, e.g. hmm_int2')
     ap.add_argument('--scenario', default='S2', choices=['S1', 'S2'])
@@ -231,7 +237,20 @@ def step_hmm(a, cfg, out=print):
     os.makedirs(outdir, exist_ok=True)
     out(f'{len(samples)} fish, {len(lengths)} chromosomes, bin {hp["bin_bp"] // 1000} kb, rho {hp["rho"]:g}, interior minimum {hp["min_interior_segment_mb"]} Mb, terminal minimum {hp["min_terminal_segment_mb"]} Mb')
     t0 = time.time()
-    jobs = [(s, C.read_counts(root, s), lengths, hp) for s in samples]
+    masked, mpath, dropped = None, None, []
+    if a.mask:
+        mpath = root + 'mask/mask_bins.tsv' if a.mask == 'default' else a.mask
+        masked = M.load(mpath, hp['bin_bp'])
+    jobs = []
+    for s in samples:
+        cnt = C.read_counts(root, s)
+        if masked is not None:
+            cnt, d = M.apply(cnt, masked, hp['bin_bp'])
+            dropped.append(d)
+        jobs.append((s, cnt, lengths, hp))
+    if masked is not None:
+        nb = int(sum(len(v) for v in masked.values()))
+        out(f'mask {mpath}: {nb} bins ({nb * hp["bin_bp"] / 1e6:.1f} Mb) left out, {np.median(dropped):.0f} sites dropped per fish (median)')
     jn = a.jobs or 4
     results = []
     with cf.ProcessPoolExecutor(max_workers=jn) as ex:
@@ -259,7 +278,8 @@ def step_hmm(a, cfg, out=print):
                        terminal_low_confidence=sum(1 for b in bps if b['terminal_low_confidence']), uncertain_fraction=round(unc, 3),
                        flag=bool(eps > hp['flag_max_eps'] or nsw / len(lengths) > hp['flag_max_switches_per_chromosome'])))
     pd.DataFrame(qc).to_csv(outdir + 'sample_qc.tsv', sep='\t', index=False)
-    json.dump(dict(parameters=hp, genome=a.genome, n_fish=len(samples), chromosomes=list(lengths), minutes=round((time.time() - t0) / 60, 1)), open(outdir + 'run_info.json', 'w'), indent=1)
+    json.dump(dict(parameters=hp, genome=a.genome, n_fish=len(samples), chromosomes=list(lengths), minutes=round((time.time() - t0) / 60, 1),
+                   mask=None if masked is None else dict(file=mpath, bins=int(sum(len(v) for v in masked.values())), sites_dropped_median=float(np.median(dropped)))), open(outdir + 'run_info.json', 'w'), indent=1)
     n_short, n_fc = len(shorts_all), len(samples) * len(lengths)
     out(f'{n_short} interior segments shorter than {hp["short_segment_mb"]} Mb in {len({x["sample"] for x in shorts_all})} of {len(samples)} fish ({100 * n_short / n_fc:.1f} per 100 fish-chromosomes): what an interior minimum would remove')
     out(f'wrote {outdir}: genotypes_calls.csv, genotypes_posterior.csv.gz, breakpoints.tsv, short_segments.tsv, end_support.tsv, sample_qc.tsv ({sum(q["flag"] for q in qc)} fish flagged)')
@@ -304,6 +324,40 @@ def step_compare(a, cfg, out=print):
     return 0
 
 
+def step_mask(a, cfg, out=print):
+    """The bins that recur in many fish (short interior segments, breakpoints) in a run: written to <genome folder>/mask/mask_bins.tsv for `hmm --mask`."""
+    env = None if a.out else get_env(a)
+    root = genome_dir(a, env)
+    src = root + a.a + '/'
+    for f in ('short_segments.tsv', 'breakpoints.tsv', 'sample_qc.tsv', 'genotypes_calls.csv'):
+        if not os.path.exists(src + f):
+            raise SystemExit(f'{src}{f} is missing: run `genotype hmm` first (a run WITHOUT the interior limit shows the artifacts best)')
+    mp = dict(cfg['mask'])
+    for k, v in (('segment_fish_fraction', a.min_segment_fraction), ('breakpoint_fish_fraction', a.min_breakpoint_fraction), ('pad_bins', a.pad)):
+        if v is not None:
+            mp[k] = v
+    bp = cfg['hmm']['bin_bp']
+    rd = lambda f: pd.read_csv(src + f, sep='\t', dtype={'chrom': str})
+    shorts, bps, n_fish = rd('short_segments.tsv'), rd('breakpoints.tsv'), len(rd('sample_qc.tsv'))
+    df = M.derive(shorts, bps, n_fish, mp, bp)
+    df.insert(1, 'LG', df.chrom.map(lg_label))
+    df['start'] = df.bin * bp
+    df['end'] = df.start + bp
+    os.makedirs(root + 'mask/', exist_ok=True)
+    df.to_csv(root + 'mask/mask_bins.tsv', sep='\t', index=False)
+    total = len(pd.read_csv(src + 'genotypes_calls.csv', usecols=['Position']))
+    json.dump(dict(source=a.a, n_fish=n_fish, parameters=mp, bin_bp=bp, bins=len(df), core_bins=int((df.reason != 'pad').sum())), open(root + 'mask/mask_info.json', 'w'), indent=1)
+    core = int((df.reason != 'pad').sum())
+    out(f'mask from {a.a}: {n_fish} fish; a bin needs a short segment in {M.threshold(mp["segment_fish_fraction"], n_fish)} fish or a breakpoint in {M.threshold(mp["breakpoint_fish_fraction"], n_fish)}, plus {mp["pad_bins"]} bin(s) either side')
+    out(f'{core} bins pass, {len(df)} are masked with the pad: {len(df) * bp / 1e6:.1f} Mb, {100 * len(df) / total:.1f}% of the {total} bins')
+    iv = sorted(M.intervals(df, bp), key=lambda x: -max(x['segment_fish'], x['breakpoint_fish']))
+    out(f'{len(iv)} intervals; the 15 with the most fish (LG, Mb, bins, fish with a short segment, fish with a breakpoint):')
+    for x in iv[:15]:
+        out(f'  {lg_label(x["chrom"]):5s} {x["start"] / 1e6:7.1f} - {x["end"] / 1e6:6.1f}  {x["bins"]:3d}  {x["segment_fish"]:4d}  {x["breakpoint_fish"]:4d}')
+    out(f'wrote {root}mask/mask_bins.tsv: use it with `genotype hmm --mask --tag _mask`')
+    return 0
+
+
 def step_simulate(a, cfg, out=print):
     from . import simulate as SIM
     hp = dict(cfg['hmm'])
@@ -326,7 +380,7 @@ def main(argv=None):
     a = build_parser().parse_args(argv)
     cfg = S.load_config(a.config)
     try:
-        return {'sites': step_sites, 'counts': step_counts, 'hmm': step_hmm, 'compare': step_compare, 'simulate': step_simulate}[a.step](a, cfg)
+        return {'sites': step_sites, 'counts': step_counts, 'hmm': step_hmm, 'compare': step_compare, 'mask': step_mask, 'simulate': step_simulate}[a.step](a, cfg)
     except (ValueError, OSError) as e:
         print(f'error: {e}', file=sys.stderr)
         return 2

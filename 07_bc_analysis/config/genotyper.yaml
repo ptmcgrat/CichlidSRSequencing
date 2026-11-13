@@ -11,6 +11,10 @@ sites:
   hom_max_minor_reads: 2         # a homozygous call may carry at most this many reads of the other allele ...
   hom_max_minor_frac: 0.1        # ... and at most this fraction
   depth_sample_sites: 300000     # the median depth of each parent is taken from the first this many SNPs of the VCF
+mask:                            # `genotype mask`: bins to leave out of the HMM step because the SAME signal turns up in many fish (a systematic artifact, not ancestry)
+  segment_fish_fraction: 0.05    # a bin covered by a short interior segment (hmm.short_segment_mb) in at least this fraction of the fish ...
+  breakpoint_fish_fraction: 0.10 # ... or holding a breakpoint in at least this fraction of them (a real crossover hotspot of 100 kb with 10% of all meioses is not expected) is masked
+  pad_bins: 1                    # and so are this many bins on either side
 counts:
   mapq: 20                       # the original had no mapping-quality filter and -Q 0
   baseq: 20

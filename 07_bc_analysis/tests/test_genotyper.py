@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from bc_analysis.genotyper import sites as S, counts as C, hmm as H, simulate as SIM, cli as GC
+from bc_analysis.genotyper import sites as S, counts as C, hmm as H, simulate as SIM, cli as GC, mask as M
 
 CFG = S.load_config()
 PARENTS = ['YH_008_m', 'MC-1R6R-f', 'MC-3R6R-f', 'MC-1G2G-f', 'MC-5G11G-f', 'MCYHF1-002', 'MCYHF1-003']
@@ -629,6 +629,59 @@ def write_counts(root, fish, chroms, L, extra=None):
         json.dump(dict(sample=f, status='ok', key='K'), open(f'{root}counts/{f}.counts.json', 'w'))
 
 
+class TestMask(unittest.TestCase):
+    MP = dict(segment_fish_fraction=0.05, breakpoint_fish_fraction=0.10, pad_bins=1)
+
+    def frames(self):
+        seg = lambda ch, a, b, s: dict(sample=s, chrom=ch, start=a, end=b)
+        shorts = pd.DataFrame([seg('c1', 1_000_000, 1_300_000, 'F1'), seg('c1', 1_000_000, 1_300_000, 'F2'), seg('c1', 1_300_000, 1_400_000, 'F3'),     # bins 10-12 in two fish, bin 13 in one
+                               seg('c2', 0, 100_000, 'F1'), seg('c2', 0, 100_000, 'F2')])                                                        # bin 0 in two fish
+        bp = lambda ch, hi, s: dict(sample=s, chrom=ch, bin_hi=hi)
+        bps = pd.DataFrame([bp('c1', 5_100_000, f'F{i}') for i in range(4)] + [bp('c1', 6_100_000, f'F{i}') for i in range(3)] + [bp('c1', 1_200_000, f'F{i}') for i in range(4)])
+        return shorts, bps
+
+    def test_a_fraction_of_the_fish_rounds_up_without_floating_point_noise(self):
+        for frac, n, want in ((0.07, 100, 7), (0.14, 50, 7), (0.07, 200, 14), (0.1, 30, 3), (0.05, 40, 2), (0.05, 10, 1), (0.1, 267, 27), (0.05, 267, 14), (0.0, 10, 1), (0.1, 3, 1)):
+            self.assertEqual(M.threshold(frac, n), want, (frac, n))
+
+    def test_the_bins_to_mask_with_their_reasons_and_the_boundaries(self):
+        shorts, bps = self.frames()
+        df = M.derive(shorts, bps, 40, self.MP, 100_000)                                   # 2 fish for a segment, 4 for a breakpoint
+        got = {(r.chrom, r.bin): (r.reason, r.n_segment_fish, r.n_breakpoint_fish) for r in df.itertuples()}
+        self.assertEqual(got, {('c1', 9): ('pad', 0, 0), ('c1', 10): ('segments', 2, 0), ('c1', 11): ('segments', 2, 0), ('c1', 12): ('both', 2, 4), ('c1', 13): ('pad', 1, 0),
+                               ('c1', 50): ('pad', 0, 0), ('c1', 51): ('breakpoints', 0, 4), ('c1', 52): ('pad', 0, 0), ('c2', 0): ('segments', 2, 0), ('c2', 1): ('pad', 0, 0)})
+        self.assertNotIn(('c1', 61), got)                                                  # 3 fish are under the threshold of 4
+        d3 = M.derive(shorts, bps, 30, self.MP, 100_000)                                   # 0.1 of 30 fish is 3: now the bin with 3 breakpoints passes
+        self.assertEqual(d3[(d3.chrom == 'c1') & (d3.bin == 61)].reason.tolist(), ['breakpoints'])
+        d0 = M.derive(shorts, bps, 40, dict(self.MP, pad_bins=0), 100_000); self.assertEqual(sorted(d0.bin[d0.chrom == 'c1']), [10, 11, 12, 51])
+        d2 = M.derive(shorts, bps, 40, dict(self.MP, pad_bins=2), 100_000); self.assertEqual(sorted(d2.bin[d2.chrom == 'c1']), [8, 9, 10, 11, 12, 13, 14, 49, 50, 51, 52, 53])
+        self.assertEqual(len(M.derive(shorts.iloc[0:0], bps.iloc[0:0], 40, self.MP, 100_000)), 0)
+
+    def test_contiguous_bins_become_intervals(self):
+        shorts, bps = self.frames()
+        iv = M.intervals(M.derive(shorts, bps, 40, self.MP, 100_000), 100_000)
+        self.assertEqual([(x['chrom'], x['start'], x['end'], x['bins'], x['segment_fish'], x['breakpoint_fish']) for x in iv],
+                         [('c1', 900_000, 1_400_000, 5, 2, 4), ('c1', 5_000_000, 5_300_000, 3, 0, 4), ('c2', 0, 200_000, 2, 2, 0)])
+
+    def test_dropping_the_sites_of_masked_bins(self):
+        d = tempfile.mkdtemp()
+        try:
+            shorts, bps = self.frames()
+            df = M.derive(shorts, bps, 40, self.MP, 100_000); df['start'] = df.bin * 100_000; df['end'] = df.start + 100_000; df.to_csv(d + '/m.tsv', sep='\t', index=False)
+            masked = M.load(d + '/m.tsv', 100_000); self.assertEqual(masked['c1'].tolist(), [9, 10, 11, 12, 13, 50, 51, 52]); self.assertEqual(masked['c2'].tolist(), [0, 1])
+            pos = np.array([899_999, 900_000, 1_399_999, 1_400_000, 5_099_999, 6_000_000]); one = np.ones(len(pos), dtype=int)
+            cnt = {'c1': (pos, one, one * 2, np.ones(len(pos), dtype=bool)), 'c2': (np.array([50_000, 250_000]), np.array([1, 1]), np.array([0, 0]), np.array([True, False])), 'c3': (np.array([5]), np.array([1]), np.array([1]), np.array([True]))}
+            out, dropped = M.apply(cnt, masked, 100_000)
+            self.assertEqual(out['c1'][0].tolist(), [899_999, 1_400_000, 6_000_000]); self.assertEqual(out['c1'][2].tolist(), [2, 2, 2]); self.assertEqual(out['c2'][0].tolist(), [250_000]); self.assertEqual(out['c2'][3].tolist(), [False])
+            self.assertEqual(out['c3'][0].tolist(), [5]); self.assertEqual(dropped, 3 + 1)
+            with self.assertRaises(SystemExit) as cm: M.load(d + '/m.tsv', 50_000)
+            self.assertIn('bins of 100000 bp', str(cm.exception))
+            with self.assertRaises(SystemExit) as cm: M.load(d + '/none.tsv', 100_000)
+            self.assertIn('genotype mask', str(cm.exception))
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+
 class TestShortSegmentsAndCompare(unittest.TestCase):
     """The setting of the first real run (no interior limit, terminal limit 0.2 Mb) lists the short interior segments; the 2 Mb sensitivity run removes them; compare says by how much."""
     @classmethod
@@ -644,6 +697,8 @@ class TestShortSegmentsAndCompare(unittest.TestCase):
         write_counts(cls.root, ['ART', 'CLEAN'], chroms, L, extra)
         cls.rc1, cls.t1 = run_cmd(['hmm', '--out', cls.root, '--fai', cls.fai, '--jobs', '1'])
         cls.rc2, cls.t2 = run_cmd(['hmm', '--out', cls.root, '--fai', cls.fai, '--jobs', '1', '--interior-min-mb', '2', '--tag', '_int2'])
+        cls.rc3, cls.t3 = run_cmd(['mask', '--out', cls.root])
+        cls.rc4, cls.t4 = run_cmd(['hmm', '--out', cls.root, '--fai', cls.fai, '--jobs', '1', '--mask', '--tag', '_mask'])
 
     @classmethod
     def tearDownClass(cls):
@@ -667,6 +722,29 @@ class TestShortSegmentsAndCompare(unittest.TestCase):
         for frag in ('2 fish', 'bins called differently: 4', 'in 1 fish', 'breakpoints: 2 -> 0', 'short interior segments: 1 -> 0'): self.assertIn(frag, text)
         t = pd.read_csv(self.root + 'compare_hmm_vs_hmm_int2.tsv', sep='\t').set_index('sample'); self.assertEqual((int(t.loc['ART', 'bins_differ']), int(t.loc['CLEAN', 'bins_differ'])), (4, 0))
         self.assertEqual((int(t.loc['ART', 'breakpoints_a']), int(t.loc['ART', 'breakpoints_b'])), (2, 0))
+
+    def test_the_mask_finds_the_artifact_and_removes_it_without_an_interior_limit(self):
+        self.assertEqual((self.rc3, self.rc4), (0, 0))
+        m = pd.read_csv(self.root + 'mask/mask_bins.tsv', sep='\t')                      # 2 fish: one short segment and one breakpoint pass (1 fish each); the pad adds a bin either side
+        self.assertEqual(m[['chrom', 'LG', 'bin', 'reason']].values.tolist(), [['NC_135168.1', 'LG2', b, r] for b, r in ((99, 'pad'), (100, 'both'), (101, 'segments'), (102, 'segments'), (103, 'segments'), (104, 'breakpoints'), (105, 'pad'))])
+        self.assertEqual((m.start.iloc[0], m.end.iloc[0]), (9_900_000, 10_000_000))
+        self.assertIn('7 bins', self.t4); self.assertIn('mask from hmm', self.t3); self.assertIn('LG2', self.t3); self.assertIn('hmm --mask', self.t3)
+        self.assertEqual(len(pd.read_csv(self.root + 'hmm_mask/short_segments.tsv', sep='\t')), 0)
+        info = json.load(open(self.root + 'hmm_mask/run_info.json')); self.assertEqual(info['mask']['bins'], 7); self.assertGreater(info['mask']['sites_dropped_median'], 0); self.assertIsNone(json.load(open(self.root + 'hmm/run_info.json'))['mask'])
+        rc, text = run_cmd(['compare', '--out', self.root, '--a', 'hmm', '--b', 'hmm_mask']); self.assertIn('bins called differently: 4 ', text); self.assertIn('breakpoints: 2 -> 0', text)
+        with self.assertRaises(SystemExit) as cm: run_cmd(['hmm', '--out', self.root, '--fai', self.fai, '--jobs', '1', '--mask', self.root + 'nope.tsv', '--tag', '_x'])
+        self.assertIn('genotype mask', str(cm.exception))
+        with self.assertRaises(SystemExit) as cm: run_cmd(['mask', '--out', self.root, '--a', 'hmm_nope'])
+        self.assertIn('genotype hmm', str(cm.exception))
+
+    def test_the_thresholds_and_the_pad_can_be_set_on_the_command_line(self):
+        d = tempfile.mkdtemp()
+        try:
+            shutil.copytree(self.root, d + '/G'); rc, text = run_cmd(['mask', '--out', d + '/G/', '--min-segment-fraction', '0.5', '--min-breakpoint-fraction', '0.5', '--pad', '0']); self.assertEqual(rc, 0)
+            m = pd.read_csv(d + '/G/mask/mask_bins.tsv', sep='\t'); self.assertEqual(m.bin.tolist(), [100, 101, 102, 103, 104]); self.assertEqual(json.load(open(d + '/G/mask/mask_info.json'))['parameters']['pad_bins'], 0)
+            rc, text = run_cmd(['mask', '--out', d + '/G/', '--min-segment-fraction', '1.0', '--min-breakpoint-fraction', '1.0']); self.assertEqual(len(pd.read_csv(d + '/G/mask/mask_bins.tsv', sep='\t')), 0)     # both fish would have to show it
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
 
     def test_compare_asks_for_what_it_needs(self):
         with self.assertRaises(SystemExit) as cm: run_cmd(['compare', '--out', self.root])
