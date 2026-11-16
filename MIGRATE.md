@@ -45,3 +45,5 @@ rewritten as in the other modules, tests moved with them. That patch needs the f
 * The worker processes of the downloader are started with `python -m download_reads.worker` and `PYTHONPATH` set from `cichlid_common.common_light.subprocess_env()`; nothing is launched by file path any more.
 * `PKG_ROOT` is kept as an alias of `REPO_ROOT`. Run folders record the commit of this repository (the check for tracked files looks at `common/config/paper.yaml`).
 * A module may import the package of another module it depends on, never its internals: 04 uses `download_reads.sources` (public), 06 and 07 use `variant_calling.callset`; everything may use `cichlid_common`.
+
+- 2026-11-14: `_createGenomeFiles` in `cichlid_sr_sequencing/helper_modules/file_manager.py` gained a branch for `Mconophoros_GT1_NCBI` (6 added lines). The file moves as it is, with that branch.

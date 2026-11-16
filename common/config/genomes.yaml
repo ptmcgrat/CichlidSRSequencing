@@ -23,6 +23,14 @@ genomes:
     filemanager_file: anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta
     role: legacy_reference
     note: Mchenga conophoros assembly used for the first BC genotyping (OutputGenotypes.csv)
+  Mconophoros_GT1_NCBI:
+    source: filemanager
+    genome_version: Mconophoros_GT1_NCBI      # <CichlidSequencingData>/Genomes/Mconophoros_GT1_NCBI (on Dropbox); known to the lab FileManager since 2026-11-14
+    filemanager_file: GCF_057382185.1_M_conophoros_male_GT1.1_genomic.fna
+    accession: GCF_057382185.1
+    species: Mchenga conophoros, male (GT1.1)
+    role: bc_reference
+    note: "NCBI version of the Mchenga conophoros assembly, the reference for the BC analysis (decision 2026-11-13: both parents carry the LG9, LG11 and LG20 inversions that Mzebra_GT3_NCBI lacks); https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_057382185.1/"
   YH:
     source: filemanager
     genome_version: AspChitande_GT1_NCBI        # <CichlidSequencingData>/Genomes/AspChitande_GT1_NCBI (on Dropbox; md5sum.txt there is checked)
@@ -90,9 +98,3 @@ genomes:
     species: Lethrinops sp. 'Chilingali', male (fLetChi2)
     role: query
     note: Shallow Lethrinops group (all inverted on chr9 and chr11 in Blumer Table S7). Independent check of LG9 and LG11.
-  fRhaChi2:
-    source: ncbi
-    accession: GCA_963969265.1
-    species: "Rhamphochromis sp. 'chilingali' (fRhaChi2.1, Wellcome Sanger Tree of Life; BioProject PRJEB72870; 921 Mb, chromosome level)"
-    role: query
-    note: "carries only the first (20a) of the two tandem inversions of chr20 (Kumar et al. 2025: its alignment to GT3a shows a single inversion on chr20, at the position of 20a). Used to place the internal breakpoint between 20a and 20b."

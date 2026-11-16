@@ -296,6 +296,12 @@ class FileManager():
 			
 		elif self.genome_version == 'Mconophoros_GT1':
 			self.localGenomeFile = self.localGenomeDir + 'anchored_kocher_E_Mchenga_conof_Male_contigs_hs_with_kocher_MC_female_molecules_mito_corrected.fasta'
+		elif self.genome_version == 'Mconophoros_GT1_NCBI':
+			self.localGenomeFile = self.localGenomeDir + 'GCF_057382185.1_M_conophoros_male_GT1.1_genomic.fna'
+			# the folder has no minimap2 index yet: until `minimap2 -x sr -d <this file> <the FASTA>` has been run the alignment falls back to the FASTA (cli.py: `index = ... if os.path.exists(...) else ref`)
+			self.localMinimapGenomeFile = self.localGenomeDir + 'GCF_057382185.1_M_conophoros_male_GT1.1_genomic.mmi'
+			self.localGTFFile = self.localGenomeDir + 'genomic.gtf'
+			self.localGFFFile = self.localGenomeDir + 'genomic.gff'
 		else:
 			raise FileNotFoundError(self.genome_version + ' not an option')
 
