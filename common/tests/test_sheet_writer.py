@@ -49,6 +49,14 @@ class TestPlan(unittest.TestCase):
         t = updater(ws).plan({'A': {'UsableCoverage': 3.8}}).format()
         self.assertIn("conflict 1", t); self.assertIn("sheet '6.8', measured 3.8", t); self.assertIn('D2', t)
 
+    def test_the_order_of_new_columns_can_be_given_and_defaults_to_first_appearance(self):
+        ws = FakeWorksheet(HEADER, ROWS); updates = {'A': {'Z new': 1, 'B new': 2}, 'B': {'A new': 3, 'B new': 4}}
+        self.assertEqual(SW.ColumnUpdater(lambda: ws).plan(updates).header_missing, ['Z new', 'B new', 'A new'])
+        cu = SW.ColumnUpdater(lambda: ws, column_order=['A new', 'B new', 'Z new']); self.assertEqual(cu.plan(updates).header_missing, ['A new', 'B new', 'Z new'])
+        cu.apply(updates); self.assertEqual(ws.grid[0], HEADER + ['A new', 'B new', 'Z new']); self.assertEqual(ws.column('B new')[:2], [2, 4]); self.assertEqual(ws.column('A new')[:2], ['', 3])
+        ws2 = FakeWorksheet(HEADER, ROWS); part = SW.ColumnUpdater(lambda: ws2, column_order=['B new']).plan(updates).header_missing
+        self.assertEqual(part, ['B new', 'Z new', 'A new'], 'a column the order does not name keeps its place, after the named ones')
+
     def test_a_missing_column_is_planned_at_the_end_of_the_header(self):
         ws = FakeWorksheet(HEADER, ROWS)
         p = updater(ws).plan({'B': {'M1': 1.0, 'M2': 2.0}})

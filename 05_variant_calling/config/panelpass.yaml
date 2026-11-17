@@ -1,0 +1,14 @@
+# `python -m variant_calling panel ...`: module 04's panel over EXISTING BAMs (download, measure, keep the JSON, delete the BAM), and its calls into the SampleDatabase.
+jobs: 2                          # BAMs on disk at a time. Parallel downloads are untested: the first batch prints the throughput of each BAM and of the whole run
+min_free_factor: 1.15            # the disk must hold the largest `jobs` BAMs times this; each BAM is deleted as soon as it is measured
+default_bam_bytes: 12.0e9        # the size assumed for a sample that is not in the AlignmentDatabase
+work_subdir: PanelPass/staged/   # under the local master directory (on utaka /Data/..., never /home): the BAMs being measured
+json_subdir: Outputs/PanelJSON/  # <genome>/<sample>.panel.json: the local copy of every measurement, and the log of the pass. The durable copy is on Dropbox next to the BAM
+log_name: panel_pass.{genome}.tsv
+modules: all                     # what `sd_genotypes panel measure --modules` gets
+timeout_s: 1800                  # a measurement that takes longer is killed (it normally takes seconds)
+expect_keys: ['5d71ee8d6c2b', '2af781e90119', '80bbea57e10b', '75367d0dfba8']   # the pilot's frozen definition keys (gsdf, te, lg5inv, bchrom): `panel check` must print them or nothing is measured
+sheet:
+  tab: SampleDatabase            # --tab names a COPY of it for trials
+  key: SampleID
+  write_columns: [gsdf number, chr7ins, TE1, TE2]     # Inversion5 and B score stay in the JSONs until about 50 mbuna have been looked at (module 04's hold); their flags columns follow their value column

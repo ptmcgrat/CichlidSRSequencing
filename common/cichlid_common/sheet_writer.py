@@ -113,8 +113,10 @@ class Report:
 class ColumnUpdater:
     """`worksheet_fn()` returns a gspread Worksheet (or a test double with get_all_values, col_count, add_cols, update_cell and batch_update). `key` is the header of the column that identifies a row."""
 
-    def __init__(self, worksheet_fn, key='SampleID', chunk=200, log=print):
+    def __init__(self, worksheet_fn, key='SampleID', chunk=200, log=print, column_order=None):
+        """column_order: names in the order NEW columns should be added at the end of the header (a value column next to its flags column, say). Default: the order in which the columns first appear in `updates`."""
         self.worksheet_fn, self.key, self.chunk, self.log = worksheet_fn, key, chunk, log
+        self.column_order = list(column_order or [])
 
     # ---------------------------------------------------------------- reading
     def _read(self):
@@ -133,6 +135,9 @@ class ColumnUpdater:
         """What `apply` would do, without writing anything. `updates` is {sample: {column: value}}."""
         ws, header, used, rows = self._read()
         wanted = list(dict.fromkeys(c for cols in updates.values() for c in cols))
+        if self.column_order:
+            rank = {c: i for i, c in enumerate(self.column_order)}
+            wanted.sort(key=lambda c: rank.get(c, len(rank)))                      # stable: columns it does not name keep their order, after the named ones
         for name in [self.key] + wanted:
             if header.count(name) > 1:
                 raise SheetWriteError(f'the header has the column {name!r} more than once: the right one cannot be told')
