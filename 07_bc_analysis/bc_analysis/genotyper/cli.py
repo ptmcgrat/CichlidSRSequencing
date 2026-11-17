@@ -215,6 +215,12 @@ def step_counts(a, cfg, out=print):
     return 0 if not failed else 3
 
 
+def with_lg(rows):
+    """The rows with the LG label after `chrom`. Done in the PARENT process: `set_lg_names` sets a module global, which a worker process of the HMM step inherits only when the start method is fork (Linux up to
+    Python 3.13); under spawn or forkserver (the default from 3.14) a worker has no labels, and every genome but GT3 (whose table is in the code) came out with raw chromosome names."""
+    return [dict(sample=r['sample'], chrom=r['chrom'], LG=lg_label(r['chrom']), **{k: v for k, v in r.items() if k not in ('sample', 'chrom')}) for r in rows]
+
+
 def _fish_job(args):
     sample, counts, lengths, hp = args
     chroms = {ch: (*counts[ch], lengths[ch]) for ch in lengths if ch in counts}
@@ -222,10 +228,10 @@ def _fish_job(args):
     bps, ends, shorts, n_reads = [], [], [], 0.0
     for ch, post in posts.items():
         for sg in H.short_interior_segments(post, hp['bin_bp'], hp['short_segment_mb'], hp['call_threshold']):
-            shorts.append(dict(sample=sample, chrom=ch, LG=lg_label(ch), **sg))
+            shorts.append(dict(sample=sample, chrom=ch, **sg))                 # the LG label is added in the parent (with_lg): a worker process does not see `set_lg_names`
         for b in H.breakpoints(post, lengths[ch], hp):
-            bps.append(dict(sample=sample, chrom=ch, LG=lg_label(ch), **b))
-        ends.append(dict(sample=sample, chrom=ch, LG=lg_label(ch), **H.end_support(cs[ch], post, hp)))
+            bps.append(dict(sample=sample, chrom=ch, **b))
+        ends.append(dict(sample=sample, chrom=ch, **H.end_support(cs[ch], post, hp)))
         n_reads += float(cs[ch].sum())
     return sample, posts, eps, q, bps, ends, n_reads, shorts
 
@@ -273,6 +279,7 @@ def step_hmm(a, cfg, out=print):
             results.append(r)
             if k % 25 == 0 or k == len(jobs):
                 out(f'[hmm] {k}/{len(jobs)} fish, {(time.time() - t0) / 60:.1f} min')
+    results = [(*r[:4], with_lg(r[4]), with_lg(r[5]), r[6], with_lg(r[7])) for r in results]
     bp = hp['bin_bp']
     grid = pd.concat([pd.DataFrame({'Chromosome': ch, 'Position': np.arange(int(np.ceil(L / bp))) * bp}) for ch, L in lengths.items()], ignore_index=True)
     post_cols = {s: np.concatenate([posts[ch] for ch in lengths]) for s, posts, *_ in results}

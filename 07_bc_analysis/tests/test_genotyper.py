@@ -804,6 +804,21 @@ class TestShortSegmentsAndCompare(unittest.TestCase):
         finally:
             shutil.rmtree(d, ignore_errors=True)
 
+    def test_the_labels_reach_the_hmm_outputs_when_the_workers_are_spawned_not_forked(self):
+        """`set_lg_names` sets a global of the parent; a worker started by spawn (or forkserver, the default from Python 3.14) does not have it. The labels must be made in the parent."""
+        import yaml, multiprocessing
+        d = tempfile.mkdtemp(); old = multiprocessing.get_start_method()
+        try:
+            shutil.copytree(self.root, d + '/G'); cfg = GC.S.load_config(None); cfg['lg_names'] = {'Other_GT1': {'NC_135167.1': 'LGA', 'NC_135168.1': 'LGX', 'NC_135176.1': 'LGB'}}; yaml.safe_dump(cfg, open(d + '/c.yaml', 'w'))
+            multiprocessing.set_start_method('spawn', force=True)
+            rc, text = run_cmd(['hmm', '--out', d + '/G/', '--fai', self.fai, '--jobs', '2', '--genome', 'Other_GT1', '--config', d + '/c.yaml', '--tag', '_lg']); self.assertEqual(rc, 0, text)
+            for f in ('breakpoints.tsv', 'short_segments.tsv', 'end_support.tsv'):
+                t = pd.read_csv(d + '/G/hmm_lg/' + f, sep='\t'); self.assertGreater(len(t), 0, f)
+                self.assertEqual(list(t.columns[:3]), ['sample', 'chrom', 'LG'], f); self.assertEqual({(c, l) for c, l in zip(t.chrom, t.LG)} - {('NC_135167.1', 'LGA'), ('NC_135168.1', 'LGX'), ('NC_135176.1', 'LGB')}, set(), f)
+            self.assertEqual(set(pd.read_csv(d + '/G/hmm_lg/end_support.tsv', sep='\t').LG), {'LGA', 'LGX', 'LGB'})
+        finally:
+            multiprocessing.set_start_method(old, force=True); shutil.rmtree(d, ignore_errors=True)
+
     def test_a_reference_without_nc_chromosomes_is_reported_not_run(self):
         d = tempfile.mkdtemp()
         try:
