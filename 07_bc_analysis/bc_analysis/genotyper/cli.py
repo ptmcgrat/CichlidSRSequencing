@@ -21,15 +21,30 @@ import pandas as pd
 from . import counts as C
 from . import hmm as H
 from . import mask as M
+from cichlid_common.common_light import genome_tag
+
 from . import sites as S
 
 
+_LG_NAMES = {}                                                    # chromosome -> label of the genome of this run, from `lg_names:` of the config
+
+
+def set_lg_names(cfg, genome):
+    """Take the labels of `genome` from the config (`lg_names: {genome: {chromosome: label}}`); none = the GT3 rule below, or the chromosome name itself."""
+    global _LG_NAMES
+    _LG_NAMES = dict(((cfg or {}).get('lg_names') or {}).get(genome) or {})
+
+
+# Mzebra_GT3_NCBI (GCF_041146795.1): the 22 chromosomes NC_135167.1 ... NC_135188.1 are LG1 ... LG20, LG22, LG23. The lab skips LG21 (it is fused with LG7; the numbering keeps the homology with the Oreochromis genomes),
+# so the 21st and 22nd chromosomes are LG22 and LG23 (checked against the FASTA headers: NC_135184.1 = LG18, NC_135185.1 = LG19, NC_135186.1 = LG20, NC_135187.1 = LG22, NC_135188.1 = LG23).
+GT3_LG_NAMES = {f'NC_{135166 + k}.1': f'LG{k if k <= 20 else k + 1}' for k in range(1, 23)}
+
+
 def lg_label(chrom):
-    """LG number of a Mzebra_GT3_NCBI chromosome (NC_135167.1 = LG1); other names unchanged."""
-    if chrom.startswith('NC_135') and chrom[3:9].isdigit():
-        n = int(chrom[3:9]) - 135166
-        return f'LG{n}' if 1 <= n <= 23 else chrom
-    return chrom
+    """The label of a chromosome (LG1 ...): the config's `lg_names` of this genome if it has one, else the table of Mzebra_GT3_NCBI above, else the name unchanged."""
+    if chrom in _LG_NAMES:
+        return _LG_NAMES[chrom]
+    return GT3_LG_NAMES.get(chrom, chrom)
 
 
 def build_parser():
@@ -38,7 +53,7 @@ def build_parser():
     ap.add_argument('--genome', default='Mzebra_GT3_NCBI')
     ap.add_argument('--config', default=None)
     ap.add_argument('--out', default=None, help='the genome folder of the outputs (default <local master>/Outputs/BCGenotypes/<genome>/)')
-    ap.add_argument('--vcf', default=None, help='sites: the parents cohort VCF (default <local master>/Outputs/PedigreeVCFs/bc_family.snps.vcf.gz)')
+    ap.add_argument('--vcf', default=None, help='sites: the parents cohort VCF (default <local master>/Outputs/PedigreeVCFs/bc_family.snps.vcf.gz, or bc_family.<genome>.snps.vcf.gz on a genome other than Mzebra_GT3_NCBI)')
     ap.add_argument('--fai', default=None, help='the reference index (default: <fasta>.fai)')
     ap.add_argument('--run', action='store_true', help='counts: really download and count (default: print the plan)')
     ap.add_argument('--jobs', type=int, default=None)
@@ -126,7 +141,7 @@ def step_sites(a, cfg, out=print):
     env = None
     if not (a.vcf and a.out):
         env = get_env(a)
-    vcf = a.vcf or f'{env.local_master}Outputs/PedigreeVCFs/bc_family.snps.vcf.gz'
+    vcf = a.vcf or f'{env.local_master}Outputs/PedigreeVCFs/bc_family{genome_tag(a.genome)}.snps.vcf.gz'
     d = genome_dir(a, env) + 'sites/'
     t0 = time.time()
     res = S.define_sites(vcf, cfg, out)
@@ -379,8 +394,9 @@ def step_simulate(a, cfg, out=print):
 def main(argv=None):
     a = build_parser().parse_args(argv)
     cfg = S.load_config(a.config)
+    set_lg_names(cfg, a.genome)
     try:
         return {'sites': step_sites, 'counts': step_counts, 'hmm': step_hmm, 'compare': step_compare, 'mask': step_mask, 'simulate': step_simulate}[a.step](a, cfg)
-    except (ValueError, OSError) as e:
+    except (ValueError, OSError, RuntimeError) as e:                                          # RuntimeError: a BuildError of module 05 (no chromosome found, ...)
         print(f'error: {e}', file=sys.stderr)
         return 2

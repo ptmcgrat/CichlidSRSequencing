@@ -7,6 +7,15 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 PKG_ROOT = REPO_ROOT                                                    # old name, kept so that code written for the single package keeps working
 
 
+DEFAULT_GENOME = 'Mzebra_GT3_NCBI'                                      # the reference of the project: the names of everything built on it stay as they are
+
+
+def genome_tag(genome, default=DEFAULT_GENOME):
+    """'' for the default reference, '.<genome>' for any other: the suffix that keeps the files and the work folders of a build on another assembly (bc_family.Mconophoros_GT1_NCBI.snps.vcf.gz, Cohorts/bc_family.Mconophoros_GT1_NCBI/)
+    apart from those on the default, whose names (bc_family.snps.vcf.gz, Cohorts/bc_family/) do not change."""
+    return '' if genome in (None, '', default) else '.' + str(genome)
+
+
 def module_dirs():
     """Folders that must be on sys.path (PYTHONPATH of subprocesses): common/ and every numbered module folder."""
     out = [os.path.join(REPO_ROOT, 'common')]

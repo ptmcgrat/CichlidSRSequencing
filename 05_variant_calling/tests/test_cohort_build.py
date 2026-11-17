@@ -299,5 +299,54 @@ class TestCli(BuildBase):
             cohort_cli.main(['build', 'fam', '--cohorts', self.cohorts, '--sample-table', self.sample_tsv, '--alignment-table', self.ledger_tsv, '--local-master', self.local], out=None)
 
 
+class OtherGenome(BuildBase):
+    NEW = 'Mconophoros_GT1_NCBI'
+
+    def test_a_build_on_another_genome_has_its_own_names_and_work_folder_and_leaves_the_default_ones_alone(self):
+        r1 = self.build()                                                                     # the default genome: names as they always were
+        for s in self.ids:                                                                    # the same fish aligned to the other genome
+            shutil.copytree(f'{self.cloud}Bamfiles/{G}/{s}/', f'{self.cloud}Bamfiles/{self.NEW}/{s}/')
+        self.env = B.Env(self.local, self.cloud, self.NEW, self.fa); self.uploads.clear()
+        r2 = self.build(spec=dict(self.spec, genome=self.NEW), ledger=self.ledger.assign(GenomeVersion=self.NEW))
+        p1, p2 = r1['plan'], r2['plan']
+        self.assertTrue(p1.files['vcf'].endswith('/Outputs/PedigreeVCFs/fam.vcf.gz')); self.assertTrue(p1.work.endswith('/Cohorts/fam/'))
+        self.assertTrue(p2.files['vcf'].endswith('/Outputs/PedigreeVCFs/fam.Mconophoros_GT1_NCBI.vcf.gz')); self.assertTrue(p2.files['snps'].endswith('/fam.Mconophoros_GT1_NCBI.snps.vcf.gz'))
+        self.assertTrue(p2.files['manifest'].endswith('/fam.Mconophoros_GT1_NCBI.manifest.json')); self.assertTrue(p2.work.endswith('/Cohorts/fam.Mconophoros_GT1_NCBI/'))
+        for p in (p1, p2):
+            self.assertTrue(os.path.exists(p.files['vcf']) and os.path.exists(p.files['snps']) and os.path.exists(p.files['manifest']))     # both are there: the second did not meet the first
+        self.assertNotEqual(p1.per_contig, p2.per_contig); self.assertNotEqual(p1.staged, p2.staged)
+        self.assertEqual(json.load(open(p2.files['manifest']))['genome'], self.NEW); self.assertEqual(json.load(open(p1.files['manifest']))['genome'], G)
+        self.assertEqual([os.path.basename(u) for u in self.uploads][:2], ['fam.Mconophoros_GT1_NCBI.vcf.gz', 'fam.Mconophoros_GT1_NCBI.vcf.gz.tbi'])
+
+    def test_a_failed_build_on_the_default_genome_is_not_resumed_by_a_build_on_another(self):
+        flag = os.path.join(self.tmp, 'fail.flag'); open(flag, 'w').write('x')
+        os.environ['FAKE_FAIL_CONTIG'], os.environ['FAKE_FAIL_FLAG'] = 'NC_2', flag
+        with self.assertRaises(B.BuildError): self.build(keep_staged=True)
+        pc = f'{self.local}Cohorts/fam/per_contig/'; self.assertTrue(os.path.exists(pc + 'NC_1.vcf.gz.done') and os.path.exists(pc + 'NC_3.vcf.gz.done'))     # the default genome's finished contigs wait for its own rerun
+        os.remove(flag)
+        for s in self.ids:
+            shutil.copytree(f'{self.cloud}Bamfiles/{G}/{s}/', f'{self.cloud}Bamfiles/{self.NEW}/{s}/')
+        self.env = B.Env(self.local, self.cloud, self.NEW, self.fa)
+        n_before = len([a for a in self.calls('bcftools', 'mpileup') if len(a) > 1])
+        r = self.build(spec=dict(self.spec, genome=self.NEW), ledger=self.ledger.assign(GenomeVersion=self.NEW)); self.assertEqual(r['status'], 'built')
+        self.assertEqual(len([a for a in self.calls('bcftools', 'mpileup') if len(a) > 1]) - n_before, 3, 'all three contigs were called for the new genome: none was taken from the other genome\'s folder')
+        self.assertTrue(os.path.exists(pc + 'NC_1.vcf.gz.done') and os.path.exists(pc + 'NC_3.vcf.gz.done'), 'and the default genome\'s folder was left as it was')
+        self.assertFalse(os.path.exists(f'{self.local}Outputs/PedigreeVCFs/fam.vcf.gz'))                                                                  # nothing was written under the default genome's name
+
+    def test_a_trial_on_another_genome_is_kept_apart_too(self):
+        for s in self.ids:
+            shutil.copytree(f'{self.cloud}Bamfiles/{G}/{s}/', f'{self.cloud}Bamfiles/{self.NEW}/{s}/')
+        self.env = B.Env(self.local, self.cloud, self.NEW, self.fa)
+        r = self.build(spec=dict(self.spec, genome=self.NEW), ledger=self.ledger.assign(GenomeVersion=self.NEW), max_samples=4)
+        p = r['plan']; self.assertTrue(p.files['vcf'].endswith('fam.Mconophoros_GT1_NCBI.trial.vcf.gz')); self.assertIn('Cohorts/fam.Mconophoros_GT1_NCBI_trial/', p.work)
+
+    def test_no_chromosome_is_an_error_not_an_empty_selection(self):
+        fai = [('chr1', 20_000_000), ('chr2', 15_000_000), ('scaffold_9', 900_000)]
+        with self.assertRaises(B.BuildError) as cm: B.choose_contigs(fai, 'chromosomes', 5_000_000)
+        self.assertIn('NC_', str(cm.exception)); self.assertIn('contigs:', str(cm.exception))
+        self.assertEqual([c for c, _, _ in B.choose_contigs(fai, 'all', 5_000_000)], ['chr1', 'chr2', 'scaffold_9'])             # the way out the message names
+        self.assertEqual([c for c, _, _ in B.choose_contigs(fai, ['chr1', 'chr2'], 5_000_000)], ['chr1', 'chr2'])
+
+
 if __name__ == '__main__':
     unittest.main()

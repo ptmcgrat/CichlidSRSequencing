@@ -459,7 +459,20 @@ def run_cmd(argv):
 
 class TestLabelsAndFish(unittest.TestCase):
     def test_lg_labels_of_the_new_reference(self):
-        self.assertEqual([GC.lg_label(c) for c in ('NC_135167.1', 'NC_135176.1', 'NC_135189.1', 'NC_135190.1', 'chr1', 'NW_0001.1')], ['LG1', 'LG10', 'LG23', 'NC_135190.1', 'chr1', 'NW_0001.1'])
+        chroms = [f'NC_{135166 + k}.1' for k in range(1, 23)]; labels = [GC.lg_label(c) for c in chroms]
+        self.assertEqual(labels, [f'LG{k}' for k in list(range(1, 21)) + [22, 23]]); self.assertNotIn('LG21', labels)                            # the lab skips LG21 (fused with LG7)
+        self.assertEqual([GC.lg_label(c) for c in ('NC_135167.1', 'NC_135176.1', 'NC_135184.1', 'NC_135185.1', 'NC_135186.1', 'NC_135187.1', 'NC_135188.1')], ['LG1', 'LG10', 'LG18', 'LG19', 'LG20', 'LG22', 'LG23'])   # the FASTA headers
+        self.assertEqual([GC.lg_label(c) for c in ('NC_135166.1', 'NC_135189.1', 'chr1', 'NW_027490031.1')], ['NC_135166.1', 'NC_135189.1', 'chr1', 'NW_027490031.1'])           # nothing else is invented
+
+    def test_the_labels_of_the_conophoros_assembly_follow_its_headers(self):
+        cfg = GC.S.load_config(None); m = cfg['lg_names']['Mconophoros_GT1_NCBI']
+        self.assertEqual(len(m), 22); self.assertEqual([m[f'NC_{140525 + k}.1'] for k in (1, 2, 20)], ['LG1', 'LG2', 'LG20']); self.assertEqual((m['NC_140546.1'], m['NC_140547.1']), ('LG22', 'LG23'))
+        self.assertEqual(sorted(m.values(), key=lambda x: int(x[2:])), [f'LG{k}' for k in list(range(1, 21)) + [22, 23]])
+        try:
+            GC.set_lg_names(cfg, 'Mconophoros_GT1_NCBI'); self.assertEqual([GC.lg_label(c) for c in ('NC_140526.1', 'NC_140545.1', 'NC_140546.1', 'NC_140547.1', 'NW_028182328.1')], ['LG1', 'LG20', 'LG22', 'LG23', 'NW_028182328.1'])
+            GC.set_lg_names(cfg, 'Mzebra_GT3_NCBI'); self.assertEqual((GC.lg_label('NC_140526.1'), GC.lg_label('NC_135187.1')), ('NC_140526.1', 'LG22'))
+        finally:
+            GC.set_lg_names({}, 'x')
 
     def test_only_fish_of_the_configured_dams_are_taken(self):
         t = pd.DataFrame({'SampleID': ['A', 'B', 'C', 'D', 'E', 'A'], 'BroodID': ['MCYH-BC1-B1', 'MCYH-BC1-B1', 'MCYH-BC1-B2', 'MCYH-BC1-B3', '', 'MCYH-BC1-B1'],
@@ -682,6 +695,40 @@ class TestMask(unittest.TestCase):
             shutil.rmtree(d, ignore_errors=True)
 
 
+class TestGenomeAwareness(unittest.TestCase):
+    def tearDown(self):
+        GC.set_lg_names({}, 'x')
+
+    def test_lg_names_come_from_the_config_of_the_genome_of_the_run(self):
+        self.assertEqual((GC.lg_label('NC_135167.1'), GC.lg_label('NC_999.1')), ('LG1', 'NC_999.1'))
+        cfg = {'lg_names': {'Mconophoros_GT1_NCBI': {'NC_999.1': 'LG9', 'NC_135167.1': 'LG5'}}}
+        GC.set_lg_names(cfg, 'Mconophoros_GT1_NCBI')
+        self.assertEqual([GC.lg_label(c) for c in ('NC_999.1', 'NC_135167.1', 'NC_135168.1', 'chr1')], ['LG9', 'LG5', 'LG2', 'chr1'])      # the config wins; a chromosome it does not list keeps the old rule
+        GC.set_lg_names(cfg, 'Mzebra_GT3_NCBI'); self.assertEqual((GC.lg_label('NC_999.1'), GC.lg_label('NC_135167.1')), ('NC_999.1', 'LG1'))     # another genome's labels are not used
+        for empty in ({'lg_names': None}, {}, None, {'lg_names': {'Mconophoros_GT1_NCBI': None}}):
+            GC.set_lg_names(empty, 'Mconophoros_GT1_NCBI'); self.assertEqual(GC.lg_label('NC_135167.1'), 'LG1')
+        self.assertEqual(list(GC.S.load_config(None)['lg_names']), ['Mconophoros_GT1_NCBI'])                                                                           # none are shipped: the default config labels nothing by itself
+
+    def test_the_default_parents_vcf_is_that_of_the_genome(self):
+        import unittest.mock as mock
+        seen = []
+
+        def fake(vcf, cfg, out):
+            seen.append(vcf); raise ValueError('stop here')
+        cfg = GC.S.load_config(None); d = tempfile.mkdtemp()
+        try:
+            with mock.patch.object(GC.S, 'define_sites', fake):
+                for genome, want in (('Mzebra_GT3_NCBI', 'bc_family.snps.vcf.gz'), ('Mconophoros_GT1_NCBI', 'bc_family.Mconophoros_GT1_NCBI.snps.vcf.gz')):
+                    a = GC.build_parser().parse_args(['sites', '--local-master', '/L/', '--cloud-master', '/C/', '--fasta', d + '/x.fa', '--genome', genome, '--out', d])
+                    with self.assertRaises(ValueError): GC.step_sites(a, cfg)
+                    self.assertEqual(seen[-1], '/L/Outputs/PedigreeVCFs/' + want)
+                a = GC.build_parser().parse_args(['sites', '--vcf', '/elsewhere/my.vcf.gz', '--genome', 'Mconophoros_GT1_NCBI', '--out', d])
+                with self.assertRaises(ValueError): GC.step_sites(a, cfg)
+                self.assertEqual(seen[-1], '/elsewhere/my.vcf.gz')                                                                          # an explicit --vcf is always taken as it is
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+
 class TestShortSegmentsAndCompare(unittest.TestCase):
     """The setting of the first real run (no interior limit, terminal limit 0.2 Mb) lists the short interior segments; the 2 Mb sensitivity run removes them; compare says by how much."""
     @classmethod
@@ -743,6 +790,26 @@ class TestShortSegmentsAndCompare(unittest.TestCase):
             shutil.copytree(self.root, d + '/G'); rc, text = run_cmd(['mask', '--out', d + '/G/', '--min-segment-fraction', '0.5', '--min-breakpoint-fraction', '0.5', '--pad', '0']); self.assertEqual(rc, 0)
             m = pd.read_csv(d + '/G/mask/mask_bins.tsv', sep='\t'); self.assertEqual(m.bin.tolist(), [100, 101, 102, 103, 104]); self.assertEqual(json.load(open(d + '/G/mask/mask_info.json'))['parameters']['pad_bins'], 0)
             rc, text = run_cmd(['mask', '--out', d + '/G/', '--min-segment-fraction', '1.0', '--min-breakpoint-fraction', '1.0']); self.assertEqual(len(pd.read_csv(d + '/G/mask/mask_bins.tsv', sep='\t')), 0)     # both fish would have to show it
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_the_labels_of_another_genome_reach_the_outputs(self):
+        import yaml
+        d = tempfile.mkdtemp()
+        try:
+            shutil.copytree(self.root, d + '/G'); cfg = GC.S.load_config(None); cfg['lg_names'] = {'Other_GT1': {'NC_135168.1': 'LGX'}}; yaml.safe_dump(cfg, open(d + '/c.yaml', 'w'))
+            rc, text = run_cmd(['mask', '--out', d + '/G/', '--genome', 'Other_GT1', '--config', d + '/c.yaml']); self.assertEqual(rc, 0)
+            self.assertEqual(set(pd.read_csv(d + '/G/mask/mask_bins.tsv', sep='\t').LG), {'LGX'}); self.assertIn('LGX', text)
+            rc, text = run_cmd(['mask', '--out', d + '/G/']); self.assertEqual(set(pd.read_csv(d + '/G/mask/mask_bins.tsv', sep='\t').LG), {'LG2'})        # the default genome: the GT3 rule, and nothing left over from the last run
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+
+    def test_a_reference_without_nc_chromosomes_is_reported_not_run(self):
+        d = tempfile.mkdtemp()
+        try:
+            open(d + '/bad.fai', 'w').write('chr1\t20000000\t0\t60\t61\nchr2\t15000000\t0\t60\t61\n'); err = io.StringIO()
+            with contextlib.redirect_stderr(err): rc, _ = run_cmd(['hmm', '--out', self.root, '--fai', d + '/bad.fai', '--jobs', '1', '--tag', '_bad'])
+            self.assertEqual(rc, 2); self.assertIn('NC_', err.getvalue()); self.assertIn('contigs:', err.getvalue())
         finally:
             shutil.rmtree(d, ignore_errors=True)
 

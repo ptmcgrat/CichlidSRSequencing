@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import yaml
 
-from cichlid_common.common_light import config_path
+from cichlid_common.common_light import config_path, genome_tag
 
 DEFAULTS = dict(
     bcftools=dict(min_base_quality=20, min_mapping_quality=13, indel_min_reads=2, indel_min_fraction=0.05, prior=0.001, mpileup_annotate=['FORMAT/AD', 'FORMAT/DP'], call_format_fields=['GQ']),
@@ -105,6 +105,8 @@ def choose_contigs(fai, mode, min_bp, region=None):
         return [(contig, a, b)]
     if mode == 'chromosomes':
         out = [(c, None, None) for c, n in fai if c.startswith('NC_') and n >= min_bp]
+        if not out:
+            raise BuildError(f'no contig of the reference starts with NC_ and has at least {min_bp:,} bp (the chromosomes of a RefSeq assembly): name the chromosomes in `contigs:` of config/callsets.yaml, or use `all`')
     elif mode == 'all':
         out = [(c, None, None) for c, _ in fai]
     else:
@@ -187,8 +189,9 @@ def make_plan(name, spec, members, ledger, env, cfg, region=None, contigs=None, 
     p.unknown_sizes = [s for s in members if size[s] is None]
     p.total_bytes = sum(v for v in p.sizes.values() if v)
     p.coverage = {s: _bytes(led.at[s, 'Coverage']) if 'Coverage' in led.columns and s in led.index else None for s in members}
-    base = name + ('.trial' if p.trial else '')
-    p.work = f"{env.local_master}{cfg['work_subdir']}{name}{'_trial' if p.trial else ''}/"
+    tag = genome_tag(p.genome)                                   # '' on the default genome (names unchanged), '.<genome>' on any other: no overwriting, no resuming from the other genome's contigs
+    base = name + tag + ('.trial' if p.trial else '')
+    p.work = f"{env.local_master}{cfg['work_subdir']}{name}{tag}{'_trial' if p.trial else ''}/"
     p.staged, p.per_contig = p.work + 'staged/', p.work + 'per_contig/'
     out_dir = (p.work + 'trial_out/') if p.trial else f"{env.local_master}{cfg['output_subdir']}"
     p.out_dir = out_dir

@@ -11,6 +11,31 @@ sites:
   hom_max_minor_reads: 2         # a homozygous call may carry at most this many reads of the other allele ...
   hom_max_minor_frac: 0.1        # ... and at most this fraction
   depth_sample_sites: 300000     # the median depth of each parent is taken from the first this many SNPs of the VCF
+lg_names:                        # chromosome -> label (LG1 ...) for the genomes whose chromosome names are not those of Mzebra_GT3_NCBI (that table is in the code: NC_135167.1 = LG1 ... NC_135188.1 = LG23).
+                                 # The lab skips LG21 (fused with LG7, to keep the homology with the Oreochromis genomes). A genome without an entry has its chromosome names in the outputs; add one and rerun `genotype hmm` (a minute) to relabel.
+  Mconophoros_GT1_NCBI:          # GCF_057382185.1, from its FASTA headers (linkage group LGn)
+    NC_140526.1: LG1
+    NC_140527.1: LG2
+    NC_140528.1: LG3
+    NC_140529.1: LG4
+    NC_140530.1: LG5
+    NC_140531.1: LG6
+    NC_140532.1: LG7
+    NC_140533.1: LG8
+    NC_140534.1: LG9
+    NC_140535.1: LG10
+    NC_140536.1: LG11
+    NC_140537.1: LG12
+    NC_140538.1: LG13
+    NC_140539.1: LG14
+    NC_140540.1: LG15
+    NC_140541.1: LG16
+    NC_140542.1: LG17
+    NC_140543.1: LG18
+    NC_140544.1: LG19
+    NC_140545.1: LG20
+    NC_140546.1: LG22
+    NC_140547.1: LG23
 mask:                            # `genotype mask`: bins to leave out of the HMM step because the SAME signal turns up in many fish (a systematic artifact, not ancestry)
   segment_fish_fraction: 0.05    # a bin covered by a short interior segment (hmm.short_segment_mb) in at least this fraction of the fish ...
   breakpoint_fish_fraction: 0.10 # ... or holding a breakpoint in at least this fraction of them (a real crossover hotspot of 100 kb with 10% of all meioses is not expected) is masked

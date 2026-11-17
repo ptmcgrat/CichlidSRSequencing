@@ -166,3 +166,9 @@ brood benchmark (SPEC decisions 59 to 68). The old `callset build` (GATK) still 
 * 2026-11-10: the first builder stages whole BAMs (rclone) and calls from local disk; streaming by region from Dropbox is a later option. Contigs are the `NC_` contigs of at least 5 Mb (the mitochondrion and unplaced pieces are left out).
 * 2026-11-10: a trial is local only by construction, and an existing output is never replaced without `--force`.
 * 2026-11-10: `bcftools` lives in its own environment (`envs/variant_calling.yml`), pinned to the release of the samtools of `align`, so the alignment toolset is not touched.
+
+
+### Increment (2026-11-13): builds on another genome keep their own names
+
+`cohort build <name> --genome G` already used G for the BAMs, the reference and the ledger, but the output names (`Outputs/PedigreeVCFs/<name>.vcf.gz`) and the work folder (`Cohorts/<name>/`) did not carry the genome: a build on a second assembly would have stopped at the first genome's VCF, and with `--force` overwritten it, and its resumable `per_contig/` folder would have been taken for its own. Now anything built on a genome other than Mzebra_GT3_NCBI gets the genome in its names (`<name>.<genome>.vcf.gz`, `Cohorts/<name>.<genome>/`, also for trials), by `cichlid_common.common_light.genome_tag`; the names on Mzebra_GT3_NCBI are unchanged, so nothing that exists is renamed or lost.
+`contigs: chromosomes` (the NC_ contigs of at least `min_contig_bp`) is now an error that says what to do when it finds none (a reference whose chromosomes are not called NC_), instead of an empty selection. Tests: 190 in this module (4 new: coexistence of the two genomes, a failed build on one is not resumed by a build on the other, trials, the error).
