@@ -69,6 +69,14 @@ python -m sd_genotypes.retro --remote 'ptm_dropbox:/COS/BioSci/BioSci-McGrath/Ap
 
 Each refuses measurements made under another definition than the current one, and a sample measured twice. Panel files without the module are skipped and counted.
 
+### Calls from stored measurements (pilot): for a writer
+```python
+from sd_genotypes.panel import calls
+r = calls.call_panel('S.panel.json')        # no BAM needed; r['calls'] has one call per sheet column (the transposon module gives three)
+values, flags = calls.sheet_row(r)           # {column: value} for the confident calls; {flags column: 'pilot-v1;flag;flag'} always
+```
+or `python -m sd_genotypes.panel.calls --json S.panel.json`. The columns, the blocking flags, the validation numbers and what is still unverified are in `docs/PILOT_HANDOFF.md`; the settings (`status: pilot`, `version`) are in the four configs.
+
 ## 7. Reading the calls
 - **gsdf** (`gsdf_calls.tsv`): `gsdf_number` is the TOTAL number of copies of the 21.7 kb unit (2 = none duplicated, 3 = one chromosome, 4 = both; 5 and 6 occur); `genotype` names -/-, dup/-, dup/dup, or CNn. Depth
   cannot say WHICH chromosome carries the extra copy: that needs sex or pedigree. `call_flags` (the call is still made): `low_flank_depth` (flank under 3x), `non_integer` (estimate more than 0.35 from an integer),

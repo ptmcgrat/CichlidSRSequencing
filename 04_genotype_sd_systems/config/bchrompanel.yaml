@@ -29,3 +29,12 @@ blocks:
   tiers: [A]                   # tier A: the male pools cover the block normally, so a high ratio is a high numerator
   clean_only: false            # true: only blocks that are also ~1x in the nine B-free samples (chosen on those samples: circular for them)
 labels: {present: "B+", absent: "B-", uncertain: "B?"}
+
+# ---------------------------------------------------------------------------------------------------- PILOT STATUS OF THE CALLS (sd_genotypes.panel.calls)
+# Nothing below is part of the definition key: changing it never invalidates a stored measurement, and the calls are recomputed from the stored measurements (no BAM).
+status: pilot                  # the score is the only thing written: no B+/B- call yet (the cut-offs above only drive the flag fraction_disagrees)
+version: 1                     # bump when any call setting changes (thresholds, block set, columns); every flags cell written carries the tag `pilot-v<version>`
+sheet:
+  column: "B score"            # the value: median scaled depth over the 836 tier A blocks (about 1 without a B chromosome, 4-8 in the carriers of the discovery)
+  flags_column: "B flags"
+  blocking_flags: [low_depth, few_scale_bins, few_blocks, no_estimate]   # fraction_disagrees is information only

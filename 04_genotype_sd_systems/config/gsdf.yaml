@@ -36,3 +36,12 @@ select:
 validate:
   min_per_sex: 3                                                 # species with at least this many males and females get a sex x copy-number table
   male_min_copies: 3                                             # XY-like: females 2, males >= 3
+
+# ---------------------------------------------------------------------------------------------------- PILOT STATUS OF THE CALLS (sd_genotypes.panel.calls)
+# Nothing below is part of the definition key: changing it never invalidates a stored measurement, and the calls are recomputed from the stored measurements (no BAM).
+status: pilot                  # the values are provisional and will change as the calibration and the definitions improve
+version: 1                     # bump when any call setting changes (calibration, thresholds, labels, columns); every flags cell written carries the tag `pilot-v<version>`
+sheet:                         # where a writer puts the call
+  column: "gsdf number"        # the value: integer number of copies (2 = none duplicated)
+  flags_column: "gsdf flags"
+  blocking_flags: [low_flank_depth, non_integer, outside_calibrated_range, no_estimate]   # a call with one of these is NOT confident: its value is not to be written (the lab convention: only unflagged calls are written); the flags always are. check_flags (junction_in_two_copy) are information only

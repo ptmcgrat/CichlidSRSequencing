@@ -22,3 +22,14 @@ call:
   min_informative_pairs: 5     # fewer REF + ALT pairs gives ./.
   min_gq: 10                   # a call counts as confident (and is what the Sample Database gets) from this GQ
   dilution_min_copies: 3       # chr7ins: a 0/0 with at least one insertion pair in a fish with this many gsdf copies or more is flagged 'dilution_possible' (extra reference-like copies of the site dilute the insertion allele)
+
+# ---------------------------------------------------------------------------------------------------- PILOT STATUS OF THE CALLS (sd_genotypes.panel.calls)
+# Nothing below is part of the definition key: changing it never invalidates a stored measurement, and the calls are recomputed from the stored measurements (no BAM).
+status: pilot                  # the values are provisional and will change as the definitions and the model improve
+version: 1                     # bump when any call setting changes (call.min_informative_pairs, call.min_gq, columns); every flags cell written carries the tag `pilot-v<version>`
+sheet:                         # the three sites; the value is '0/0', '0/1' or '1/1'
+  sites:
+    chr7ins: {column: "chr7ins", flags_column: "chr7ins flags"}    # the insertion directly upstream of gsdf (both reference copies together)
+    TE1: {column: "TE1", flags_column: "TE1 flags"}
+    TE2: {column: "TE2", flags_column: "TE2 flags"}
+  blocking_flags: [no_call, low_gq, site_error]    # not confident: the value is not to be written; `dilution_possible` (chr7ins, with a gsdf copy number) is information only

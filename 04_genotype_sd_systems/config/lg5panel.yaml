@@ -26,3 +26,12 @@ thresholds:
   min_junction_reads: 4        # A+B+C below this: junction not used (flag 'junction_uninformative')
   junction_max_distance: 0.35  # flag 'junction_disagrees' when the junction fraction p = ((A+B)/2)/((A+B)/2+C) is farther than this from the class's expected fraction
 labels: {0: "std/std", 1: "std/inv", 2: "inv/inv"}                     # std = the arrangement of the reference (GT3), inv = the OB/W inverted arrangement
+
+# ---------------------------------------------------------------------------------------------------- PILOT STATUS OF THE CALLS (sd_genotypes.panel.calls)
+# Nothing below is part of the definition key: changing it never invalidates a stored measurement, and the calls are recomputed from the stored measurements (no BAM).
+status: pilot                  # the cuts are the midpoints of the expected fractions: no diploid fish has been used to set them; they will be refit on the pilot cohort
+version: 1                     # bump when any call setting changes (thresholds, labels, columns); every flags cell written carries the tag `pilot-v<version>`
+sheet:
+  column: "Inversion5"         # the value: 0, 1 or 2 inverted (OB/W) chromosomes, like Inversion10; std = the arrangement of the reference (GT3)
+  flags_column: "Inversion5 flags"
+  blocking_flags: [few_markers, low_depth, no_estimate]   # near_threshold, aggregate_disagrees, junction_uninformative and junction_disagrees are information only
