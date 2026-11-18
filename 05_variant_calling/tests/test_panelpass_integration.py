@@ -99,7 +99,7 @@ class TestRealCallLayer(unittest.TestCase):
         def guarded(path, *a, **k):                                   # decision 79: an Inversion5 of 2 keeps its value but is not confident, value_to_write None, flag unvalidated_value
             r = orig(path, *a, **k)
             for c in r['calls']:
-                if c['column'] == 'Inversion5' and c['value'] == 2: c['value_to_write'] = None; c['confident'] = False; c['flags'] = c['flags'] + ['unvalidated_value']
+                if c['column'] == 'Inversion5' and c['value'] == 2 and 'unvalidated_value' not in c['flags']: c['value_to_write'] = None; c['confident'] = False; c['flags'] = c['flags'] + ['unvalidated_value']      # only where the call layer predates decision 79: the real guard adds this itself
             return r
         ws = self.sheet()
         with mock.patch.object(REAL, 'call_panel', guarded): rc, out, err = self.write(ws, '--apply')
