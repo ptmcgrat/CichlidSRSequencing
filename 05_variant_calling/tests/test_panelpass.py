@@ -111,7 +111,10 @@ class TestConfigAndKeys(unittest.TestCase):
     def test_the_shipped_config(self):
         c = P.load_config()
         self.assertEqual(c['expect_keys'], ['5d71ee8d6c2b', '2af781e90119', '80bbea57e10b', '75367d0dfba8']); self.assertTrue(all(isinstance(k, str) for k in c['expect_keys']))
-        self.assertEqual(c['sheet']['write_columns'], ['gsdf number', 'chr7ins', 'TE1', 'TE2']); self.assertNotIn('Inversion5', c['sheet']['write_columns']); self.assertNotIn('B score', c['sheet']['write_columns'])
+        self.assertEqual(c['sheet']['write_columns'], ['gsdf number', 'chr7ins', 'TE1', 'TE2', 'Inversion5', 'B score'], 'module 04 lifted the hold on 2026-11-17 (decision 78)')
+        self.assertEqual(c['sheet']['scope'], {'Inversion5': ['Mbuna'], 'B score': ['Mbuna']}, 'LG5 and B were validated on the mbuna only (decision 78)')
+        self.assertEqual((c['sheet']['nocall']['value'], c['sheet']['nocall']['columns']), ('./.', ['chr7ins', 'TE1', 'TE2', 'Inversion5'])); self.assertIn('unvalidated_value', c['sheet']['nocall']['exclude_flags']); self.assertIn('site_error', c['sheet']['nocall']['exclude_flags'])
+        self.assertTrue(c['sheet']['flags_in_sheet'])
         self.assertEqual((c['jobs'], c['default_bam_bytes'], c['min_free_factor']), (2, 12e9, 1.15)); self.assertEqual(c['sheet']['tab'], 'SampleDatabase')
 
     def test_bad_numbers_and_an_empty_write_list_are_refused(self):
@@ -307,6 +310,15 @@ class CliBase(PassBase):
     def jd(self):
         return f'{self.local}Outputs/PanelJSON/{G}/'
 
+    def base_cfg(self, **sheet):
+        """A config file: the SHIPPED config with the four original columns, no nocall block and no scope (and the given sheet keys set). The writer tests are about the writer; what the shipped config chooses (./. for a no call) is
+        checked in test_panelpass_integration.py."""
+        import yaml
+        cfg = P.load_config(); cfg['sheet']['write_columns'] = ['gsdf number', 'chr7ins', 'TE1', 'TE2']; cfg['sheet']['nocall'] = {}; cfg['sheet']['scope'] = {}; cfg['sheet'].update(sheet)
+        p = self.tmp + f'/cfg{len(os.listdir(self.tmp))}.yaml'
+        yaml.safe_dump(cfg, open(p, 'w'))
+        return p
+
 
 class TestMeasureCli(CliBase):
     def test_without_run_it_prints_the_plan_and_stages_and_measures_nothing(self):
@@ -355,6 +367,7 @@ class WriteBase(CliBase):
 
     def write(self, *args, ws=None, **kw):
         out, err = io.StringIO(), io.StringIO()
+        args = list(args) + ([] if '--config' in args else ['--config', self.base_cfg()])
         rc = C.main(['write'] + list(args) + self.common, out=out, err=err, worksheet_fn=lambda: (ws or self.ws), calls_module=FakeCalls(), **kw)
         return rc, out.getvalue(), err.getvalue()
 
@@ -437,7 +450,7 @@ class TestWrite(WriteBase):
                 def open_by_key(key):
                     seen.append(('key', key)); return types.SimpleNamespace(worksheet=lambda tab: (seen.append(('tab', tab)), self.ws)[1])
         out, err = io.StringIO(), io.StringIO()
-        rc = C.main(['write', '--json-dir', self.jd(), '--tab', 'SampleDatabase_panel_test'], out=out, err=err, calls_module=FakeCalls(), fm_factory=FM)
+        rc = C.main(['write', '--json-dir', self.jd(), '--tab', 'SampleDatabase_panel_test', '--config', self.base_cfg()], out=out, err=err, calls_module=FakeCalls(), fm_factory=FM)
         self.assertEqual(rc, 0, err.getvalue()); self.assertIn(('key', 'SPREADSHEET'), seen); self.assertIn(('tab', 'SampleDatabase_panel_test'), seen); self.assertIn("tab 'SampleDatabase_panel_test'", out.getvalue())
         out, err = io.StringIO(), io.StringIO(); rc = C.main(['write', '--json-dir', self.jd(), '--sample-table', self.st], out=out, err=err, calls_module=FakeCalls()); self.assertEqual(rc, 2); self.assertIn('writing needs the live sheet', err.getvalue())
 
@@ -454,6 +467,177 @@ class TestWrite(WriteBase):
             self.assertIn('sd_genotypes.panel.calls cannot be imported', str(cm.exception)); self.assertIn('call layer (decision 76)', str(cm.exception))
             out, err = io.StringIO(), io.StringIO(); rc = C.main(['write', '--json-dir', self.jd()], out=out, err=err, worksheet_fn=lambda: self.ws)
             self.assertEqual(rc, 2); self.assertIn('sd_genotypes.panel.calls cannot be imported', err.getvalue()); self.assertEqual(self.ws.writes(), [])
+
+
+class NoCallBase(CliBase):
+    """Hand-made JSONs whose fake calls cover the cases: confident; no_call; low_gq (a value that is not confident); site_error; a number with no estimate; an information-only flag."""
+    HEAD = ['SampleID', 'gsdf number', 'TE1', 'TE2']
+
+    def call_rec(self, column, flags_column, value, flags, confident):
+        return dict(column=column, flags_column=flags_column, value=value, flags=flags, confident=confident, details={})
+
+    def setUp(self):
+        super().setUp()
+        jd = self.jd(); os.makedirs(jd, exist_ok=True)
+        rec = self.call_rec
+        self.cases = {
+            'N1': [rec('gsdf number', 'gsdf flags', 2, [], True), rec('chr7ins', 'chr7ins flags', '0/0', [], True), rec('TE1', 'TE1 flags', '0/0', [], True), rec('TE2', 'TE2 flags', '0/1', [], True)],
+            'N2': [rec('gsdf number', 'gsdf flags', None, ['low_gq'], False), rec('chr7ins', 'chr7ins flags', None, ['no_call', 'site_error'], False), rec('TE1', 'TE1 flags', None, ['no_call'], False), rec('TE2', 'TE2 flags', '0/1', ['low_gq'], False)],
+            'N3': [rec('gsdf number', 'gsdf flags', 3, [], True), rec('chr7ins', 'chr7ins flags', '1/1', ['dilution_possible'], True), rec('TE1', 'TE1 flags', '0/0', [], True), rec('TE2', 'TE2 flags', '0/0', [], True)],
+            'N4': [rec('gsdf number', 'gsdf flags', 2, [], True), rec('chr7ins', 'chr7ins flags', '0/0', [], True), rec('TE1', 'TE1 flags', '0/0', ['low_gq'], True), rec('TE2', 'TE2 flags', None, ['junction_uninformative'], False)],      # N4: a CONFIDENT value that carries low_gq (a config whose blocking flags differ); a withheld call with an unrelated flag
+        }
+        for s, calls in self.cases.items():
+            json.dump(dict(bam=f'{s}.bam', bam_size_bytes=10, fake_calls=calls), open(f'{jd}{s}.panel.json', 'w'))
+        self.ws = FakeWorksheet(self.HEAD, [[s, '', '', ''] for s in self.cases] + [['OTHER', '5', '0/0', '']])
+
+    def cfg(self, **sheet):
+        return self.base_cfg(**sheet)
+
+    def write(self, *args, ws=None):
+        out, err = io.StringIO(), io.StringIO()
+        args = list(args) + ([] if '--config' in args else ['--config', self.base_cfg()])
+        rc = C.main(['write', '--json-dir', self.jd()] + list(args) + self.common, out=out, err=err, worksheet_fn=lambda: (ws or self.ws), calls_module=FakeCalls())
+        return rc, out.getvalue(), err.getvalue()
+
+    NOCALL = dict(value='./.', columns=['chr7ins', 'TE1', 'TE2'], flags=['no_call', 'low_gq'], exclude_flags=['site_error'])
+
+
+class TestNoCall(NoCallBase):
+    def test_off_unless_configured_a_withheld_genotype_stays_empty(self):
+        rc, out, err = self.write('--apply'); self.assertEqual(rc, 0, err + out)
+        self.assertEqual(self.ws.column('TE1')[:4], ['0/0', '', '0/0', '0/0']); self.assertEqual(self.ws.column('TE2')[:4], ['0/1', '', '0/0', ''])
+        self.assertNotIn("'./.'", out)
+
+    def test_no_call_and_low_gq_become_dot_slash_dot_in_genotype_columns_only(self):
+        rc, out, err = self.write('--apply', '--config', self.cfg(nocall=self.NOCALL)); self.assertEqual(rc, 0, err + out)
+        self.assertEqual(self.ws.column('TE1')[:4], ['0/0', './.', '0/0', '0/0'], 'no_call -> ./.; N4 has a CONFIDENT value that carries low_gq: it stays')
+        self.assertEqual(self.ws.column('TE2')[:4], ['0/1', './.', '0/0', ''], 'low_gq: the genotype exists but is below the GQ cut; an unrelated flag (N4) gives no ./.')
+        self.assertEqual(self.ws.column('chr7ins')[:4], ['0/0', '', '1/1', '0/0'], 'no_call together with site_error stays empty: an error of the site, not a lack of data')
+        self.assertEqual(self.ws.column('gsdf number')[:4], [2, '', 3, 2], 'a number is never ./., even with a nocall-type flag')
+        self.assertIn("2 genotype cells of the calls get './.'", out)
+        self.assertEqual(self.ws.grid[5][1:4], ['5', '0/0', ''], 'a row that is not a sample of the pass is untouched'); self.assertEqual(set(self.ws.grid[5][4:]), {''})
+
+    def test_an_information_only_flag_does_not_turn_a_value_into_no_call(self):
+        rc, out, err = self.write('--apply', '--config', self.cfg(nocall=self.NOCALL)); self.assertEqual(rc, 0)
+        self.assertEqual(self.ws.column('chr7ins')[2], '1/1')
+
+    def test_a_value_already_in_the_sheet_is_never_overwritten_by_dot_slash_dot(self):
+        self.ws = FakeWorksheet(self.HEAD, [['N1', '', '', ''], ['N2', '', '0/1', ''], ['N3', '', '', ''], ['N4', '', '', '']])
+        rc, out, err = self.write('--apply', '--config', self.cfg(nocall=self.NOCALL)); self.assertEqual(rc, 0, err + out)
+        self.assertEqual(self.ws.column('TE1')[1], '0/1'); self.assertIn('conflict', out.lower())
+
+    def test_a_second_run_finds_nothing_to_write(self):
+        c = self.cfg(nocall=self.NOCALL); self.write('--apply', '--config', c)
+        rc, out, err = self.write('--apply', '--config', c); self.assertEqual(rc, 0); self.assertIn('nothing to write', out)
+
+    def test_the_config_is_checked(self):
+        for bad, why in ((dict(nocall=dict(value='./.', columns=['TE9'], flags=['no_call'])), 'not in sheet.write_columns'), (dict(nocall=dict(value='./.', columns=['TE1'])), 'sheet.nocall.flags is missing'), (dict(flags_in_sheet='no'), 'true or false')):
+            p = self.cfg(**bad)
+            with self.assertRaises(ValueError) as cm:
+                P.load_config(p)
+            self.assertIn(why, str(cm.exception))
+
+    def test_record_updates_directly(self):
+        r = dict(calls=[dict(c, value_to_write=c['value'] if c['confident'] else None, call_tag='pilot-v1') for c in self.cases['N2']])
+        upd, pairs = P.record_updates(r, FakeCalls(), ['gsdf number', 'chr7ins', 'TE1', 'TE2'], dict(flags_in_sheet=False, nocall=self.NOCALL))
+        self.assertEqual(upd, {'TE1': './.', 'TE2': './.'}); self.assertEqual(pairs, {})
+
+
+class TestFlagsInSheet(NoCallBase):
+    def test_the_default_still_writes_the_flags_columns(self):
+        rc, out, err = self.write('--apply'); self.assertEqual(rc, 0, err + out)
+        self.assertIn('TE1 flags', self.ws.grid[0]); self.assertEqual(self.ws.column('TE1 flags')[1], 'pilot-v1;no_call')
+
+    def test_false_writes_the_values_and_no_flags_cells_at_all(self):
+        rc, out, err = self.write('--apply', '--config', self.cfg(flags_in_sheet=False)); self.assertEqual(rc, 0, err + out)
+        self.assertEqual(self.ws.grid[0], self.HEAD + ['chr7ins'], 'only the value column chr7ins is new')
+        self.assertFalse([h for h in self.ws.grid[0] if 'flags' in h])
+        self.assertEqual(self.ws.column('TE1')[:4], ['0/0', '', '0/0', '0/0']); self.assertEqual(self.ws.column('chr7ins')[:4], ['0/0', '', '1/1', '0/0'])
+        self.assertIn('the flags are not written to the sheet', out)
+
+    def test_the_journal_records_the_call_tag_in_its_name(self):
+        self.write('--apply', '--config', self.cfg(flags_in_sheet=False))
+        files = os.listdir(self.jd() + 'sheet_writes/'); self.assertEqual(len(files), 1)
+        self.assertTrue(files[0].startswith('SampleDatabase.') and files[0].endswith('.pilot-v1.tsv'), files[0])
+
+    def test_the_table_keeps_every_flag_whatever_the_sheet_does(self):
+        out, err = io.StringIO(), io.StringIO(); path = self.tmp + '/calls.tsv'
+        rc = C.main(['table', '--json-dir', self.jd(), '--out', path] + self.common, out=out, err=err, calls_module=FakeCalls()); self.assertEqual(rc, 0, err.getvalue())
+        t = pd.read_csv(path, sep='\t', dtype=str, keep_default_na=False).set_index('SampleID')
+        self.assertEqual(t.loc['N2', 'TE1 flags'], 'pilot-v1;no_call'); self.assertEqual(t.loc['N2', 'chr7ins flags'], 'pilot-v1;no_call;site_error'); self.assertEqual(t.loc['N2', 'TE1'], '')
+
+
+class ScopeBase(NoCallBase):
+    """Six calls per sample, an Ecogroup column in the sheet, and the cases the scope and the extended nocall rule have to tell apart."""
+    HEAD = ['SampleID', 'Ecogroup', 'gsdf number', 'TE1', 'TE2']
+
+    def setUp(self):
+        CliBase.setUp(self)
+        jd = self.jd(); os.makedirs(jd, exist_ok=True); rec = self.call_rec
+        def six(inv, binv, b, bf=(), te1=('0/0', (), True)):
+            return [rec('gsdf number', 'gsdf flags', 2, [], True), rec('chr7ins', 'chr7ins flags', '0/0', [], True), rec('TE1', 'TE1 flags', te1[0], list(te1[1]), te1[2]), rec('TE2', 'TE2 flags', '0/0', [], True),
+                    rec('Inversion5', 'Inversion5 flags', inv[0], list(inv[1]), inv[2]), rec('B score', 'B flags', b[0], list(b[1]), b[2])]
+        self.cases = {
+            'S1': ('Mbuna', six((0, (), True), None, (1.1, (), True))),
+            'S2': ('Utaka', six((1, (), True), None, (5.0, (), True))),
+            'S3': ('Mbuna', six((None, ('low_depth',), False), None, (None, ('low_depth',), False))),
+            'S4': ('Mbuna', six((2, ('unvalidated_value',), False), None, (1.0, (), True))),
+            'S5': ('', six((0, (), True), None, (1.2, (), True))),
+            'S6': ('Mbuna', six((None, ('few_markers', 'low_depth'), False), None, (1.0, (), True))),
+        }
+        for s, (eco, calls) in self.cases.items():
+            json.dump(dict(bam=f'{s}.bam', bam_size_bytes=10, fake_calls=calls), open(f'{jd}{s}.panel.json', 'w'))
+        self.ws = FakeWorksheet(self.HEAD, [[s, eco, '', '', ''] for s, (eco, _) in self.cases.items()])
+
+    def cfg6(self, **sheet):
+        import yaml
+        cfg = P.load_config(); cfg['sheet'].update(sheet)                          # the SHIPPED config: six columns, nocall, scope
+        p = self.tmp + f'/cfg{len(os.listdir(self.tmp))}.yaml'; yaml.safe_dump(cfg, open(p, 'w')); return p
+
+    def got(self):
+        return {str(r[0]): {k: str(v) for k, v in zip(self.ws.grid[0], r)} for r in self.ws.grid[1:]}
+
+
+class TestScope(ScopeBase):
+    def test_inversion5_and_b_score_are_written_for_the_listed_ecogroups_only(self):
+        rc, out, err = self.write('--apply', '--config', self.cfg6()); self.assertEqual(rc, 0, err + out); g = self.got()
+        self.assertEqual([g['S1'][c] for c in ('Inversion5', 'Inversion5 flags', 'B score', 'B flags')], ['0', 'pilot-v1', '1.1', 'pilot-v1'])
+        for s in ('S2', 'S5'):                                                     # Utaka, and a sample whose Ecogroup is empty: outside every scope
+            self.assertEqual([g[s][c] for c in ('Inversion5', 'Inversion5 flags', 'B score', 'B flags')], ['', '', '', ''], s)
+            self.assertEqual((g[s]['gsdf number'], g[s]['gsdf flags'], g[s]['chr7ins'], g[s]['TE1']), ('2', 'pilot-v1', '0/0', '0/0'), 'the other columns are written for every ecogroup')
+        self.assertIn('Inversion5: left out for 2 samples whose Ecogroup is not Mbuna', out); self.assertIn('B score: left out for 2 samples', out)
+
+    def test_low_depth_inversion5_is_dot_slash_dot_but_a_value_held_back_on_purpose_and_a_score_stay_empty(self):
+        rc, out, err = self.write('--apply', '--config', self.cfg6()); self.assertEqual(rc, 0, err + out); g = self.got()
+        self.assertEqual((g['S3']['Inversion5'], g['S6']['Inversion5']), ('./.', './.'), 'low_depth / few_markers: too little data to genotype')
+        self.assertEqual((g['S3']['B score'], g['S3']['B flags']), ('', 'pilot-v1;low_depth'), 'a score is never ./.')
+        self.assertEqual((g['S4']['Inversion5'], g['S4']['Inversion5 flags']), ('', 'pilot-v1;unvalidated_value'), 'an Inversion5 of 2 is held back on purpose: not a lack of data, so not ./.')
+        self.assertEqual(g['S4']['B score'], '1.0')
+
+    def test_no_scope_means_every_ecogroup(self):
+        rc, out, err = self.write('--apply', '--config', self.cfg6(scope={})); self.assertEqual(rc, 0, err + out); g = self.got()
+        self.assertEqual((g['S2']['Inversion5'], g['S2']['B score'], g['S5']['Inversion5']), ('1', '5.0', '0')); self.assertNotIn('left out', out)
+
+    def test_a_tab_without_an_ecogroup_column_is_refused_and_nothing_is_written(self):
+        ws = FakeWorksheet(['SampleID', 'gsdf number', 'TE1', 'TE2'], [[s, '', '', ''] for s in self.cases])
+        rc, out, err = self.write('--apply', '--config', self.cfg6(), ws=ws)
+        self.assertEqual(rc, 3); self.assertIn('cannot give it', err); self.assertIn("'Ecogroup'", err); self.assertEqual(list(ws.calls), [])
+
+    def test_the_config_is_checked(self):
+        for bad, why in ((dict(scope={'TE9': ['Mbuna']}), 'not in sheet.write_columns'), (dict(scope={'B score': []}), 'non-empty list'), (dict(scope={'B score': 'Mbuna'}), 'non-empty list')):
+            with self.assertRaises(ValueError) as cm:
+                P.load_config(self.cfg6(**bad))
+            self.assertIn(why, str(cm.exception))
+
+    def test_collect_updates_needs_the_ecogroups_when_a_scope_is_set(self):
+        cfg = P.load_config()
+        with self.assertRaises(ValueError):
+            P.collect_updates(self.jd(), ['S1'], FakeCalls(), cfg['sheet']['write_columns'], cfg['sheet'])
+
+    def test_record_updates_directly(self):
+        eco, calls = self.cases['S3']; r = dict(calls=[dict(c, value_to_write=c['value'] if c['confident'] else None, call_tag='pilot-v1') for c in calls]); sc = P.load_config()['sheet']
+        upd, pairs = P.record_updates(r, FakeCalls(), sc['write_columns'], sc, 'Mbuna'); self.assertEqual((upd['Inversion5'], 'B score' in upd, upd['B flags']), ('./.', False, 'pilot-v1;low_depth'))
+        upd, pairs = P.record_updates(r, FakeCalls(), sc['write_columns'], sc, 'Utaka'); self.assertFalse({'Inversion5', 'Inversion5 flags', 'B score', 'B flags'} & set(upd)); self.assertNotIn('Inversion5 flags', pairs)
 
 
 class TestTable(WriteBase):

@@ -33,7 +33,7 @@ from . import build as B
 
 DEFAULT_GENOME = 'Mzebra_GT3_NCBI'
 DEFAULTS = dict(jobs=2, min_free_factor=1.15, default_bam_bytes=12.0e9, work_subdir='PanelPass/staged/', json_subdir='Outputs/PanelJSON/', log_name='panel_pass.{genome}.tsv', modules='all', timeout_s=1800,
-                expect_keys=[], sheet=dict(tab='SampleDatabase', key='SampleID', write_columns=['gsdf number', 'chr7ins', 'TE1', 'TE2']))
+                expect_keys=[], sheet=dict(tab='SampleDatabase', key='SampleID', write_columns=['gsdf number', 'chr7ins', 'TE1', 'TE2'], flags_in_sheet=True, nocall={}, scope={}))
 LOG_COLUMNS = ['SampleID', 'GenomeVersion', 'Status', 'Error', 'BamName', 'BamBytes', 'JsonBytes', 'DefinitionKeys', 'DownloadSeconds', 'MeasureSeconds', 'UploadSeconds', 'Seconds', 'MeasuredOn', 'Machine']
 KEY_LINE = re.compile(r'^\[panel\]\s+(\w+)\s+OK\s+([0-9a-f]{12})\b', re.M)
 _LOCK = threading.Lock()
@@ -65,6 +65,26 @@ def load_config(path=None):
     cfg['expect_keys'] = [str(x) for x in (cfg['expect_keys'] or [])]
     if not cfg['sheet'].get('write_columns'):
         raise ValueError('panelpass config: sheet.write_columns is empty: nothing would ever be written')
+    sh = cfg['sheet']
+    if not isinstance(sh.get('flags_in_sheet', True), bool):
+        raise ValueError(f"panelpass config: sheet.flags_in_sheet must be true or false, not {sh['flags_in_sheet']!r}")
+    nc = sh.get('nocall') or {}
+    if nc:
+        for k in ('value', 'columns', 'flags'):
+            if not nc.get(k):
+                raise ValueError(f'panelpass config: sheet.nocall.{k} is missing')
+        bad = [c for c in nc['columns'] if c not in sh['write_columns']]
+        if bad:
+            raise ValueError(f'panelpass config: sheet.nocall.columns {bad} are not in sheet.write_columns')
+        nc = dict(value=str(nc['value']), columns=list(nc['columns']), flags=list(nc['flags']), exclude_flags=list(nc.get('exclude_flags', ['site_error'])))
+    sh['nocall'] = nc
+    sc = sh.get('scope') or {}
+    for col, groups in sc.items():
+        if col not in sh['write_columns']:
+            raise ValueError(f'panelpass config: sheet.scope names {col!r}, which is not in sheet.write_columns')
+        if not isinstance(groups, (list, tuple)) or not groups:
+            raise ValueError(f'panelpass config: sheet.scope.{col} must be a non-empty list of Ecogroups')
+    sh['scope'] = {c: [str(g) for g in gs] for c, gs in sc.items()}
     return cfg
 
 
@@ -314,33 +334,57 @@ def list_json_samples(json_dir):
     return sorted(f[:-len('.panel.json')] for f in os.listdir(json_dir) if f.endswith('.panel.json'))
 
 
-def record_updates(r, calls_mod, write_columns):
-    """({column: value} to write, {flags column: its value column}) for one call record. Values are only the CONFIDENT ones (calls.sheet_row); the flags cell is always there."""
+def record_updates(r, calls_mod, write_columns, sheet_cfg=None, ecogroup=None):
+    """({column: value} to write, {flags column: its value column}) for one call record. Values are only the CONFIDENT ones (calls.sheet_row). Options of the sheet config:
+    `nocall`: a genotype column whose call has a flag of nocall.flags (no call, low GQ, low depth: too little data) and none of nocall.exclude_flags (a site_error is an error of the site, and an
+    unvalidated_value is a value that is held back on purpose: neither is a lack of data) gets nocall.value ('./.') instead of staying empty;
+    `flags_in_sheet: false`: no flags cells (they stay in the JSON and in `panel table`);
+    `scope`: {column: [Ecogroups]}: a column is written only for samples of those Ecogroups (neither its value nor its flags cell otherwise); a sample whose Ecogroup is unknown is outside every scope."""
+    sc = sheet_cfg or {}
+    scope = sc.get('scope') or {}
+    cols = [c for c in write_columns if c not in scope or ecogroup in scope[c]]
     values, flags = calls_mod.sheet_row(r)
-    pairs = {c['flags_column']: c['column'] for c in r['calls'] if c['column'] in write_columns}
-    upd = {k: v for k, v in values.items() if k in write_columns}
-    upd.update({k: v for k, v in flags.items() if k in pairs})
+    upd = {k: v for k, v in values.items() if k in cols}
+    nc = sc.get('nocall') or {}
+    for c in (r['calls'] if nc else []):
+        col, fl = c['column'], set(c.get('flags') or [])
+        if col in cols and col in nc['columns'] and col not in upd and (fl & set(nc['flags'])) and not (fl & set(nc.get('exclude_flags', []))):
+            upd[col] = nc['value']
+    pairs = {}
+    if sc.get('flags_in_sheet', True):
+        pairs = {c['flags_column']: c['column'] for c in r['calls'] if c['column'] in cols}
+        upd.update({k: v for k, v in flags.items() if k in pairs})
     return upd, pairs
 
 
-def collect_updates(json_dir, samples, calls_mod, write_columns):
-    """(updates {sample: {column: value}}, flag_of {(sample, flags column): value column}, info {'no_json': [...], 'refused': [(sample, why)]})."""
-    updates, flag_of, info = {}, {}, dict(no_json=[], refused=[])
+def collect_updates(json_dir, samples, calls_mod, write_columns, sheet_cfg=None, eco_of=None):
+    """(updates {sample: {column: value}}, flag_of {(sample, flags column): value column}, info {'no_json': [...], 'refused': [(sample, why)], 'tags': [the call tags of the calls written],
+    'scoped_out': {column: number of samples left out of it by sheet.scope}}). eco_of: {SampleID: Ecogroup}, needed only when sheet.scope is set."""
+    updates, flag_of, info, tags = {}, {}, dict(no_json=[], refused=[], scoped_out={}), set()
+    scope = (sheet_cfg or {}).get('scope') or {}
+    if scope and eco_of is None:
+        raise ValueError('sheet.scope is set but no Ecogroup of the samples was given')
     for s in samples:
         path = f'{json_dir}{s}.panel.json'
         if not os.path.exists(path):
             info['no_json'].append(s)
             continue
+        eco = (eco_of or {}).get(s)
         try:
             r = calls_mod.call_panel(path)
-            upd, pairs = record_updates(r, calls_mod, write_columns)
+            upd, pairs = record_updates(r, calls_mod, write_columns, sheet_cfg, eco)
         except Exception as e:                                      # noqa: a measurement made under another definition is refused (DefinitionMismatch); say so and go on
             info['refused'].append((s, f'{type(e).__name__}: {e}'[:300]))
             continue
+        for col, groups in scope.items():
+            if eco not in groups:
+                info['scoped_out'][col] = info['scoped_out'].get(col, 0) + 1
         if upd:
             updates[s] = upd
+            tags.update(c['call_tag'] for c in r['calls'] if c['column'] in write_columns and c.get('call_tag'))
             for fc, vc in pairs.items():
                 flag_of[(s, fc)] = vc
+    info['tags'] = sorted(tags)
     return updates, flag_of, info
 
 
@@ -430,3 +474,13 @@ def _isnum(x):
         return x != ''
     except (TypeError, ValueError):
         return False
+
+
+def ecogroups_of(ws, key='SampleID', column='Ecogroup'):
+    """{SampleID: Ecogroup} of the SampleDatabase tab, from the same worksheet the cells are written to."""
+    vals = ws.get_all_values()
+    head = [str(h).strip() for h in vals[0]]
+    if key not in head or column not in head:
+        raise ValueError(f'the tab has no {key!r} and {column!r} columns')
+    ik, ie = head.index(key), head.index(column)
+    return {str(r[ik]).strip(): (str(r[ie]).strip() if len(r) > ie else '') for r in vals[1:] if len(r) > ik and str(r[ik]).strip()}

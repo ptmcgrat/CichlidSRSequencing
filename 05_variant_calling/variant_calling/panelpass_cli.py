@@ -4,7 +4,7 @@
 
   measure   module 04's panel over existing BAMs: download, `panel measure`, JSON kept (locally and on Dropbox next to the BAM), BAM deleted; a plan unless --run. A stopped run resumes.
   write     the calls of the JSONs into the SampleDatabase tab (default SampleDatabase; --tab names a copy for trials) through the guarded writer: empty cells only, conflicts reported and never
-            overwritten, a plan unless --apply, --limit N writes the first N samples only. Writes gsdf number, chr7ins, TE1, TE2 and their flags columns (config/panelpass.yaml).
+            overwritten, a plan unless --apply, --limit N writes the first N samples only. Writes gsdf number, chr7ins, TE1, TE2 and, unless sheet.flags_in_sheet is false, their flags columns; sheet.nocall puts './.' in a genotype cell whose call has too little data (config/panelpass.yaml).
   table     every call (all six columns) and the numbers behind them in one TSV, with a summary: for reading the distributions.
 Without a selection, `write` and `table` take every JSON of the folder. See panelpass.py."""
 import argparse
@@ -163,16 +163,6 @@ def main(argv=None, out=None, err=None, run=None, runner=None, which=None, free_
         return 0
 
     from cichlid_common import sheet_writer as SW
-    updates, flag_of, info = P.collect_updates(json_dir, samples, calls_mod, pcfg['sheet']['write_columns'])
-    print(f"{len(samples) - len(info['no_json'])} samples with a JSON in {json_dir}; {len(updates)} have something to write"
-          + (f"; {len(info['no_json'])} selected samples have no JSON ({', '.join(info['no_json'][:6])}{', ...' if len(info['no_json']) > 6 else ''})" if info['no_json'] else ''), file=out)
-    for s, why in info['refused'][:10]:
-        print(f'  REFUSED {s}: {why}', file=out)
-    if len(info['refused']) > 10:
-        print(f"  ... and {len(info['refused']) - 10} more refused", file=out)
-    if not updates:
-        print('nothing to write', file=err)
-        return 2
     tab = a.tab or pcfg['sheet']['tab']
     if worksheet_fn is None:
         if a.sample_table or a.local_master or a.cloud_master:
@@ -182,6 +172,23 @@ def main(argv=None, out=None, err=None, run=None, runner=None, which=None, free_
             from cichlid_common.file_manager import FileManager as fm_factory
         fm = fm_factory()
         worksheet_fn = lambda: fm.gc.open_by_key(fm.s_ID).worksheet(tab)
+    eco_of = None
+    if pcfg['sheet'].get('scope'):
+        try:
+            eco_of = P.ecogroups_of(worksheet_fn(), pcfg['sheet']['key'])
+        except (ValueError, SW.SheetWriteError) as e:
+            print(f'sheet.scope needs the Ecogroup of every sample, and the {tab} tab cannot give it: {e}', file=err)
+            return 3
+    updates, flag_of, info = P.collect_updates(json_dir, samples, calls_mod, pcfg['sheet']['write_columns'], pcfg['sheet'], eco_of)
+    print(f"{len(samples) - len(info['no_json'])} samples with a JSON in {json_dir}; {len(updates)} have something to write"
+          + (f"; {len(info['no_json'])} selected samples have no JSON ({', '.join(info['no_json'][:6])}{', ...' if len(info['no_json']) > 6 else ''})" if info['no_json'] else ''), file=out)
+    for s, why in info['refused'][:10]:
+        print(f'  REFUSED {s}: {why}', file=out)
+    if len(info['refused']) > 10:
+        print(f"  ... and {len(info['refused']) - 10} more refused", file=out)
+    if not updates:
+        print('nothing to write', file=err)
+        return 2
     cu = SW.ColumnUpdater(worksheet_fn, key=pcfg['sheet']['key'], log=lambda m: print(m, file=out), column_order=P.column_order(pcfg['sheet']['write_columns'], flag_of))
     try:
         plan, dropped = P.drop_flags_of_conflicts(cu, updates, flag_of)
@@ -190,6 +197,15 @@ def main(argv=None, out=None, err=None, run=None, runner=None, which=None, free_
         return 3
     print(f'SampleDatabase, tab {tab!r}: calls of {len(updates)} samples', file=out)
     print(plan.format(), file=out)
+    for col, n in sorted(info['scoped_out'].items()):
+        print(f"  {col}: left out for {n} samples whose Ecogroup is not {' or '.join(pcfg['sheet']['scope'][col])} (sheet.scope: module 04 validated it only there)", file=out)
+    nc = pcfg['sheet'].get('nocall') or {}
+    if nc:
+        n_nc = sum(1 for u in updates.values() for v in u.values() if v == nc['value'])
+        if n_nc:
+            print(f"  {n_nc} genotype cells of the calls get {nc['value']!r} (no call or low GQ: too little data; a site_error stays empty)", file=out)
+    if not pcfg['sheet'].get('flags_in_sheet', True):
+        print('  the flags are not written to the sheet (sheet.flags_in_sheet: false): they stay in the JSONs and in `panel table`', file=out)
     if dropped:
         print(f'  {dropped} flags cells are left alone because the value next to them conflicts with what the sheet holds', file=out)
     if a.limit is not None:
@@ -202,7 +218,8 @@ def main(argv=None, out=None, err=None, run=None, runner=None, which=None, free_
         print('\nnothing to write', file=out)
         return 0
     import datetime
-    journal = os.path.join(json_dir, 'sheet_writes', f"{tab.replace(' ', '_')}.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.tsv")
+    tags = '+'.join(info.get('tags') or [])                       # the call settings that made the cells: with flags_in_sheet false the journal is where they are recorded
+    journal = os.path.join(json_dir, 'sheet_writes', f"{tab.replace(' ', '_')}.{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}{'.' + tags if tags else ''}.tsv")
     try:
         rep = cu.apply(updates, overwrite=False, limit=a.limit, journal=journal)
     except SW.SheetWriteError as e:
