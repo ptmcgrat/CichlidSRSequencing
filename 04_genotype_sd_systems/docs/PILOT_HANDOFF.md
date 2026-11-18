@@ -37,7 +37,7 @@ A measurement made under another definition than the repository's current one is
 
 Flags cell = `;`-separated tokens, **the first always the call tag** (`pilot-v1`), then the flags. A cell with a panel tag is recognisable as written by the panel (a hand-entered value has none), and can be
 recomputed when the version is bumped. Blocking flags (the value is NOT written, the flags cell is): gsdf `low_flank_depth`, `non_integer`, `outside_calibrated_range`, `no_estimate`; transposons `no_call` (fewer than 5 informative
-read pairs), `low_gq` (GQ < 10), `site_error`; LG5 `few_markers`, `low_depth`, `no_estimate`; B `low_depth`, `few_scale_bins`, `few_blocks`, `no_estimate`. Information-only flags (the value is written): gsdf `junction_in_two_copy`;
+read pairs), `low_gq` (GQ < 10), `site_error`; LG5 `few_markers`, `low_depth`, `no_estimate`, `unvalidated_value` (an `Inversion5` of 2, never seen on a real fish: the value is shown, not written); B `low_depth`, `few_scale_bins`, `few_blocks`, `no_estimate`. Information-only flags (the value is written): gsdf `junction_in_two_copy`;
 chr7ins `dilution_possible` (a 0/0 with insertion pairs in a fish with 3 or more gsdf copies); LG5 `near_threshold`, `aggregate_disagrees`, `junction_uninformative`, `junction_disagrees`; B `fraction_disagrees`.
 
 ## 4. Validation so far (provisional) and what is unverified

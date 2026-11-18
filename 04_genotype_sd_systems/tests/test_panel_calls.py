@@ -95,11 +95,24 @@ class TestTransposons(unittest.TestCase):
 
 class TestInversionAndB(unittest.TestCase):
     def test_lg5_zero_one_two(self):
-        for p, want in [(0.004, 0), (0.5, 1), (0.985, 2)]:
+        for p, want, conf in [(0.004, 0, True), (0.5, 1, True), (0.985, 2, False)]:                     # a 2 has never been seen on a real fish: shown, flagged, not confident
             cfg, b = lg5_block(p); c = PC.call_module('lg5inv', b, cfg)[0]
-            self.assertEqual((c['column'], c['flags_column'], c['value'], c['confident'], type(c['value'])), ('Inversion5', 'Inversion5 flags', want, True, int), p)
+            self.assertEqual((c['column'], c['flags_column'], c['value'], c['confident'], type(c['value'])), ('Inversion5', 'Inversion5 flags', want, conf, int), p)
+        self.assertIn('unvalidated_value', c['flags']); self.assertIsNone(c['value_to_write'])
         cfg, b = lg5_block(0.5, depth=1.5); c = PC.call_module('lg5inv', b, cfg)[0]
         self.assertIn('low_depth', c['flags']); self.assertFalse(c['confident']); self.assertIsNone(c['value_to_write'])
+
+    def test_an_unvalidated_value_is_shown_but_never_written(self):
+        cfg, b = lg5_block(0.985); c = PC.call_module('lg5inv', b, cfg)[0]
+        self.assertEqual((c['value'], c['confident'], c['value_to_write'], 'unvalidated_value' in c['flags']), (2, False, None, True))
+        off = copy.deepcopy(cfg); off['sheet']['unvalidated_values'] = []                      # the guard is a setting: with an empty list the same measurement is a confident 2
+        c = PC.call_module('lg5inv', b, off)[0]; self.assertEqual((c['value'], c['confident'], c['value_to_write'], 'unvalidated_value' in c['flags']), (2, True, 2, False))
+        c = PC.call_module('lg5inv', lg5_block(0.5)[1], lg5_block(0.5)[0])[0]
+        self.assertEqual((c['value'], c['confident']), (1, True))                               # 0 and 1 are untouched
+        panel = dict(schema=2, sample='S1', bam='S1.all.bam', bam_size_bytes=9, panel_version='v', measured='t', samtools='s', modules={'lg5inv': b})
+        r = PC.call_panel(panel, cfgs={'lg5inv': cfg}); values, flags = PC.sheet_row(r)
+        self.assertNotIn('Inversion5', values); self.assertTrue(flags['Inversion5 flags'].startswith('pilot-v1;') and 'unvalidated_value' in flags['Inversion5 flags'].split(';'))          # the writer gets no value, but the flags cell says why
+        self.assertEqual(PC.sheet_row(r, write_unconfident=True)[0]['Inversion5'], 2)           # only an explicit override writes it
 
     def test_lg5_flags_that_are_information_only(self):
         cfg, b = lg5_block(0.5); b = dict(b, junction=dict(A=0, B=0, C=10, reads=10))        # the markers say heterozygous, the junction says standard
@@ -184,6 +197,7 @@ class TestSettings(unittest.TestCase):
             c = pm.module_cfg(mod); self.assertEqual((c['status'], c['version']), ('pilot', 1), mod)
         self.assertEqual(pm.module_cfg('gsdf')['sheet']['column'], 'gsdf number'); self.assertEqual(sorted(pm.module_cfg('te')['sheet']['sites']), ['TE1', 'TE2', 'chr7ins'])
         self.assertEqual((pm.module_cfg('lg5inv')['sheet']['column'], pm.module_cfg('bchrom')['sheet']['column']), ('Inversion5', 'B score'))
+        self.assertEqual(pm.module_cfg('lg5inv')['sheet']['unvalidated_values'], [2]); self.assertTrue(all(not pm.module_cfg(m)['sheet'].get('unvalidated_values') for m in ('gsdf', 'te', 'bchrom')))
 
 
 if __name__ == '__main__':

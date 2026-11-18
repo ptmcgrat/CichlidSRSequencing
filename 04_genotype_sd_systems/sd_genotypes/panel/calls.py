@@ -7,7 +7,7 @@
     values, flags = calls.sheet_row(r)                        # {column: value} and {flags column: 'pilot-v1;flag;flag'}
 
 A call is a dict: module, column (the sheet column of the value), flags_column, value (what the data say; None if there is no estimate), flags (list), confident (True when there is a value and none of the
-module's `blocking_flags` is set), value_to_write (value if confident else None), call_tag ('pilot-v1': status and version of the call settings), definition (the key of the measurement) and details.
+module's `blocking_flags` is set and the value is not in `sheet.unvalidated_values`), value_to_write (value if confident else None), call_tag ('pilot-v1': status and version of the call settings), definition (the key of the measurement) and details.
 Values: gsdf an integer number of copies; the three transposon sites '0/0', '0/1' or '1/1'; the LG5 inversion 0, 1 or 2 (inverted chromosomes); the B chromosome a float score (no B+/B- call).
 Everything that can change lives in config/*.yaml (thresholds, `status`, `version`, `sheet`): changing it never needs a BAM. A measurement made under another DEFINITION than the repository's current one (the key
 differs) is refused: call it with the commit that holds that definition, or measure it again."""
@@ -41,8 +41,13 @@ def call_tag(cfg):
 
 
 def _call(module, column, flags_column, value, flags, blocking, cfg, definition, details):
-    confident = value is not None and not (set(flags) & set(blocking))
-    return dict(module=module, column=column, flags_column=flags_column, value=value, flags=list(flags), confident=bool(confident), value_to_write=value if confident else None,
+    """One call. A value listed in the config's `sheet.unvalidated_values` (a value never seen on a real fish, e.g. an Inversion5 of 2) keeps its value but gets the flag `unvalidated_value` and is never confident, so it is
+    never written: the guard lives here, so that it protects every consumer of the calls and not only one writer (which must take `value_to_write`, never `value`)."""
+    flags = list(flags)
+    if value is not None and value in cfg['sheet'].get('unvalidated_values', []) and 'unvalidated_value' not in flags:
+        flags.append('unvalidated_value')
+    confident = value is not None and not (set(flags) & set(blocking)) and 'unvalidated_value' not in flags
+    return dict(module=module, column=column, flags_column=flags_column, value=value, flags=flags, confident=bool(confident), value_to_write=value if confident else None,
                 call_tag=call_tag(cfg), definition=definition, details=details)
 
 
