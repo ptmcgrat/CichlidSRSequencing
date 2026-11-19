@@ -110,6 +110,7 @@ class Ctx:
         """True when `path` is on this machine, fetching it from Dropbox with the FileManager first when it is not (unless --no-download). A path outside the local master has no Dropbox twin.
         Never raises: a failed fetch leaves its reason in self.fetch_error for the message of the caller."""
         self.fetch_error = None
+        path = clean_path(path)
         if os.path.exists(path):
             return True
         if self.a.no_download:
@@ -316,7 +317,7 @@ def step_crossovers(x):
         res_t = {}
         for f in roles:
             if not x.need(f'{folder}{f}.counts.tsv.gz'):
-                raise ValueError(f'no counts file for {f} in {folder}' + x.why())
+                raise ValueError(f'no counts file for {f} in {folder}' + (' (the folder does not exist here: was it copied into the genome folder?)' if not os.path.isdir(folder) else '') + x.why())
             pos, n, y = X.read_sites(folder, f, chrom, lo, hi)
             loc = X.localize(pos, n, y)
             e, q = X.fitted_rates(pos, n, y, loc['split_index'], loc['state'])
@@ -437,9 +438,25 @@ def upload(x):
     return (x.uploader or B.default_uploader(env))(x.dir)
 
 
+PATH_ARGS = ('out', 'calls', 'analysis_dir', 'counts', 'counts_before', 'fish_table', 'local_master', 'fasta')
+
+
+def clean_path(p):
+    """A path without doubled slashes, '.' or '..' (a HOME that ends in a slash makes ~/x into //x, and the FileManager maps local to Dropbox paths by string replacement, which a doubled slash defeats).
+    A trailing slash is kept."""
+    if not p:
+        return p
+    q = os.path.normpath(p)
+    return q + '/' if p.endswith('/') and not q.endswith('/') else q
+
+
 def main(argv=None, out=print, uploader=None, downloader=None):
     av = sys.argv[1:] if argv is None else list(argv)
     a = build_parser().parse_args(av)
+    for name in PATH_ARGS:
+        setattr(a, name, clean_path(getattr(a, name)))
+    if a.mask and a.mask != 'none':
+        a.mask = clean_path(a.mask)
     from bc_analysis.genotyper import sites as S
     cfg = S.load_config(a.config)
     try:

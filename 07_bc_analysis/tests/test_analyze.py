@@ -541,6 +541,23 @@ class TestCommands(Base):
         rc = AC.main(['finemap', '--genome', GENOME, '--out', self.root, '--fish-table', self.root + 'fish.tsv', '--analysis-dir', self.root + 'figtest2/'], out=lines.append)
         self.assertEqual(rc, 0); self.assertTrue(os.path.getsize(self.root + 'figtest2/finemap.png') > 5000)
 
+    def test_paths_with_doubled_slashes_reach_the_file_manager_clean(self):
+        """A HOME that ends in a slash turns ~/x into //x on mzebra; the FileManager maps local to Dropbox paths by string replacement and cannot match that."""
+        self.assertEqual(AC.clean_path('/a//b/./c/../d/'), '/a/b/d/'); self.assertEqual(AC.clean_path('/a//b'), '/a/b'); self.assertEqual(AC.clean_path(None), None); self.assertEqual(AC.clean_path(''), '')
+        m2 = self.tmp + '/master3/'
+        root2 = f'{m2}Outputs/BCGenotypes/{GENOME}/'
+        shutil.copytree(self.root + 'counts', f'{self.cloud}Outputs/BCGenotypes/{GENOME}/counts', dirs_exist_ok=True); shutil.copytree(self.root + 'hmm_mask_int2_deep', f'{self.cloud}Outputs/BCGenotypes/{GENOME}/hmm_mask_int2_deep', dirs_exist_ok=True)
+        os.makedirs(root2); shutil.copy2(self.root + 'fish.tsv', root2 + 'fish.tsv')
+        seen = []
+        slashy = lambda p: p.replace('/Outputs/', '//Outputs/')
+        rc, out, err = self.run_cmd('crossovers', '--from-finemap', '--counts', slashy(root2) + 'counts', '--local-master', slashy(m2), '--cloud-master', self.cloud, root=slashy(root2), downloader=self.fake_downloader(seen, m2))
+        self.assertEqual(rc, 0, err); self.assertTrue(seen)
+        self.assertTrue(all('//' not in p for p in seen), seen)
+
+    def test_a_missing_counts_folder_is_named(self):
+        rc, out, err = self.run_cmd('crossovers', '--from-finemap', '--counts', self.root + 'counts', '--counts-before', self.root + 'never_copied', '--no-download'); self.assertEqual(rc, 2)
+        self.assertIn('no counts file for', err); self.assertIn('the folder does not exist here', err)
+
     def test_the_group_is_reachable_from_the_top_level_command(self):
         from bc_analysis import cli as TOP
         rc = TOP.main(['analyze', 'marey', '--genome', GENOME, '--out', self.root, '--analysis-dir', self.root + 'top/', '--no-plots'])
