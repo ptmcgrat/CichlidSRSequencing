@@ -62,3 +62,17 @@ hmm:
   uncertain_band: [0.1, 0.9]
   flag_max_eps: 0.03
   flag_max_switches_per_chromosome: 1.5
+analysis:                        # `python -m bc_analysis analyze ...`: the settings of the analyses of a run (the decisions of 2026-11-17/18 on Mconophoros_GT1_NCBI)
+  run: hmm_mask_int2_deep        # the HMM run analysed: the mask of `genotype mask` and the 2 Mb interior limit, on the counts after the extra sequencing of the four recombinants (an older run: hmm_mask_int2)
+  terminal_mb: 2.0               # the first and last this many Mb of a chromosome are low confidence (assembly ends without Hi-C): left out of every rate comparison and shaded in the figures
+  marey_window_mb: 2.5           # the windows of marey_windows.tsv
+  bootstrap: 5000                # resamplings of fish for the interval of a region's rate ratio
+  null_skip_lg: [3]              # chromosomes left out of the same-width windows that a region is compared with (LG3: a repetitive assembly, not to be worried about)
+  rate_step_mb: 0.5              # the step of the sliding windows of that comparison
+  finemap_window_mb: 5.0         # a crossover counts as near the locus within this many Mb
+  finemap_flank_mb: 1.5          # the width of the part of the chromosome drawn around the locus
+  crossover_flank_mb: 1.5        # `crossovers --from-finemap`: the reads are taken this far either side of the locus
+  crossovers_per_side: 2         # the nearest crossovers used on each side
+  trd_permutations: 2000         # sign flips of the distortion null
+  trd_zmin: 3.0                  # a region is a run of bins with |z| at least this
+  linkscan_smooth: 10            # bins over which a link is smoothed

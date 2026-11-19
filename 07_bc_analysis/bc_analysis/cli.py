@@ -1,4 +1,5 @@
 """python -m bc_analysis genotype sites|counts|hmm|simulate   (the new BC genotyper: informative sites per dam, allele counts, a 100 kb HMM)
+   python -m bc_analysis analyze marey|rate|sexscan|finemap|crossovers|trd|linkscan   (Marey maps, recombination rate of a region, the sex determiner and its limits, distortion, linkage; see `analyze -h`)
    python -m bc_analysis bc_genotyping provenance|flagstat|original-vcfs|original|v2-sites|v2-counts|v2-hmm|validate|compare|stage-legacy | selftest"""
 import glob
 import os
@@ -53,4 +54,7 @@ def main(argv=None):
     if av and av[0] == 'genotype':                      # the new genotyper has its own parser: python -m bc_analysis genotype sites|counts|hmm|simulate
         from bc_analysis.genotyper.cli import main as genotype_main
         return genotype_main(av[1:])
+    if av and av[0] == 'analyze':                       # the analyses of its outputs: python -m bc_analysis analyze marey|rate|sexscan|finemap|crossovers|trd|linkscan
+        from bc_analysis.analyze.cli import main as analyze_main
+        return analyze_main(av[1:])
     return cli_base.main('python -m bc_analysis', ['bc_genotyping'], {'bc_genotyping': _bc}, tests_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests'), argv=argv)
