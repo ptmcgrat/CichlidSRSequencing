@@ -35,4 +35,4 @@ sheet:
   column: "Inversion5"         # the value: 0, 1 or 2 inverted (OB/W) chromosomes, like Inversion10; std = the arrangement of the reference (GT3)
   flags_column: "Inversion5 flags"
   blocking_flags: [few_markers, low_depth, no_estimate]   # near_threshold, aggregate_disagrees, junction_uninformative and junction_disagrees are information only
-  unvalidated_values: [2]      # a value never seen on a real fish (no mbuna of 573 is called 2; the 0.75 cut is untested): it is shown, flagged `unvalidated_value` and NOT written. Remove 2 from the list once a fish called 2 has been confirmed independently
+  unvalidated_values: []   # emptied 2026-11-21: an Inversion5 of 2 is written like any confident call. Before this it was [2] (decision 79: no 2 had been confirmed on a real fish). Put 2 back to hold 2s out again
