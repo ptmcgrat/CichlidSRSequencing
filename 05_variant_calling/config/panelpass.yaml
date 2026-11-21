@@ -19,6 +19,4 @@ sheet:
     columns: [chr7ins, TE1, TE2, Inversion5]   # genotype columns only: the numbers (gsdf number, B score) stay empty when there is no confident call
     flags: [no_call, low_gq, low_depth, few_markers]   # too little data to call, or a call below the GQ cut
     exclude_flags: [site_error, unvalidated_value]     # an error of the site is not a lack of data; an Inversion5 of 2 is held back on purpose (decision 79): both stay empty and `panel table` shows the flag
-  scope:                         # a column is written (value and flags cell) only for samples of these Ecogroups: module 04 validated LG5 and B on the mbuna only (decision 78: do not apply them elsewhere)
-    Inversion5: [Mbuna]
-    B score: [Mbuna]
+  scope: {}                      # empty: every column is written for every ecogroup. The mbuna-only scope of decision 78 was lifted on 2026-11-21; to limit a column again use {column: [Ecogroup, ...]}

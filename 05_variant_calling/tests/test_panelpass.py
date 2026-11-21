@@ -112,7 +112,7 @@ class TestConfigAndKeys(unittest.TestCase):
         c = P.load_config()
         self.assertEqual(c['expect_keys'], ['5d71ee8d6c2b', '2af781e90119', '80bbea57e10b', '75367d0dfba8']); self.assertTrue(all(isinstance(k, str) for k in c['expect_keys']))
         self.assertEqual(c['sheet']['write_columns'], ['gsdf number', 'chr7ins', 'TE1', 'TE2', 'Inversion5', 'B score'], 'module 04 lifted the hold on 2026-11-17 (decision 78)')
-        self.assertEqual(c['sheet']['scope'], {'Inversion5': ['Mbuna'], 'B score': ['Mbuna']}, 'LG5 and B were validated on the mbuna only (decision 78)')
+        self.assertEqual(c['sheet'].get('scope') or {}, {}, 'the mbuna-only scope was lifted on 2026-11-21: every ecogroup is written')
         self.assertEqual((c['sheet']['nocall']['value'], c['sheet']['nocall']['columns']), ('./.', ['chr7ins', 'TE1', 'TE2', 'Inversion5'])); self.assertIn('unvalidated_value', c['sheet']['nocall']['exclude_flags']); self.assertIn('site_error', c['sheet']['nocall']['exclude_flags'])
         self.assertTrue(c['sheet']['flags_in_sheet'])
         self.assertEqual((c['jobs'], c['default_bam_bytes'], c['min_free_factor']), (2, 12e9, 1.15)); self.assertEqual(c['sheet']['tab'], 'SampleDatabase')
